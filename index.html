@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Refery.io — Partner Recruiter Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --green-950: #0a1a0a;
+    --green-900: #0f2410;
+    --green-800: #173518;
+    --green-700: #234d24;
+    --green-600: #2d6130;
+    --green-500: #3d7d40;
+    --green-400: #5aa05e;
+    --green-300: #7dc483;
+    --green-200: #a8d9ad;
+    --green-100: #d4efd7;
+    --green-50: #edf7ee;
+    --cream: #f5f0e8;
+    --cream-dark: #e8e0ce;
+    --text-primary: #0f1f10;
+    --text-secondary: #3a5a3c;
+    --text-muted: #6b8f6d;
+    --accent: #3d7d40;
+    --accent-bright: #5aa05e;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Geist', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--green-900);
+    padding: 0 48px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--green-800);
+  }
+
+  .logo {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 22px;
+    color: var(--cream);
+    letter-spacing: 0.3px;
+  }
+  .logo span { color: var(--green-300); }
+
+  .header-badge {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--green-300);
+    background: rgba(93, 160, 94, 0.15);
+    border: 1px solid rgba(93, 160, 94, 0.3);
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    background: var(--green-900);
+    padding: 80px 48px 72px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -40%;
+    right: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(93,160,94,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-inner { max-width: 800px; position: relative; }
+
+  .hero-eyebrow {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--green-300);
+    margin-bottom: 20px;
+  }
+
+  .hero h1 {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: clamp(44px, 6vw, 68px);
+    font-weight: 400;
+    color: var(--cream);
+    line-height: 1.05;
+    margin-bottom: 24px;
+    letter-spacing: -0.5px;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--green-300);
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: rgba(245, 240, 232, 0.6);
+    max-width: 520px;
+    line-height: 1.7;
+    font-weight: 300;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 40px;
+    margin-top: 48px;
+    padding-top: 40px;
+    border-top: 1px solid rgba(245,240,232,0.1);
+  }
+
+  .stat-item {}
+  .stat-num {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 36px;
+    color: var(--green-300);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: rgba(245, 240, 232, 0.45);
+    font-weight: 400;
+    letter-spacing: 0.3px;
+  }
+
+  /* ── MAIN CONTENT ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 32px 80px;
+  }
+
+  /* ── SECTION BASE ── */
+  section {
+    padding: 64px 0 0;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--green-500);
+    margin-bottom: 10px;
+  }
+
+  .section-title {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 32px;
+    font-weight: 400;
+    color: var(--text-primary);
+    line-height: 1.2;
+    margin-bottom: 32px;
+  }
+
+  .section-title em { font-style: italic; color: var(--accent); }
+
+  /* ── PROCESS STEPS ── */
+  .steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  .steps::before {
+    content: '';
+    position: absolute;
+    left: 20px;
+    top: 40px;
+    bottom: 20px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--green-300), transparent);
+  }
+
+  .step {
+    display: flex;
+    gap: 24px;
+    padding: 0 0 36px;
+    position: relative;
+  }
+
+  .step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--green-900);
+    border: 1.5px solid var(--green-400);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-300);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-body { padding-top: 8px; }
+  .step-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+  .step-desc {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .step-desc strong { color: var(--text-secondary); font-weight: 500; }
+  .step-desc a { color: var(--accent); text-decoration: none; }
+  .step-desc a:hover { text-decoration: underline; }
+
+  /* ── CARDS GRID ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .card {
+    background: white;
+    border: 1px solid var(--cream-dark);
+    border-radius: 14px;
+    padding: 24px;
+  }
+
+  .card-icon {
+    width: 36px;
+    height: 36px;
+    background: var(--green-50);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 14px;
+    font-size: 18px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+    line-height: 1.3;
+  }
+
+  .card-body {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+
+  .card-body strong { color: var(--text-secondary); font-weight: 500; }
+
+  /* ── ROLE TAGS ── */
+  .roles-section {}
+
+  .role-category { margin-bottom: 28px; }
+  .role-cat-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .tag {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 14px;
+    border-radius: 100px;
+    background: white;
+    border: 1px solid var(--cream-dark);
+    color: var(--text-secondary);
+  }
+
+  .tag.hot {
+    background: #fff8ed;
+    border-color: #f0c878;
+    color: #7a5a10;
+  }
+
+  .tag.hot::before {
+    content: '🔥 ';
+    font-size: 11px;
+  }
+
+  /* ── PROFILE CHECKLIST ── */
+  .checklist { display: flex; flex-direction: column; gap: 0; }
+
+  .check-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--cream-dark);
+  }
+  .check-item:last-child { border-bottom: none; }
+
+  .check-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--green-100);
+    border: 1.5px solid var(--green-300);
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .check-dot svg { width: 11px; height: 11px; }
+
+  .check-text {
+    font-size: 14.5px;
+    color: var(--text-primary);
+    line-height: 1.6;
+  }
+
+  .check-text span {
+    font-size: 12.5px;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 2px;
+  }
+
+  .check-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-left: 8px;
+  }
+
+  .label-strong { background: #d4efd7; color: #1a5a1c; }
+  .label-note { background: #fff3cd; color: #7a5a10; }
+
+  /* ── BONUS HIGHLIGHT ── */
+  .bonus-box {
+    background: var(--green-900);
+    border-radius: 16px;
+    padding: 32px 36px;
+    position: relative;
+    overflow: hidden;
+    margin-top: 0;
+  }
+
+  .bonus-box::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -5%;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(93,160,94,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .bonus-box-inner { position: relative; }
+
+  .bonus-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--green-300);
+    margin-bottom: 8px;
+  }
+
+  .bonus-amount {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 48px;
+    color: var(--cream);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .bonus-sub {
+    font-size: 14px;
+    color: rgba(245,240,232,0.55);
+    line-height: 1.6;
+  }
+
+  .bonus-sub strong { color: rgba(245,240,232,0.8); font-weight: 500; }
+
+  /* ── CLIENT SECTION ── */
+  .client-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .client-pill {
+    font-size: 13px;
+    padding: 7px 16px;
+    border-radius: 100px;
+    font-weight: 400;
+  }
+
+  .pill-stage {
+    background: white;
+    border: 1px solid var(--cream-dark);
+    color: var(--text-secondary);
+  }
+
+  .pill-location {
+    background: var(--green-50);
+    border: 1px solid var(--green-200);
+    color: var(--green-700);
+    font-weight: 500;
+  }
+
+  /* ── CTA ── */
+  .cta-section {
+    background: white;
+    border: 1px solid var(--cream-dark);
+    border-radius: 20px;
+    padding: 48px;
+    text-align: center;
+    margin-top: 64px;
+  }
+
+  .cta-title {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 36px;
+    font-weight: 400;
+    color: var(--text-primary);
+    margin-bottom: 12px;
+  }
+
+  .cta-title em { font-style: italic; color: var(--accent); }
+
+  .cta-sub {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  .cta-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--green-900);
+    color: var(--cream);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 13px 28px;
+    border-radius: 100px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    transition: background 0.2s;
+    font-family: 'Geist', sans-serif;
+  }
+
+  .btn-primary:hover { background: var(--green-800); }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 13px 28px;
+    border-radius: 100px;
+    text-decoration: none;
+    border: 1px solid var(--cream-dark);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    font-family: 'Geist', sans-serif;
+  }
+
+  .btn-secondary:hover { background: var(--green-50); border-color: var(--green-200); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    height: 1px;
+    background: var(--cream-dark);
+    margin: 64px 0 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    background: var(--green-900);
+    padding: 32px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0;
+  }
+
+  .footer-logo {
+    font-family: 'Instrument Serif', Georgia, serif;
+    font-size: 18px;
+    color: var(--cream);
+  }
+  .footer-logo span { color: var(--green-300); }
+
+  .footer-links {
+    display: flex;
+    gap: 24px;
+  }
+
+  .footer-links a {
+    font-size: 13px;
+    color: rgba(245,240,232,0.45);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .footer-links a:hover { color: var(--cream); }
+
+  /* ── NAV PILLS ── */
+  .nav-pills {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 16px 0 0;
+    scrollbar-width: none;
+  }
+  .nav-pills::-webkit-scrollbar { display: none; }
+
+  .nav-pill {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 7px 16px;
+    border-radius: 100px;
+    background: rgba(245,240,232,0.08);
+    color: rgba(245,240,232,0.55);
+    border: 1px solid rgba(245,240,232,0.12);
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .nav-pill:hover {
+    background: rgba(245,240,232,0.14);
+    color: var(--cream);
+  }
+
+  /* ── HIGHLIGHT ROW ── */
+  .highlight-row {
+    background: #fffbf0;
+    border: 1px solid #f0c878;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 13.5px;
+    color: #7a5a10;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+
+  .highlight-row strong { font-weight: 600; }
+
+  /* ── TWO COL ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 640px) {
+    header { padding: 0 20px; }
+    .hero { padding: 52px 20px 48px; }
+    .hero-stats { flex-wrap: wrap; gap: 24px; }
+    main { padding: 0 20px 60px; }
+    .cards-grid { grid-template-columns: 1fr; }
+    .two-col { grid-template-columns: 1fr; }
+    .cta-section { padding: 32px 24px; }
+    footer { flex-direction: column; gap: 16px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">Refery<span>.</span>io</div>
+  <div class="header-badge">Partner Recruiter Guide</div>
+</header>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-eyebrow">For Independent Recruiters & Talent Partners</div>
+    <h1>Refer great talent.<br><em>Earn while you sleep.</em></h1>
+    <p class="hero-sub">Everything you need to know about partnering with Refery.io — our clients, what we're looking for, how the process works, and how you get paid.</p>
+    <nav class="nav-pills">
+      <a class="nav-pill" href="#why">Why Refery</a>
+      <a class="nav-pill" href="#roles">What We're Hiring</a>
+      <a class="nav-pill" href="#profiles">Ideal Profiles</a>
+      <a class="nav-pill" href="#clients">Our Clients</a>
+      <a class="nav-pill" href="#how">How It Works</a>
+      <a class="nav-pill" href="#bonus">Bonus</a>
+    </nav>
+    <div class="hero-stats">
+      <div class="stat-item">
+        <div class="stat-num">200+</div>
+        <div class="stat-label">VC-backed companies</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">$10–25K</div>
+        <div class="stat-label">referral bonus per hire</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num">0</div>
+        <div class="stat-label">BD work on your end</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+
+  <!-- WHY REFERY -->
+  <section id="why">
+    <div class="section-label">Why partner with us</div>
+    <div class="section-title">You focus on talent.<br><em>We handle everything else.</em></div>
+    <div class="cards-grid">
+      <div class="card">
+        <div class="card-icon">🤝</div>
+        <div class="card-title">Zero business development</div>
+        <div class="card-body">We work with <strong>200+ well-funded companies</strong>. We aggregate all open roles, negotiate fees, and handle operations. You never cold-pitch a client again.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">💸</div>
+        <div class="card-title">Monetize your bench</div>
+        <div class="card-body">Have great candidates but no open role that fits? Send them anyway. We match them to the right opportunity and <strong>you earn the referral bonus</strong>.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <div class="card-title">Minimal time commitment</div>
+        <div class="card-body">Your job ends at the warm intro. We handle screening, matching, and process management. <strong>Highly passive income</strong> once you've referred.</div>
+      </div>
+      <div class="card">
+        <div class="card-icon">🏆</div>
+        <div class="card-title">Strong conversion rate</div>
+        <div class="card-body">All candidates are <strong>pre-reviewed by investors, founders, and operators</strong>. Founders take our word seriously. Our conversion rate is significantly higher than standard recruiter outreach.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ROLES -->
+  <section id="roles">
+    <div class="section-label">What we're hiring for</div>
+    <div class="section-title">High-demand <em>roles</em></div>
+
+    <div class="role-category">
+      <div class="role-cat-label">🔥 Highest demand</div>
+      <div class="tags">
+        <span class="tag hot">AI / ML Engineer</span>
+        <span class="tag hot">Forward Deploying Engineer</span>
+        <span class="tag hot">Staff / Senior Software Engineer</span>
+        <span class="tag hot">Founding Engineer</span>
+        <span class="tag hot">Backend Engineer</span>
+      </div>
+    </div>
+
+    <div class="role-category">
+      <div class="role-cat-label">Engineering</div>
+      <div class="tags">
+        <span class="tag">Frontend Engineer</span>
+        <span class="tag">Full Stack Engineer</span>
+        <span class="tag">Infrastructure / Platform Engineer</span>
+        <span class="tag">Security Engineer</span>
+        <span class="tag">Data Engineer</span>
+      </div>
+    </div>
+
+    <div class="role-category">
+      <div class="role-cat-label">Product & Design</div>
+      <div class="tags">
+        <span class="tag">Product Manager</span>
+        <span class="tag">Product Designer</span>
+        <span class="tag">Head of Product</span>
+      </div>
+    </div>
+
+    <div class="role-category">
+      <div class="role-cat-label">GTM & Revenue</div>
+      <div class="tags">
+        <span class="tag">Enterprise Account Executive</span>
+        <span class="tag">Account Director</span>
+        <span class="tag">Product Marketing Manager</span>
+        <span class="tag">Head of Growth</span>
+        <span class="tag">Content Marketing Manager</span>
+        <span class="tag">Event Marketing Manager</span>
+      </div>
+    </div>
+
+    <div class="role-category">
+      <div class="role-cat-label">People & Operations</div>
+      <div class="tags">
+        <span class="tag">GTM Recruiter</span>
+        <span class="tag">Sourcer</span>
+        <span class="tag">Customer Operations</span>
+        <span class="tag">Founding Operator</span>
+      </div>
+    </div>
+
+    <div class="highlight-row">
+      📍 <strong>~80% of roles are based in the Bay Area (San Francisco)</strong>, with some in New York and London. Most are onsite or hybrid — a smaller number are fully remote.
+    </div>
+  </section>
+
+  <!-- IDEAL PROFILES -->
+  <section id="profiles">
+    <div class="section-label">Candidate fit</div>
+    <div class="section-title">Who gets <em>matched</em></div>
+    <div class="checklist">
+
+      <div class="check-item">
+        <div class="check-dot">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#2d6130" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>CS degree from top school</strong>
+          <span class="label-strong check-label">Strong signal</span>
+          <span>MIT, Stanford, CMU, Berkeley, Caltech, ETH Zürich, and other universities known for CS/engineering. Top-ranked programs signal technical rigor to our clients.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#2d6130" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>Big Tech or well-known startup experience</strong>
+          <span class="label-strong check-label">Strong signal</span>
+          <span>Google, Meta, Apple, Amazon, Microsoft, Stripe, Airbnb, OpenAI, Anthropic, and similar. Known tech logos carry weight with early-stage founders.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#2d6130" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>Startup experience is a huge bonus</strong>
+          <span class="label-strong check-label">Strong signal</span>
+          <span>Early-stage company experience (seed, Series A) is particularly valued. It shows adaptability, ownership, and comfort with ambiguity — exactly what our clients need.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#2d6130" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>2–10 years of experience is the sweet spot</strong>
+          <span>Senior enough to contribute immediately, early enough to grow with the company. These profiles have the highest placement rate across our client base.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M2 5.5L4.5 8L9 3" stroke="#2d6130" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>Salary expectations: $200K–$350K base</strong>
+          <span>Plus equity and bonus, depending on experience. Most of our open roles sit in this range. Candidates expecting significantly below or above may have fewer matches.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot" style="border-color: #f0c878; background: #fff8ed;">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M5.5 2v4M5.5 8.5v.5" stroke="#7a5a10" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>Work authorization required (US) <span class="label-note check-label">Note</span></strong>
+          <span>Very few of our clients offer visa sponsorship. Candidates should have valid US work authorization (US citizen, green card holder, or valid work permit). Flag this early.</span>
+        </div>
+      </div>
+
+      <div class="check-item">
+        <div class="check-dot" style="border-color: #f0c878; background: #fff8ed;">
+          <svg viewBox="0 0 11 11" fill="none"><path d="M5.5 2v4M5.5 8.5v.5" stroke="#7a5a10" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <div class="check-text">
+          <strong>Recent graduates — lower match rate <span class="label-note check-label">Note</span></strong>
+          <span>New grads and those under 2 years of experience are harder to place given the seniority profile most clients are hiring for. They can still be submitted, but set expectations accordingly.</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- CLIENTS -->
+  <section id="clients">
+    <div class="section-label">Our clients</div>
+    <div class="section-title">200+ <em>VC-backed</em> companies</div>
+    <p style="font-size: 15px; color: var(--text-muted); line-height: 1.7; margin-bottom: 24px;">We work exclusively with startups that have raised institutional VC funding — from pre-seed through Series C and beyond. These are high-quality, credible companies that take hiring seriously.</p>
+
+    <div class="two-col">
+      <div>
+        <div class="role-cat-label" style="margin-bottom: 10px;">Stage range</div>
+        <div class="client-pills">
+          <span class="client-pill pill-stage">Pre-seed</span>
+          <span class="client-pill pill-stage">Seed</span>
+          <span class="client-pill pill-stage">Series A</span>
+          <span class="client-pill pill-stage">Series B</span>
+          <span class="client-pill pill-stage">Series C+</span>
+        </div>
+      </div>
+      <div>
+        <div class="role-cat-label" style="margin-bottom: 10px;">Locations</div>
+        <div class="client-pills">
+          <span class="client-pill pill-location">San Francisco</span>
+          <span class="client-pill pill-location">New York</span>
+          <span class="client-pill pill-location">London</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="highlight-row" style="margin-top: 24px;">
+      Our vetting process means founders take candidate referrals seriously. When Refery surfaces a candidate, hiring managers engage — our platform reputation is a trust accelerator for your referrals.
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="section-label">Process</div>
+    <div class="section-title">How it <em>works</em></div>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Send us your top profiles</div>
+          <div class="step-desc">Email your candidate list with their LinkedIn profiles to <a href="mailto:candidates@refery.io">candidates@refery.io</a>. <strong>Start with 5–10 of your strongest profiles.</strong> No lengthy forms, no onboarding call required.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">We review and identify fits</div>
+          <div class="step-desc">Our team reviews your submissions against the current opportunity set and comes back to you with the candidates we'd like to move forward with. <strong>Only the strongest matches.</strong></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">You make the warm intro</div>
+          <div class="step-desc">For selected candidates, we ask you to do a <strong>warm introduction</strong> — a quick personal note connecting the candidate to Refery. That's the trust signal that makes our process work.</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">We take it from here</div>
+          <div class="step-desc">Our team has a quick call with the candidate, verifies fit, and begins matching with clients. <strong>You don't need to do anything after the intro.</strong> We manage the entire process end-to-end.</div>
+        </div>
+      </div>
+
+      <div class="step" style="padding-bottom: 0;">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-title">Get paid after placement</div>
+          <div class="step-desc">If the candidate is hired, your referral bonus is paid out <strong>3 months after their start date</strong>. Standard industry cliff — ensures a quality placement.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- BONUS -->
+  <section id="bonus">
+    <div class="section-label">Compensation</div>
+    <div class="section-title">What you <em>earn</em></div>
+    <div class="bonus-box">
+      <div class="bonus-box-inner">
+        <div class="bonus-label">Referral bonus per successful hire</div>
+        <div class="bonus-amount">$10K – $25K</div>
+        <div class="bonus-sub">Per placed candidate, depending on role seniority and total compensation. <strong>Refery retains a 10% platform fee</strong> from the bonus — our take is kept minimal so you keep the maximum. The referral bonus comes from the client's hiring fee, not from the candidate.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <div class="cta-title">Ready to <em>start referring?</em></div>
+    <div class="cta-sub">Send your first batch of profiles and our team will get back to you within 48 hours. No commitment, no exclusivity.</div>
+    <div class="cta-buttons">
+      <a href="mailto:candidates@refery.io" class="btn-primary">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4l6 5 6-5M2 4h12v9H2V4z" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Send profiles → candidates@refery.io
+      </a>
+      <a href="mailto:hello@refery.io" class="btn-secondary">
+        Questions? hello@refery.io
+      </a>
+    </div>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Refery<span>.</span>io</div>
+  <div class="footer-links">
+    <a href="mailto:candidates@refery.io">candidates@refery.io</a>
+    <a href="mailto:hello@refery.io">hello@refery.io</a>
+    <a href="https://refery.io" target="_blank">refery.io</a>
+  </div>
+</footer>
+
+</body>
+</html>
