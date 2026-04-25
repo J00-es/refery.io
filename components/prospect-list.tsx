@@ -155,31 +155,28 @@ export function ProspectList({ type, data, matchedUsers = {} }: ProspectListProp
     const insertData = { ...baseData, ...specificData }
 
     if (editingItem) {
-      const { error } = await supabase
-        .from(tableName)
-        .update({ ...insertData, updated_at: new Date().toISOString() })
-        .eq('id', editingItem.id)
-      
-      if (error) console.error('Error updating:', error)
+      // Use API route for updates to bypass RLS
+      const apiRoute = type === 'recruiter' ? '/api/prospect-recruiters' : '/api/prospect-talents'
+      const res = await fetch(`${apiRoute}/${editingItem.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(insertData),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        console.error('Error updating:', err)
+      }
     } else {
-      const { data: newItem, error } = await supabase
-        .from(tableName)
-        .insert({ ...insertData, created_by: user?.id })
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Error inserting:', error)
-      } else if (newItem) {
-        // Log initial stage
-        const historyTable = type === 'recruiter' ? 'prospect_recruiter_stage_history' : 'prospect_talent_stage_history'
-        const idField = type === 'recruiter' ? 'recruiter_id' : 'talent_id'
-        await supabase.from(historyTable).insert({
-          [idField]: newItem.id,
-          from_status: null,
-          to_status: insertData.outreach_status,
-          changed_by: user?.id
-        })
+      // Use API route for inserts to bypass RLS
+      const apiRoute = type === 'recruiter' ? '/api/prospect-recruiters' : '/api/prospect-talents'
+      const res = await fetch(apiRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(insertData),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        console.error('Error inserting:', err)
       }
     }
 

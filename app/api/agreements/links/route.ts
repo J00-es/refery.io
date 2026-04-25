@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { 
   generateAgreementHash, 
@@ -8,31 +8,39 @@ import {
   AgreementType 
 } from '@/lib/agreements'
 
+const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+
 // GET - List all agreement links (admin only)
 export async function GET(request: NextRequest) {
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check admin status
-  const { data: adminData } = await supabase
-    .from('users_admin')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
+  // Super admins bypass all checks
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+  
+  if (!isSuperAdmin) {
+    // Check admin status using adminClient and email
+    const { data: adminData } = await adminClient
+      .from('users_admin')
+      .select('role')
+      .eq('email', user.email)
+      .single()
 
-  if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   const searchParams = request.nextUrl.searchParams
   const recruiterId = searchParams.get('recruiter_id')
   const status = searchParams.get('status')
 
-  let query = supabase
+  let query = adminClient
     .from('agreement_links')
     .select('*')
     .order('created_at', { ascending: false })
@@ -57,21 +65,27 @@ export async function GET(request: NextRequest) {
 // POST - Create a new agreement link (admin only)
 export async function POST(request: NextRequest) {
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check admin status
-  const { data: adminData } = await supabase
-    .from('users_admin')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
+  // Super admins bypass all checks
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+  
+  if (!isSuperAdmin) {
+    // Check admin status using adminClient and email
+    const { data: adminData } = await adminClient
+      .from('users_admin')
+      .select('role')
+      .eq('email', user.email)
+      .single()
 
-  if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   const body = await request.json()
@@ -88,8 +102,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid agreement type' }, { status: 400 })
   }
 
-  // Get recruiter info
-  const { data: recruiter, error: recruiterError } = await supabase
+  // Get recruiter info using adminClient
+  const { data: recruiter, error: recruiterError } = await adminClient
     .from('prospect_recruiters')
     .select('id, name, email')
     .eq('id', recruiter_id)
@@ -105,8 +119,8 @@ export async function POST(request: NextRequest) {
   const agreementHash = await generateAgreementHash(agreementContent)
   const token = generateSigningToken()
 
-  // Create the agreement link
-  const { data, error } = await supabase
+  // Create the agreement link using adminClient
+  const { data, error } = await adminClient
     .from('agreement_links')
     .insert({
       token,
