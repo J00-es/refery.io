@@ -1,10 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { RecruiterDetailView } from '@/components/recruiter-detail-view'
+
+const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 export default async function RecruiterDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
+  const adminClient = createAdminClient()
 
   // Check authentication
   const { data: { user } } = await supabase.auth.getUser()
@@ -12,20 +15,32 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
     redirect('/auth/login')
   }
 
-  // Check admin access
-  const { data: adminData } = await supabase
-    .from('users_admin')
-    .select('role, status')
-    .eq('user_id', user.id)
-    .single()
+  // Check admin access - super admins have full access
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+  
+  if (!isSuperAdmin) {
+    // Query by email (more reliable - user_id may not be synced yet)
+    const { data: adminData } = await adminClient
+      .from('users_admin')
+      .select('role, status')
+      .eq('email', user.email)
+      .single()
 
-  const isAdmin = adminData?.role === 'super_admin' || adminData?.role === 'admin'
-  if (!isAdmin || adminData?.status !== 'active') {
-    redirect('/dashboard')
+    if (!adminData || adminData.status !== 'active') {
+      redirect('/auth/pending-approval')
+    }
+
+    // Only super_admin and admin can access this page
+    if (!['super_admin', 'admin'].includes(adminData.role)) {
+      redirect('/dashboard')
+    }
   }
 
+  // Use admin client to bypass RLS
+  const dbClient = adminClient
+
   // Fetch recruiter with notes and stage history
-  const { data: recruiter, error } = await supabase
+  const { data: recruiter, error } = await dbClient
     .from('prospect_recruiters')
     .select('*')
     .eq('id', id)
@@ -36,14 +51,14 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
   }
 
   // Fetch notes
-  const { data: notes } = await supabase
+  const { data: notes } = await dbClient
     .from('prospect_recruiter_notes')
     .select('*')
     .eq('recruiter_id', id)
     .order('created_at', { ascending: false })
 
   // Fetch stage history
-  const { data: stageHistory } = await supabase
+  const { data: stageHistory } = await dbClient
     .from('prospect_recruiter_stage_history')
     .select('*')
     .eq('recruiter_id', id)
@@ -52,7 +67,7 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
   // Check if recruiter email matches a user
   let matchedUser = null
   if (recruiter.email) {
-    const { data: userData } = await supabase
+    const { data: userData } = await dbClient
       .from('users_admin')
       .select('*')
       .eq('email', recruiter.email)
@@ -65,7 +80,7 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
   let recentActivities: Array<{ type: string; stage?: string; candidateName?: string; jobTitle?: string; date: string }> = []
   if (matchedUser) {
     // Get candidates owned by this user
-    const { data: candidates } = await supabase
+    const { data: candidates } = await dbClient
       .from('candidates')
       .select('id, name, created_at')
       .eq('owner_user_id', matchedUser.user_id)
@@ -75,7 +90,7 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
       const candidateIds = candidates.map(c => c.id)
       
       // Get pipeline stats for these candidates with job info
-      const { data: pipelineData } = await supabase
+      const { data: pipelineData } = await dbClient
         .from('job_candidate_pipeline')
         .select('stage, job_id, candidate_id, updated_at, jobs!inner(title)')
         .in('candidate_id', candidateIds)
