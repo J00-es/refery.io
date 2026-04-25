@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono, Instrument_Serif, DM_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className={`font-sans antialiased ${dmSans.variable}`}>
         {children}
         {process.env.NODE_ENV === 'production' && <Analytics />}
+        <SpeedInsights />
       </body>
     </html>
   )
