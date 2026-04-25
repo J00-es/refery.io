@@ -1,12 +1,9 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, Instrument_Serif, DM_Sans } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
-const _instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"] });
 const dmSans = DM_Sans({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-dm-sans" });
 
 export const metadata: Metadata = {
