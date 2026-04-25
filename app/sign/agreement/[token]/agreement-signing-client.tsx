@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Spinner } from '@/components/ui/spinner'
 import { 
@@ -41,7 +40,13 @@ interface SigningResult {
   agreement_hash: string
 }
 
-export function AgreementSigningClient({ token }: { token: string }) {
+interface Props {
+  token: string
+  userEmail: string
+  userName: string
+}
+
+export function AgreementSigningClient({ token, userEmail, userName }: Props) {
   const [agreement, setAgreement] = useState<AgreementData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -49,16 +54,17 @@ export function AgreementSigningClient({ token }: { token: string }) {
   const [signed, setSigned] = useState(false)
   const [signatureResult, setSignatureResult] = useState<SigningResult | null>(null)
   
-  // Form state
-  const [signerName, setSignerName] = useState('')
-  const [signerEmail, setSignerEmail] = useState('')
+  // Form state - pre-fill with authenticated user info
+  const [signerName, setSignerName] = useState(userName)
+  const [signerEmail, setSignerEmail] = useState(userEmail)
   const [accepted, setAccepted] = useState(false)
   const [readAgreement, setReadAgreement] = useState(false)
 
   useEffect(() => {
     async function fetchAgreement() {
       try {
-        const response = await fetch(`/api/agreements/public/${token}`)
+        // Use authenticated endpoint
+        const response = await fetch(`/api/agreements/sign/${token}`)
         const data = await response.json()
 
         if (!response.ok) {
@@ -70,8 +76,13 @@ export function AgreementSigningClient({ token }: { token: string }) {
         }
 
         setAgreement(data)
-        setSignerName(data.recruiter_name)
-        setSignerEmail(data.recruiter_email)
+        // Pre-fill name and email from agreement if not already set
+        if (!signerName && data.recruiter_name) {
+          setSignerName(data.recruiter_name)
+        }
+        if (!signerEmail && data.recruiter_email) {
+          setSignerEmail(data.recruiter_email)
+        }
       } catch (err) {
         setError('Failed to load agreement')
       } finally {
@@ -87,8 +98,9 @@ export function AgreementSigningClient({ token }: { token: string }) {
     if (!accepted || !readAgreement || !signerName || !signerEmail) return
 
     setSigning(true)
+    setError(null)
     try {
-      const response = await fetch(`/api/agreements/public/${token}`, {
+      const response = await fetch(`/api/agreements/sign/${token}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -284,7 +296,10 @@ export function AgreementSigningClient({ token }: { token: string }) {
                 value={signerEmail}
                 onChange={(e) => setSignerEmail(e.target.value)}
                 placeholder="Enter your email address"
+                disabled
+                className="bg-slate-50"
               />
+              <p className="text-xs text-muted-foreground">Using your authenticated email address</p>
             </div>
           </div>
 
@@ -321,7 +336,7 @@ export function AgreementSigningClient({ token }: { token: string }) {
               <p className="font-medium mb-1">Legal Notice</p>
               <p>
                 By clicking &quot;Sign Agreement&quot;, you are creating a legally binding electronic signature. 
-                Your IP address, browser information, and timestamp will be recorded as part of the signing record 
+                Your authenticated account, IP address, browser information, and timestamp will be recorded as part of the signing record 
                 for verification purposes.
               </p>
             </div>
