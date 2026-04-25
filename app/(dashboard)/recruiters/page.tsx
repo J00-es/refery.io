@@ -37,8 +37,8 @@ export default async function RecruitersPage() {
     }
   }
 
-  // Use admin client for super admins to bypass RLS, regular client for others
-  const dbClient = isSuperAdmin ? adminClient : supabase
+  // Always use admin client for all data fetches to bypass RLS
+  const dbClient = adminClient
 
   // Fetch prospect recruiters
   let recruiters: any[] = []
