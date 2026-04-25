@@ -3,57 +3,116 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+const ALLOWED_FIELDS = [
+  'name',
+  'email',
+  'linkedin_url',
+  'current_company',
+  'current_title',
+  'location',
+  'outreach_status',
+  'assessment',
+  'notes',
+  'source',
+  'last_contacted_at',
+  'skills',
+  'talent_type',
+  'overview',
+] as const
+
+function sanitizePayload(body: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {}
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) clean[key] = body[key]
+  }
+  return clean
+}
+
+type SupabaseClient = ReturnType<typeof createAdminClient>
+
+async function verifyAdmin(supabase: Awaited<ReturnType<typeof createClient>>, adminClient: SupabaseClient) {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { user: null, allowed: false }
+
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+  if (isSuperAdmin) return { user, allowed: true }
+
+  const { data: adminData } = await adminClient
+    .from('users_admin')
+    .select('role, status')
+    .eq('email', user.email)
+    .single()
+
+  const allowed = !!adminData && adminData.status === 'active' && ['super_admin', 'admin'].includes(adminData.role)
+  return { user, allowed }
+}
+
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
     const supabase = await createClient()
     const adminClient = createAdminClient()
-    
-    // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
-    // Check admin access
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-    
-    if (!isSuperAdmin) {
-      const { data: adminData } = await adminClient
-        .from('users_admin')
-        .select('role, status')
-        .eq('email', user.email)
-        .single()
-
-      if (!adminData || adminData.status !== 'active' || !['super_admin', 'admin'].includes(adminData.role)) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-    }
+    const { user, allowed } = await verifyAdmin(supabase, adminClient)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
-    
-    // Update the talent using admin client to bypass RLS
-    const { data: updatedTalent, error } = await adminClient
+    const payload = sanitizePayload(body)
+
+    const { data: existing } = await adminClient
       .from('prospect_talents')
-      .update({
-        ...body,
-        updated_at: new Date().toISOString(),
-      })
+      .select('outreach_status')
+      .eq('id', id)
+      .single()
+
+    const { data: updated, error } = await adminClient
+      .from('prospect_talents')
+      .update({ ...payload, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select()
       .single()
 
     if (error) {
-      console.error('Error updating talent:', error)
+      console.error('[v0] Error updating talent:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ talent: updatedTalent })
+    if (payload.outreach_status && existing && existing.outreach_status !== payload.outreach_status) {
+      await adminClient.from('prospect_talent_stage_history').insert({
+        talent_id: id,
+        from_status: existing.outreach_status,
+        to_status: payload.outreach_status,
+        changed_by: user.id,
+      })
+    }
+
+    return NextResponse.json({ talent: updated })
   } catch (error) {
-    console.error('Error in PATCH /api/prospect-talents/[id]:', error)
+    console.error('[v0] Error in PATCH /api/prospect-talents/[id]:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
+    const adminClient = createAdminClient()
+
+    const { user, allowed } = await verifyAdmin(supabase, adminClient)
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+    const { error } = await adminClient.from('prospect_talents').delete().eq('id', id)
+    if (error) {
+      console.error('[v0] Error deleting talent:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('[v0] Error in DELETE /api/prospect-talents/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

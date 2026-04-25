@@ -3,20 +3,40 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
+const ALLOWED_FIELDS = [
+  'name',
+  'email',
+  'linkedin_url',
+  'current_company',
+  'current_title',
+  'location',
+  'outreach_status',
+  'assessment',
+  'notes',
+  'source',
+  'last_contacted_at',
+  'skills',
+  'talent_type',
+  'overview',
+] as const
+
+function sanitizePayload(body: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {}
+  for (const key of ALLOWED_FIELDS) {
+    if (key in body) clean[key] = body[key]
+  }
+  return clean
+}
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
     const adminClient = createAdminClient()
-    
-    // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
-    // Check admin access
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-    
     if (!isSuperAdmin) {
       const { data: adminData } = await adminClient
         .from('users_admin')
@@ -30,50 +50,43 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    
-    // Insert the new talent using admin client to bypass RLS
+    const payload = sanitizePayload(body)
+
+    if (!payload.outreach_status) {
+      payload.outreach_status = 'prospect'
+    }
+
     const { data: newTalent, error } = await adminClient
       .from('prospect_talents')
       .insert({
-        name: body.name,
-        email: body.email,
-        company: body.company,
-        linkedin_url: body.linkedin_url,
-        stage: body.stage || 'new',
-        source: body.source,
-        notes: body.notes,
-        current_role: body.current_role,
-        experience_years: body.experience_years,
-        skills: body.skills,
-        talent_type: body.talent_type,
-        overview: body.overview,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        ...payload,
+        created_by: user.id,
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Error creating talent:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[v0] Error creating talent:', error)
+      return NextResponse.json({ error: error.message, details: error }, { status: 500 })
     }
 
-    // Log initial stage in history
     if (newTalent) {
-      await adminClient
+      const { error: historyError } = await adminClient
         .from('prospect_talent_stage_history')
         .insert({
           talent_id: newTalent.id,
-          from_stage: null,
-          to_stage: body.stage || 'new',
+          from_status: null,
+          to_status: payload.outreach_status,
           changed_by: user.id,
-          changed_at: new Date().toISOString(),
         })
+      if (historyError) {
+        console.error('[v0] Error logging stage history:', historyError)
+      }
     }
 
     return NextResponse.json({ talent: newTalent })
   } catch (error) {
-    console.error('Error in POST /api/prospect-talents:', error)
+    console.error('[v0] Error in POST /api/prospect-talents:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

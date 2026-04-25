@@ -1,20 +1,21 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { generateAgreementHash } from '@/lib/agreements'
 
-// GET - Get agreement details for public signing (no auth required)
+// Force dynamic - never cache, always check fresh data
+export const dynamic = 'force-dynamic'
+
+// GET - Get agreement details for public signing (no auth required - secret token IS the auth)
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Token is required' }, { status: 400 })
+
+    if (!token || token.length < 16) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
     }
 
-    // Use admin client to bypass RLS for public access
     const adminClient = createAdminClient()
 
     const { data: link, error } = await adminClient
@@ -24,13 +25,12 @@ export async function GET(
       .single()
 
     if (error || !link) {
-      console.error('Agreement link not found:', error)
+      console.error('[v0] Agreement link not found:', error)
       return NextResponse.json({ error: 'Agreement not found' }, { status: 404 })
     }
 
     // Check if expired
     if (new Date(link.expires_at) < new Date()) {
-      // Update status to expired if not already
       if (link.status !== 'expired') {
         await adminClient
           .from('agreement_links')
@@ -40,32 +40,33 @@ export async function GET(
       return NextResponse.json({ error: 'Agreement link has expired' }, { status: 410 })
     }
 
-    // Check if already signed
-    if (link.status === 'signed') {
-      return NextResponse.json({ 
-        error: 'Agreement already signed',
-        signed_at: link.signed_at 
-      }, { status: 400 })
-    }
-
     // Check if revoked
     if (link.status === 'revoked') {
       return NextResponse.json({ error: 'Agreement link has been revoked' }, { status: 410 })
+    }
+
+    // Check if already signed
+    if (link.status === 'signed') {
+      return NextResponse.json({
+        error: 'Agreement already signed',
+        signed_at: link.signed_at,
+        already_signed: true,
+      }, { status: 200 })
     }
 
     // Mark as viewed if first time
     if (link.status === 'sent') {
       await adminClient
         .from('agreement_links')
-        .update({ 
-          status: 'viewed', 
+        .update({
+          status: 'viewed',
           viewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', link.id)
     }
 
-    // Return agreement details (excluding sensitive info)
+    // Return agreement details
     return NextResponse.json({
       id: link.id,
       recruiter_name: link.recruiter_name,
@@ -77,27 +78,25 @@ export async function GET(
       expires_at: link.expires_at,
     })
   } catch (err) {
-    console.error('Error fetching agreement:', err)
+    console.error('[v0] Error fetching agreement:', err)
     return NextResponse.json({ error: 'Failed to load agreement' }, { status: 500 })
   }
 }
 
-// POST - Sign the agreement (no auth required, public endpoint)
+// POST - Sign the agreement (no auth required, secret token IS the auth)
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Token is required' }, { status: 400 })
+
+    if (!token || token.length < 16) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
     }
 
-    // Use admin client to bypass RLS for public access
     const adminClient = createAdminClient()
 
-    // Get the agreement link
     const { data: link, error: linkError } = await adminClient
       .from('agreement_links')
       .select('*')
@@ -119,29 +118,25 @@ export async function POST(
       return NextResponse.json({ error: 'Agreement link has expired' }, { status: 410 })
     }
 
-    const body = await request.json()
-    const { signer_name, signer_email, accepted } = body
+    const body = await request.json().catch(() => ({}))
+    const signer_name = (body?.signer_name || '').trim()
+    const signer_email = (body?.signer_email || '').trim()
+    const accepted = !!body?.accepted
 
     if (!signer_name || !signer_email || !accepted) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+      return NextResponse.json({ error: 'Please provide your name, email, and accept the terms' }, { status: 400 })
     }
 
-    // Get IP address
+    // Get IP address and user agent
     const forwardedFor = request.headers.get('x-forwarded-for')
-    const ipAddress = forwardedFor ? forwardedFor.split(',')[0].trim() : 
-      request.headers.get('x-real-ip') || null
-
+    const ipAddress = forwardedFor
+      ? forwardedFor.split(',')[0].trim()
+      : request.headers.get('x-real-ip') || null
     const userAgent = request.headers.get('user-agent') || null
-
-    // Verify agreement hash matches
-    const computedHash = await generateAgreementHash(link.agreement_content)
-    if (computedHash !== link.agreement_hash) {
-      return NextResponse.json({ error: 'Agreement integrity check failed' }, { status: 400 })
-    }
 
     const signedAt = new Date().toISOString()
 
-    // Create immutable signature record
+    // Create immutable signature record - only insert fields that exist in the schema
     const { data: signature, error: signatureError } = await adminClient
       .from('agreement_signatures')
       .insert({
@@ -161,8 +156,8 @@ export async function POST(
       .single()
 
     if (signatureError) {
-      console.error('Failed to create signature:', signatureError)
-      return NextResponse.json({ error: 'Failed to record signature' }, { status: 500 })
+      console.error('[v0] Failed to create signature:', signatureError)
+      return NextResponse.json({ error: 'Failed to record signature', details: signatureError.message }, { status: 500 })
     }
 
     // Update the agreement link status
@@ -176,22 +171,13 @@ export async function POST(
       .eq('id', link.id)
 
     if (updateError) {
-      console.error('Failed to update link status:', updateError)
+      console.error('[v0] Failed to update link status:', updateError)
     }
-
-    // Update recruiter status to indicate agreement signed
-    await adminClient
-      .from('prospect_recruiters')
-      .update({
-        status: 'active',
-        updated_at: signedAt,
-      })
-      .eq('id', link.recruiter_id)
 
     // Send confirmation email (fire and forget)
     try {
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
-      await fetch(`${baseUrl}/api/email/agreement-confirmation`, {
+      fetch(`${baseUrl}/api/email/agreement-confirmation`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -202,9 +188,11 @@ export async function POST(
           signed_at: signedAt,
           agreement_hash: link.agreement_hash,
         }),
+      }).catch((emailError) => {
+        console.error('[v0] Failed to send confirmation email:', emailError)
       })
     } catch (emailError) {
-      console.error('Failed to send confirmation email:', emailError)
+      console.error('[v0] Failed to send confirmation email:', emailError)
     }
 
     return NextResponse.json({
@@ -214,7 +202,7 @@ export async function POST(
       agreement_hash: link.agreement_hash,
     })
   } catch (err) {
-    console.error('Error signing agreement:', err)
+    console.error('[v0] Error signing agreement:', err)
     return NextResponse.json({ error: 'Failed to sign agreement' }, { status: 500 })
   }
 }
