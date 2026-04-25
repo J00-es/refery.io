@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, FileText, ChevronDown } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,7 +37,6 @@ const adminOnlyNavItems = [
 
 const adminMenuItems = [
   { href: '/admin', label: 'Users', icon: Users },
-  { href: '/contracts', label: 'Contracts', icon: FileText },
 ]
 
 interface DashboardNavProps {
@@ -123,7 +122,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
                     <button
                       className={cn(
                         'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1',
-                        (pathname.startsWith('/admin') || pathname.startsWith('/contracts'))
+                        pathname.startsWith('/admin')
                           ? 'bg-accent text-accent-foreground'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
                       )}
