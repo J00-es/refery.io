@@ -31,7 +31,6 @@
 - ✅ Talents page
 - ✅ Admin > Users (view/add/edit roles/status/delete)
 - ✅ Admin > Analytics
-- ✅ Contracts page (if exists)
 
 **How it works:**
 - Email checked in SUPER_ADMIN_EMAILS constant first (instant access)
