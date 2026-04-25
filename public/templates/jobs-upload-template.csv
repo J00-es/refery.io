@@ -1,0 +1,3 @@
+title,company,department,location,employment_type,experience_level,salary_min,salary_max,description,requirements,benefits,skills,visa_requirement
+"Senior Software Engineer","Acme Corp","Engineering","San Francisco, CA","full-time","senior",150000,200000,"We are looking for a senior engineer to join our team...","5+ years experience|Strong Python skills|Cloud experience","Health insurance|401k|Remote work","Python|AWS|PostgreSQL","sponsorship_available"
+"Product Manager","TechStart Inc","Product","New York, NY","full-time","mid",120000,160000,"Lead product development initiatives...","3+ years PM experience|Technical background","Equity|Flexible hours","Product Strategy|Agile|SQL","us_authorized"
