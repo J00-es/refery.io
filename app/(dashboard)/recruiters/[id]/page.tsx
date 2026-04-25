@@ -15,50 +15,58 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
     redirect('/auth/login')
   }
 
-  // Check admin access - super admins have full access
+  console.log('[v0] RecruiterDetailPage - User email:', user.email)
+
+  // SUPER ADMINS BYPASS ALL CHECKS - check email first
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-  
+  console.log('[v0] Is super admin by email?', isSuperAdmin)
+
+  // For super admins, skip all role checks entirely
   if (!isSuperAdmin) {
-    // Query by email (more reliable - user_id may not be synced yet)
-    const { data: adminData } = await adminClient
+    // For non-super admins, check role by EMAIL (not user_id!)
+    console.log('[v0] Checking admin role by email:', user.email)
+    const { data: adminData, error: adminError } = await adminClient
       .from('users_admin')
       .select('role, status')
       .eq('email', user.email)
       .single()
 
+    console.log('[v0] Admin data:', adminData, 'Error:', adminError)
+
     if (!adminData || adminData.status !== 'active') {
+      console.log('[v0] Redirecting to pending-approval')
       redirect('/auth/pending-approval')
     }
 
-    // Only super_admin and admin can access this page
     if (!['super_admin', 'admin'].includes(adminData.role)) {
+      console.log('[v0] Redirecting to dashboard - not admin')
       redirect('/dashboard')
     }
   }
 
-  // Use admin client to bypass RLS
-  const dbClient = adminClient
+  console.log('[v0] Access granted, fetching recruiter data')
 
-  // Fetch recruiter with notes and stage history
-  const { data: recruiter, error } = await dbClient
+  // Use admin client for ALL data fetches to bypass RLS
+  const { data: recruiter, error: recruiterError } = await adminClient
     .from('prospect_recruiters')
     .select('*')
     .eq('id', id)
     .single()
 
-  if (error || !recruiter) {
+  if (recruiterError || !recruiter) {
+    console.log('[v0] Recruiter not found:', recruiterError)
     notFound()
   }
 
   // Fetch notes
-  const { data: notes } = await dbClient
+  const { data: notes } = await adminClient
     .from('prospect_recruiter_notes')
     .select('*')
     .eq('recruiter_id', id)
     .order('created_at', { ascending: false })
 
   // Fetch stage history
-  const { data: stageHistory } = await dbClient
+  const { data: stageHistory } = await adminClient
     .from('prospect_recruiter_stage_history')
     .select('*')
     .eq('recruiter_id', id)
@@ -67,7 +75,7 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
   // Check if recruiter email matches a user
   let matchedUser = null
   if (recruiter.email) {
-    const { data: userData } = await dbClient
+    const { data: userData } = await adminClient
       .from('users_admin')
       .select('*')
       .eq('email', recruiter.email)
@@ -78,9 +86,10 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
   // If matched user, fetch their candidate stats
   let candidateStats = null
   let recentActivities: Array<{ type: string; stage?: string; candidateName?: string; jobTitle?: string; date: string }> = []
-  if (matchedUser) {
+  
+  if (matchedUser && matchedUser.user_id) {
     // Get candidates owned by this user
-    const { data: candidates } = await dbClient
+    const { data: candidates } = await adminClient
       .from('candidates')
       .select('id, name, created_at')
       .eq('owner_user_id', matchedUser.user_id)
@@ -90,7 +99,7 @@ export default async function RecruiterDetailPage({ params }: { params: Promise<
       const candidateIds = candidates.map(c => c.id)
       
       // Get pipeline stats for these candidates with job info
-      const { data: pipelineData } = await dbClient
+      const { data: pipelineData } = await adminClient
         .from('job_candidate_pipeline')
         .select('stage, job_id, candidate_id, updated_at, jobs!inner(title)')
         .in('candidate_id', candidateIds)
