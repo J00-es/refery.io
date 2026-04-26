@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
 import { AGREEMENT_TYPE_LABELS } from '@/lib/agreements'
 import { AgreementContent } from '@/components/agreement-content'
 
 /* ----------------------------------------------------------------------------
- * Refery brand tokens (mirrors app/page.tsx)
+ * Refery brand tokens
  * -------------------------------------------------------------------------- */
 const C = {
   bg: '#F8F8F3',
@@ -25,6 +25,7 @@ const C = {
   red: '#B0413E',
   redBg: '#FBEAE9',
 }
+
 const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif"
 const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
 
@@ -38,6 +39,7 @@ interface AgreementData {
   agreement_type: 'scout' | 'recruiter'
   agreement_version: string
   agreement_content: string
+  agreement_hash?: string
   status: string
   expires_at: string
 }
@@ -67,17 +69,27 @@ export function AgreementSigningClient({ token }: { token: string }) {
 
   useEffect(() => {
     let cancelled = false
+
     async function fetchAgreement() {
       try {
-        const response = await fetch(`/api/agreements/public/${token}`)
+        const response = await fetch(`/api/agreements/public/${token}`, {
+          cache: 'no-store',
+        })
+
         const data = await response.json()
         if (cancelled) return
 
         if (!response.ok) {
           setError(data.error || 'Failed to load agreement')
-          if (data.signed_at) setSigned(true)
+          if (data.signed_at || data.already_signed) setSigned(true)
           return
         }
+
+        if (data.already_signed) {
+          setSigned(true)
+          return
+        }
+
         setAgreement(data)
         setSignerName(data.recruiter_name || '')
         setSignerEmail(data.recruiter_email || '')
@@ -87,7 +99,9 @@ export function AgreementSigningClient({ token }: { token: string }) {
         if (!cancelled) setLoading(false)
       }
     }
+
     fetchAgreement()
+
     return () => {
       cancelled = true
     }
@@ -95,8 +109,10 @@ export function AgreementSigningClient({ token }: { token: string }) {
 
   const handleSign = async () => {
     if (!accepted || !readAgreement || !signerName || !signerEmail) return
+
     setSigning(true)
     setError(null)
+
     try {
       const response = await fetch(`/api/agreements/public/${token}`, {
         method: 'POST',
@@ -107,11 +123,14 @@ export function AgreementSigningClient({ token }: { token: string }) {
           accepted: true,
         }),
       })
+
       const data = await response.json()
+
       if (!response.ok) {
         setError(data.error || 'Failed to sign agreement')
         return
       }
+
       setSignatureResult(data)
       setSigned(true)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -129,9 +148,6 @@ export function AgreementSigningClient({ token }: { token: string }) {
     /\S+@\S+\.\S+/.test(signerEmail) &&
     !signing
 
-  /* -------------------------------------------------------------------------- */
-  /* States                                                                     */
-  /* -------------------------------------------------------------------------- */
   if (loading) return <ShellLoading />
   if (error && !agreement && !signed) return <ShellError message={error} />
   if (signed) return <ShellSuccess result={signatureResult} email={signerEmail} />
@@ -142,20 +158,19 @@ export function AgreementSigningClient({ token }: { token: string }) {
       <BrandStyles />
       <Nav />
 
-      <main style={{ maxWidth: 880, margin: '0 auto', padding: '56px 32px 96px' }}>
-        {/* HERO */}
+      <main
+        className="refery-main"
+        style={{ maxWidth: 880, margin: '0 auto', padding: '56px 32px 96px' }}
+      >
         <Hero
           version={agreement.agreement_version}
           typeLabel={AGREEMENT_TYPE_LABELS[agreement.agreement_type]}
         />
 
-        {/* RECIPIENT CARD */}
         <RecipientCard agreement={agreement} />
 
-        {/* DOCUMENT CARD */}
         <DocumentCard content={agreement.agreement_content} />
 
-        {/* SIGN CARD */}
         <SignCard
           signerName={signerName}
           signerEmail={signerEmail}
@@ -180,7 +195,7 @@ export function AgreementSigningClient({ token }: { token: string }) {
 /* ============================================================================
  * Shell + Brand
  * ========================================================================== */
-function PageShell({ children }: { children: React.ReactNode }) {
+function PageShell({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
@@ -212,16 +227,20 @@ function BrandStyles() {
         outline: none;
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
+
       .refery-input::placeholder {
         color: ${C.ink3};
       }
+
       .refery-input:hover {
         border-color: rgba(16, 15, 15, 0.18);
       }
+
       .refery-input:focus {
         border-color: ${C.green};
         box-shadow: 0 0 0 3px rgba(42, 107, 69, 0.12);
       }
+
       .refery-cta {
         background: ${C.ink};
         color: #fff;
@@ -238,16 +257,20 @@ function BrandStyles() {
         gap: 10px;
         transition: opacity 0.15s ease, transform 0.05s ease;
       }
+
       .refery-cta:hover:not(:disabled) {
         opacity: 0.92;
       }
+
       .refery-cta:active:not(:disabled) {
         transform: translateY(1px);
       }
+
       .refery-cta:disabled {
         opacity: 0.4;
         cursor: not-allowed;
       }
+
       .refery-check {
         appearance: none;
         -webkit-appearance: none;
@@ -262,13 +285,16 @@ function BrandStyles() {
         position: relative;
         transition: border-color 0.15s ease, background 0.15s ease;
       }
+
       .refery-check:hover {
         border-color: ${C.ink3};
       }
+
       .refery-check:checked {
         background: ${C.green};
         border-color: ${C.green};
       }
+
       .refery-check:checked::after {
         content: '';
         position: absolute;
@@ -280,15 +306,31 @@ function BrandStyles() {
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
       }
+
       .refery-check:focus-visible {
         box-shadow: 0 0 0 3px rgba(42, 107, 69, 0.18);
       }
+
       @media (max-width: 640px) {
-        .refery-main { padding: 32px 20px 64px !important; }
-        .refery-card { padding: 20px !important; }
-        .refery-doc-pad { padding: 28px 22px !important; }
-        .refery-recipient-grid { grid-template-columns: 1fr !important; }
-        .refery-form-grid { grid-template-columns: 1fr !important; }
+        .refery-main {
+          padding: 32px 20px 64px !important;
+        }
+
+        .refery-card {
+          padding: 20px !important;
+        }
+
+        .refery-doc-pad {
+          padding: 28px 22px !important;
+        }
+
+        .refery-recipient-grid {
+          grid-template-columns: 1fr !important;
+        }
+
+        .refery-form-grid {
+          grid-template-columns: 1fr !important;
+        }
       }
     `}</style>
   )
@@ -324,6 +366,7 @@ function Nav() {
         Refery
         <em style={{ fontStyle: 'italic', color: C.green }}>.</em>
       </a>
+
       <span
         style={{
           fontSize: 10,
@@ -364,21 +407,14 @@ function Footer() {
         <span style={{ fontFamily: SERIF, fontSize: 16, color: C.ink2 }}>
           Refery<em style={{ fontStyle: 'italic', color: C.green }}>.</em>
         </span>
-        <span style={{ marginLeft: 12 }}>
-          © {new Date().getFullYear()} Refery, Inc.
-        </span>
+        <span style={{ marginLeft: 12 }}>© {new Date().getFullYear()} Refery, Inc.</span>
       </div>
+
       <div style={{ display: 'flex', gap: 20 }}>
-        <a
-          href="mailto:legal@refery.io"
-          style={{ color: C.ink2, textDecoration: 'none' }}
-        >
+        <a href="mailto:legal@refery.io" style={{ color: C.ink2, textDecoration: 'none' }}>
           legal@refery.io
         </a>
-        <a
-          href="mailto:partners@refery.io"
-          style={{ color: C.ink2, textDecoration: 'none' }}
-        >
+        <a href="mailto:partners@refery.io" style={{ color: C.ink2, textDecoration: 'none' }}>
           partners@refery.io
         </a>
       </div>
@@ -419,6 +455,7 @@ function Hero({ version, typeLabel }: { version: string; typeLabel: string }) {
         />
         {typeLabel} · v{version}
       </span>
+
       <h1
         style={{
           fontFamily: SERIF,
@@ -433,6 +470,7 @@ function Hero({ version, typeLabel }: { version: string; typeLabel: string }) {
         Welcome to Refery
         <em style={{ fontStyle: 'italic', color: C.green }}>.</em>
       </h1>
+
       <p
         style={{
           fontSize: 18,
@@ -442,7 +480,8 @@ function Hero({ version, typeLabel }: { version: string; typeLabel: string }) {
           margin: '0 auto',
         }}
       >
-        Take a few minutes to review your partner agreement below. Once you sign, you&apos;ll have full access to the platform.
+        Take a few minutes to review your partner agreement below. Once you sign,
+        you&apos;ll have full access to the platform.
       </p>
     </section>
   )
@@ -470,10 +509,7 @@ function RecipientCard({ agreement }: { agreement: AgreementData }) {
       >
         <Field label="Prepared for" value={agreement.recruiter_name} />
         <Field label="Email" value={agreement.recruiter_email} mono />
-        <Field
-          label="Expires"
-          value={format(new Date(agreement.expires_at), 'MMM d, yyyy')}
-        />
+        <Field label="Expires" value={format(new Date(agreement.expires_at), 'MMM d, yyyy')} />
       </div>
     </div>
   )
@@ -502,6 +538,7 @@ function Field({
       >
         {label}
       </div>
+
       <div
         style={{
           fontSize: 15,
@@ -532,10 +569,7 @@ function DocumentCard({ content }: { content: string }) {
         boxShadow: '0 1px 0 rgba(16,15,15,0.02)',
       }}
     >
-      <div
-        className="refery-doc-pad"
-        style={{ padding: '52px 56px' }}
-      >
+      <div className="refery-doc-pad" style={{ padding: '52px 56px' }}>
         <AgreementContent content={content} showEyebrow={false} />
       </div>
     </div>
@@ -580,12 +614,12 @@ function SignCard(props: {
         >
           Sign the agreement
         </h2>
+
         <p style={{ fontSize: 14, color: C.ink2, margin: 0 }}>
           Confirm your details and accept the terms to activate your access.
         </p>
       </div>
 
-      {/* Form fields */}
       <div
         className="refery-form-grid"
         style={{
@@ -608,6 +642,7 @@ function SignCard(props: {
             />
           }
         />
+
         <FormField
           label="Email"
           input={
@@ -623,7 +658,6 @@ function SignCard(props: {
         />
       </div>
 
-      {/* Confirmation checkboxes */}
       <div
         style={{
           background: C.bg,
@@ -641,23 +675,23 @@ function SignCard(props: {
           onChange={props.onReadChange}
           id="read-confirm"
         >
-          I have read and understood the entire agreement above — including the
-          terms on compensation, candidate protection, confidentiality, and
-          non-circumvention.
+          I have read and understood the entire agreement above — including the terms on
+          compensation, candidate protection, confidentiality, and non-circumvention.
         </CheckRow>
+
         <div style={{ height: 1, background: C.borderSoft }} />
+
         <CheckRow
           checked={props.accepted}
           onChange={props.onAcceptedChange}
           id="accept-confirm"
         >
-          I agree to be legally bound by all terms and conditions of this
-          agreement. I understand my electronic signature has the same legal
-          effect as a handwritten signature.
+          I agree to be legally bound by all terms and conditions of this agreement. I
+          understand my electronic signature has the same legal effect as a handwritten
+          signature.
         </CheckRow>
       </div>
 
-      {/* Legal notice */}
       <div
         style={{
           background: C.bg2,
@@ -671,12 +705,10 @@ function SignCard(props: {
         }}
       >
         By clicking <strong style={{ color: C.ink, fontWeight: 600 }}>Accept Agreement</strong>,
-        you create a legally binding electronic signature under the E-SIGN Act
-        and UETA. Your IP address, browser, and timestamp are recorded as part
-        of the signing record.
+        you create a legally binding electronic signature under the E-SIGN Act and UETA.
+        Your IP address, browser, and timestamp are recorded as part of the signing record.
       </div>
 
-      {/* Error */}
       {props.error && (
         <div
           role="alert"
@@ -694,7 +726,6 @@ function SignCard(props: {
         </div>
       )}
 
-      {/* CTA */}
       <button
         type="button"
         className="refery-cta"
@@ -720,7 +751,7 @@ function FormField({
   input,
 }: {
   label: string
-  input: React.ReactNode
+  input: ReactNode
 }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -748,7 +779,7 @@ function CheckRow({
   checked: boolean
   onChange: (v: boolean) => void
   id: string
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <label
@@ -807,6 +838,7 @@ function ShellError({ message }: { message: string }) {
     <PageShell>
       <BrandStyles />
       <Nav />
+
       <div
         style={{
           maxWidth: 520,
@@ -828,6 +860,7 @@ function ShellError({ message }: { message: string }) {
         >
           We couldn&apos;t load this agreement
         </h1>
+
         <p
           style={{
             color: C.ink2,
@@ -838,6 +871,7 @@ function ShellError({ message }: { message: string }) {
         >
           {message}
         </p>
+
         <a
           href="mailto:partners@refery.io"
           style={{
@@ -867,6 +901,7 @@ function ShellSuccess({
     <PageShell>
       <BrandStyles />
       <Nav />
+
       <main
         style={{
           maxWidth: 640,
@@ -891,6 +926,7 @@ function ShellSuccess({
         >
           <CheckIcon />
         </div>
+
         <h1
           style={{
             fontFamily: SERIF,
@@ -905,6 +941,7 @@ function ShellSuccess({
           You&apos;re in
           <em style={{ fontStyle: 'italic', color: C.green }}>.</em>
         </h1>
+
         <p
           style={{
             fontSize: 17,
@@ -915,8 +952,8 @@ function ShellSuccess({
           }}
         >
           Your agreement has been signed. A confirmation has been sent to{' '}
-          <strong style={{ color: C.ink, fontWeight: 600 }}>{email}</strong>.
-          Welcome to the Refery network.
+          <strong style={{ color: C.ink, fontWeight: 600 }}>{email}</strong>. Welcome
+          to the Refery network.
         </p>
 
         {result && (
@@ -933,24 +970,11 @@ function ShellSuccess({
               margin: '0 auto',
             }}
           >
-            <Receipt
-              label="Signed at"
-              value={format(new Date(result.signed_at), 'PPpp')}
-            />
+            <Receipt label="Signed at" value={format(new Date(result.signed_at), 'PPpp')} />
             <ReceiptDivider />
-            <Receipt
-              label="Signature ID"
-              value={result.signature_id}
-              mono
-              truncate
-            />
+            <Receipt label="Signature ID" value={result.signature_id} mono truncate />
             <ReceiptDivider />
-            <Receipt
-              label="Agreement hash"
-              value={result.agreement_hash}
-              mono
-              truncate
-            />
+            <Receipt label="Agreement hash" value={result.agreement_hash} mono truncate />
           </div>
         )}
 
@@ -1001,6 +1025,7 @@ function Receipt({
       >
         {label}
       </span>
+
       <span
         style={{
           fontFamily: mono
@@ -1027,7 +1052,7 @@ function ReceiptDivider() {
 }
 
 /* ============================================================================
- * Tiny icons (no external icon lib — keeps brand consistent)
+ * Tiny icons
  * ========================================================================== */
 function Spinner({
   size = 16,
@@ -1037,6 +1062,7 @@ function Spinner({
   color?: string
 }) {
   const id = useMemo(() => `spinner-${Math.random().toString(36).slice(2)}`, [])
+
   return (
     <span
       role="status"
@@ -1055,6 +1081,7 @@ function Spinner({
           }
         }
       `}</style>
+
       <svg
         viewBox="0 0 24 24"
         width={size}
@@ -1084,13 +1111,7 @@ function Spinner({
 
 function CheckIcon() {
   return (
-    <svg
-      width="28"
-      height="28"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-    >
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
         d="M5 12.5L10 17.5L19 7.5"
         stroke={C.green}

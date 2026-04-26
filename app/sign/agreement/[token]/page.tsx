@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   description: 'Review and sign your Refery partner agreement',
 }
 
+// Force dynamic rendering - never cache this page
+export const dynamic = 'force-dynamic'
+
 export default async function AgreementSigningPage({
   params,
 }: {

@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import {
   generateAgreementHash,
@@ -7,21 +7,65 @@ import {
   getAgreementVersion,
   AgreementType,
 } from '@/lib/agreements'
-import { requireAdmin } from '@/lib/admin-auth'
+
+const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+
+async function checkAdminAccess() {
+  const supabase = await createClient()
+  const adminClient = createAdminClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      adminClient,
+      userId: null,
+    }
+  }
+
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+  if (!isSuperAdmin) {
+    const { data: adminData } = await adminClient
+      .from('users_admin')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+
+    if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
+      return {
+        ok: false,
+        response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+        adminClient,
+        userId: user.id,
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    response: null,
+    adminClient,
+    userId: user.id,
+  }
+}
 
 // GET - List all agreement links (admin only)
 export async function GET(request: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await checkAdminAccess()
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status })
+    return auth.response
   }
 
-  const adminClient = createAdminClient()
   const searchParams = request.nextUrl.searchParams
   const recruiterId = searchParams.get('recruiter_id')
   const status = searchParams.get('status')
 
-  let query = adminClient
+  let query = auth.adminClient
     .from('agreement_links')
     .select('*')
     .order('created_at', { ascending: false })
@@ -41,14 +85,13 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new agreement link (admin only)
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await checkAdminAccess()
   if (!auth.ok) {
-    return NextResponse.json({ error: auth.message }, { status: auth.status })
+    return auth.response
   }
 
-  const adminClient = createAdminClient()
-
   let body: { recruiter_id?: string; agreement_type?: AgreementType }
+
   try {
     body = await request.json()
   } catch {
@@ -71,8 +114,8 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Get recruiter info (service role — RLS-safe)
-  const { data: recruiter, error: recruiterError } = await adminClient
+  // Get recruiter info using admin client
+  const { data: recruiter, error: recruiterError } = await auth.adminClient
     .from('prospect_recruiters')
     .select('id, name, email')
     .eq('id', recruiter_id)
@@ -82,6 +125,7 @@ export async function POST(request: NextRequest) {
     console.error('[agreements/links POST] recruiter lookup failed:', recruiterError)
     return NextResponse.json({ error: recruiterError.message }, { status: 500 })
   }
+
   if (!recruiter) {
     return NextResponse.json({ error: 'Recruiter not found' }, { status: 404 })
   }
@@ -92,11 +136,11 @@ export async function POST(request: NextRequest) {
   const agreementHash = await generateAgreementHash(agreementContent)
   const token = generateSigningToken()
 
-  // Default link expiry: 30 days from now (in case the column is NOT NULL)
+  // Default link expiry: 30 days from now
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
 
-  // Create the agreement link (service role — RLS-safe)
-  const { data, error } = await adminClient
+  // Create the agreement link
+  const { data, error } = await auth.adminClient
     .from('agreement_links')
     .insert({
       token,
