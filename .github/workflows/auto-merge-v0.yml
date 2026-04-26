@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   automerge:
-    if: startsWith(github.head_ref, 'v0/')
+    if: startsWith(github.head_ref, 'v0/') || github.head_ref == 'commit-to-main'
     runs-on: ubuntu-latest
     steps:
       - name: Enable auto-merge
