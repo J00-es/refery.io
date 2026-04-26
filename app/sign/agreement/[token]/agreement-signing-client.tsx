@@ -194,48 +194,57 @@ export function AgreementSigningClient({ token }: { token: string }) {
   if (!agreement) return null
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <FileSignature className="h-8 w-8 text-emerald-600" />
-          <h1 className="text-2xl md:text-3xl font-semibold">Refery Partner Agreement</h1>
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
+        {/* Header */}
+        <div className="text-center mb-8 md:mb-10">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-emerald-100 mb-5">
+            <FileSignature className="h-7 w-7 text-emerald-600" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-normal tracking-tight text-foreground mb-3">
+            Refery Partner Agreement
+          </h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">
+            Please review and sign the agreement below to become a Refery partner.
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Please review and sign the agreement below to become a Refery partner.
-        </p>
-      </div>
 
       {/* Agreement Info Card */}
-      <Card className="mb-6">
+      <Card className="mb-6 border-emerald-100 bg-gradient-to-b from-emerald-50/30 to-white">
         <CardHeader className="pb-4">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
-              <CardTitle className="text-lg">{AGREEMENT_TYPE_LABELS[agreement.agreement_type]}</CardTitle>
-              <CardDescription>Version {agreement.agreement_version}</CardDescription>
+              <CardTitle className="text-lg font-semibold text-foreground">
+                {AGREEMENT_TYPE_LABELS[agreement.agreement_type]}
+              </CardTitle>
+              <CardDescription className="text-emerald-700/70">
+                Version {agreement.agreement_version}
+              </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                Expires {format(new Date(agreement.expires_at), 'PPP')}
-              </span>
-            </div>
+            <Badge variant="outline" className="w-fit border-slate-300 text-slate-600 gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              Expires {format(new Date(agreement.expires_at), 'PPP')}
+            </Badge>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/80 rounded-lg border border-slate-100">
             <div className="flex items-center gap-3">
-              <User className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100">
+                <User className="h-4 w-4 text-slate-600" />
+              </div>
               <div>
-                <p className="text-xs text-muted-foreground">Prepared for</p>
-                <p className="font-medium">{agreement.recruiter_name}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Prepared for</p>
+                <p className="font-medium text-foreground">{agreement.recruiter_name}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Mail className="h-5 w-5 text-muted-foreground" />
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100">
+                <Mail className="h-4 w-4 text-slate-600" />
+              </div>
               <div>
-                <p className="text-xs text-muted-foreground">Email</p>
-                <p className="font-medium">{agreement.recruiter_email}</p>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Email</p>
+                <p className="font-medium text-foreground">{agreement.recruiter_email}</p>
               </div>
             </div>
           </div>
@@ -243,16 +252,16 @@ export function AgreementSigningClient({ token }: { token: string }) {
       </Card>
 
       {/* Agreement Content */}
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
+      <Card className="mb-6 overflow-hidden">
+        <CardHeader className="pb-3 bg-slate-50/50 border-b">
           <div className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-muted-foreground" />
+            <FileText className="h-5 w-5 text-emerald-600" />
             <CardTitle className="text-lg">Agreement Terms</CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="h-[480px] md:h-[600px] border rounded-lg bg-background">
-            <div className="px-6 py-6 md:px-8 md:py-8">
+        <CardContent className="p-0">
+          <ScrollArea className="h-[500px] md:h-[650px]">
+            <div className="px-5 py-6 sm:px-8 sm:py-8 md:px-10 md:py-10 bg-white">
               <AgreementContent content={agreement.agreement_content} />
             </div>
           </ScrollArea>
@@ -260,9 +269,9 @@ export function AgreementSigningClient({ token }: { token: string }) {
       </Card>
 
       {/* Signing Form */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Sign Agreement</CardTitle>
+      <Card className="border-slate-200 shadow-sm">
+        <CardHeader className="bg-slate-50/50 border-b">
+          <CardTitle className="text-lg font-semibold">Sign Agreement</CardTitle>
           <CardDescription>
             Please confirm your details and accept the terms to sign the agreement.
           </CardDescription>
@@ -355,6 +364,7 @@ export function AgreementSigningClient({ token }: { token: string }) {
           </Button>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
