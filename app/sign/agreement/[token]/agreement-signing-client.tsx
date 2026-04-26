@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { AGREEMENT_TYPE_LABELS } from '@/lib/agreements'
+import { AgreementContent } from '@/components/agreement-content'
 
 interface AgreementData {
   id: string
@@ -250,10 +251,10 @@ export function AgreementSigningClient({ token }: { token: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-[400px] md:h-[500px] border rounded-lg p-4 bg-white">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-700">
-              {agreement.agreement_content}
-            </pre>
+          <ScrollArea className="h-[480px] md:h-[600px] border rounded-lg bg-background">
+            <div className="px-6 py-6 md:px-8 md:py-8">
+              <AgreementContent content={agreement.agreement_content} />
+            </div>
           </ScrollArea>
         </CardContent>
       </Card>

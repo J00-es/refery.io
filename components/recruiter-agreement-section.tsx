@@ -43,6 +43,7 @@ import {
   AGREEMENT_TYPE_LABELS,
   getAgreementText 
 } from '@/lib/agreements'
+import { AgreementContent } from '@/components/agreement-content'
 
 interface RecruiterAgreementSectionProps {
   recruiterId: string
@@ -382,10 +383,14 @@ export function RecruiterAgreementSection({
               
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Agreement Content</p>
-                <ScrollArea className="h-[300px] border rounded p-3 bg-slate-50">
-                  <pre className="whitespace-pre-wrap font-sans text-xs">
-                    {viewingAgreement.agreement_content}
-                  </pre>
+                <ScrollArea className="h-[360px] border rounded bg-background">
+                  <div className="px-5 py-5">
+                    <AgreementContent
+                      content={viewingAgreement.agreement_content}
+                      className="text-[13px] leading-6"
+                      sectionDividers={false}
+                    />
+                  </div>
                 </ScrollArea>
               </div>
             </div>
