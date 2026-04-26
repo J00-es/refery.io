@@ -13,9 +13,5 @@ export default async function AgreementSigningPage({
 }) {
   const { token } = await params
 
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
-      <AgreementSigningClient token={token} />
-    </div>
-  )
+  return <AgreementSigningClient token={token} />
 }

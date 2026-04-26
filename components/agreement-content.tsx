@@ -1,246 +1,391 @@
 'use client'
 
 import { Fragment, useMemo } from 'react'
-import { cn } from '@/lib/utils'
+
+/**
+ * Refery brand tokens — mirrored from app/page.tsx so this component
+ * looks consistent on the public sign page and inside the admin dashboard.
+ */
+const C = {
+  ink: '#100F0F',
+  ink2: 'rgba(16,15,15,0.72)',
+  ink3: 'rgba(16,15,15,0.48)',
+  green: '#2A6B45',
+  greenBg: '#EBF4EF',
+  border: 'rgba(16,15,15,0.10)',
+  borderSoft: 'rgba(16,15,15,0.06)',
+}
+
+const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif"
+const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
 
 type Block =
   | { type: 'h1'; text: string }
-  | { type: 'h2'; text: string }
+  | { type: 'h2'; num: string | null; rest: string }
   | { type: 'h3'; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'list'; items: string[] }
   | { type: 'hr' }
 
 /**
- * Parses lightweight markup used in agreement texts:
- *   "# "   document title
- *   "## "  numbered top-level section
- *   "### " sub-heading
- *   "- "   bullet item (consecutive lines = single list)
- *   "**bold**" inline emphasis
- *   "---"  horizontal rule
+ * Lightweight markup parser for Refery agreements:
+ *   "# "      document title
+ *   "## "     numbered top-level section (e.g. "## 1. Your payout")
+ *   "### "    sub-heading
+ *   "- "      bullet item (consecutive lines collapse to one list)
+ *   "**bold**" inline emphasis (lead-ins, defined terms)
+ *   "---"     horizontal rule
  *
- * Plain text without markers (legacy v1.0 agreements) renders as
- * paragraphs separated by blank lines, so old signed agreements still
- * display readably.
+ * Plain text without markers (legacy v1.0 agreements signed before the v1.1
+ * migration) renders gracefully as paragraphs so historical records remain
+ * readable.
  */
 function parse(content: string): Block[] {
   if (!content) return []
-  
+
   const lines = content.replace(/\r\n/g, '\n').split('\n')
   const blocks: Block[] = []
-  let paraBuffer: string[] = []
-  let listBuffer: string[] = []
+  let pBuf: string[] = []
+  let ulBuf: string[] = []
 
-  const flushParagraph = () => {
-    if (paraBuffer.length) {
-      blocks.push({ type: 'paragraph', text: paraBuffer.join(' ') })
-      paraBuffer = []
+  const flushP = () => {
+    if (pBuf.length) {
+      blocks.push({ type: 'paragraph', text: pBuf.join(' ') })
+      pBuf = []
     }
   }
-  const flushList = () => {
-    if (listBuffer.length) {
-      blocks.push({ type: 'list', items: [...listBuffer] })
-      listBuffer = []
+  const flushUl = () => {
+    if (ulBuf.length) {
+      blocks.push({ type: 'list', items: [...ulBuf] })
+      ulBuf = []
     }
   }
   const flushAll = () => {
-    flushParagraph()
-    flushList()
+    flushP()
+    flushUl()
   }
 
   for (const raw of lines) {
-    const trimmed = raw.trim()
+    const line = raw.trim()
 
-    if (!trimmed) {
+    if (!line) {
       flushAll()
       continue
     }
-
-    // Document title: # Title
-    if (trimmed.startsWith('# ')) {
-      flushAll()
-      blocks.push({ type: 'h1', text: trimmed.slice(2).trim() })
-      continue
-    }
-    
-    // Section heading: ## 1. Section Name
-    if (trimmed.startsWith('## ')) {
-      flushAll()
-      blocks.push({ type: 'h2', text: trimmed.slice(3).trim() })
-      continue
-    }
-    
-    // Sub-heading: ### Sub-section
-    if (trimmed.startsWith('### ')) {
-      flushAll()
-      blocks.push({ type: 'h3', text: trimmed.slice(4).trim() })
-      continue
-    }
-    
-    // Horizontal rule
-    if (trimmed === '---' || trimmed === '***' || trimmed === '___') {
+    if (line === '---' || line === '***' || line === '___') {
       flushAll()
       blocks.push({ type: 'hr' })
       continue
     }
-    
-    // Bullet list item: - Item text
-    if (trimmed.startsWith('- ')) {
-      flushParagraph()
-      listBuffer.push(trimmed.slice(2).trim())
+    if (line.startsWith('# ')) {
+      flushAll()
+      blocks.push({ type: 'h1', text: line.slice(2).trim() })
       continue
     }
-
-    // Regular paragraph line
-    flushList()
-    paraBuffer.push(trimmed)
+    if (line.startsWith('## ')) {
+      flushAll()
+      const rest = line.slice(3).trim()
+      const m = rest.match(/^(\d+)\.\s+(.+)$/)
+      blocks.push(
+        m
+          ? { type: 'h2', num: m[1], rest: m[2] }
+          : { type: 'h2', num: null, rest },
+      )
+      continue
+    }
+    if (line.startsWith('### ')) {
+      flushAll()
+      blocks.push({ type: 'h3', text: line.slice(4).trim() })
+      continue
+    }
+    if (line.startsWith('- ')) {
+      flushP()
+      ulBuf.push(line.slice(2).trim())
+      continue
+    }
+    flushUl()
+    pBuf.push(line)
   }
-
   flushAll()
   return blocks
 }
 
 function renderInline(text: string, keyPrefix: string) {
-  // Split on **bold** markers, preserving the markers for identification
+  if (!text.includes('**')) return text
   const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean)
-  
   return parts.map((part, i) => {
     if (part.startsWith('**') && part.endsWith('**')) {
-      const innerText = part.slice(2, -2)
       return (
         <strong
-          key={`${keyPrefix}-${i}`}
-          className="font-semibold text-foreground"
+          key={`${keyPrefix}-b-${i}`}
+          style={{
+            fontWeight: 600,
+            color: C.ink,
+            letterSpacing: '-0.005em',
+          }}
         >
-          {innerText}
+          {part.slice(2, -2)}
         </strong>
       )
     }
-    return <Fragment key={`${keyPrefix}-${i}`}>{part}</Fragment>
+    return <Fragment key={`${keyPrefix}-t-${i}`}>{part}</Fragment>
   })
 }
 
 interface AgreementContentProps {
   content: string
+  /** Tighter spacing/typography for compact contexts (e.g. dashboard dialog). */
+  density?: 'comfortable' | 'compact'
+  /** Show the small "REFERY · PARTNER AGREEMENT" eyebrow above the title. */
+  showEyebrow?: boolean
   className?: string
-  /** Adds a subtle top border above each numbered section heading. Defaults to true. */
-  sectionDividers?: boolean
 }
 
 export function AgreementContent({
   content,
+  density = 'comfortable',
+  showEyebrow = true,
   className,
-  sectionDividers = true,
 }: AgreementContentProps) {
   const blocks = useMemo(() => parse(content), [content])
-  let h2Count = 0
 
-  // If no structured blocks were detected (legacy plain text), show as prose
-  const hasStructuredContent = blocks.some(
-    (b) => b.type === 'h1' || b.type === 'h2' || b.type === 'h3' || b.type === 'list'
+  // Detect legacy plain-text agreements (no markdown structure at all) so we
+  // can still render them readably with a clean paragraph-only fallback.
+  const hasStructure = blocks.some(
+    (b) =>
+      b.type === 'h1' ||
+      b.type === 'h2' ||
+      b.type === 'h3' ||
+      b.type === 'list',
   )
 
-  if (!hasStructuredContent && blocks.length > 0) {
-    // Fallback: render as simple prose paragraphs
+  const compact = density === 'compact'
+  const bodySize = compact ? 14 : 16
+  const bodyLine = compact ? 1.7 : 1.78
+  const sectionGap = compact ? 36 : 56
+  const titleSize = compact
+    ? 'clamp(28px, 3.4vw, 36px)'
+    : 'clamp(36px, 4.4vw, 48px)'
+  const h2Size = compact
+    ? 'clamp(20px, 2.4vw, 24px)'
+    : 'clamp(24px, 3vw, 30px)'
+
+  // ----- Legacy fallback render (plain v1.0 paragraphs) -----
+  if (!hasStructure) {
+    const paragraphs = content
+      .replace(/\r\n/g, '\n')
+      .split(/\n\n+/)
+      .map((p) => p.trim())
+      .filter(Boolean)
     return (
       <article
-        className={cn(
-          'prose prose-slate prose-sm max-w-none',
-          'prose-p:my-3 prose-p:leading-relaxed',
-          className,
-        )}
+        className={className}
+        style={{
+          fontFamily: SANS,
+          color: C.ink2,
+          fontSize: bodySize,
+          lineHeight: bodyLine,
+        }}
       >
-        {blocks.map((block, i) => {
-          if (block.type === 'paragraph') {
-            return (
-              <p key={i} className="text-foreground/80">
-                {renderInline(block.text, String(i))}
-              </p>
-            )
-          }
-          return null
-        })}
+        {paragraphs.map((p, i) => (
+          <p
+            key={i}
+            style={{
+              margin: '0 0 16px 0',
+              whiteSpace: 'pre-wrap',
+            }}
+          >
+            {p}
+          </p>
+        ))}
       </article>
     )
   }
 
+  // ----- Structured render (v1.1+) -----
+  let h2Index = 0
   return (
     <article
-      className={cn(
-        'text-[15px] leading-7 text-foreground/80',
-        className,
-      )}
+      className={className}
+      style={{
+        fontFamily: SANS,
+        color: C.ink,
+        fontSize: bodySize,
+        lineHeight: bodyLine,
+        WebkitFontSmoothing: 'antialiased',
+        MozOsxFontSmoothing: 'grayscale',
+      }}
     >
       {blocks.map((block, i) => {
         switch (block.type) {
           case 'h1':
             return (
-              <h1
+              <header
                 key={i}
-                className="font-serif text-2xl sm:text-3xl md:text-4xl font-normal text-foreground tracking-tight text-balance mb-4 sm:mb-6"
+                style={{
+                  marginBottom: compact ? 28 : 40,
+                  paddingBottom: compact ? 20 : 28,
+                  borderBottom: `1px solid ${C.border}`,
+                }}
               >
-                {block.text}
-              </h1>
+                {showEyebrow && (
+                  <div
+                    style={{
+                      fontFamily: SANS,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: C.green,
+                      marginBottom: 14,
+                    }}
+                  >
+                    Refery
+                    <span style={{ color: C.ink3, margin: '0 8px' }}>·</span>
+                    Partner Agreement
+                  </div>
+                )}
+                <h1
+                  style={{
+                    fontFamily: SERIF,
+                    fontWeight: 400,
+                    fontSize: titleSize,
+                    lineHeight: 1.04,
+                    letterSpacing: '-0.018em',
+                    color: C.ink,
+                    margin: 0,
+                  }}
+                >
+                  {block.text}
+                </h1>
+              </header>
             )
+
           case 'h2': {
-            const isFirst = h2Count === 0
-            h2Count += 1
+            const isFirst = h2Index === 0
+            h2Index += 1
             return (
               <h2
                 key={i}
-                className={cn(
-                  'font-serif text-lg sm:text-xl md:text-2xl font-normal text-foreground tracking-tight text-balance',
-                  isFirst ? 'mt-6 sm:mt-8' : 'mt-10 sm:mt-12',
-                  sectionDividers && !isFirst && 'pt-6 sm:pt-8 border-t border-border/60',
-                  'mb-3',
-                )}
+                style={{
+                  fontFamily: SERIF,
+                  fontWeight: 400,
+                  fontSize: h2Size,
+                  lineHeight: 1.18,
+                  letterSpacing: '-0.012em',
+                  color: C.ink,
+                  marginTop: isFirst ? (compact ? 8 : 16) : sectionGap,
+                  marginBottom: compact ? 14 : 20,
+                  paddingTop: isFirst ? 0 : compact ? 24 : 36,
+                  borderTop: isFirst ? 'none' : `1px solid ${C.borderSoft}`,
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: compact ? 10 : 14,
+                  flexWrap: 'wrap',
+                }}
               >
-                {block.text}
+                {block.num && (
+                  <em
+                    style={{
+                      fontStyle: 'italic',
+                      color: C.green,
+                      fontWeight: 400,
+                      fontFamily: SERIF,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {block.num}.
+                  </em>
+                )}
+                <span style={{ color: C.ink }}>{block.rest}</span>
               </h2>
             )
           }
+
           case 'h3':
             return (
               <h3
                 key={i}
-                className="text-base md:text-[17px] font-semibold text-foreground tracking-tight mt-5 sm:mt-6 mb-2"
+                style={{
+                  fontFamily: SANS,
+                  fontWeight: 600,
+                  fontSize: compact ? 14 : 15,
+                  lineHeight: 1.4,
+                  letterSpacing: '-0.005em',
+                  color: C.ink,
+                  marginTop: compact ? 22 : 32,
+                  marginBottom: compact ? 8 : 10,
+                }}
               >
                 {block.text}
               </h3>
             )
-          case 'hr':
+
+          case 'paragraph':
             return (
-              <hr
+              <p
                 key={i}
-                className="my-6 sm:my-8 border-border/50"
-              />
+                style={{
+                  margin: '0 0 16px 0',
+                  color: C.ink2,
+                  fontSize: bodySize,
+                  lineHeight: bodyLine,
+                }}
+              >
+                {renderInline(block.text, String(i))}
+              </p>
             )
+
           case 'list':
             return (
-              <ul key={i} className="my-3 sm:my-4 space-y-2 sm:space-y-2.5">
-                {block.items.map((item, j) => (
+              <ul
+                key={i}
+                style={{
+                  listStyle: 'none',
+                  padding: 0,
+                  margin: '0 0 18px 0',
+                }}
+              >
+                {block.items.map((it, j) => (
                   <li
                     key={j}
-                    className="flex gap-2.5 sm:gap-3 pl-0.5 sm:pl-1"
+                    style={{
+                      position: 'relative',
+                      paddingLeft: 24,
+                      marginBottom: 10,
+                      color: C.ink2,
+                      fontSize: bodySize,
+                      lineHeight: bodyLine,
+                    }}
                   >
                     <span
-                      aria-hidden="true"
-                      className="mt-[11px] inline-block h-1 w-1 sm:h-1.5 sm:w-1.5 flex-shrink-0 rounded-full bg-emerald-500/70"
+                      aria-hidden
+                      style={{
+                        position: 'absolute',
+                        left: 6,
+                        top: '0.7em',
+                        width: 6,
+                        height: 6,
+                        borderRadius: '50%',
+                        background: C.green,
+                      }}
                     />
-                    <span className="flex-1">
-                      {renderInline(item, `${i}-${j}`)}
-                    </span>
+                    {renderInline(it, `${i}-${j}`)}
                   </li>
                 ))}
               </ul>
             )
-          case 'paragraph':
-          default:
+
+          case 'hr':
             return (
-              <p key={i} className="my-3 sm:my-4 first:mt-0">
-                {renderInline(block.text, String(i))}
-              </p>
+              <hr
+                key={i}
+                style={{
+                  border: 'none',
+                  borderTop: `1px solid ${C.border}`,
+                  margin: compact ? '24px 0' : '40px 0',
+                }}
+              />
             )
         }
       })}

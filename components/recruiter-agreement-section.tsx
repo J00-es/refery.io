@@ -413,12 +413,12 @@ export function RecruiterAgreementSection({
               
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Agreement Content</p>
-                <ScrollArea className="h-[360px] border rounded bg-background">
-                  <div className="px-5 py-5">
+                <ScrollArea className="h-[420px] border rounded-lg" style={{ background: '#F8F8F3' }}>
+                  <div className="px-6 py-6">
                     <AgreementContent
                       content={viewingAgreement.agreement_content}
-                      className="text-[13px] leading-6"
-                      sectionDividers={false}
+                      density="compact"
+                      showEyebrow={false}
                     />
                   </div>
                 </ScrollArea>
