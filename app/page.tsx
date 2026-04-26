@@ -938,8 +938,9 @@ export default function LandingPage() {
         }}>
           <div style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)' }}>© 2026 Refery.io. All rights reserved.</div>
           <div style={{ display: 'flex', gap: 20 }}>
-            <a href="#" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Terms</a>
-            <a href="#" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Privacy</a>
+            <a href="/terms" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Terms</a>
+            <a href="/privacy" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Privacy</a>
+            <a href="/recruiting-partner-agreement" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Recruiting Partner Agreement</a>
           </div>
         </div>
       </footer>
