@@ -533,16 +533,28 @@ export function ProspectList({ type, data, matchedUsers = {} }: ProspectListProp
                 return (
                   <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50">
                     <TableCell>
-                      <Link href={`/${type}s/${item.id}`} className="flex items-center gap-2">
-                        <span className="font-medium">{item.name}</span>
-                        {onboarded && (
-                          <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            User
-                          </Badge>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/${type}s/${item.id}`} className="flex items-center gap-2">
+                          <span className="font-medium">{item.name}</span>
+                          {onboarded && (
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              User
+                            </Badge>
+                          )}
+                        </Link>
+                        {item.linkedin_url && (
+                          <a 
+                            href={item.linkedin_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="hover:opacity-70 transition-opacity"
+                          >
+                            <Linkedin className="h-3.5 w-3.5 text-blue-600" />
+                          </a>
                         )}
-                        {item.linkedin_url && <Linkedin className="h-3.5 w-3.5 text-blue-600" />}
-                      </Link>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
@@ -631,7 +643,15 @@ export function ProspectList({ type, data, matchedUsers = {} }: ProspectListProp
                             <CheckCircle className="h-4 w-4 text-green-600 shrink-0" />
                           )}
                           {item.linkedin_url && (
-                            <Linkedin className="h-4 w-4 text-blue-600 shrink-0" />
+                            <a 
+                              href={item.linkedin_url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="hover:opacity-70 transition-opacity"
+                            >
+                              <Linkedin className="h-4 w-4 text-blue-600 shrink-0" />
+                            </a>
                           )}
                         </CardTitle>
                         {title && (

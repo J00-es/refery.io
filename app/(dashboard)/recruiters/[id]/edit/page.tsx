@@ -169,14 +169,14 @@ export default function EditRecruiterPage({ params }: PageProps) {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Type</label>
                 <Select
-                  value={formData.recruiter_type}
-                  onValueChange={(v) => setFormData({ ...formData, recruiter_type: v })}
+                  value={formData.recruiter_type || '_none'}
+                  onValueChange={(v) => setFormData({ ...formData, recruiter_type: v === '_none' ? '' : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="_none">None</SelectItem>
                     {Object.entries(RECRUITER_TYPES).map(([value, config]) => (
                       <SelectItem key={value} value={value}>{config.label}</SelectItem>
                     ))}
@@ -210,14 +210,14 @@ export default function EditRecruiterPage({ params }: PageProps) {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Assessment</label>
                 <Select
-                  value={formData.assessment}
-                  onValueChange={(v) => setFormData({ ...formData, assessment: v })}
+                  value={formData.assessment || '_none'}
+                  onValueChange={(v) => setFormData({ ...formData, assessment: v === '_none' ? '' : v })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select assessment" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="_none">None</SelectItem>
                     {Object.entries(PROSPECT_ASSESSMENTS).map(([value, config]) => (
                       <SelectItem key={value} value={value}>{config.label}</SelectItem>
                     ))}
