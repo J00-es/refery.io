@@ -1,0 +1,52 @@
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+
+const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+
+export type AdminCheckResult =
+  | { ok: true; userId: string; email: string; role: 'super_admin' | 'admin' }
+  | { ok: false; status: 401 | 403; message: string }
+
+/**
+ * Verifies that the current request is from an authenticated admin or
+ * super-admin. Mirrors the pattern used by /api/admin/* routes:
+ *
+ *   - Reads the session cookie via the SSR client.
+ *   - Honors the SUPER_ADMIN_EMAILS allowlist (covers cases where the
+ *     users_admin row hasn't been linked to an auth.users id yet).
+ *   - Looks up users_admin by `email` using the service-role client to
+ *     bypass RLS — direct user-bound queries against users_admin can hit
+ *     recursive policy errors and return 500.
+ */
+export async function requireAdmin(): Promise<AdminCheckResult> {
+  const supabase = await createClient()
+  const adminClient = createAdminClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user || !user.email) {
+    return { ok: false, status: 401, message: 'Unauthorized' }
+  }
+
+  if (SUPER_ADMIN_EMAILS.includes(user.email)) {
+    return { ok: true, userId: user.id, email: user.email, role: 'super_admin' }
+  }
+
+  const { data: adminUser } = await adminClient
+    .from('users_admin')
+    .select('role')
+    .eq('email', user.email)
+    .maybeSingle()
+
+  if (!adminUser || !['admin', 'super_admin'].includes(adminUser.role)) {
+    return { ok: false, status: 403, message: 'Forbidden' }
+  }
+
+  return {
+    ok: true,
+    userId: user.id,
+    email: user.email,
+    role: adminUser.role as 'admin' | 'super_admin',
+  }
+}

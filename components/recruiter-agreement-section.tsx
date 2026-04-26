@@ -43,6 +43,7 @@ import {
   AGREEMENT_TYPE_LABELS,
   getAgreementText 
 } from '@/lib/agreements'
+import { AgreementContent } from '@/components/agreement-content'
 
 interface RecruiterAgreementSectionProps {
   recruiterId: string
@@ -64,6 +65,7 @@ export function RecruiterAgreementSection({
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null)
   const [viewingAgreement, setViewingAgreement] = useState<AgreementLink | null>(null)
   const [viewingSignature, setViewingSignature] = useState<AgreementSignature | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -96,6 +98,7 @@ export function RecruiterAgreementSection({
 
   const handleCreateLink = async () => {
     setCreating(true)
+    setActionError(null)
     try {
       const response = await fetch('/api/agreements/links', {
         method: 'POST',
@@ -108,9 +111,19 @@ export function RecruiterAgreementSection({
 
       if (response.ok) {
         await fetchData()
+      } else {
+        const payload = await response.json().catch(() => null)
+        const message =
+          payload?.error ||
+          `Failed to create agreement link (${response.status})`
+        console.error('[recruiter-agreement] create failed:', message)
+        setActionError(message)
       }
     } catch (error) {
-      console.error('Failed to create agreement link:', error)
+      console.error('[recruiter-agreement] create error:', error)
+      setActionError(
+        error instanceof Error ? error.message : 'Failed to create agreement link',
+      )
     } finally {
       setCreating(false)
     }
@@ -124,6 +137,7 @@ export function RecruiterAgreementSection({
   }
 
   const handleRevokeLink = async (linkId: string) => {
+    setActionError(null)
     try {
       const response = await fetch(`/api/agreements/links/${linkId}`, {
         method: 'PATCH',
@@ -133,9 +147,17 @@ export function RecruiterAgreementSection({
 
       if (response.ok) {
         await fetchData()
+      } else {
+        const payload = await response.json().catch(() => null)
+        setActionError(
+          payload?.error || `Failed to revoke link (${response.status})`,
+        )
       }
     } catch (error) {
-      console.error('Failed to revoke link:', error)
+      console.error('[recruiter-agreement] revoke error:', error)
+      setActionError(
+        error instanceof Error ? error.message : 'Failed to revoke link',
+      )
     }
   }
 
@@ -245,6 +267,15 @@ export function RecruiterAgreementSection({
                   )}
                 </Button>
               </div>
+              {actionError && (
+                <div
+                  role="alert"
+                  className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                >
+                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  <span className="flex-1">{actionError}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -382,10 +413,14 @@ export function RecruiterAgreementSection({
               
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Agreement Content</p>
-                <ScrollArea className="h-[300px] border rounded p-3 bg-slate-50">
-                  <pre className="whitespace-pre-wrap font-sans text-xs">
-                    {viewingAgreement.agreement_content}
-                  </pre>
+                <ScrollArea className="h-[420px] border rounded-lg" style={{ background: '#F8F8F3' }}>
+                  <div className="px-6 py-6">
+                    <AgreementContent
+                      content={viewingAgreement.agreement_content}
+                      density="compact"
+                      showEyebrow={false}
+                    />
+                  </div>
                 </ScrollArea>
               </div>
             </div>

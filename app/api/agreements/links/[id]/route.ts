@@ -3,25 +3,25 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
-// GET - Get a single agreement link (admin only)
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id } = await params
+async function checkAdminAccess() {
   const supabase = await createClient()
   const adminClient = createAdminClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return {
+      ok: false,
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      adminClient,
+    }
   }
 
-  // Super admins bypass all checks
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-  
+
   if (!isSuperAdmin) {
-    // Check admin status using adminClient and email
     const { data: adminData } = await adminClient
       .from('users_admin')
       .select('role')
@@ -29,18 +29,46 @@ export async function GET(
       .single()
 
     if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      return {
+        ok: false,
+        response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }),
+        adminClient,
+      }
     }
   }
 
-  const { data, error } = await adminClient
+  return {
+    ok: true,
+    response: null,
+    adminClient,
+  }
+}
+
+// GET - Get a single agreement link (admin only)
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params
+
+  const auth = await checkAdminAccess()
+  if (!auth.ok) {
+    return auth.response
+  }
+
+  const { data, error } = await auth.adminClient
     .from('agreement_links')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (error) {
+    console.error('[agreements/links/:id GET] query failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   return NextResponse.json(data)
@@ -49,54 +77,46 @@ export async function GET(
 // PATCH - Update agreement link status (admin only - for revoking)
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params
-  const supabase = await createClient()
-  const adminClient = createAdminClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const auth = await checkAdminAccess()
+  if (!auth.ok) {
+    return auth.response
   }
 
-  // Super admins bypass all checks
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-  
-  if (!isSuperAdmin) {
-    // Check admin status using adminClient and email
-    const { data: adminData } = await adminClient
-      .from('users_admin')
-      .select('role')
-      .eq('email', user.email)
-      .single()
+  let body: { status?: string }
 
-    if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const body = await request.json()
   const { status } = body
 
-  if (status === 'revoked') {
-    const { data, error } = await adminClient
-      .from('agreement_links')
-      .update({ 
-        status: 'revoked', 
-        revoked_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json(data)
+  if (status !== 'revoked') {
+    return NextResponse.json({ error: 'Invalid status update' }, { status: 400 })
   }
 
-  return NextResponse.json({ error: 'Invalid status update' }, { status: 400 })
+  const nowIso = new Date().toISOString()
+
+  const { data, error } = await auth.adminClient
+    .from('agreement_links')
+    .update({
+      status: 'revoked',
+      revoked_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('[agreements/links/:id PATCH] update failed:', error)
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json(data)
 }

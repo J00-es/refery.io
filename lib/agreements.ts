@@ -2,7 +2,7 @@
 
 export const AGREEMENT_VERSIONS = {
   scout: '1.0.0',
-  recruiter: '1.0.0',
+  recruiter: '1.1.0',
   client: '1.0.0',
 } as const
 
@@ -244,159 +244,247 @@ This Scout/Partner Agreement ("Agreement") is entered into between Refery, Inc. 
 
 BY ACCEPTING THIS AGREEMENT, YOU ACKNOWLEDGE THAT YOU HAVE READ, UNDERSTOOD, AND AGREE TO BE BOUND BY ALL TERMS AND CONDITIONS SET FORTH HEREIN.`
 
-// Recruiter Agreement Text (more comprehensive for full recruiting partners)
-export const RECRUITER_AGREEMENT_TEXT = `REFERY RECRUITER PARTNER AGREEMENT
+// Recruiter Agreement Text — Recruiting Partner Agreement v1.1
+// Uses lightweight markup parsed by <AgreementContent />:
+//   "# "  document title
+//   "## " numbered section heading
+//   "### " sub-heading
+//   "- "  bullet item
+//   "**bold**" inline emphasis (lead-ins, defined terms)
+//   "---" horizontal rule
+export const RECRUITER_AGREEMENT_TEXT = `# Recruiting Partner Agreement
 
-Version 1.0.0
-Effective Date: Upon Electronic Acceptance
+This Recruiting Partner Agreement ("Agreement") is between Refery and the individual accepting these terms ("Recruiting Partner" or "Partner"). It covers all roles you work on through Refery — now and in the future.
 
-This Recruiter Partner Agreement ("Agreement") is entered into between Refery, Inc. ("Refery," "we," "us," or "our") and the individual or entity accepting this Agreement ("Recruiter," "Partner," "you," or "your").
+## 1. What Refery provides
 
-1. DEFINITIONS
+Refery runs the entire business side so you can focus on what you do best — finding great candidates. Here is what Refery handles on every placement:
 
-1.1 "Candidate" means any individual whose information you submit to Refery for potential employment opportunities.
+**Client acquisition.** Refery finds, qualifies, and signs hiring companies. You receive ready-to-work role briefs with full context: company stage, funding, salary range, must-haves, hiring manager preferences, and timeline. You never cold-pitch a client.
 
-1.2 "Client" means any company or organization that has engaged Refery for recruitment services.
+**Contracts and legal.** Refery negotiates and manages all client agreements, terms, and legal documentation. You never draft, review, or chase a contract.
 
-1.3 "Placement" means when a Candidate you submit is hired by a Client and successfully completes the applicable guarantee period.
+**Invoicing and collection.** Refery invoices clients, tracks payments, enforces late fees, and resolves all billing matters. You never send an invoice or chase a payment.
 
-1.4 "Placement Fee" means the fee paid by the Client to Refery for a successful Placement.
+**Guarantee administration.** Refery manages the 90-day guarantee process with clients, including any refund situations. You are never involved in refund discussions or disputes.
 
-1.5 "Platform" means Refery's proprietary recruitment platform, including all related tools, systems, and services.
+**Talent vetting.** Refery operates a Talent Committee — the team responsible for vetting candidates before they're shared with clients across the broader network. This is what keeps the network high-trust on both sides.
 
-1.6 "Exclusive Role" means a role for which you have been granted exclusive recruiting rights for a specified period.
+**Candidate tracking and protection.** Every qualified submission is timestamped and recorded. Your work is documented and protected from the moment Refery confirms your submission.
 
-2. RECRUITER PARTNER RELATIONSHIP
+**Multi-role matching.** Candidates who pass vetting are matched across every relevant open role on the platform — not just the role you submitted them for. One strong submission has compounding value.
 
-2.1 Independent Contractor Status. You are an independent contractor and not an employee, agent, or partner of Refery. Nothing in this Agreement creates an employment, agency, joint venture, or partnership relationship.
+**No cost to you — ever.** No subscription fees, no platform fees, no membership dues. Refery earns only when you earn.
 
-2.2 Non-Exclusive Arrangement. Unless specifically designated as an Exclusive Role, this Agreement is non-exclusive. You may engage in other recruiting activities, and Refery may engage other recruiters.
+## 2. Your payout
 
-2.3 Platform Access. Upon acceptance of this Agreement, you will receive full access to the Platform to view available roles, submit Candidates, track pipeline progress, and manage your recruiting activities.
+You earn 70% of the placement fee for every successful placement. Refery retains 30%. This split is the same for every Recruiting Partner from your first placement onward — no tiers, no scaling, no fine print.
 
-2.4 Professional Standards. As a Recruiter Partner, you agree to maintain professional standards in all interactions with Candidates and Clients, including timely communication, accurate representation, and ethical conduct.
+Refery works with a growing network of VC-backed startups, each with their own fee arrangement. Depending on the client relationship, a role's placement fee may appear in one of two formats:
 
-3. CANDIDATE SUBMISSION AND PROTECTION
+- **Percentage-based:** A percentage of the candidate's first-year annual base salary (typically 15–20%), as negotiated between Refery and the client. Your payout is 70% of this fee.
+- **Fixed referral fee:** A specific dollar amount (e.g. $10,000, $25,000, $50,000) set by the client. Your payout is 70% of this amount.
 
-3.1 Submission Process. You may submit Candidates through the Platform by providing:
-    (a) The Candidate's resume or CV
-    (b) Your detailed assessment of why the Candidate is a good fit
-    (c) The Candidate's contact information
-    (d) Compensation expectations and availability
-    (e) Any relevant context about the Candidate's situation
+Each role on the platform shows the confirmed fee structure when active. The fee shown at the time of your submission is the fee that applies to any resulting placement.
 
-3.2 Candidate Protection Period. For each Candidate you submit, you receive exclusive protection for that Candidate for a period of twenty-four (24) months from the date of submission acknowledgment ("Protection Period"). During this period, you are entitled to the applicable payout for any Placement of that Candidate with any Client on the Platform.
+## 3. How payouts work
 
-3.3 Submission Confirmation. Your submission is confirmed, and your Protection Period begins, when Refery acknowledges receipt of the Candidate on the Platform.
+Refery handles all invoicing and payment collection from clients. The client pays Refery within 30 days of the candidate's start date, and Refery holds these funds during the 90-day guarantee period.
 
-3.4 Candidate Consent. By submitting a Candidate, you represent and warrant that you have obtained the Candidate's permission to share their information with Refery and our Clients.
+Your payout is processed within 14 business days after the candidate completes 90 days of continuous employment, once Refery has collected the placement fee from the client. Because Refery holds the funds until the guarantee clears, you will never face a clawback. If the placement doesn't work out within 90 days, no money changes hands — clean and final. Once your payout lands, it's yours.
 
-3.5 Quality Standards. To maintain platform quality, submissions should include thoughtful assessments that help match Candidates to appropriate roles.
+On the rare occasion a client doesn't pay despite our enforcement, Refery pursues collection on your behalf and pays you as soon as funds arrive — our interests are aligned with yours. Payouts are tied to actual collection, which is industry standard and what allows us to work with early-stage companies.
 
-4. COMPENSATION
+### What "continuous employment" means
 
-4.1 Payout Percentage. For each successful Placement, you will receive seventy percent (70%) of the Placement Fee ("Your Payout").
+The 90-day clock runs from the candidate's start date. Continuous employment means the candidate is still employed at the end of day 90 — the standard the recruiting industry has used for decades. It covers all the normal reasons a hire might not stick: the candidate resigns, the company terminates them, the role is eliminated, or the engagement ends for any other reason. Standard time off, vacation, holidays, and approved leaves of absence (medical, parental, military) under the hiring company's own leave policies during the 90 days don't affect this. If the hire is still on the team at day 90, your payout clears.
 
-4.2 Fee Structure. Placement Fees vary by role and Client:
-    (a) Fixed referral bonuses typically range from $10,000 to $25,000
-    (b) Percentage-based fees typically range from 15% to 20% of base salary
-    (c) Each role on the Platform displays its confirmed fee structure
-    (d) For a $350,000 senior hire at 20%, Your Payout would be $49,000
-    (e) For a $250,000 role at 15%, Your Payout would be $26,250
+### On the 90-day guarantee
 
-4.3 Payment Terms. Your Payout will be processed within thirty (30) days after the Client pays the Placement Fee to Refery.
+The 90-day, 100%-refund guarantee is the industry default. On select engagements, Refery negotiates more partner-friendly structures with clients — for example, a free replacement search instead of a refund, or earlier payout timing tied to a shorter guarantee. Across all engagements, Refery's goal is to push terms in the partner's direction without losing client relationships. Your interests and ours are aligned: better terms mean faster, cleaner payouts.
 
-4.4 Payment Method. Payments are made via direct bank transfer (ACH or wire) for US-based partners, or via Wise for international partners.
+## 4. What counts as a qualified submission
 
-4.5 No Clawbacks. Once Your Payout is paid, it is yours to keep. There are no clawback provisions on paid placements.
+A submission is "qualified" — and starts your candidate protection — when all three of the following are met:
 
-4.6 Guarantee Period. If a hire's employment ends for any reason during the Client's guarantee period:
-    (a) No Payout is made for that specific placement
-    (b) No money changes hands (Refery refunds the Client directly)
-    (c) Your Protection Period for that Candidate remains fully active for other roles
+- **(a)** You share the candidate's resume or CV, their contact information, and a written assessment of why they are relevant to the role — not just a name or an unvetted profile;
+- **(b)** You have personally vetted the candidate or can speak to their fit based on direct knowledge or a trusted warm introduction;
+- **(c)** Refery confirms receipt and logs the submission on the platform with a timestamp.
 
-5. PROTECTED ECONOMICS
+Simply uploading a name, forwarding a resume without context, or sending an unvetted profile does not constitute a qualified submission and does not start candidate protection. Most partners source against the profile types Refery hires for in general (e.g. senior engineering, growth, founding GTM) and match strong candidates across multiple roles — the qualified submission rule applies the same way regardless of how you sourced.
 
-5.1 Payout Protection. Your payout percentage (70%) and payment timing (within 30 days of Client payment) can never be changed without your express written consent. This protection is fundamental to our partnership.
+## 5. Your candidates are protected
 
-5.2 Operational Changes. Refery may update operational terms (such as submission processes, Platform features, or communication protocols) with thirty (30) days' notice.
+A candidate from a qualified submission is attributed to you for twenty-four (24) months from the confirmed submission date. We chose 24 months because we want you to feel safe sourcing once and getting paid even when hiring cycles run long. If that candidate is hired by the same client within 24 months — for any role, in any department — you earn the payout. This includes hiring through any parent company, subsidiary, affiliate, or related entity of the client.
 
-6. CONFIDENTIALITY
+If multiple Recruiting Partners submit the same candidate, the first qualified submission wins. Refery's timestamped platform records are the source of truth on attribution — once a submission is logged, your work is protected. The same source-of-truth rule applies anywhere this Agreement references attribution disputes (Section 9 company introductions, Section 10 partner introductions).
 
-6.1 Confidential Information. You agree to keep confidential all non-public information about:
-    (a) Clients, including company strategies and hiring plans
-    (b) Candidates, including personal and professional information
-    (c) Fee structures and commercial terms
-    (d) Platform operations and proprietary processes
+## 6. Your work, your way
 
-6.2 Candidate Information. You will handle all Candidate information in accordance with applicable privacy laws and will not use such information for purposes outside of this Agreement.
+You are an independent contractor, not an employee of Refery. You set your own schedule, use your own methods, and choose your own tools. You are responsible for your own taxes, insurance, and business expenses. Refery does not provide benefits, equipment, or employment protections.
 
-6.3 Duration. Confidentiality obligations survive termination of this Agreement.
+There is no exclusivity requirement and no non-compete. You are free to work with other platforms, agencies, or direct clients outside of Refery. The restrictions that do apply are narrow and explained in Section 7 below — they exist to protect the clients and candidates that make Refery work, not to limit your broader recruiting career.
 
-7. NON-CIRCUMVENTION
+**On taxes.** Refery may report payments made to you to the relevant tax authorities as required by applicable law (in the US, under Section 6050W of the Internal Revenue Code) and provide applicable tax forms (such as a 1099-NEC for US-based partners, or the equivalent for partners in other jurisdictions) at year end. If Refery is audited and your records are relevant, you agree to cooperate promptly.
 
-7.1 Client Protection. For a period of twelve (12) months following your last interaction with a Client through the Platform, you agree not to directly solicit recruitment business from that Client outside of Refery.
+## 7. What's restricted, and what isn't
 
-7.2 Pre-Existing Relationships. This non-circumvention clause applies only to Clients you discover through Refery. Your existing client relationships are fully carved out and remain exclusively yours.
+Three narrow restrictions apply, each tied to a specific concern. Together they're the only limits on your work outside of Refery.
 
-7.3 Dispute Resolution. If a pre-existing relationship is disputed, Refery may request supporting evidence such as prior invoices, email correspondence, or other documentation of the prior relationship.
+### (a) Don't go around Refery to clients you met through us
 
-8. REPRESENTATIONS AND WARRANTIES
+Refery invests significantly to bring clients onto the platform — business development, sales, contracts, invoicing, payment collection, account management. Because of that:
 
-8.1 You represent and warrant that:
-    (a) You have the legal right and authority to enter into this Agreement
-    (b) You will comply with all applicable laws and regulations
-    (c) All Candidate information you submit is accurate to the best of your knowledge
-    (d) You have obtained all necessary consents from Candidates
-    (e) You will maintain professional standards in all recruiting activities
-    (f) You will not engage in any discriminatory practices
+You agree not to contact Refery's clients directly for recruitment business, bypass the platform to place candidates, or solicit clients to work with you outside of Refery. This applies to clients you first discovered through Refery, for 12 months after your last interaction with that client's roles.
 
-9. TERM AND TERMINATION
+**What this means in practice.** This clause is triggered only when you actively route a placement, candidate submission, or recruiting engagement around Refery to avoid fees on a client you discovered through us — not by legitimate recruiting work outside the platform, inbound interest from someone who happens to be at a Refery client, or relationships that exist independently of Refery. If you actively circumvent the platform, you owe Refery the full placement fee that would have been earned through it.
 
-9.1 Term. This Agreement begins upon your electronic acceptance and continues until terminated by either party.
+**Pre-existing relationships are fully carved out.** This clause does not apply to clients with whom you had an active, documented business relationship before first accessing their roles on Refery. If a dispute arises, you may be asked to provide evidence such as prior invoices, emails, or placement records.
 
-9.2 Termination for Convenience. Either party may terminate this Agreement with thirty (30) days' written notice.
+### (b) Don't recruit a client's existing employees to other Refery clients
 
-9.3 Termination for Cause. Either party may terminate immediately upon written notice if the other party materially breaches this Agreement and fails to cure within fifteen (15) days of notice.
+While you're actively working with a client through Refery, and for twelve (12) months after your last interaction with that client's roles, you agree not to solicit, recruit, or attempt to place that client's existing employees into roles at other Refery clients.
 
-9.4 Effect of Termination. Upon termination:
-    (a) Your Platform access will be revoked
-    (b) Your Protection Periods for previously submitted Candidates remain in full effect
-    (c) You remain entitled to Payouts for Placements made during active Protection Periods
-    (d) Confidentiality and non-circumvention obligations survive
+This doesn't restrict your general network, inbound candidates, or people who approach you independently. It only means you won't use information or relationships you gained through Refery to actively recruit from a client whose roles you've worked on.
 
-10. LIMITATION OF LIABILITY
+### (c) Don't reroute a candidate who's in an active Refery process
 
-10.1 Exclusion of Damages. To the maximum extent permitted by law, neither party shall be liable for any indirect, incidental, special, consequential, or punitive damages, regardless of the cause of action or theory of liability.
+When a candidate of yours enters Refery's pipeline for a specific client — meaning Refery has confirmed your submission and the client is actively considering them — that placement, with that specific client, must flow through Refery. You can't reroute the same candidate to the same client through another channel to avoid the platform fee. This applies only to that specific candidate-client pairing while the process is active.
 
-10.2 Cap on Liability. Refery's total aggregate liability under this Agreement shall not exceed the total Payouts made to you in the twelve (12) months preceding the claim giving rise to liability.
+Outside that specific active process, nothing changes. The same candidate is still yours to place anywhere else — different companies, your other clients, your direct relationships. Your network is your network.
 
-11. INDEMNIFICATION
+## 8. How confidentiality works on Refery
 
-11.1 You agree to indemnify and hold harmless Refery from any claims, damages, or expenses arising from:
-    (a) Your breach of this Agreement
-    (b) Your violation of any applicable law
-    (c) Any claim by a Candidate related to your handling of their information
+The companies hiring through Refery trust us because we protect them. Many are in stealth, haven't announced their round, or simply don't want candidates reaching out directly using their name. Respecting this trust is how we keep the best roles flowing to you — and how you keep access to them.
 
-12. GENERAL PROVISIONS
+**What's confidential.** Everything you see inside Refery is confidential: company names, role details, hiring manager identities, compensation data, team information, and interview feedback. This obligation continues after this agreement ends.
 
-12.1 Entire Agreement. This Agreement constitutes the entire agreement between the parties regarding its subject matter and supersedes all prior agreements and understandings.
+### The two-gate rule for sharing with candidates
 
-12.2 Amendments. Except as provided in Section 5 (Protected Economics), this Agreement may only be amended in writing signed by authorized representatives of both parties.
+**Before vetting.** You may discuss opportunities with candidates using only high-level anonymized signals — for example, "a Series B fintech in New York that raised $40M," or "a seed-stage AI infra company in SF led by a repeat founder." What you cannot share: the company name, the hiring manager's name, specific product details, the role's URL, or any combination that would make the company identifiable. When in doubt, go more anonymous, not less.
 
-12.3 Governing Law. This Agreement shall be governed by and construed in accordance with the laws of the State of Delaware, without regard to its conflicts of law principles.
+**After vetting.** Once a candidate passes Refery's Talent Committee vetting and signs Refery's Candidate Confidentiality Acknowledgment, they get full visibility — including company, product, team, and hiring manager. From that point, you can speak freely with them about the opportunity.
 
-12.4 Dispute Resolution. Any disputes arising under this Agreement shall be resolved through binding arbitration in accordance with the Commercial Arbitration Rules of the American Arbitration Association. The arbitration shall take place in San Francisco, California.
+### Public sourcing posts — encouraged
 
-12.5 Severability. If any provision of this Agreement is found to be unenforceable, the remaining provisions shall continue in full force and effect.
+Generic posts about the kinds of profiles you're looking for are encouraged. For example: "Looking for forward-deployed engineers in NY at seed/Series A startups" or "Open to talking with senior infra engineers exploring Series B opportunities in SF." These help you find great people and don't breach confidentiality — the company isn't named or identifiable.
 
-12.6 Waiver. The failure of either party to enforce any right under this Agreement shall not constitute a waiver of that right.
+**The line is specificity.** Anything that names or could identify a particular client — even with the name redacted — isn't allowed. Common examples to avoid: combining unique product details with stage and location, naming the founder, sharing screenshots of role pages, or describing a company in a way only its insiders would recognize.
 
-12.7 Assignment. You may not assign this Agreement without Refery's prior written consent. Refery may assign this Agreement in connection with a merger, acquisition, or sale of substantially all assets.
+### Always off-limits
 
-12.8 Notices. All notices shall be in writing and delivered via email to the addresses on file.
+- Contacting hiring managers directly using their name or information learned through Refery.
+- Posting Refery roles on LinkedIn, Indeed, Glassdoor, or any job board under the company's name or disguised as the company.
+- Holding yourself out as an employee or representative of the client company.
+- Sharing role-specific content on social media, newsletters, or public forums in a way that names or identifies a particular client.
 
-BY ACCEPTING THIS AGREEMENT, YOU ACKNOWLEDGE THAT YOU HAVE READ, UNDERSTOOD, AND AGREE TO BE BOUND BY ALL TERMS AND CONDITIONS SET FORTH HEREIN. YOU FURTHER ACKNOWLEDGE THAT THIS AGREEMENT IS LEGALLY BINDING AND ENFORCEABLE.`
+When unsure, ask us first. Email legal@refery.io or message your Refery contact — we'll tell you exactly what you can and can't say about a given role.
+
+If a confidentiality breach occurs, Refery may deactivate your account, forfeit pending referral payouts, and — in cases of serious harm to a client — seek damages for actual losses.
+
+## 9. How Refery uses AI
+
+Refery is an AI-native platform. We use artificial intelligence and machine-learning systems to operate and improve the service — including parsing resumes, matching candidates to roles, summarizing role briefs, surfacing patterns across the network, and helping our team work efficiently.
+
+### What this means for you
+
+Information you submit through Refery — candidate notes, fit assessments, communications with the Refery team, and your platform interactions — may be processed by Refery's AI systems and by trusted third-party AI providers (such as Anthropic, OpenAI, and Google) acting as our sub-processors under confidentiality and data-protection terms. By using the platform, you grant Refery a non-exclusive, worldwide license to use, process, and analyze this content for the purpose of operating, improving, and securing the service.
+
+### What Refery commits to
+
+- Refery does not sell your data.
+- Refery does not allow third-party AI providers to use your content to train their public foundation models.
+- Final placement decisions are made by humans — Refery's AI supports matching and operations but does not make hiring decisions.
+- Confidentiality obligations apply to AI-processed content the same way they apply to anything else: client information stays confidential at every layer.
+
+If you have questions about how a specific piece of information is used, email legal@refery.io.
+
+## 10. Earn more by growing the network
+
+Beyond placements, Refery offers two ways for partners to earn additional income by helping the network grow. These programs stack with each other and with your placement payouts.
+
+### (a) Bring great companies
+
+If you know great startups (Seed to Series B, SF or NY based) that are actively hiring, we'd love an introduction. Send them to refery.io — that's our hiring manager side. To make sure your intro is on the record, copy hello@refery.io when you make the introduction.
+
+For every placement that comes through a startup you introduced to Refery within twenty-four (24) months of the introduction, you earn an additional 10% of the placement fee on top of any other earnings on that placement (including your Recruiting Partner payout). This stacks: if you also submitted the placed candidate, both apply.
+
+A qualified company introduction means you made a warm introduction directly to the company's hiring team (a real conversation or thread — not a forwarded link) and Refery confirms a hiring engagement results from that introduction. The 24-month clock starts when Refery confirms the introduction. If multiple partners introduce the same company, the first confirmed introduction wins.
+
+### (b) Bring great recruiters and scouts
+
+If you know other great recruiters or scouts who would be a fit for Refery, introduce them. Copy hello@refery.io when you connect them with the Refery team.
+
+For each successful hire that comes through a recruiter or scout you introduced — meaning the candidate they submitted is hired and clears the 90-day guarantee — you earn a $1,000 bonus per hire, up to $20,000 lifetime per person you introduce (a maximum of 20 hires from any single introduction). This bonus is on top of any other earnings on the placement and is paid alongside the underlying payout, subject to the same 90-day hold and client collection rules.
+
+### How to qualify for the recruiter/scout bonus
+
+- You make a warm introduction in good faith directly to the Refery team (a real conversation, email thread, or scheduled intro — not a forwarded link).
+- The recruiter or scout you introduced is onboarded to Refery and signs the applicable agreement.
+- They make at least one qualified submission within 30 days of the warm introduction. This activation step is what triggers your eligibility for the bonus on their future hires.
+
+### Notes on both programs
+
+- First confirmed introduction wins for any contested attribution; Refery's timestamped records are the source of truth.
+- Bonuses do not chain through multiple referral levels — if Partner A introduces Partner B, who introduces Partner C, only A earns on B's hires (not on C's).
+- Refery may pause or end either program at any time with 30 days' notice. Bonuses already earned, and bonuses on hires that close within 12 months of any introduction made before the program ends, are honored under the terms in effect when the introduction was made.
+- Refery may decline to credit introductions that don't reflect a genuine relationship or were made in bad faith.
+
+## 11. Your responsibilities
+
+Submit only candidates who meet the role requirements. Include accurate information and do not misrepresent a candidate's experience, skills, availability, or compensation expectations. By submitting a candidate, you confirm that you have their consent to share their personal information with Refery and its clients for employment evaluation purposes.
+
+You are responsible for the accuracy of the information you provide about candidates. If a candidate's qualifications or experience are materially misrepresented, you agree to indemnify Refery against any resulting claims, costs, or damages from clients.
+
+### What Refery commits to
+
+In return: Refery indemnifies Partner against third-party claims that arise from Refery's gross negligence, willful misconduct, or material breach of this Agreement — capped at the total payouts Partner has earned in the 12 months preceding the claim. Both parties' indemnification obligations are mutual in scope and proportional to the harm.
+
+## 12. Account access and ending the agreement
+
+Refery's value to clients depends on the quality of the network. If quality concerns arise, Refery will notify you and give you a reasonable opportunity to improve. If the issue continues, Refery may reduce your role access, deactivate your account, or terminate this agreement. In cases of dishonesty, material misrepresentation, serious misconduct, breach of confidentiality, or violation of any term in this agreement, Refery may deactivate your account immediately, without prior notice.
+
+Either party can end this agreement at any time, for any reason, without notice. The following obligations survive termination:
+
+- Payouts earned and pending the 90-day hold (subject to client collection)
+- The 24-month candidate protection window for candidates already submitted
+- The 24-month company introduction window under Section 10(a)
+- Recruiter/scout introduction bonus rights for hires that close within 12 months of an introduction made while the program was active
+- The three restrictions in Section 7
+- Confidentiality (Section 8)
+- AI license for content already submitted (Section 9)
+- Tax cooperation (Section 6)
+- Mutual indemnification (Section 11)
+
+## 13. Updates to this agreement
+
+Refery may update operational terms (such as quality standards, platform rules, and confidentiality provisions) with 30 days' notice. Continued use of the platform after the notice period constitutes acceptance of those changes.
+
+**Two protections for you.** First, changes to your payout percentage or payment timing require your written consent and do not take effect through continued platform use alone. Second, updates that materially expand your obligations or restrict your work outside Refery require your acceptance, not just continued use. Your economics and your independence are protected.
+
+## 14. Disputes and resolution
+
+Most issues get resolved with a quick conversation. For anything that escalates: this Agreement is governed by Delaware law. Disputes are resolved by binding arbitration (AAA rules, conducted remotely) on an individual basis — both parties waive the right to participate in class actions or class-wide arbitration. Either party may bring claims within the jurisdiction of small claims court without first arbitrating. Either party may also seek injunctive relief in court to prevent actual or threatened breaches of confidentiality, non-solicitation, or non-circumvention obligations.
+
+If a dispute arises between two Recruiting Partners (for example, over candidate or company attribution), Refery will review the platform's timestamped records and make a determination. Both partners agree that Refery's good-faith determination is final, and Refery is not liable for that determination as long as it's based on the platform's records.
+
+Neither party is liable for delays or failures in performance caused by events beyond reasonable control — including natural disasters, government actions, banking failures, or pandemics — provided the affected party communicates promptly and resumes performance as soon as practicable.
+
+## 15. General
+
+The Refery platform and services are provided on an "as-is" basis. Refery makes no warranties about platform uptime, the quality of individual clients or candidates, or specific placement outcomes beyond what is expressly stated in this agreement. Refery's total monetary liability is capped at the total payouts you earned in the 12 months preceding any claim.
+
+Refery may assign this agreement to a successor entity in the event of a merger, acquisition, or restructuring. If any provision is found unenforceable, the remaining provisions remain in full effect. This is the entire agreement between the parties and supersedes all prior discussions, representations, or agreements relating to its subject matter. Questions about anything in this agreement: legal@refery.io.
+
+## Acceptance
+
+By clicking "Accept Agreement" below, you confirm that you are at least 18 years old and have the legal capacity to enter this agreement, that you have read and understood it in full, and that you agree to its terms as an independent Recruiting Partner.
+
+Your click constitutes a legally binding electronic signature under applicable electronic signature laws (E-SIGN Act, UETA), with the same legal force as a handwritten signature. Refery records the date, time, IP address, user-agent, and account associated with your acceptance as evidence of this agreement.
+
+---
+
+Refery Recruiting Partner Agreement v1.1 · Confidential`
 
 // Client Recruitment Services Agreement Template (with placeholders)
 export function generateClientAgreementText(
