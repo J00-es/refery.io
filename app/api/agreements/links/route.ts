@@ -1,53 +1,38 @@
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  generateAgreementHash, 
-  generateSigningToken, 
-  getAgreementText, 
+import {
+  generateAgreementHash,
+  generateSigningToken,
+  getAgreementText,
   getAgreementVersion,
-  AgreementType 
+  AgreementType,
 } from '@/lib/agreements'
+import { requireAdmin } from '@/lib/admin-auth'
 
 // GET - List all agreement links (admin only)
 export async function GET(request: NextRequest) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
   }
 
-  // Check admin status
-  const { data: adminData } = await supabase
-    .from('users_admin')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-  }
-
+  const adminClient = createAdminClient()
   const searchParams = request.nextUrl.searchParams
   const recruiterId = searchParams.get('recruiter_id')
   const status = searchParams.get('status')
 
-  let query = supabase
+  let query = adminClient
     .from('agreement_links')
     .select('*')
     .order('created_at', { ascending: false })
 
-  if (recruiterId) {
-    query = query.eq('recruiter_id', recruiterId)
-  }
-
-  if (status) {
-    query = query.eq('status', status)
-  }
+  if (recruiterId) query = query.eq('recruiter_id', recruiterId)
+  if (status) query = query.eq('status', status)
 
   const { data, error } = await query
 
   if (error) {
+    console.error('[agreements/links GET] query failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
@@ -56,46 +41,48 @@ export async function GET(request: NextRequest) {
 
 // POST - Create a new agreement link (admin only)
 export async function POST(request: NextRequest) {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await requireAdmin()
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.message }, { status: auth.status })
   }
 
-  // Check admin status
-  const { data: adminData } = await supabase
-    .from('users_admin')
-    .select('role')
-    .eq('user_id', user.id)
-    .single()
+  const adminClient = createAdminClient()
 
-  if (!adminData || !['admin', 'super_admin'].includes(adminData.role)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  let body: { recruiter_id?: string; agreement_type?: AgreementType }
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  const body = await request.json()
-  const { recruiter_id, agreement_type } = body as { 
-    recruiter_id: string
-    agreement_type: AgreementType 
-  }
+  const { recruiter_id, agreement_type } = body
 
   if (!recruiter_id || !agreement_type) {
-    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'recruiter_id and agreement_type are required' },
+      { status: 400 },
+    )
   }
 
   if (!['scout', 'recruiter'].includes(agreement_type)) {
-    return NextResponse.json({ error: 'Invalid agreement type' }, { status: 400 })
+    return NextResponse.json(
+      { error: 'agreement_type must be "scout" or "recruiter"' },
+      { status: 400 },
+    )
   }
 
-  // Get recruiter info
-  const { data: recruiter, error: recruiterError } = await supabase
+  // Get recruiter info (service role — RLS-safe)
+  const { data: recruiter, error: recruiterError } = await adminClient
     .from('prospect_recruiters')
     .select('id, name, email')
     .eq('id', recruiter_id)
-    .single()
+    .maybeSingle()
 
-  if (recruiterError || !recruiter) {
+  if (recruiterError) {
+    console.error('[agreements/links POST] recruiter lookup failed:', recruiterError)
+    return NextResponse.json({ error: recruiterError.message }, { status: 500 })
+  }
+  if (!recruiter) {
     return NextResponse.json({ error: 'Recruiter not found' }, { status: 404 })
   }
 
@@ -105,8 +92,11 @@ export async function POST(request: NextRequest) {
   const agreementHash = await generateAgreementHash(agreementContent)
   const token = generateSigningToken()
 
-  // Create the agreement link
-  const { data, error } = await supabase
+  // Default link expiry: 30 days from now (in case the column is NOT NULL)
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Create the agreement link (service role — RLS-safe)
+  const { data, error } = await adminClient
     .from('agreement_links')
     .insert({
       token,
@@ -118,16 +108,18 @@ export async function POST(request: NextRequest) {
       agreement_hash: agreementHash,
       agreement_content: agreementContent,
       status: 'sent',
-      created_by: user.id,
+      expires_at: expiresAt,
+      created_by: auth.userId,
     })
     .select()
     .single()
 
   if (error) {
+    console.error('[agreements/links POST] insert failed:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Return the signing URL
+  // Build the signing URL
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
   const signingUrl = `${baseUrl}/sign/agreement/${token}`
 
