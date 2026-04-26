@@ -43,33 +43,54 @@ export default async function JobsPage() {
   // RLS policies handle access control at database level
   // Admins and recruiters see all, others see only owned/assigned jobs
   // Order: open jobs first, then by most recent
-  const jobsResult = await dbClient
-    .from('jobs')
-    .select('*')
-    .order('status', { ascending: true }) // 'closed' < 'draft' < 'open' - we'll re-sort client side
-    .order('created_at', { ascending: false })
-    .limit(100)
+  // Paginate to ensure all rows are fetched regardless of total count
+  const PAGE_SIZE = 1000
+  let allJobs: Record<string, unknown>[] = []
+  let jobsPage = 0
+  while (true) {
+    const { data, error } = await dbClient
+      .from('jobs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .range(jobsPage * PAGE_SIZE, (jobsPage + 1) * PAGE_SIZE - 1)
+    if (error) break
+    if (data) allJobs = allJobs.concat(data)
+    if (!data || data.length < PAGE_SIZE) break
+    jobsPage++
+  }
 
-  // Run remaining queries in parallel
-  const [pipelineResult, companiesResult] = await Promise.all([
-    dbClient
+  // Paginate pipeline query to handle large datasets
+  let allPipeline: Record<string, unknown>[] = []
+  let pipelinePage = 0
+  while (true) {
+    const { data, error } = await dbClient
       .from('job_candidate_pipeline')
-      .select('job_id, stage, candidate_id, candidates!inner(owner_user_id)'),
+      .select('job_id, stage, candidate_id, candidates!inner(owner_user_id)')
+      .range(pipelinePage * PAGE_SIZE, (pipelinePage + 1) * PAGE_SIZE - 1)
+    if (error) break
+    if (data) allPipeline = allPipeline.concat(data)
+    if (!data || data.length < PAGE_SIZE) break
+    pipelinePage++
+  }
+
+  const [companiesResult] = await Promise.all([
     dbClient
       .from('companies')
       .select('id, name, description, logo_url')
   ])
 
-  const jobs = jobsResult.data
-  const pipelineData = pipelineResult.data
+  const jobs = allJobs
+  const pipelineData = allPipeline
   const companies = companiesResult.data
+
+  type PipelineRow = { job_id: string; stage: string; candidate_id: string; candidates: { owner_user_id: string | null } | null }
 
   // Group pipeline data by job - separate for all and user-owned
   const pipelineByJob: Record<string, Record<string, number>> = {}
   const userPipelineByJob: Record<string, Record<string, number>> = {}
   if (pipelineData) {
-    for (const p of pipelineData) {
-      const candidate = p.candidates as { owner_user_id: string | null } | null
+    for (const p of (pipelineData as unknown as PipelineRow[])) {
+      const candidate = p.candidates
       
       // All pipeline data (for admins)
       if (!pipelineByJob[p.job_id]) {
@@ -109,7 +130,7 @@ export default async function JobsPage() {
 
   // Enrich jobs with pipeline stats and company logos
   // For admins: show all pipeline stats, for non-admins: show only their owned candidates
-  const enrichedJobs = (jobs ?? []).map(job => {
+  const enrichedJobs = (jobs as unknown as Job[]).map(job => {
     // Try to get company data by id first, then by name
     const companyData = job.company_id 
       ? companyDataById[job.company_id] 
