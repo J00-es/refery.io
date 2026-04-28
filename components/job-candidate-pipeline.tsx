@@ -20,10 +20,11 @@ import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 
 const STAGES = [
-  { value: 'job_matched', label: 'Job Matched', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: Search },
+  { value: 'sourced', label: 'Sourced', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Search },
+  { value: 'job_matched', label: 'Job Matched', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: TrendingUp },
   { value: 'job_shared', label: 'Job Shared', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: FileText },
   { value: 'interest_confirmed', label: 'Interest Confirmed', color: 'bg-cyan-100 text-cyan-700 border-cyan-200', icon: CheckCircle2 },
-  { value: 'shared_to_hiring_manager', label: 'Shared to HM', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: Send },
+  { value: 'screening', label: 'Screening', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: Send },
   { value: 'interview', label: 'Interview', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Users },
   { value: 'offer', label: 'Offer', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Star },
   { value: 'hired', label: 'Hired', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
@@ -84,20 +85,16 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
   }
 
   async function fetchAllCandidates() {
-    const isAdmin = ['super_admin', 'admin'].includes(userRole || '')
-    
-    let query = supabase
-      .from('candidates')
-      .select('id, name, email, linkedin_url, skills, location, phone, experience_years, owner_user_id, uploaded_by_user_id, user_id')
-      .order('name')
-    
-    // If not admin, only fetch candidates the user owns, uploaded, or created
-    if (!isAdmin && userId) {
-      query = query.or(`owner_user_id.eq.${userId},uploaded_by_user_id.eq.${userId},user_id.eq.${userId}`)
+    // Use the API endpoint to fetch candidates (bypasses RLS issues)
+    try {
+      const res = await fetch(`/api/candidates?limit=200`)
+      if (res.ok) {
+        const data = await res.json()
+        setAllCandidates(data.candidates || [])
+      }
+    } catch (error) {
+      console.error('Error fetching candidates:', error)
     }
-    
-    const { data } = await query
-    if (data) setAllCandidates(data)
   }
 
   async function fetchNotes(pipelineId: string) {

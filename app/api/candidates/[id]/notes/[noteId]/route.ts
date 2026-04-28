@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+
+const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 export async function DELETE(
   req: Request,
@@ -8,18 +10,35 @@ export async function DELETE(
   try {
     const { noteId } = await params
     const supabase = await createClient()
+    const adminClient = createAdminClient()
     
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Only allow deleting own notes
-    const { error } = await supabase
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+    // Check if user is admin
+    const { data: adminUser } = await adminClient
+      .from('users_admin')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+
+    const isAdmin = isSuperAdmin || ['super_admin', 'admin'].includes(adminUser?.role || '')
+
+    // Admins can delete any note, others can only delete their own
+    let query = adminClient
       .from('recruiter_notes')
       .delete()
       .eq('id', noteId)
-      .eq('user_id', user.id)
+
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { error } = await query
 
     if (error) throw error
 
@@ -37,22 +56,37 @@ export async function PATCH(
   try {
     const { noteId } = await params
     const supabase = await createClient()
+    const adminClient = createAdminClient()
     
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+    // Check if user is admin
+    const { data: adminUser } = await adminClient
+      .from('users_admin')
+      .select('role')
+      .eq('email', user.email)
+      .single()
+
+    const isAdmin = isSuperAdmin || ['super_admin', 'admin'].includes(adminUser?.role || '')
+
     const updates = await req.json()
 
-    // Only allow updating own notes
-    const { data: note, error } = await supabase
+    // Admins can update any note, others can only update their own
+    let query = adminClient
       .from('recruiter_notes')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', noteId)
-      .eq('user_id', user.id)
-      .select()
-      .single()
+
+    if (!isAdmin) {
+      query = query.eq('user_id', user.id)
+    }
+
+    const { data: note, error } = await query.select().single()
 
     if (error) throw error
 
