@@ -159,7 +159,7 @@ export interface JobCandidatePipeline {
   id: string
   job_id: string
   candidate_id: string
-  stage: 'job_matched' | 'job_shared' | 'interest_confirmed' | 'shared_to_hiring_manager' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+  stage: 'sourced' | 'job_matched' | 'job_shared' | 'interest_confirmed' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
   added_by_user_id: string | null
   owner_user_id: string | null
   created_at: string

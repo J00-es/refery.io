@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createClient } from '@/lib/supabase/client'
 import { User, Search, Check, X, Loader2 } from 'lucide-react'
 
 interface CandidateOwnerAssignmentProps {
@@ -36,7 +35,7 @@ export function CandidateOwnerAssignment({ candidateId, currentOwner, currentOwn
   const [saving, setSaving] = useState(false)
   const [owner, setOwner] = useState(currentOwner)
   const [ownerId, setOwnerId] = useState(currentOwnerId)
-  const supabase = createClient()
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isEditing) {
@@ -46,50 +45,69 @@ export function CandidateOwnerAssignment({ candidateId, currentOwner, currentOwn
 
   async function searchUsers(term: string) {
     setLoading(true)
-    // Show all users with a valid user_id (meaning they've logged in at least once)
-    let query = supabase
-      .from('users_admin')
-      .select('user_id, email, full_name, role')
-      .not('user_id', 'is', null)  // Only show users who have logged in
-      .order('full_name')
-      .limit(20)
-
-    if (term) {
-      query = query.or(`email.ilike.%${term}%,full_name.ilike.%${term}%`)
+    setError(null)
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}/owner?search=${encodeURIComponent(term)}`)
+      if (res.ok) {
+        const data = await res.json()
+        setUsers(data.users || [])
+      } else {
+        setError('Failed to load users')
+      }
+    } catch (err) {
+      setError('Failed to load users')
+    } finally {
+      setLoading(false)
     }
-
-    const { data } = await query
-    setUsers(data || [])
-    setLoading(false)
   }
 
   async function assignOwner(userId: string, user: UserOption) {
     setSaving(true)
-    const { error } = await supabase
-      .from('candidates')
-      .update({ owner_user_id: userId })
-      .eq('id', candidateId)
+    setError(null)
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}/owner`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner_user_id: userId }),
+      })
 
-    if (!error) {
-      setOwner({ email: user.email, full_name: user.full_name })
-      setOwnerId(userId)
-      setIsEditing(false)
+      if (res.ok) {
+        setOwner({ email: user.email, full_name: user.full_name })
+        setOwnerId(userId)
+        setIsEditing(false)
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Failed to assign owner')
+      }
+    } catch (err) {
+      setError('Failed to assign owner')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   async function removeOwner() {
     setSaving(true)
-    const { error } = await supabase
-      .from('candidates')
-      .update({ owner_user_id: null })
-      .eq('id', candidateId)
+    setError(null)
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}/owner`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ owner_user_id: null }),
+      })
 
-    if (!error) {
-      setOwner(null)
-      setOwnerId(null)
+      if (res.ok) {
+        setOwner(null)
+        setOwnerId(null)
+      } else {
+        const data = await res.json()
+        setError(data.error || 'Failed to remove owner')
+      }
+    } catch (err) {
+      setError('Failed to remove owner')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   if (!isEditing) {
@@ -139,6 +157,10 @@ export function CandidateOwnerAssignment({ candidateId, currentOwner, currentOwn
           <X className="h-4 w-4" />
         </Button>
       </div>
+
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
 
       <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
         {loading ? (

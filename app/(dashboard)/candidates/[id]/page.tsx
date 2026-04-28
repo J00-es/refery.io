@@ -461,8 +461,11 @@ function filterAndLimitMatches(
 }
 
 const stageColors: Record<string, { bg: string; text: string }> = {
-  sourced: { bg: 'bg-slate-100', text: 'text-slate-700' },
-  screening: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  sourced: { bg: 'bg-gray-100', text: 'text-gray-700' },
+  job_matched: { bg: 'bg-slate-100', text: 'text-slate-700' },
+  job_shared: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  interest_confirmed: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+  screening: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
   interview: { bg: 'bg-purple-100', text: 'text-purple-700' },
   offer: { bg: 'bg-amber-100', text: 'text-amber-700' },
   hired: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
@@ -472,6 +475,9 @@ const stageColors: Record<string, { bg: string; text: string }> = {
 
 const stageLabels: Record<string, string> = {
   sourced: 'Sourced',
+  job_matched: 'Job Matched',
+  job_shared: 'Job Shared',
+  interest_confirmed: 'Interest Confirmed',
   screening: 'Screening',
   interview: 'Interview',
   offer: 'Offer',

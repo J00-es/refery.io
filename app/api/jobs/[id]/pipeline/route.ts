@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import type { Candidate } from '@/lib/types'
 
@@ -10,14 +10,15 @@ export async function GET(
 ) {
   const { id: jobId } = await params
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check user role
-  const { data: adminData } = await supabase
+  // Check user role using admin client to avoid RLS
+  const { data: adminData } = await adminClient
     .from('users_admin')
     .select('role')
     .eq('email', user.email)
@@ -28,8 +29,8 @@ export async function GET(
     : adminData?.role || 'viewer'
   const isAdmin = ['super_admin', 'admin'].includes(userRole)
 
-  // Fetch pipeline candidates with their details
-  const { data, error } = await supabase
+  // Fetch pipeline candidates with their details using admin client
+  const { data, error } = await adminClient
     .from('job_candidate_pipeline')
     .select(`
       *,
@@ -60,14 +61,14 @@ export async function GET(
     (filteredData || []).map(async (item) => {
       const [ownerResult, whyGoodFitResult] = await Promise.all([
         item.owner_user_id 
-          ? supabase
+          ? adminClient
               .from('users_admin')
               .select('email, full_name')
               .eq('user_id', item.owner_user_id)
               .single()
           : Promise.resolve({ data: null }),
         // Get the initial "why good fit" note from stage history
-        supabase
+        adminClient
           .from('pipeline_stage_history')
           .select('notes')
           .eq('pipeline_id', item.id)
@@ -96,6 +97,7 @@ export async function POST(
 ) {
   const { id: jobId } = await params
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -105,7 +107,7 @@ export async function POST(
   const body = await request.json()
   const { candidate_id, stage = 'job_matched', owner_user_id, why_good_fit } = body
 
-  const { data, error } = await supabase
+  const { data, error } = await adminClient
     .from('job_candidate_pipeline')
     .insert({
       job_id: jobId,
@@ -125,14 +127,14 @@ export async function POST(
   }
 
   // Get job info for activity log description
-  const { data: job } = await supabase
+  const { data: job } = await adminClient
     .from('jobs')
     .select('title, company_name')
     .eq('id', jobId)
     .single()
 
   // Log the initial stage to history with "why good fit" as notes
-  await supabase
+  await adminClient
     .from('pipeline_stage_history')
     .insert({
       pipeline_id: data.id,
@@ -150,7 +152,7 @@ export async function POST(
     ? `Added to pipeline for ${job.title} at ${job.company_name}${why_good_fit ? `. Reason: ${why_good_fit}` : ''}`
     : `Added to job pipeline${why_good_fit ? `. Reason: ${why_good_fit}` : ''}`
 
-  await supabase.from('candidate_activity_log').insert({
+  await adminClient.from('candidate_activity_log').insert({
     candidate_id,
     activity_type: 'job_matched',
     description: activityDescription,
@@ -167,6 +169,7 @@ export async function PATCH(
 ) {
   const { id: jobId } = await params
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -177,7 +180,7 @@ export async function PATCH(
   const { pipeline_id, stage, owner_user_id, notes } = body
 
   // Fetch current pipeline entry to get previous stage and timing
-  const { data: currentPipeline } = await supabase
+  const { data: currentPipeline } = await adminClient
     .from('job_candidate_pipeline')
     .select('stage, candidate_id, updated_at')
     .eq('id', pipeline_id)
@@ -191,7 +194,7 @@ export async function PATCH(
   if (stage) updateData.stage = stage
   if (owner_user_id !== undefined) updateData.owner_user_id = owner_user_id
 
-  const { data, error } = await supabase
+  const { data, error } = await adminClient
     .from('job_candidate_pipeline')
     .update(updateData)
     .eq('id', pipeline_id)
@@ -206,7 +209,7 @@ export async function PATCH(
   // Log stage change to history if stage actually changed
   if (stage && stage !== previousStage && candidateId) {
     // Get job info for activity log
-    const { data: job } = await supabase
+    const { data: job } = await adminClient
       .from('jobs')
       .select('title, company_name')
       .eq('id', jobId)
@@ -222,7 +225,7 @@ export async function PATCH(
       timeInPreviousStage = `${Math.floor(diffMs / 1000)} seconds`
     }
 
-    await supabase
+    await adminClient
       .from('pipeline_stage_history')
       .insert({
         pipeline_id,
@@ -237,10 +240,11 @@ export async function PATCH(
 
     // Auto-log stage change to candidate activity log
     const stageLabels: Record<string, string> = {
+      sourced: 'Sourced',
       job_matched: 'Job Matched',
       job_shared: 'Job Shared',
       interest_confirmed: 'Interest Confirmed',
-      shared_to_hiring_manager: 'Shared to Hiring Manager',
+      screening: 'Screening',
       interview: 'Interview',
       offer: 'Offer',
       hired: 'Hired',
@@ -256,7 +260,7 @@ export async function PATCH(
       ? `Moved to "${stageLabels[stage] || stage}" for ${job.title} at ${job.company_name}`
       : `Moved to "${stageLabels[stage] || stage}" stage`
 
-    await supabase.from('candidate_activity_log').insert({
+    await adminClient.from('candidate_activity_log').insert({
       candidate_id: candidateId,
       activity_type: activityType,
       description: stageDescription,
@@ -274,6 +278,7 @@ export async function DELETE(
 ) {
   const { id: jobId } = await params
   const supabase = await createClient()
+  const adminClient = createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
@@ -287,7 +292,7 @@ export async function DELETE(
     return NextResponse.json({ error: 'Pipeline ID required' }, { status: 400 })
   }
 
-  const { error } = await supabase
+  const { error } = await adminClient
     .from('job_candidate_pipeline')
     .delete()
     .eq('id', pipelineId)
