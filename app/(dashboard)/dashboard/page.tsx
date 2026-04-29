@@ -2,7 +2,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import type { PipelineStage } from '@/lib/types'
-import { subDays, startOfWeek, format } from 'date-fns'
+import { subDays, startOfWeek, startOfMonth, startOfYear, format } from 'date-fns'
 import { DASHBOARD_BUCKETS, getStageConfig, STAGE_ACCENT_COLORS, ACTIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
 import { EarningsCard } from '@/components/dashboard/earnings-card'
 import { StageOverviewCard } from '@/components/dashboard/stage-overview-card'
@@ -36,8 +36,9 @@ export default async function DashboardPage() {
   // Get date ranges
   const now = new Date()
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-  const sevenDaysAgo = subDays(now, 7)
-  const fourteenDaysAgo = subDays(now, 14)
+  const monthStart = startOfMonth(now)
+  const yearStart = startOfYear(now)
+  const ninetyDaysAgo = subDays(now, 90)
 
   // Fetch all pipeline data
   const { data: allPipelineData } = await adminClient
@@ -253,67 +254,152 @@ export default async function DashboardPage() {
   // Calculate total candidates
   const totalCandidates = pipelineData.length
 
-  // Mock earnings data (these would come from a real placement/earnings table)
-  const pendingPayout = '$32.4'
-  const paidYTD = '$187'
-  const thisMonth = '$42'
+  // ===== REAL DATA: Earnings from hired candidates =====
+  // Get hired candidates (placement fees would be a percentage of their salary)
+  const hiredPipeline = pipelineData.filter(p => p.stage === 'hired')
+  const hiredThisMonth = hiredPipeline.filter(p => new Date(p.updated_at) >= monthStart)
+  const hiredThisYear = hiredPipeline.filter(p => new Date(p.updated_at) >= yearStart)
+  
+  // Calculate earnings: Assume avg salary $120k, 15% fee = $18k per placement
+  const avgPlacementFee = 18 // $18k per placement
+  const pendingPayout = hiredThisMonth.length * avgPlacementFee
+  const paidYTD = hiredThisYear.length * avgPlacementFee
+  const thisMonthEarnings = hiredThisMonth.length * avgPlacementFee
+  
+  // Format earnings
+  const formatEarnings = (amount: number) => {
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}`
+    }
+    return `$${amount}`
+  }
+  
+  const pendingPayoutStr = formatEarnings(pendingPayout)
+  const paidYTDStr = formatEarnings(paidYTD)
+  const thisMonthStr = formatEarnings(thisMonthEarnings)
 
-  // Mock funnel data (would be calculated from real conversion data)
+  // ===== REAL DATA: Funnel conversion rates (last 90 days) =====
+  // Get pipeline stage history or calculate from current data
+  const last90DaysPipeline = pipelineData.filter(p => new Date(p.created_at) >= ninetyDaysAgo)
+  
+  // Count candidates that reached each stage
+  const stageReachedCounts: Record<string, number> = {}
+  for (const p of last90DaysPipeline) {
+    const stage = p.stage as string
+    stageReachedCounts[stage] = (stageReachedCounts[stage] || 0) + 1
+  }
+  
+  // Calculate conversion rates between stages
+  const jobSharedCount = stageReachedCounts['job_shared'] || 0
+  const interestConfirmedCount = stageReachedCounts['interest_confirmed'] || 0
+  const hmSharedCount = (stageReachedCounts['hm_shared'] || 0) + (stageReachedCounts['hm_pending'] || 0)
+  const interviewCount = (stageReachedCounts['interview_1'] || 0) + (stageReachedCounts['interview_2'] || 0)
+  const offerCount = stageReachedCounts['offer'] || 0
+  const hiredCount = stageReachedCounts['hired'] || 0
+  
+  // Calculate percentages (avoid division by zero)
+  const sharedToInterest = jobSharedCount > 0 ? Math.round((interestConfirmedCount / jobSharedCount) * 100) : 0
+  const interestToHM = interestConfirmedCount > 0 ? Math.round((hmSharedCount / interestConfirmedCount) * 100) : 0
+  const hmToInterview = hmSharedCount > 0 ? Math.round((interviewCount / hmSharedCount) * 100) : 0
+  const interviewToOffer = interviewCount > 0 ? Math.round((offerCount / interviewCount) * 100) : 0
+  const offerToHired = offerCount > 0 ? Math.round((hiredCount / offerCount) * 100) : 0
+  
+  // Platform benchmarks (could be calculated from all users' data if admin)
   const funnelSteps = [
-    { label: 'Shared → Interest', value: 68, benchmark: 62 },
-    { label: 'Interest → HM', value: 84, benchmark: 78 },
-    { label: 'HM → Interview', value: 42, benchmark: 55 },
-    { label: 'Interview → Offer', value: 38, benchmark: 35 },
-    { label: 'Offer → Hired', value: 72, benchmark: 68 },
+    { label: 'Shared → Interest', value: sharedToInterest || 0, benchmark: 62 },
+    { label: 'Interest → HM', value: interestToHM || 0, benchmark: 78 },
+    { label: 'HM → Interview', value: hmToInterview || 0, benchmark: 55 },
+    { label: 'Interview → Offer', value: interviewToOffer || 0, benchmark: 35 },
+    { label: 'Offer → Hired', value: offerToHired || 0, benchmark: 68 },
   ]
 
   // Find weakest funnel step
-  const weakestStep = funnelSteps.reduce((weakest, step) => {
-    const diff = step.value - step.benchmark
-    const weakestDiff = weakest.value - weakest.benchmark
-    return diff < weakestDiff ? step : weakest
-  }, funnelSteps[0])
-
-  const funnelInsight = weakestStep.value < weakestStep.benchmark 
-    ? `${weakestStep.label} is your weakest stage. Try improving your pitch or candidate preparation.`
+  const stepsWithData = funnelSteps.filter(s => s.value > 0)
+  const weakestStep = stepsWithData.length > 0 
+    ? stepsWithData.reduce((weakest, step) => {
+        const diff = step.value - step.benchmark
+        const weakestDiff = weakest.value - weakest.benchmark
+        return diff < weakestDiff ? step : weakest
+      }, stepsWithData[0])
     : null
 
-  // Mock hot opportunities data
-  const newRolesMatching = [
-    { id: '1', title: 'Staff Engineer at Cursor', subtitle: 'Best match: Sarah Chen (92%)', link: '/jobs/1', matchPct: 92 },
-    { id: '2', title: 'Senior Backend at Anthropic', subtitle: 'Best match: Jay Patel (88%)', link: '/jobs/2', matchPct: 88 },
-  ]
+  const funnelInsight = weakestStep && weakestStep.value < weakestStep.benchmark 
+    ? `is your weakest stage. Try improving your pitch or candidate preparation.`
+    : stepsWithData.length === 0 
+      ? 'Add more candidates to your pipeline to see conversion insights.'
+      : null
 
-  const unmatchedCandidates = [
-    { id: '1', title: 'Morgan Lee', subtitle: 'Unmatched for 16 days', candidateLinkedin: 'https://linkedin.com/in/morgan-lee', link: '/candidates/1' },
-    { id: '2', title: 'Alex Chen', subtitle: 'Unmatched for 12 days', candidateLinkedin: 'https://linkedin.com/in/alex-chen', link: '/candidates/2' },
-  ]
+  // ===== REAL DATA: Hot Opportunities =====
+  // 1. New jobs posted in last 7 days
+  const sevenDaysAgo = subDays(now, 7)
+  const { data: newJobs } = await adminClient
+    .from('jobs')
+    .select('id, title, company_name, created_at')
+    .gte('created_at', sevenDaysAgo.toISOString())
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(5)
 
-  const recentlyFunded = [
-    { id: '1', title: 'Artisan', subtitle: 'Series B · $25M · 4 open roles', link: '/companies/1' },
-    { id: '2', title: 'Mintlify', subtitle: 'Series A · $18M · 2 open roles', link: '/companies/2' },
-  ]
+  const newRolesMatching = (newJobs || []).map(job => ({
+    id: job.id,
+    title: `${job.title} at ${job.company_name || 'Unknown'}`,
+    subtitle: `Posted ${format(new Date(job.created_at), 'MMM d')}`,
+    link: `/jobs/${job.id}`,
+  }))
+
+  // 2. Candidates without a match (in sourced stage for >14 days)
+  const fourteenDaysAgo = subDays(now, 14)
+  const unmatchedCandidatesData = pipelineData
+    .filter(p => p.stage === 'sourced' && new Date(p.updated_at) < fourteenDaysAgo)
+    .slice(0, 5)
+
+  const unmatchedCandidates = unmatchedCandidatesData.map(p => ({
+    id: p.candidate_id,
+    title: (p.candidates as { name: string } | null)?.name || 'Unknown',
+    subtitle: `Unmatched for ${Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))} days`,
+    candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || undefined,
+    link: `/candidates/${p.candidate_id}`,
+  }))
+
+  // 3. Recently added companies with open jobs
+  const { data: recentCompanies } = await adminClient
+    .from('companies')
+    .select('id, name, description')
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const recentlyFunded = (recentCompanies || []).map(company => ({
+    id: company.id,
+    title: company.name,
+    subtitle: company.description?.slice(0, 60) || 'Recently added client',
+    link: `/companies/${company.id}`,
+  }))
 
   return (
-    <div className="space-y-9 max-w-[1200px] mx-auto">
+    <div className="space-y-6 sm:space-y-9 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-0">
       {/* Header */}
-      <div className="flex justify-between items-start">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
         <div>
-          <h1 className="font-serif text-[42px] font-normal leading-none tracking-tight text-[#100F0F]">
+          <h1 className="text-[32px] sm:text-[42px] font-semibold leading-none tracking-tight text-[#100F0F]">
             Hey {userName}
           </h1>
-          <p className="text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
-            <span className="text-[#B7791F] font-medium">{actionCount} thing{actionCount !== 1 ? 's' : ''}</span> need you today · refreshed just now
+          <p className="text-xs sm:text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
+            {actionCount > 0 ? (
+              <><span className="text-[#B7791F] font-medium">{actionCount} thing{actionCount !== 1 ? 's' : ''}</span> need you today · </>
+            ) : (
+              <>All clear · </>
+            )}
+            refreshed just now
           </p>
         </div>
         <div className="flex gap-2.5">
           <Link href="/candidates/new">
-            <Button variant="outline" className="h-10 px-[18px] text-[13.5px] font-medium border-[rgba(16,15,15,0.10)] text-[#100F0F] hover:bg-[#F0F0EA]">
+            <Button variant="outline" className="h-9 sm:h-10 px-3 sm:px-[18px] text-[12px] sm:text-[13.5px] font-medium border-[rgba(16,15,15,0.10)] text-[#100F0F] hover:bg-[#F0F0EA]">
               Upload resume
             </Button>
           </Link>
           <Link href="/jobs/new">
-            <Button className="h-10 px-[18px] text-[13.5px] font-medium bg-[#100F0F] hover:bg-[#2A2928]">
+            <Button className="h-9 sm:h-10 px-3 sm:px-[18px] text-[12px] sm:text-[13.5px] font-medium bg-[#100F0F] hover:bg-[#2A2928]">
               Add job
             </Button>
           </Link>
@@ -322,36 +408,39 @@ export default async function DashboardPage() {
 
       {/* Section 1: Earnings Hero */}
       <section>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <EarningsCard
             label="Pending payout"
-            value={pendingPayout}
-            subtitle="$8.2k unlocks Nov 18"
+            value={pendingPayoutStr}
+            suffix={pendingPayout >= 1000 ? 'k' : ''}
+            subtitle={hiredThisMonth.length > 0 ? `${hiredThisMonth.length} placed this month` : 'No placements yet'}
           />
           <EarningsCard
             label="Paid YTD"
-            value={paidYTD}
-            subtitle="↑ +24% vs last year"
-            isPositive
+            value={paidYTDStr}
+            suffix={paidYTD >= 1000 ? 'k' : ''}
+            subtitle={hiredThisYear.length > 0 ? `${hiredThisYear.length} placed this year` : 'Start placing to earn'}
+            isPositive={hiredThisYear.length > 0}
           />
           <EarningsCard
             label="This month"
-            value={thisMonth}
-            subtitle="3 placed · +18%"
-            isPositive
+            value={thisMonthStr}
+            suffix={thisMonthEarnings >= 1000 ? 'k' : ''}
+            subtitle={`${hiredThisMonth.length} placed`}
+            isPositive={hiredThisMonth.length > 0}
           />
         </div>
       </section>
 
       {/* Section 2: Action Queue */}
       <section>
-        <div className="flex justify-between items-end mb-3.5">
+        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
           <div>
-            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Needs your attention</h2>
-            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Click any row to see who&apos;s involved and what&apos;s happening</p>
+            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Needs your attention</h2>
+            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5 hidden sm:block">Click any row to see who&apos;s involved and what&apos;s happening</p>
           </div>
-          <span className="text-xs text-[rgba(16,15,15,0.40)] font-serif italic">
-            {actionCount} item{actionCount !== 1 ? 's' : ''} · sorted by urgency
+          <span className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)]">
+            {actionCount} item{actionCount !== 1 ? 's' : ''}
           </span>
         </div>
         <ActionQueueCard rows={actionRows} />
@@ -359,14 +448,14 @@ export default async function DashboardPage() {
 
       {/* Section 3: Pipeline Overview */}
       <section>
-        <div className="flex justify-between items-end mb-3.5">
+        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
           <div>
-            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Pipeline overview</h2>
-            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">{totalCandidates} candidates · click any stage to see who and how long</p>
+            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Pipeline overview</h2>
+            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">{totalCandidates} candidate{totalCandidates !== 1 ? 's' : ''} · click any stage</p>
           </div>
-          <span className="text-xs text-[rgba(16,15,15,0.40)] font-serif italic">Updated live</span>
+          <span className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)]">Updated live</span>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
           {DASHBOARD_BUCKETS.map((bucket) => {
             const stats = bucketStats[bucket.key]
             const subText = bucket.showSubCounts && stats.subCounts
@@ -396,45 +485,48 @@ export default async function DashboardPage() {
 
       {/* Section 4: Funnel Benchmark */}
       <section>
-        <div className="flex justify-between items-end mb-3.5">
+        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
           <div>
-            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Your funnel vs platform</h2>
-            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Stage-to-stage conversion rates (last 90 days)</p>
+            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Your funnel vs platform</h2>
+            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Stage-to-stage conversion rates (last 90 days)</p>
           </div>
         </div>
         <FunnelBenchmark 
           steps={funnelSteps} 
           insight={funnelInsight || undefined}
-          insightHighlight={weakestStep.value < weakestStep.benchmark ? `${weakestStep.label}` : undefined}
+          insightHighlight={weakestStep && weakestStep.value < weakestStep.benchmark ? `${weakestStep.label}` : undefined}
         />
       </section>
 
       {/* Section 5: Hot Opportunities */}
       <section>
-        <div className="flex justify-between items-end mb-3.5">
+        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
           <div>
-            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Hot opportunities</h2>
-            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Click to expand and explore</p>
+            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Hot opportunities</h2>
+            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5 hidden sm:block">Click to expand and explore</p>
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <HotOpportunityCard
             icon={<Briefcase className="h-4 w-4" />}
-            title="New roles matching your candidates"
-            subtitle="Roles posted in last 7 days where your candidates have a strong fit"
+            title="New roles this week"
+            subtitle="Jobs posted in last 7 days"
             items={newRolesMatching}
+            emptyText="No new roles this week"
           />
           <HotOpportunityCard
             icon={<Users className="h-4 w-4" />}
             title="Candidates without a match"
-            subtitle="Candidates in your pool over 14 days that haven&apos;t been matched"
+            subtitle="In sourced 14+ days without a job match"
             items={unmatchedCandidates}
+            emptyText="All candidates are matched"
           />
           <HotOpportunityCard
             icon={<DollarSign className="h-4 w-4" />}
-            title="Recently funded clients"
-            subtitle="Client companies with funding announcements in last 14 days"
+            title="Recent clients"
+            subtitle="Recently added companies with open roles"
             items={recentlyFunded}
+            emptyText="No recent clients"
           />
         </div>
       </section>

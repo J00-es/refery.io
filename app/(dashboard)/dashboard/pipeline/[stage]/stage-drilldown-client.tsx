@@ -136,27 +136,27 @@ export function StageDrilldownClient({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {/* Filter bar */}
-      <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-4 py-3 flex items-center gap-2.5 flex-wrap">
+      <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-2.5 flex-wrap">
         {/* Search */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 min-w-[240px] max-w-[320px] relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[rgba(16,15,15,0.40)]" />
+        <form onSubmit={handleSearchSubmit} className="w-full sm:flex-1 sm:min-w-[200px] sm:max-w-[320px] relative">
+          <Search className="absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[rgba(16,15,15,0.40)]" />
           <input
             type="text"
-            placeholder="Search candidate or job..."
+            placeholder="Search..."
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 border border-[rgba(16,15,15,0.10)] rounded-md bg-[#F8F8F3] text-[13px] text-[#100F0F] placeholder:text-[rgba(16,15,15,0.40)] outline-none focus:border-[rgba(16,15,15,0.20)]"
+            className="w-full pl-7 sm:pl-8 pr-3 py-1.5 sm:py-2 border border-[rgba(16,15,15,0.10)] rounded-md bg-[#F8F8F3] text-[12px] sm:text-[13px] text-[#100F0F] placeholder:text-[rgba(16,15,15,0.40)] outline-none focus:border-[rgba(16,15,15,0.20)]"
           />
         </form>
 
         {/* Owner dropdown */}
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <select
             value={ownerFilter}
             onChange={(e) => updateSearchParams({ owner: e.target.value || null })}
-            className="appearance-none px-3 py-2 pr-7 border border-[rgba(16,15,15,0.10)] rounded-md bg-white text-[13px] text-[rgba(16,15,15,0.64)] cursor-pointer outline-none"
+            className="appearance-none w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-6 sm:pr-7 border border-[rgba(16,15,15,0.10)] rounded-md bg-white text-[12px] sm:text-[13px] text-[rgba(16,15,15,0.64)] cursor-pointer outline-none"
           >
             <option value="">All owners</option>
             {owners.map((owner) => (
@@ -169,16 +169,16 @@ export function StageDrilldownClient({
         </div>
 
         {/* Sort dropdown */}
-        <div className="relative">
+        <div className="relative flex-1 sm:flex-none">
           <select
             value={currentSort}
             onChange={(e) => updateSearchParams({ sort: e.target.value })}
-            className="appearance-none px-3 py-2 pr-7 border border-[rgba(16,15,15,0.10)] rounded-md bg-white text-[13px] text-[rgba(16,15,15,0.64)] cursor-pointer outline-none"
+            className="appearance-none w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-6 sm:pr-7 border border-[rgba(16,15,15,0.10)] rounded-md bg-white text-[12px] sm:text-[13px] text-[rgba(16,15,15,0.64)] cursor-pointer outline-none"
           >
-            <option value="days_desc">Sort: Days in stage ↓</option>
-            <option value="days_asc">Sort: Days in stage ↑</option>
-            <option value="activity">Sort: Last activity</option>
-            <option value="name">Sort: Name A–Z</option>
+            <option value="days_desc">Days ↓</option>
+            <option value="days_asc">Days ↑</option>
+            <option value="activity">Activity</option>
+            <option value="name">Name A–Z</option>
           </select>
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-[rgba(16,15,15,0.40)] pointer-events-none" />
         </div>
@@ -187,7 +187,7 @@ export function StageDrilldownClient({
         <button
           onClick={() => updateSearchParams({ stale: showStaleOnly ? null : 'true' })}
           className={cn(
-            'inline-flex items-center gap-2 px-3 py-2 border rounded-md text-[13px] cursor-pointer transition-colors',
+            'inline-flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 sm:py-2 border rounded-md text-[11px] sm:text-[13px] cursor-pointer transition-colors whitespace-nowrap',
             showStaleOnly
               ? 'bg-[#FBF3E1] border-[#B7791F] text-[#B7791F] font-medium'
               : 'bg-white border-[rgba(16,15,15,0.10)] text-[rgba(16,15,15,0.64)]'
@@ -195,23 +195,24 @@ export function StageDrilldownClient({
         >
           <span
             className={cn(
-              'w-6 h-3.5 rounded-full relative transition-colors',
+              'w-5 sm:w-6 h-3 sm:h-3.5 rounded-full relative transition-colors',
               showStaleOnly ? 'bg-[#B7791F]' : 'bg-[rgba(16,15,15,0.20)]'
             )}
           >
             <span
               className={cn(
-                'absolute top-0.5 w-2.5 h-2.5 bg-white rounded-full transition-transform',
-                showStaleOnly ? 'translate-x-3' : 'translate-x-0.5'
+                'absolute top-0.5 w-2 sm:w-2.5 h-2 sm:h-2.5 bg-white rounded-full transition-transform',
+                showStaleOnly ? 'translate-x-2.5 sm:translate-x-3' : 'translate-x-0.5'
               )}
             />
           </span>
-          Show stale only
+          <span className="hidden sm:inline">Show stale only</span>
+          <span className="sm:hidden">Stale</span>
         </button>
 
         {/* Counter */}
-        <div className="ml-auto text-xs text-[rgba(16,15,15,0.40)] font-serif italic">
-          Showing {processedData.length} of {data.length}
+        <div className="hidden sm:block ml-auto text-xs text-[rgba(16,15,15,0.40)]">
+          {processedData.length} of {data.length}
         </div>
       </div>
 

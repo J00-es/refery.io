@@ -26,12 +26,12 @@ export function StageOverviewCard({
     <Link href={href}>
       <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] overflow-hidden cursor-pointer transition-all hover:border-[rgba(16,15,15,0.20)] hover:-translate-y-0.5">
         <div className="h-[3px]" style={{ backgroundColor: accentColor }} />
-        <div className="px-[18px] py-4">
-          <p className="text-xs text-[rgba(16,15,15,0.64)] font-medium tracking-wide mb-2">
+        <div className="px-3 sm:px-[18px] py-3 sm:py-4">
+          <p className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.64)] font-medium tracking-wide mb-1 sm:mb-2">
             {stageName}
           </p>
           <div className="flex items-baseline justify-between gap-2">
-            <span className="font-serif text-[32px] font-normal leading-none tracking-tight text-[#100F0F]">
+            <span className="text-[26px] sm:text-[32px] font-semibold leading-none tracking-tight text-[#100F0F]">
               {count}
             </span>
             {weeklyDelta !== 0 && (

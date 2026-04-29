@@ -241,72 +241,72 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
   const stageDescription = STAGE_DESCRIPTIONS[bucketKey] || 'View and manage candidates in this stage'
 
   return (
-    <div className="space-y-5 max-w-[1280px] mx-auto">
+    <div className="space-y-4 sm:space-y-5 max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-0">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2.5 text-[12.5px] text-[rgba(16,15,15,0.40)]">
+      <div className="flex items-center gap-2 sm:gap-2.5 text-[11px] sm:text-[12.5px] text-[rgba(16,15,15,0.40)]">
         <Link href="/dashboard" className="text-[rgba(16,15,15,0.64)] hover:underline">
           &larr; Dashboard
         </Link>
         <span className="text-[rgba(16,15,15,0.20)]">/</span>
-        <span>Pipeline</span>
-        <span className="text-[rgba(16,15,15,0.20)]">/</span>
+        <span className="hidden sm:inline">Pipeline</span>
+        <span className="hidden sm:inline text-[rgba(16,15,15,0.20)]">/</span>
         <span>{bucket.label}</span>
       </div>
 
       {/* Header */}
-      <div className="flex items-start gap-5">
+      <div className="flex items-start gap-3 sm:gap-5">
         <div 
-          className="w-1 self-stretch rounded-sm mt-2"
+          className="w-1 self-stretch rounded-sm mt-1 sm:mt-2"
           style={{ backgroundColor: stageAccentColor }}
         />
         <div className="flex-1">
-          <h1 className="font-serif text-[38px] font-normal leading-tight tracking-tight text-[#100F0F] flex items-baseline gap-3.5">
+          <h1 className="text-[28px] sm:text-[38px] font-semibold leading-tight tracking-tight text-[#100F0F] flex flex-wrap items-baseline gap-2 sm:gap-3.5">
             {bucket.label}
-            <span className="font-sans text-sm font-medium bg-[#F0F0EA] text-[rgba(16,15,15,0.64)] px-3 py-1.5 rounded-full tracking-normal">
+            <span className="text-xs sm:text-sm font-medium bg-[#F0F0EA] text-[rgba(16,15,15,0.64)] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full tracking-normal">
               {totalCount} candidate{totalCount !== 1 ? 's' : ''}
             </span>
           </h1>
-          <p className="text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
+          <p className="text-xs sm:text-sm text-[rgba(16,15,15,0.64)] mt-1 sm:mt-1.5">
             {stageDescription}
           </p>
         </div>
       </div>
 
       {/* Stat strip */}
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
-          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Total in stage</p>
-          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#100F0F]">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-3 sm:px-[18px] py-3 sm:py-4">
+          <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1 sm:mb-1.5">Total in stage</p>
+          <p className="text-[22px] sm:text-[28px] font-semibold leading-none tracking-tight text-[#100F0F]">
             {totalCount}
           </p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
-            across {uniqueCandidates} unique candidate{uniqueCandidates !== 1 ? 's' : ''}
+          <p className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            {uniqueCandidates} unique candidate{uniqueCandidates !== 1 ? 's' : ''}
           </p>
         </div>
-        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
-          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Stale ({'>'}7 days)</p>
-          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#B7791F]">
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-3 sm:px-[18px] py-3 sm:py-4">
+          <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1 sm:mb-1.5">Stale ({'>'}7 days)</p>
+          <p className="text-[22px] sm:text-[28px] font-semibold leading-none tracking-tight text-[#B7791F]">
             {staleCount}
           </p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
-            {totalCount > 0 ? Math.round((staleCount / uniqueCandidates) * 100) : 0}% of stage{staleCount > 0 ? ' — attention needed' : ''}
+          <p className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            {totalCount > 0 ? Math.round((staleCount / uniqueCandidates) * 100) : 0}% of stage
           </p>
         </div>
-        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
-          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Critical ({'>'}14 days)</p>
-          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#B23B3B]">
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-3 sm:px-[18px] py-3 sm:py-4">
+          <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1 sm:mb-1.5">Critical ({'>'}14 days)</p>
+          <p className="text-[22px] sm:text-[28px] font-semibold leading-none tracking-tight text-[#B23B3B]">
             {criticalCount}
           </p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
-            {oldestDays > 0 ? `oldest: ${oldestDays} days in stage` : 'none'}
+          <p className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            {oldestDays > 0 ? `oldest: ${oldestDays}d` : 'none'}
           </p>
         </div>
-        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
-          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Avg time in stage</p>
-          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#100F0F]">
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-3 sm:px-[18px] py-3 sm:py-4">
+          <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1 sm:mb-1.5">Avg time in stage</p>
+          <p className="text-[22px] sm:text-[28px] font-semibold leading-none tracking-tight text-[#100F0F]">
             {avgDaysInStage}d
           </p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
+          <p className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-1">
             platform avg: 4.1d
           </p>
         </div>

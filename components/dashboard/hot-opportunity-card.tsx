@@ -47,28 +47,28 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
     <div
       className={cn(
         'bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] overflow-hidden cursor-pointer transition-all hover:border-[rgba(16,15,15,0.20)]',
-        isOpen && 'col-span-3 cursor-default'
+        isOpen && 'sm:col-span-3 cursor-default'
       )}
       onClick={() => !isOpen && setIsOpen(true)}
     >
-      <div className="p-5">
-        <div className="w-8 h-8 rounded-md flex items-center justify-center mb-3 bg-[#EBF4EF] text-[#2A6B45] font-serif text-lg">
+      <div className="p-4 sm:p-5">
+        <div className="w-7 sm:w-8 h-7 sm:h-8 rounded-md flex items-center justify-center mb-2.5 sm:mb-3 bg-[#EBF4EF] text-[#2A6B45] text-base sm:text-lg">
           {icon}
         </div>
-        <h3 className="text-sm font-semibold text-[#100F0F] mb-1">{title}</h3>
-        <p className="text-[12.5px] text-[rgba(16,15,15,0.64)] leading-relaxed">{subtitle}</p>
+        <h3 className="text-[13px] sm:text-sm font-semibold text-[#100F0F] mb-1">{title}</h3>
+        <p className="text-[11px] sm:text-[12.5px] text-[rgba(16,15,15,0.64)] leading-relaxed">{subtitle}</p>
         {!isOpen && (
-          <div className="inline-flex items-center gap-1.5 text-xs text-[#2A6B45] font-medium mt-3">
+          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-[#2A6B45] font-medium mt-2.5 sm:mt-3">
             View {items.length} item{items.length !== 1 ? 's' : ''}
-            <ChevronRight className="h-3.5 w-3.5" />
+            <ChevronRight className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
           </div>
         )}
       </div>
 
       {isOpen && (
-        <div className="border-t border-dashed border-[rgba(16,15,15,0.06)] p-5 bg-[#F8F8F3]">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">
+        <div className="border-t border-dashed border-[rgba(16,15,15,0.06)] p-3 sm:p-5 bg-[#F8F8F3]">
+          <div className="flex items-center justify-between mb-2.5 sm:mb-3">
+            <h4 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">
               {items.length} item{items.length !== 1 ? 's' : ''}
             </h4>
             <button
@@ -76,30 +76,30 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
                 e.stopPropagation()
                 setIsOpen(false)
               }}
-              className="text-xs text-[rgba(16,15,15,0.40)] hover:text-[#100F0F]"
+              className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] hover:text-[#100F0F]"
             >
               Collapse
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-white border border-[rgba(16,15,15,0.06)] rounded-md p-3 flex items-center gap-3"
+                className="bg-white border border-[rgba(16,15,15,0.06)] rounded-md p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3"
               >
-                <CompanyLogo companyName={item.title.split(' at ')[1] || item.title} size="md" />
+                <CompanyLogo companyName={item.title.split(' at ')[1] || item.title} size="sm" className="hidden sm:flex" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
                     {item.link ? (
                       <Link
                         href={item.link}
-                        className="text-[13px] font-medium text-[#100F0F] hover:underline truncate"
+                        className="text-[12px] sm:text-[13px] font-medium text-[#100F0F] hover:underline truncate"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {item.title}
                       </Link>
                     ) : (
-                      <span className="text-[13px] font-medium text-[#100F0F] truncate">
+                      <span className="text-[12px] sm:text-[13px] font-medium text-[#100F0F] truncate">
                         {item.title}
                       </span>
                     )}
@@ -107,13 +107,13 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
                       <LinkedInBadge url={item.candidateLinkedin} size="sm" />
                     )}
                   </div>
-                  <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5 truncate">
+                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5 truncate">
                     {item.subtitle}
                   </p>
                 </div>
                 {item.matchPct && (
-                  <span className="text-[11px] font-semibold text-[#2A6B45] bg-[#EBF4EF] px-2 py-1 rounded-full shrink-0">
-                    {item.matchPct}% match
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#2A6B45] bg-[#EBF4EF] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full shrink-0">
+                    {item.matchPct}%
                   </span>
                 )}
               </div>

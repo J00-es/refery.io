@@ -52,36 +52,36 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
       )}
     >
       <div
-        className="flex items-center gap-3.5 px-[22px] py-4"
+        className="flex items-center gap-2.5 sm:gap-3.5 px-3 sm:px-[22px] py-3 sm:py-4"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <span className={cn('w-2 h-2 rounded-full shrink-0', dotColors[urgency])} />
+        <span className={cn('w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full shrink-0', dotColors[urgency])} />
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-[#100F0F] leading-snug">{title}</p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-0.5">{meta}</p>
+          <p className="text-[13px] sm:text-sm font-medium text-[#100F0F] leading-snug">{title}</p>
+          <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-0.5 truncate">{meta}</p>
         </div>
         <ChevronDown
           className={cn(
-            'h-5 w-5 text-[rgba(16,15,15,0.40)] transition-transform shrink-0',
+            'h-4 sm:h-5 w-4 sm:w-5 text-[rgba(16,15,15,0.40)] transition-transform shrink-0',
             isOpen && 'rotate-180'
           )}
         />
       </div>
 
       {isOpen && items.length > 0 && (
-        <div className="px-[22px] pb-[18px] border-t border-dashed border-[rgba(16,15,15,0.06)]">
-          <ul className="mt-3.5 space-y-2.5">
+        <div className="px-3 sm:px-[22px] pb-3 sm:pb-[18px] border-t border-dashed border-[rgba(16,15,15,0.06)]">
+          <ul className="mt-2.5 sm:mt-3.5 space-y-2 sm:space-y-2.5">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center gap-3 px-3.5 py-2.5 bg-white border border-[rgba(16,15,15,0.06)] rounded-md"
+                className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-white border border-[rgba(16,15,15,0.06)] rounded-md"
               >
-                <CompanyLogo companyName={item.companyName} size="md" />
+                <CompanyLogo companyName={item.companyName} size="sm" className="hidden sm:flex" />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-[13px]">
+                  <div className="flex items-center gap-1.5 text-[12px] sm:text-[13px]">
                     <Link
                       href={`/candidates/${item.candidateId}`}
-                      className="font-medium text-[#100F0F] hover:underline"
+                      className="font-medium text-[#100F0F] hover:underline truncate"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {item.candidateName}
@@ -90,12 +90,12 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
                       <LinkedInBadge url={item.candidateLinkedin} size="sm" />
                     )}
                   </div>
-                  <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5">
-                    {item.jobTitle} · {item.companyName} · last activity {formatDistanceToNow(new Date(item.lastActivity))} ago
+                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5 truncate">
+                    {item.jobTitle} · {item.companyName}
                   </p>
                 </div>
-                <span className={cn('text-[11.5px] font-semibold px-2 py-0.5 rounded-full', badgeColors[urgency])}>
-                  {item.daysInStage}d in stage
+                <span className={cn('text-[10px] sm:text-[11.5px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full whitespace-nowrap', badgeColors[urgency])}>
+                  {item.daysInStage}d
                 </span>
               </li>
             ))}
