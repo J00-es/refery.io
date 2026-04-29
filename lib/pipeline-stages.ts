@@ -1,5 +1,38 @@
 import type { PipelineStage } from './types'
 
+// Stage accent hex colors for direct CSS usage
+export const STAGE_ACCENT_COLORS: Record<string, string> = {
+  sourced: '#888780',
+  job_matched: '#185FA5',
+  job_shared: '#378ADD',
+  interest_confirmed: '#1D9E75',
+  hm_shared: '#0F6E56',
+  hm_pending: '#0F6E56',
+  shared_to_hm: '#0F6E56',
+  interview_1: '#534AB7',
+  interview_2: '#534AB7',
+  interview: '#534AB7',
+  offer: '#7F77DD',
+  hired: '#3B6D11',
+  interest_declined: '#A32D2D',
+  rejected: '#A32D2D',
+  rejected_no_feedback: '#A32D2D',
+  withdrawn: '#A32D2D',
+}
+
+// Stage descriptions for drilldown page
+export const STAGE_DESCRIPTIONS: Record<string, string> = {
+  sourced: 'Candidates added to your talent pool, ready to be matched with open roles',
+  job_matched: 'Candidates matched to a role, waiting to be shared with the candidate',
+  job_shared: 'Role details shared with candidate, awaiting their interest confirmation',
+  interest_confirmed: 'Candidate confirmed interest in the role, ready to be shared with hiring manager',
+  shared_to_hm: 'Profile shared with hiring manager, includes candidates awaiting HM feedback',
+  interview: 'Candidates in active interview rounds with the hiring team',
+  offer: 'Candidates who received an offer, pending their decision',
+  hired: 'Successfully placed candidates',
+  rejected: 'Candidates who did not progress (declined, rejected, withdrawn)',
+}
+
 export interface StageConfig {
   value: PipelineStage
   label: string
@@ -12,14 +45,20 @@ export interface StageConfig {
 }
 
 // All 14 pipeline stages in order
+// Stage accent colors from design spec:
+// sourced: #888780 (gray), job_matched: #185FA5 (blue), job_shared: #378ADD (light blue)
+// interest_confirmed: #1D9E75 (teal), hm_shared/hm_pending: #0F6E56 (dark teal)
+// interview_1/interview_2: #534AB7 (purple), offer: #7F77DD (light purple)
+// hired: #3B6D11 (green), rejected family: #A32D2D (red)
+
 export const PIPELINE_STAGES: StageConfig[] = [
   // Active stages (1-9)
   { 
     value: 'sourced', 
     label: 'Sourced', 
-    color: 'bg-slate-100 text-slate-700 border-slate-200',
-    borderColor: 'bg-slate-400',
-    dotColor: 'bg-slate-400',
+    color: 'bg-[#F0F0EA] text-[#888780] border-[#888780]/20',
+    borderColor: 'bg-[#888780]',
+    dotColor: 'bg-[#888780]',
     iconName: 'Search',
     category: 'active',
     order: 1
@@ -27,9 +66,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'job_matched', 
     label: 'Job Matched', 
-    color: 'bg-slate-100 text-slate-700 border-slate-200',
-    borderColor: 'bg-slate-500',
-    dotColor: 'bg-slate-500',
+    color: 'bg-[#EAF1FB] text-[#185FA5] border-[#185FA5]/20',
+    borderColor: 'bg-[#185FA5]',
+    dotColor: 'bg-[#185FA5]',
     iconName: 'TrendingUp',
     category: 'active',
     order: 2
@@ -37,9 +76,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'job_shared', 
     label: 'Job Shared', 
-    color: 'bg-blue-100 text-blue-700 border-blue-200',
-    borderColor: 'bg-blue-500',
-    dotColor: 'bg-blue-500',
+    color: 'bg-[#E8F4FC] text-[#378ADD] border-[#378ADD]/20',
+    borderColor: 'bg-[#378ADD]',
+    dotColor: 'bg-[#378ADD]',
     iconName: 'FileText',
     category: 'active',
     order: 3
@@ -47,9 +86,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'interest_confirmed', 
     label: 'Interest Confirmed', 
-    color: 'bg-cyan-100 text-cyan-700 border-cyan-200',
-    borderColor: 'bg-cyan-500',
-    dotColor: 'bg-cyan-500',
+    color: 'bg-[#E1F5EE] text-[#1D9E75] border-[#1D9E75]/20',
+    borderColor: 'bg-[#1D9E75]',
+    dotColor: 'bg-[#1D9E75]',
     iconName: 'CheckCircle2',
     category: 'active',
     order: 4
@@ -57,9 +96,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'hm_shared', 
     label: 'Shared to HM', 
-    color: 'bg-teal-100 text-teal-700 border-teal-200',
-    borderColor: 'bg-teal-500',
-    dotColor: 'bg-teal-500',
+    color: 'bg-[#E1F5EE] text-[#0F6E56] border-[#0F6E56]/20',
+    borderColor: 'bg-[#0F6E56]',
+    dotColor: 'bg-[#0F6E56]',
     iconName: 'Send',
     category: 'active',
     order: 5
@@ -67,9 +106,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'hm_pending', 
     label: 'Awaiting HM Feedback', 
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    borderColor: 'bg-amber-500',
-    dotColor: 'bg-amber-500',
+    color: 'bg-[#E1F5EE] text-[#0F6E56] border-[#0F6E56]/20',
+    borderColor: 'bg-[#0F6E56]',
+    dotColor: 'bg-[#0F6E56]',
     iconName: 'Clock',
     category: 'active',
     order: 6
@@ -77,9 +116,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'interview_1', 
     label: 'Interview – Round 1', 
-    color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    borderColor: 'bg-indigo-500',
-    dotColor: 'bg-indigo-500',
+    color: 'bg-[#EFEDFA] text-[#534AB7] border-[#534AB7]/20',
+    borderColor: 'bg-[#534AB7]',
+    dotColor: 'bg-[#534AB7]',
     iconName: 'Users',
     category: 'active',
     order: 7
@@ -87,9 +126,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'interview_2', 
     label: 'Interview – Round 2', 
-    color: 'bg-purple-100 text-purple-700 border-purple-200',
-    borderColor: 'bg-purple-500',
-    dotColor: 'bg-purple-500',
+    color: 'bg-[#EFEDFA] text-[#534AB7] border-[#534AB7]/20',
+    borderColor: 'bg-[#534AB7]',
+    dotColor: 'bg-[#534AB7]',
     iconName: 'UserCheck',
     category: 'active',
     order: 8
@@ -97,9 +136,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'offer', 
     label: 'Offer', 
-    color: 'bg-violet-100 text-violet-700 border-violet-200',
-    borderColor: 'bg-violet-500',
-    dotColor: 'bg-violet-500',
+    color: 'bg-[#F3F1FC] text-[#7F77DD] border-[#7F77DD]/20',
+    borderColor: 'bg-[#7F77DD]',
+    dotColor: 'bg-[#7F77DD]',
     iconName: 'Star',
     category: 'active',
     order: 9
@@ -108,9 +147,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'hired', 
     label: 'Hired', 
-    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    borderColor: 'bg-emerald-500',
-    dotColor: 'bg-emerald-500',
+    color: 'bg-[#EBF4EF] text-[#3B6D11] border-[#3B6D11]/20',
+    borderColor: 'bg-[#3B6D11]',
+    dotColor: 'bg-[#3B6D11]',
     iconName: 'Trophy',
     category: 'terminal_positive',
     order: 10
@@ -119,9 +158,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'interest_declined', 
     label: 'Not Interested', 
-    color: 'bg-gray-100 text-gray-600 border-gray-200',
-    borderColor: 'bg-gray-400',
-    dotColor: 'bg-gray-400',
+    color: 'bg-[#FDECEC] text-[#A32D2D] border-[#A32D2D]/20',
+    borderColor: 'bg-[#A32D2D]',
+    dotColor: 'bg-[#A32D2D]',
     iconName: 'ThumbsDown',
     category: 'terminal_negative',
     order: 11
@@ -129,9 +168,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'rejected', 
     label: 'Rejected', 
-    color: 'bg-red-100 text-red-700 border-red-200',
-    borderColor: 'bg-red-500',
-    dotColor: 'bg-red-500',
+    color: 'bg-[#FDECEC] text-[#A32D2D] border-[#A32D2D]/20',
+    borderColor: 'bg-[#A32D2D]',
+    dotColor: 'bg-[#A32D2D]',
     iconName: 'XCircle',
     category: 'terminal_negative',
     order: 12
@@ -139,9 +178,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'rejected_no_feedback', 
     label: 'Rejected (No Response)', 
-    color: 'bg-red-50 text-red-600 border-red-100',
-    borderColor: 'bg-red-400',
-    dotColor: 'bg-red-400',
+    color: 'bg-[#FDECEC] text-[#A32D2D] border-[#A32D2D]/20',
+    borderColor: 'bg-[#A32D2D]',
+    dotColor: 'bg-[#A32D2D]',
     iconName: 'MessageSquareOff',
     category: 'terminal_negative',
     order: 13
@@ -149,9 +188,9 @@ export const PIPELINE_STAGES: StageConfig[] = [
   { 
     value: 'withdrawn', 
     label: 'Withdrawn', 
-    color: 'bg-gray-100 text-gray-500 border-gray-200',
-    borderColor: 'bg-gray-400',
-    dotColor: 'bg-gray-400',
+    color: 'bg-[#FDECEC] text-[#A32D2D] border-[#A32D2D]/20',
+    borderColor: 'bg-[#A32D2D]',
+    dotColor: 'bg-[#A32D2D]',
     iconName: 'ArrowRight',
     category: 'terminal_negative',
     order: 14
@@ -205,36 +244,36 @@ export const DASHBOARD_BUCKETS: DashboardBucket[] = [
     key: 'sourced', 
     label: 'Sourced', 
     stages: ['sourced'],
-    color: 'bg-slate-100 text-slate-700',
-    borderColor: 'bg-slate-400'
+    color: 'bg-[#F0F0EA] text-[#888780]',
+    borderColor: 'bg-[#888780]'
   },
   { 
     key: 'job_matched', 
     label: 'Job Matched', 
     stages: ['job_matched'],
-    color: 'bg-slate-100 text-slate-700',
-    borderColor: 'bg-slate-500'
+    color: 'bg-[#EAF1FB] text-[#185FA5]',
+    borderColor: 'bg-[#185FA5]'
   },
   { 
     key: 'job_shared', 
     label: 'Job Shared', 
     stages: ['job_shared'],
-    color: 'bg-blue-100 text-blue-700',
-    borderColor: 'bg-blue-500'
+    color: 'bg-[#E8F4FC] text-[#378ADD]',
+    borderColor: 'bg-[#378ADD]'
   },
   { 
     key: 'interest_confirmed', 
     label: 'Interest Confirmed', 
     stages: ['interest_confirmed'],
-    color: 'bg-cyan-100 text-cyan-700',
-    borderColor: 'bg-cyan-500'
+    color: 'bg-[#E1F5EE] text-[#1D9E75]',
+    borderColor: 'bg-[#1D9E75]'
   },
   { 
-    key: 'hm_stages', 
+    key: 'shared_to_hm', 
     label: 'Shared to HM', 
     stages: ['hm_shared', 'hm_pending'],
-    color: 'bg-teal-100 text-teal-700',
-    borderColor: 'bg-teal-500',
+    color: 'bg-[#E1F5EE] text-[#0F6E56]',
+    borderColor: 'bg-[#0F6E56]',
     showSubCounts: true,
     subCountLabel: 'awaiting'
   },
@@ -242,29 +281,29 @@ export const DASHBOARD_BUCKETS: DashboardBucket[] = [
     key: 'interview', 
     label: 'Interview', 
     stages: ['interview_1', 'interview_2'],
-    color: 'bg-purple-100 text-purple-700',
-    borderColor: 'bg-purple-500',
+    color: 'bg-[#EFEDFA] text-[#534AB7]',
+    borderColor: 'bg-[#534AB7]',
     showSubCounts: true
   },
   { 
     key: 'offer', 
     label: 'Offer', 
     stages: ['offer'],
-    color: 'bg-violet-100 text-violet-700',
-    borderColor: 'bg-violet-500'
+    color: 'bg-[#F3F1FC] text-[#7F77DD]',
+    borderColor: 'bg-[#7F77DD]'
   },
   { 
     key: 'hired', 
     label: 'Hired', 
     stages: ['hired'],
-    color: 'bg-emerald-100 text-emerald-700',
-    borderColor: 'bg-emerald-500'
+    color: 'bg-[#EBF4EF] text-[#3B6D11]',
+    borderColor: 'bg-[#3B6D11]'
   },
   { 
     key: 'rejected', 
     label: 'Rejected', 
     stages: ['interest_declined', 'rejected', 'rejected_no_feedback', 'withdrawn'],
-    color: 'bg-red-100 text-red-700',
-    borderColor: 'bg-red-400'
+    color: 'bg-[#FDECEC] text-[#A32D2D]',
+    borderColor: 'bg-[#A32D2D]'
   },
 ]
