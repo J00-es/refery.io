@@ -200,11 +200,11 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
           <div
             key={job.id}
             className={cn(
-              'flex sm:grid sm:grid-cols-[36px_1fr_auto] gap-2 sm:gap-3 items-center py-2.5 sm:py-3',
+              'flex items-center gap-2.5 sm:gap-3 py-2.5 sm:py-3',
               idx > 0 && 'border-t border-[rgba(16,15,15,0.06)]'
             )}
           >
-            <CompanyLogo companyName={job.company_name} size="sm" className="hidden sm:flex" />
+            <CompanyLogo companyName={job.company_name} size="sm" className="shrink-0" />
             <div className="min-w-0 flex-1">
               <div className="text-[12px] sm:text-[13px]">
                 <Link
