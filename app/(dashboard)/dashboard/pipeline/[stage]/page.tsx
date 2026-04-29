@@ -50,7 +50,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       job_id,
       candidate_id,
       owner_user_id,
-      jobs(id, title, company_name, location, salary_min, salary_max, created_at),
+      jobs(id, title, company_name, company_id, location, salary_min, salary_max, created_at),
       candidates(
         id, 
         name, 
@@ -66,6 +66,22 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
     `)
     .in('stage', bucket.stages)
     .order('updated_at', { ascending: false })
+
+  // Fetch company logos for all jobs
+  const companyIds = [...new Set(
+    (pipelineData || [])
+      .map(p => (p.jobs as { company_id: string | null } | null)?.company_id)
+      .filter(Boolean)
+  )] as string[]
+  
+  const { data: companies } = companyIds.length > 0
+    ? await adminClient
+        .from('companies')
+        .select('id, logo_url')
+        .in('id', companyIds)
+    : { data: [] }
+  
+  const companyLogoMap = new Map(companies?.map(c => [c.id, c.logo_url]) || [])
 
   if (error) {
     console.error('Pipeline fetch error:', error)
@@ -116,6 +132,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       job_id: string
       title: string
       company_name: string
+      company_logo_url: string | null
       location: string | null
       salary_min: number | null
       salary_max: number | null
@@ -142,6 +159,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       id: string
       title: string
       company_name: string | null
+      company_id: string | null
       location: string | null
       salary_min: number | null
       salary_max: number | null
@@ -190,6 +208,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         job_id: job.id,
         title: job.title,
         company_name: job.company_name || 'Unknown',
+        company_logo_url: job.company_id ? companyLogoMap.get(job.company_id) || null : null,
         location: job.location,
         salary_min: job.salary_min,
         salary_max: job.salary_max,

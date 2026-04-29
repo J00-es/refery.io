@@ -14,6 +14,7 @@ interface PipelineJob {
   job_id: string
   title: string
   company_name: string
+  company_logo_url?: string | null
   location: string | null
   salary_min: number | null
   salary_max: number | null
@@ -204,7 +205,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
               idx > 0 && 'border-t border-[rgba(16,15,15,0.06)]'
             )}
           >
-            <CompanyLogo companyName={job.company_name} size="sm" className="shrink-0" />
+            <CompanyLogo companyName={job.company_name} logoUrl={job.company_logo_url} size="sm" />
             <div className="min-w-0 flex-1">
               <div className="text-[12px] sm:text-[13px]">
                 <Link
