@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +28,10 @@ const navItems = [
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2 },
+]
+
+const adminNavItems = [
+  { href: '/outreach', label: 'Outreach', icon: Send },
 ]
 
 const adminOnlyNavItems = [
@@ -103,6 +107,20 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
             ))}
             {isAdmin && (
               <>
+                {adminNavItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                      isActiveRoute(item.href)
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                    )}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
                 {adminOnlyNavItems.map((item) => (
                   <Link
                     key={item.href}
@@ -235,6 +253,25 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
               })}
               {isAdmin && (
                 <>
+                  {adminNavItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                          isActiveRoute(item.href)
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-foreground hover:bg-accent/50'
+                        )}
+                      >
+                        <Icon className="h-5 w-5" />
+                        {item.label}
+                        <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                      </Link>
+                    )
+                  })}
                   {adminOnlyNavItems.map((item) => {
                     const Icon = item.icon
                     return (

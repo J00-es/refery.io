@@ -461,15 +461,19 @@ function filterAndLimitMatches(
 }
 
 const stageColors: Record<string, { bg: string; text: string }> = {
-  sourced: { bg: 'bg-gray-100', text: 'text-gray-700' },
+  sourced: { bg: 'bg-slate-100', text: 'text-slate-700' },
   job_matched: { bg: 'bg-slate-100', text: 'text-slate-700' },
   job_shared: { bg: 'bg-blue-100', text: 'text-blue-700' },
   interest_confirmed: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  screening: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  interview: { bg: 'bg-purple-100', text: 'text-purple-700' },
-  offer: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  hm_shared: { bg: 'bg-teal-100', text: 'text-teal-700' },
+  hm_pending: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  interview_1: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  interview_2: { bg: 'bg-purple-100', text: 'text-purple-700' },
+  offer: { bg: 'bg-violet-100', text: 'text-violet-700' },
   hired: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  interest_declined: { bg: 'bg-gray-100', text: 'text-gray-600' },
   rejected: { bg: 'bg-red-100', text: 'text-red-700' },
+  rejected_no_feedback: { bg: 'bg-red-50', text: 'text-red-600' },
   withdrawn: { bg: 'bg-gray-100', text: 'text-gray-500' },
 }
 
@@ -478,11 +482,15 @@ const stageLabels: Record<string, string> = {
   job_matched: 'Job Matched',
   job_shared: 'Job Shared',
   interest_confirmed: 'Interest Confirmed',
-  screening: 'Screening',
-  interview: 'Interview',
+  hm_shared: 'Shared to HM',
+  hm_pending: 'Awaiting HM Feedback',
+  interview_1: 'Interview – Round 1',
+  interview_2: 'Interview – Round 2',
   offer: 'Offer',
   hired: 'Hired',
+  interest_declined: 'Not Interested',
   rejected: 'Rejected',
+  rejected_no_feedback: 'Rejected (No Response)',
   withdrawn: 'Withdrawn',
 }
 

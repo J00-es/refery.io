@@ -155,11 +155,31 @@ export interface JobInternalNote {
   updated_at: string
 }
 
+// Pipeline stage type - all 14 stages in order
+export type PipelineStage = 
+  // Active stages (1-9)
+  | 'sourced'
+  | 'job_matched'
+  | 'job_shared'
+  | 'interest_confirmed'
+  | 'hm_shared'
+  | 'hm_pending'
+  | 'interview_1'
+  | 'interview_2'
+  | 'offer'
+  // Terminal positive (10)
+  | 'hired'
+  // Terminal negative (11-14)
+  | 'interest_declined'
+  | 'rejected'
+  | 'rejected_no_feedback'
+  | 'withdrawn'
+
 export interface JobCandidatePipeline {
   id: string
   job_id: string
   candidate_id: string
-  stage: 'sourced' | 'job_matched' | 'job_shared' | 'interest_confirmed' | 'screening' | 'interview' | 'offer' | 'hired' | 'rejected' | 'withdrawn'
+  stage: PipelineStage
   added_by_user_id: string | null
   owner_user_id: string | null
   created_at: string

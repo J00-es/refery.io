@@ -244,15 +244,19 @@ export async function PATCH(
       job_matched: 'Job Matched',
       job_shared: 'Job Shared',
       interest_confirmed: 'Interest Confirmed',
-      screening: 'Screening',
-      interview: 'Interview',
+      hm_shared: 'Shared to HM',
+      hm_pending: 'Awaiting HM Feedback',
+      interview_1: 'Interview – Round 1',
+      interview_2: 'Interview – Round 2',
       offer: 'Offer',
       hired: 'Hired',
+      interest_declined: 'Not Interested',
       rejected: 'Rejected',
+      rejected_no_feedback: 'Rejected (No Response)',
       withdrawn: 'Withdrawn'
     }
 
-    const activityType = ['hired', 'rejected', 'withdrawn', 'interview', 'offer'].includes(stage) 
+    const activityType = ['hired', 'rejected', 'rejected_no_feedback', 'interest_declined', 'withdrawn', 'interview_1', 'interview_2', 'offer'].includes(stage) 
       ? stage 
       : 'stage_changed'
     

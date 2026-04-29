@@ -8,29 +8,16 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
-  Plus, ChevronDown, ChevronRight, MessageSquare, User, Clock, Send, Trash2, 
-  ExternalLink, Search, Filter, Users, CheckCircle2, XCircle, ArrowRight,
-  Sparkles, Mail, Phone, MapPin, Linkedin, FileText, Star, TrendingUp
+  Plus, ChevronDown, ChevronRight, MessageSquare, Clock, Send, Trash2, 
+  Search, Users, CheckCircle2, AlertTriangle,
+  Sparkles, Mail, MapPin, Linkedin
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
-import type { JobCandidatePipeline, JobCandidateNote, Candidate } from '@/lib/types'
+import type { JobCandidatePipeline, JobCandidateNote, Candidate, PipelineStage } from '@/lib/types'
+import { PIPELINE_STAGES, getStageConfig, ACTIVE_STAGE_VALUES, TERMINAL_NEGATIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
-
-const STAGES = [
-  { value: 'sourced', label: 'Sourced', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: Search },
-  { value: 'job_matched', label: 'Job Matched', color: 'bg-slate-100 text-slate-700 border-slate-200', icon: TrendingUp },
-  { value: 'job_shared', label: 'Job Shared', color: 'bg-blue-100 text-blue-700 border-blue-200', icon: FileText },
-  { value: 'interest_confirmed', label: 'Interest Confirmed', color: 'bg-cyan-100 text-cyan-700 border-cyan-200', icon: CheckCircle2 },
-  { value: 'screening', label: 'Screening', color: 'bg-indigo-100 text-indigo-700 border-indigo-200', icon: Send },
-  { value: 'interview', label: 'Interview', color: 'bg-purple-100 text-purple-700 border-purple-200', icon: Users },
-  { value: 'offer', label: 'Offer', color: 'bg-amber-100 text-amber-700 border-amber-200', icon: Star },
-  { value: 'hired', label: 'Hired', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: CheckCircle2 },
-  { value: 'rejected', label: 'Rejected', color: 'bg-red-100 text-red-700 border-red-200', icon: XCircle },
-  { value: 'withdrawn', label: 'Withdrawn', color: 'bg-gray-100 text-gray-500 border-gray-200', icon: ArrowRight },
-]
 
 const QUICK_NOTES = [
   'Initial call scheduled',
@@ -68,7 +55,6 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban')
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [whyGoodFit, setWhyGoodFit] = useState<Record<string, string>>({})
-  const supabase = createClient()
 
   useEffect(() => {
     fetchPipeline()
@@ -85,7 +71,6 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
   }
 
   async function fetchAllCandidates() {
-    // Use the API endpoint to fetch candidates (bypasses RLS issues)
     try {
       const res = await fetch(`/api/candidates?limit=200`)
       if (res.ok) {
@@ -109,7 +94,6 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     if (selectedCandidates.length === 0) return
     setAddingCandidate(true)
 
-    // Add each selected candidate with their "why good fit" comment
     for (const candidateId of selectedCandidates) {
       const comment = whyGoodFit[candidateId]?.trim()
       await fetch(`/api/jobs/${jobId}/pipeline`, {
@@ -182,8 +166,6 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     )
   }
 
-  const getStageInfo = (stage: string) => STAGES.find(s => s.value === stage) || STAGES[0]
-
   // Filter candidates not already in pipeline
   const availableCandidates = useMemo(() => {
     return allCandidates.filter(
@@ -196,21 +178,32 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     )
   }, [allCandidates, pipeline, searchTerm])
 
-  // Group pipeline by stage for kanban view
+  // Group pipeline by stage for kanban view - ALL 14 stages
   const pipelineByStage = useMemo(() => {
-    return STAGES.filter(s => !['rejected', 'withdrawn'].includes(s.value)).map(stage => ({
+    return PIPELINE_STAGES.map(stage => ({
       ...stage,
       candidates: pipeline.filter(p => p.stage === stage.value),
     }))
   }, [pipeline])
 
-  // Stats
+  // Stats - Active = stages 1-9, Hired = stage 10, Rejected = stages 11-14
   const stats = useMemo(() => ({
     total: pipeline.length,
-    active: pipeline.filter(p => !['rejected', 'withdrawn', 'hired'].includes(p.stage)).length,
+    active: pipeline.filter(p => ACTIVE_STAGE_VALUES.includes(p.stage as PipelineStage)).length,
     hired: pipeline.filter(p => p.stage === 'hired').length,
-    rejected: pipeline.filter(p => p.stage === 'rejected').length,
+    rejected: pipeline.filter(p => TERMINAL_NEGATIVE_STAGE_VALUES.includes(p.stage as PipelineStage)).length,
   }), [pipeline])
+
+  // Helper to get days in current stage
+  function getDaysInStage(item: JobCandidatePipeline): number {
+    return Math.floor((Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  function getStaleStatus(days: number): 'normal' | 'warning' | 'stale' {
+    if (days > 14) return 'stale'
+    if (days > 7) return 'warning'
+    return 'normal'
+  }
 
   if (loading) {
     return (
@@ -420,188 +413,216 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
             </Button>
           </div>
         ) : viewMode === 'kanban' ? (
-          /* Kanban View */
-          <div className="flex gap-4 overflow-x-auto pb-4">
-            {pipelineByStage.map(stage => {
-              const StageIcon = stage.icon
-              return (
-                <div key={stage.value} className="flex-shrink-0 w-72">
-                  <div className={`rounded-t-lg px-3 py-2 border ${stage.color}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <StageIcon className="h-4 w-4" />
-                        <span className="font-medium text-sm">{stage.label}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {stage.candidates.length}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="border border-t-0 rounded-b-lg bg-muted/30 min-h-[200px] p-2 space-y-2">
-                    {stage.candidates.map(item => (
-                      <div 
-                        key={item.id}
-                        className="bg-background border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow"
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <Link 
-                            href={`/candidates/${item.candidate_id}`}
-                            className="font-medium text-sm hover:underline truncate"
-                          >
-                            {item.candidate?.name || 'Unknown'}
-                          </Link>
-                          {item.candidate?.linkedin_url && (
-                            <a 
-                              href={item.candidate.linkedin_url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="flex-shrink-0"
-                            >
-                              <Linkedin className="h-4 w-4 text-blue-600 hover:text-blue-800" />
-                            </a>
-                          )}
-                        </div>
-                        
-                        {item.candidate?.location && (
-                          <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <MapPin className="h-3 w-3" />
-                            {item.candidate.location}
-                          </p>
-                        )}
-
-                        {/* Why Good Fit indicator */}
-                        {(item as typeof item & { why_good_fit?: string }).why_good_fit && (
-                          <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs">
-                            <div className="flex items-center gap-1 text-amber-700 font-medium mb-1">
-                              <Sparkles className="h-3 w-3" />
-                              Why good fit
-                            </div>
-                            <p className="text-amber-900 line-clamp-2">
-                              {(item as typeof item & { why_good_fit?: string }).why_good_fit}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Time in pipeline indicator */}
-                        {(() => {
-                          const daysInPipeline = Math.floor((Date.now() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24))
-                          const isStale = daysInPipeline > 14
-                          const isWarning = daysInPipeline > 7 && daysInPipeline <= 14
-                          return (
-                            <div className={`flex items-center gap-1 text-xs mt-1 ${isStale ? 'text-red-600' : isWarning ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                              <Clock className="h-3 w-3" />
-                              {daysInPipeline === 0 ? 'Today' : daysInPipeline === 1 ? '1 day' : `${daysInPipeline} days`}
-                              {isStale && <span className="ml-1 font-medium">- Needs action</span>}
-                            </div>
-                          )
-                        })()}
-
-                        <div className="flex items-center justify-between mt-2">
-                          <Select 
-                            value={item.stage} 
-                            onValueChange={(v) => updateStage(item.id, v)}
-                          >
-                            <SelectTrigger className="w-24 h-7 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {STAGES.map(s => (
-                                <SelectItem key={s.value} value={s.value} className="text-xs">
-                                  {s.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <div className="flex items-center gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-7 w-7"
-                              onClick={() => toggleExpand(item.id)}
-                            >
-                              <MessageSquare className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon"
-                              className="h-7 w-7 text-muted-foreground hover:text-red-600"
-                              onClick={() => removeCandidate(item.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* Notes Panel */}
-                        {expandedItems.has(item.id) && (
-                          <div className="mt-3 pt-3 border-t space-y-2">
-                            {/* Quick Notes */}
-                            <div className="flex flex-wrap gap-1">
-                              {QUICK_NOTES.slice(0, 4).map((note, i) => (
-                                <Button
-                                  key={i}
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-6 text-xs px-2"
-                                  onClick={() => addNote(item.id, note)}
-                                >
-                                  {note}
-                                </Button>
-                              ))}
-                            </div>
-                            
-                            {/* Recent Notes */}
-                            {(notes[item.id] || []).slice(0, 3).map(note => (
-                              <div key={note.id} className="bg-muted/50 rounded p-2 text-xs">
-                                <p>{note.content}</p>
-                                <p className="text-muted-foreground mt-1">
-                                  {formatDistanceToNow(new Date(note.created_at))} ago
-                                </p>
-                              </div>
-                            ))}
-
-                            {/* Add Note */}
-                            <div className="flex gap-1">
-                              <Input
-                                placeholder="Add note..."
-                                value={newNote[item.id] || ''}
-                                onChange={(e) => setNewNote(prev => ({ ...prev, [item.id]: e.target.value }))}
-                                className="h-7 text-xs"
-                                onKeyDown={(e) => e.key === 'Enter' && addNote(item.id)}
-                              />
-                              <Button 
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => addNote(item.id)}
-                                disabled={!newNote[item.id]?.trim()}
-                              >
-                                <Send className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
-
-                        </div>
-                    ))}
-                    {stage.candidates.length === 0 && (
-                      <div className="text-center py-8 text-xs text-muted-foreground">
-                        No candidates
+          /* Kanban View - All 14 stages with horizontal scroll */
+          <div className="overflow-x-auto pb-4 -mx-6 px-6">
+            <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
+              {pipelineByStage.map((stage, idx) => {
+                const isTerminalSection = stage.category !== 'active' && idx > 0 && pipelineByStage[idx - 1].category === 'active'
+                
+                return (
+                  <div key={stage.value} className="flex">
+                    {/* Visual separator before terminal stages */}
+                    {isTerminalSection && (
+                      <div className="flex items-center mr-3">
+                        <div className="w-px h-full bg-border mx-2" />
                       </div>
                     )}
+                    <div className="flex-shrink-0 w-64">
+                      <div className={`relative rounded-t-lg px-3 py-2 border ${stage.color}`}>
+                        <div className={`absolute top-0 left-0 right-0 h-1 ${stage.borderColor} rounded-t-lg`} />
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${stage.dotColor}`} />
+                            <span className="font-medium text-xs">{stage.label}</span>
+                          </div>
+                          <Badge variant="secondary" className="text-xs h-5 px-1.5">
+                            {stage.candidates.length}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="border border-t-0 rounded-b-lg bg-muted/30 min-h-[200px] max-h-[400px] overflow-y-auto p-2 space-y-2">
+                        {stage.candidates.map(item => {
+                          const days = getDaysInStage(item)
+                          const staleStatus = getStaleStatus(days)
+                          const itemWithFit = item as typeof item & { why_good_fit?: string }
+                          
+                          return (
+                            <div 
+                              key={item.id}
+                              className={`bg-background border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow ${
+                                staleStatus === 'stale' ? 'border-red-300 bg-red-50' : 
+                                staleStatus === 'warning' ? 'border-amber-300 bg-amber-50' : ''
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <Link 
+                                  href={`/candidates/${item.candidate_id}`}
+                                  className="font-medium text-sm hover:underline truncate"
+                                >
+                                  {item.candidate?.name || 'Unknown'}
+                                </Link>
+                                {item.candidate?.linkedin_url && (
+                                  <a 
+                                    href={item.candidate.linkedin_url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0"
+                                  >
+                                    <Linkedin className="h-4 w-4 text-blue-600 hover:text-blue-800" />
+                                  </a>
+                                )}
+                              </div>
+                              
+                              {item.candidate?.location && (
+                                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <MapPin className="h-3 w-3" />
+                                  {item.candidate.location}
+                                </p>
+                              )}
+
+                              {/* Why Good Fit indicator */}
+                              {itemWithFit.why_good_fit && (
+                                <div className="mt-2 p-2 bg-amber-50 border border-amber-100 rounded text-xs">
+                                  <div className="flex items-center gap-1 text-amber-700 font-medium mb-1">
+                                    <Sparkles className="h-3 w-3" />
+                                    Why good fit
+                                  </div>
+                                  <p className="text-amber-900 line-clamp-2">
+                                    {itemWithFit.why_good_fit}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Time in stage indicator with stale badge */}
+                              <div className={`flex items-center gap-1 text-xs mt-1 ${
+                                staleStatus === 'stale' ? 'text-red-600 font-medium' : 
+                                staleStatus === 'warning' ? 'text-amber-600' : 'text-muted-foreground'
+                              }`}>
+                                <Clock className="h-3 w-3" />
+                                {days === 0 ? 'Today' : days === 1 ? '1 day' : `${days}d in stage`}
+                                {staleStatus === 'stale' && (
+                                  <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] border-red-300 text-red-600 bg-red-50">
+                                    <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                    Stale
+                                  </Badge>
+                                )}
+                              </div>
+
+                              <div className="flex items-center justify-between mt-2">
+                                <Select 
+                                  value={item.stage} 
+                                  onValueChange={(v) => updateStage(item.id, v)}
+                                >
+                                  <SelectTrigger className="w-28 h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PIPELINE_STAGES.map(s => (
+                                      <SelectItem key={s.value} value={s.value} className="text-xs">
+                                        {s.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <div className="flex items-center gap-1">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => toggleExpand(item.id)}
+                                  >
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-red-600"
+                                    onClick={() => removeCandidate(item.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Notes Panel */}
+                              {expandedItems.has(item.id) && (
+                                <div className="mt-3 pt-3 border-t space-y-2">
+                                  {/* Quick Notes */}
+                                  <div className="flex flex-wrap gap-1">
+                                    {QUICK_NOTES.slice(0, 4).map((note, i) => (
+                                      <Button
+                                        key={i}
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-6 text-xs px-2"
+                                        onClick={() => addNote(item.id, note)}
+                                      >
+                                        {note}
+                                      </Button>
+                                    ))}
+                                  </div>
+                                  
+                                  {/* Recent Notes */}
+                                  {(notes[item.id] || []).slice(0, 3).map(note => (
+                                    <div key={note.id} className="bg-muted/50 rounded p-2 text-xs">
+                                      <p>{note.content}</p>
+                                      <p className="text-muted-foreground mt-1">
+                                        {formatDistanceToNow(new Date(note.created_at))} ago
+                                      </p>
+                                    </div>
+                                  ))}
+
+                                  {/* Add Note */}
+                                  <div className="flex gap-1">
+                                    <Input
+                                      placeholder="Add note..."
+                                      value={newNote[item.id] || ''}
+                                      onChange={(e) => setNewNote(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                      className="h-7 text-xs"
+                                      onKeyDown={(e) => e.key === 'Enter' && addNote(item.id)}
+                                    />
+                                    <Button 
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => addNote(item.id)}
+                                      disabled={!newNote[item.id]?.trim()}
+                                    >
+                                      <Send className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                        {stage.candidates.length === 0 && (
+                          <div className="text-center py-8 text-xs text-muted-foreground">
+                            No candidates
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         ) : (
           /* List View */
           <div className="space-y-2">
             {pipeline.map(item => {
-              const stageInfo = getStageInfo(item.stage)
+              const stageConfig = getStageConfig(item.stage)
+              const days = getDaysInStage(item)
+              const staleStatus = getStaleStatus(days)
+              const itemWithFit = item as typeof item & { why_good_fit?: string }
+              
               return (
                 <div 
                   key={item.id}
-                  className="border rounded-lg p-4 hover:border-primary/30 transition-colors"
+                  className={`border rounded-lg p-4 hover:border-primary/30 transition-colors ${
+                    staleStatus === 'stale' ? 'border-red-300 bg-red-50' : 
+                    staleStatus === 'warning' ? 'border-amber-300 bg-amber-50' : ''
+                  }`}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -611,7 +632,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                       >
                         {item.candidate?.name || 'Unknown'}
                       </Link>
-                      <Badge className={stageInfo.color}>{stageInfo.label}</Badge>
+                      <Badge className={stageConfig.color}>{stageConfig.label}</Badge>
                       {item.candidate?.linkedin_url && (
                         <a 
                           href={item.candidate.linkedin_url} 
@@ -621,30 +642,31 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                           <Linkedin className="h-4 w-4 text-blue-600" />
                         </a>
                       )}
-                      {/* Time indicator */}
-                      {(() => {
-                        const daysInPipeline = Math.floor((Date.now() - new Date(item.created_at).getTime()) / (1000 * 60 * 60 * 24))
-                        const isStale = daysInPipeline > 14
-                        const isWarning = daysInPipeline > 7 && daysInPipeline <= 14
-                        return (
-                          <span className={`text-xs flex items-center gap-1 ${isStale ? 'text-red-600 font-medium' : isWarning ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                            <Clock className="h-3 w-3" />
-                            {daysInPipeline}d
-                            {isStale && ' - Action needed'}
-                          </span>
-                        )
-                      })()}
+                      {/* Time indicator with stale badge */}
+                      <span className={`text-xs flex items-center gap-1 ${
+                        staleStatus === 'stale' ? 'text-red-600 font-medium' : 
+                        staleStatus === 'warning' ? 'text-amber-600' : 'text-muted-foreground'
+                      }`}>
+                        <Clock className="h-3 w-3" />
+                        {days}d
+                        {staleStatus === 'stale' && (
+                          <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px] border-red-300 text-red-600 bg-red-50">
+                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                            Stale
+                          </Badge>
+                        )}
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Select 
                         value={item.stage} 
                         onValueChange={(v) => updateStage(item.id, v)}
                       >
-                        <SelectTrigger className="w-32 h-8">
+                        <SelectTrigger className="w-40 h-8">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {STAGES.map(s => (
+                          {PIPELINE_STAGES.map(s => (
                             <SelectItem key={s.value} value={s.value}>
                               {s.label}
                             </SelectItem>
@@ -675,14 +697,14 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                   </div>
 
                   {/* Why Good Fit in List View */}
-                  {(item as typeof item & { why_good_fit?: string }).why_good_fit && (
+                  {itemWithFit.why_good_fit && (
                     <div className="mt-3 p-3 bg-amber-50 border border-amber-100 rounded-lg text-sm">
                       <div className="flex items-center gap-1 text-amber-700 font-medium mb-1">
                         <Sparkles className="h-3.5 w-3.5" />
                         Why good fit
                       </div>
                       <p className="text-amber-900">
-                        {(item as typeof item & { why_good_fit?: string }).why_good_fit}
+                        {itemWithFit.why_good_fit}
                       </p>
                     </div>
                   )}
