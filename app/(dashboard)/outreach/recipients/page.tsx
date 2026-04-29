@@ -1,4 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { RecipientsListClient } from './recipients-list-client'
 import type { OutreachRecipient } from '@/lib/outreach-types'
 
@@ -18,11 +20,34 @@ export default async function RecipientsPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
+  await cookies()
   const params = await searchParams
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Check if super admin
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+  // Get user role
+  const { data: adminData } = await adminClient
+    .from('users_admin')
+    .select('role')
+    .eq('email', user.email)
+    .single()
+
+  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+
+  // Redirect non-admins
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
 
   // Build query
   let query = adminClient

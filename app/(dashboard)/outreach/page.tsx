@@ -1,4 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -38,20 +40,33 @@ function getChannelIcon(channel: string) {
 }
 
 export default async function OutreachHubPage() {
+  await cookies()
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
+  
+  if (!user) {
+    redirect('/login')
+  }
 
+  // Check if super admin
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+  // Get user role
   const { data: adminData } = await adminClient
     .from('users_admin')
-    .select('role, full_name, user_id')
-    .eq('email', user?.email)
+    .select('role')
+    .eq('email', user.email)
     .single()
 
-  const currentUserId = adminData?.user_id || user?.id
-  const isAdmin = isSuperAdmin || ['super_admin', 'admin'].includes(adminData?.role || '')
+  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+
+  // Redirect non-admins
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
 
   const now = new Date()
   const sevenDaysAgo = subDays(now, 7)

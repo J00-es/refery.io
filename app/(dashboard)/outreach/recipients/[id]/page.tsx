@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { format, formatDistanceToNow } from 'date-fns'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,11 +37,34 @@ export default async function RecipientDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  await cookies()
   const { id } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/login')
+  }
+
+  // Check if super admin
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+  // Get user role
+  const { data: adminData } = await adminClient
+    .from('users_admin')
+    .select('role')
+    .eq('email', user.email)
+    .single()
+
+  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+
+  // Redirect non-admins
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
 
   // Fetch recipient with company
   const { data: recipient, error } = await adminClient

@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { ThreadDetailClient } from './thread-detail-client'
 import type { OutreachThread, OutreachMessage, OutreachRecipient, OutreachFollowup, OutreachNote, OutreachMessageCandidate } from '@/lib/outreach-types'
 
@@ -10,18 +11,34 @@ export default async function ThreadDetailPage({
 }: {
   params: Promise<{ id: string }>
 }) {
+  await cookies()
   const { id } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
+  
+  if (!user) {
+    redirect('/login')
+  }
 
+  // Check if super admin
+  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+
+  // Get user role
   const { data: adminData } = await adminClient
     .from('users_admin')
-    .select('role, full_name, user_id')
-    .eq('email', user?.email)
+    .select('role, user_id')
+    .eq('email', user.email)
     .single()
+
+  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
+  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+
+  // Redirect non-admins
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
 
   const currentUserId = adminData?.user_id || user?.id
 
