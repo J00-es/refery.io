@@ -1,22 +1,19 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { ArrowLeft, AlertTriangle } from 'lucide-react'
-import { DASHBOARD_BUCKETS, getStageConfig } from '@/lib/pipeline-stages'
 import { notFound } from 'next/navigation'
-import { StageDrillDownClient } from './stage-drill-down-client'
+import { DASHBOARD_BUCKETS, getStageConfig, STAGE_ACCENT_COLORS, STAGE_DESCRIPTIONS } from '@/lib/pipeline-stages'
+import { StageDrilldownClient } from './stage-drilldown-client'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 interface PageProps {
   params: Promise<{ stage: string }>
-  searchParams: Promise<{ sort?: string; stale?: string }>
+  searchParams: Promise<{ sort?: string; stale?: string; search?: string; owner?: string }>
 }
 
 export default async function StageDrillDownPage({ params, searchParams }: PageProps) {
   const { stage: bucketKey } = await params
-  const { sort = 'days_desc', stale } = await searchParams
+  const { sort = 'days_desc', stale, search, owner } = await searchParams
   
   const supabase = await createClient()
   const adminClient = createAdminClient()
@@ -53,8 +50,21 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       job_id,
       candidate_id,
       owner_user_id,
-      jobs(id, title, company_name),
-      candidates(id, name, email, linkedin_url, location, owner_user_id, uploaded_by_user_id, user_id)
+      jobs(id, title, company_name, location, salary_min, salary_max, created_at),
+      candidates(
+        id, 
+        name, 
+        email, 
+        linkedin_url, 
+        location,
+        current_title,
+        experience_years,
+        resume_url,
+        owner_user_id, 
+        uploaded_by_user_id, 
+        user_id,
+        notes
+      )
     `)
     .in('stage', bucket.stages)
     .order('updated_at', { ascending: false })
@@ -87,122 +97,232 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
 
   const ownerMap = new Map(owners?.map(o => [o.user_id, o]) || [])
 
-  // Calculate days in stage and add owner info - serialize for client component
-  const enrichedData = filteredData.map(item => {
-    const daysInStage = Math.floor((Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    const owner = item.owner_user_id ? ownerMap.get(item.owner_user_id) : null
-    const stageConfig = getStageConfig(item.stage)
+  // Group pipeline items by candidate_id
+  type CandidateGroup = {
+    candidate_id: string
+    candidate_name: string
+    candidate_email: string | null
+    candidate_linkedin: string | null
+    candidate_location: string | null
+    candidate_current_title: string | null
+    candidate_experience_years: number | null
+    resume_url: string | null
+    source_type: string | null
+    source_name: string | null
+    notes: string | null
+    owner: { user_id: string; email: string; full_name: string | null } | null
+    lastActivity: string
+    maxDaysInStage: number
+    jobs: {
+      id: string
+      job_id: string
+      title: string
+      company_name: string
+      location: string | null
+      salary_min: number | null
+      salary_max: number | null
+      created_at: string
+      daysInStage: number
+    }[]
+    activities: { timestamp: string; description: string }[]
+  }
+
+  const candidateGroups: Map<string, CandidateGroup> = new Map()
+
+  for (const item of filteredData) {
+    const candidate = item.candidates as {
+      id: string
+      name: string
+      email: string | null
+      linkedin_url: string | null
+      location: string | null
+      current_title: string | null
+      experience_years: number | null
+      resume_url: string | null
+      notes: string | null
+    } | null
     
-    return {
-      id: item.id,
-      stage: item.stage,
-      updated_at: item.updated_at,
-      created_at: item.created_at,
-      job_id: item.job_id,
-      candidate_id: item.candidate_id,
-      owner_user_id: item.owner_user_id,
-      jobs: item.jobs,
-      candidates: item.candidates,
-      daysInStage,
-      owner: owner ? { user_id: owner.user_id, email: owner.email, full_name: owner.full_name } : null,
-      stageLabel: stageConfig.label,
-      stageColor: stageConfig.color,
-      stageDotColor: stageConfig.dotColor,
-      isStale: daysInStage > 7,
-      isVeryStale: daysInStage > 14
+    const job = item.jobs as {
+      id: string
+      title: string
+      company_name: string | null
+      location: string | null
+      salary_min: number | null
+      salary_max: number | null
+      created_at: string
+    } | null
+
+    if (!candidate) continue
+
+    const daysInStage = Math.floor((Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    const ownerInfo = item.owner_user_id ? ownerMap.get(item.owner_user_id) : null
+
+    if (!candidateGroups.has(candidate.id)) {
+      candidateGroups.set(candidate.id, {
+        candidate_id: candidate.id,
+        candidate_name: candidate.name,
+        candidate_email: candidate.email,
+        candidate_linkedin: candidate.linkedin_url,
+        candidate_location: candidate.location,
+        candidate_current_title: candidate.current_title,
+        candidate_experience_years: candidate.experience_years,
+        resume_url: candidate.resume_url,
+        source_type: null,
+        source_name: null,
+        notes: candidate.notes,
+        owner: ownerInfo ? { 
+          user_id: ownerInfo.user_id, 
+          email: ownerInfo.email, 
+          full_name: ownerInfo.full_name 
+        } : null,
+        lastActivity: item.updated_at,
+        maxDaysInStage: daysInStage,
+        jobs: [],
+        activities: [
+          { timestamp: item.updated_at, description: `Moved to ${getStageConfig(item.stage).label}` },
+          { timestamp: item.created_at, description: 'Added to pipeline' },
+        ],
+      })
     }
-  })
 
-  // Apply stale filter if requested
-  const displayData = stale === 'true' 
-    ? enrichedData.filter(item => item.isStale)
-    : enrichedData
-
-  // Sort data
-  const sortedData = [...displayData].sort((a, b) => {
-    switch (sort) {
-      case 'days_asc':
-        return a.daysInStage - b.daysInStage
-      case 'days_desc':
-        return b.daysInStage - a.daysInStage
-      case 'activity':
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      case 'name':
-        const nameA = (a.candidates as { name: string } | null)?.name || ''
-        const nameB = (b.candidates as { name: string } | null)?.name || ''
-        return nameA.localeCompare(nameB)
-      default:
-        return b.daysInStage - a.daysInStage
+    const group = candidateGroups.get(candidate.id)!
+    
+    // Add job to group
+    if (job) {
+      group.jobs.push({
+        id: item.id,
+        job_id: job.id,
+        title: job.title,
+        company_name: job.company_name || 'Unknown',
+        location: job.location,
+        salary_min: job.salary_min,
+        salary_max: job.salary_max,
+        created_at: job.created_at,
+        daysInStage,
+      })
     }
-  })
 
-  // Stats
-  const totalCount = enrichedData.length
-  const staleCount = enrichedData.filter(i => i.isStale).length
-  const veryStaleCount = enrichedData.filter(i => i.isVeryStale).length
+    // Update max days in stage
+    if (daysInStage > group.maxDaysInStage) {
+      group.maxDaysInStage = daysInStage
+    }
+
+    // Update last activity if more recent
+    if (new Date(item.updated_at) > new Date(group.lastActivity)) {
+      group.lastActivity = item.updated_at
+    }
+  }
+
+  // Convert to array and apply sorting
+  let groupedData = Array.from(candidateGroups.values())
+
+  // Calculate stats
+  const totalCount = filteredData.length
+  const uniqueCandidates = groupedData.length
+  const staleCount = groupedData.filter(g => g.maxDaysInStage > 7).length
+  const criticalCount = groupedData.filter(g => g.maxDaysInStage > 14).length
+  const avgDaysInStage = groupedData.length > 0
+    ? Math.round((groupedData.reduce((sum, g) => sum + g.maxDaysInStage, 0) / groupedData.length) * 10) / 10
+    : 0
+  const oldestDays = groupedData.length > 0
+    ? Math.max(...groupedData.map(g => g.maxDaysInStage))
+    : 0
+
+  // Get unique owners for filter dropdown
+  const uniqueOwners = Array.from(
+    new Map(
+      groupedData
+        .filter(g => g.owner)
+        .map(g => [g.owner!.user_id, g.owner!])
+    ).values()
+  )
+
+  const stageAccentColor = STAGE_ACCENT_COLORS[bucketKey] || '#2A6B45'
+  const stageDescription = STAGE_DESCRIPTIONS[bucketKey] || 'View and manage candidates in this stage'
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 max-w-[1280px] mx-auto">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2.5 text-[12.5px] text-[rgba(16,15,15,0.40)]">
+        <Link href="/dashboard" className="text-[rgba(16,15,15,0.64)] hover:underline">
+          &larr; Dashboard
+        </Link>
+        <span className="text-[rgba(16,15,15,0.20)]">/</span>
+        <span>Pipeline</span>
+        <span className="text-[rgba(16,15,15,0.20)]">/</span>
+        <span>{bucket.label}</span>
+      </div>
+
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
-                {bucket.label}
-              </h1>
-              <Badge className={bucket.color} variant="secondary">
-                {totalCount} candidate{totalCount !== 1 ? 's' : ''}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              {bucket.stages.length > 1 
-                ? `Includes: ${bucket.stages.map(s => getStageConfig(s).label).join(', ')}`
-                : 'View and manage candidates in this stage'
-              }
-            </p>
-          </div>
+      <div className="flex items-start gap-5">
+        <div 
+          className="w-1 self-stretch rounded-sm mt-2"
+          style={{ backgroundColor: stageAccentColor }}
+        />
+        <div className="flex-1">
+          <h1 className="font-serif text-[38px] font-normal leading-tight tracking-tight text-[#100F0F] flex items-baseline gap-3.5">
+            {bucket.label}
+            <span className="font-sans text-sm font-medium bg-[#F0F0EA] text-[rgba(16,15,15,0.64)] px-3 py-1.5 rounded-full tracking-normal">
+              {totalCount} candidate{totalCount !== 1 ? 's' : ''}
+            </span>
+          </h1>
+          <p className="text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
+            {stageDescription}
+          </p>
         </div>
       </div>
 
-      {/* Stats Bar */}
-      {totalCount > 0 && (
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-card">
-            <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-            <span className="text-sm text-muted-foreground">Total: <span className="font-medium text-foreground">{totalCount}</span></span>
-          </div>
-          {staleCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-amber-50 border-amber-200">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
-              <span className="text-sm text-amber-700">
-                {staleCount} stale ({'>'}7 days)
-              </span>
-            </div>
-          )}
-          {veryStaleCount > 0 && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border bg-red-50 border-red-200">
-              <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
-              <span className="text-sm text-red-700">
-                {veryStaleCount} critical ({'>'}14 days)
-              </span>
-            </div>
-          )}
+      {/* Stat strip */}
+      <div className="grid grid-cols-4 gap-3">
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
+          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Total in stage</p>
+          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#100F0F]">
+            {totalCount}
+          </p>
+          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            across {uniqueCandidates} unique candidate{uniqueCandidates !== 1 ? 's' : ''}
+          </p>
         </div>
-      )}
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
+          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Stale ({'>'}7 days)</p>
+          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#B7791F]">
+            {staleCount}
+          </p>
+          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            {totalCount > 0 ? Math.round((staleCount / uniqueCandidates) * 100) : 0}% of stage{staleCount > 0 ? ' — attention needed' : ''}
+          </p>
+        </div>
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
+          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Critical ({'>'}14 days)</p>
+          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#B23B3B]">
+            {criticalCount}
+          </p>
+          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            {oldestDays > 0 ? `oldest: ${oldestDays} days in stage` : 'none'}
+          </p>
+        </div>
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[18px] py-4">
+          <p className="text-[11.5px] text-[rgba(16,15,15,0.40)] font-medium mb-1.5">Avg time in stage</p>
+          <p className="font-serif text-[28px] font-normal leading-none tracking-tight text-[#100F0F]">
+            {avgDaysInStage}d
+          </p>
+          <p className="text-xs text-[rgba(16,15,15,0.40)] mt-1">
+            platform avg: 4.1d
+          </p>
+        </div>
+      </div>
 
-      {/* Client component for filters and table */}
-      <StageDrillDownClient 
-        data={sortedData} 
+      {/* Client component for filters and candidate groups */}
+      <StageDrilldownClient 
+        data={groupedData} 
         bucketKey={bucketKey}
         currentSort={sort}
         showStaleOnly={stale === 'true'}
-        isAdmin={isAdmin}
+        searchQuery={search || ''}
+        ownerFilter={owner || ''}
+        owners={uniqueOwners}
+        stageAccentColor={stageAccentColor}
+        isTerminalStage={bucketKey === 'hired' || bucketKey === 'rejected'}
       />
     </div>
   )

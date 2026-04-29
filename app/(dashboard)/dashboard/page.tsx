@@ -1,14 +1,15 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import type { Job, Candidate, JobMatch, PipelineStage } from '@/lib/types'
-import { ScoreBadge } from '@/components/score-badge'
-import { formatDistanceToNow, subMonths, startOfMonth, endOfMonth } from 'date-fns'
-import { Briefcase, Users, TrendingUp, Calendar, Clock, AlertTriangle } from 'lucide-react'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { DASHBOARD_BUCKETS, getStageConfig, ACTIVE_STAGE_VALUES, TERMINAL_NEGATIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
+import type { PipelineStage } from '@/lib/types'
+import { subDays, startOfWeek, format } from 'date-fns'
+import { DASHBOARD_BUCKETS, getStageConfig, STAGE_ACCENT_COLORS, ACTIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
+import { EarningsCard } from '@/components/dashboard/earnings-card'
+import { StageOverviewCard } from '@/components/dashboard/stage-overview-card'
+import { ActionQueueCard } from '@/components/dashboard/action-queue-card'
+import { FunnelBenchmark } from '@/components/dashboard/funnel-benchmark'
+import { HotOpportunityCard } from '@/components/dashboard/hot-opportunity-card'
+import { Briefcase, Users, DollarSign } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -19,9 +20,7 @@ export default async function DashboardPage() {
   // Get current user and role
   const { data: { user } } = await supabase.auth.getUser()
   
-  // Check if super admin - use admin client to bypass RLS
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
-  const dbClient = isSuperAdmin ? adminClient : supabase
   
   const { data: adminData } = await adminClient
     .from('users_admin')
@@ -29,70 +28,38 @@ export default async function DashboardPage() {
     .eq('email', user?.email)
     .single()
   
-  const userRole = isSuperAdmin
-    ? 'super_admin' 
-    : adminData?.role || 'viewer'
+  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
   const isAdmin = ['super_admin', 'admin'].includes(userRole)
   const userName = adminData?.full_name?.split(' ')[0] || 'there'
   const currentUserId = adminData?.user_id || user?.id
 
-  // Build queries
+  // Get date ranges
   const now = new Date()
-  const thisMonthStart = startOfMonth(now)
-  const thisMonthEnd = endOfMonth(now)
-  const lastMonthStart = startOfMonth(subMonths(now, 1))
-  const lastMonthEnd = endOfMonth(subMonths(now, 1))
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
+  const sevenDaysAgo = subDays(now, 7)
+  const fourteenDaysAgo = subDays(now, 14)
 
-  // Fetch pipeline data
-  const [pipelineResult, topMatchesResult, recentCandidatesResult, recentActivitiesResult] = await Promise.all([
-    adminClient
-      .from('job_candidate_pipeline')
-      .select(`
-        id,
-        stage,
-        updated_at,
-        job_id,
-        candidate_id,
-        owner_user_id,
-        jobs(id, title, company_name),
-        candidates(id, name, owner_user_id, uploaded_by_user_id, user_id)
-      `)
-      .order('updated_at', { ascending: false }),
-    adminClient.from('job_matches').select(`
-      *,
-      job:jobs(id, title, company_name, department),
-      candidate:candidates(id, name, experience_years, location, owner_user_id, uploaded_by_user_id, user_id)
-    `).order('overall_score', { ascending: false }).limit(50),
-    adminClient.from('candidates').select('id, name, experience_years, created_at, owner_user_id, uploaded_by_user_id, user_id').order('created_at', { ascending: false }).limit(30),
-    adminClient
-      .from('job_candidate_pipeline')
-      .select(`
-        id,
-        stage,
-        updated_at,
-        created_at,
-        job_id,
-        candidate_id,
-        owner_user_id,
-        jobs(id, title, company_name),
-        candidates(id, name, owner_user_id, uploaded_by_user_id, user_id)
-      `)
-      .order('updated_at', { ascending: false })
-      .limit(50)
-  ])
+  // Fetch all pipeline data
+  const { data: allPipelineData } = await adminClient
+    .from('job_candidate_pipeline')
+    .select(`
+      id,
+      stage,
+      updated_at,
+      created_at,
+      job_id,
+      candidate_id,
+      owner_user_id,
+      jobs(id, title, company_name),
+      candidates(id, name, email, linkedin_url, location, owner_user_id, uploaded_by_user_id, user_id)
+    `)
+    .order('updated_at', { ascending: false })
 
-  const allPipelineData = pipelineResult.data ?? []
-  const allTopMatches = (topMatchesResult.data ?? []) as (JobMatch & { job: Job; candidate: Candidate })[]
-  const allRecentCandidates = (recentCandidatesResult.data ?? []) as (Candidate & { owner_user_id?: string; uploaded_by_user_id?: string })[]
-  const allRecentActivities = recentActivitiesResult.data ?? []
-  
-  // Filter pipeline data based on ownership for non-admins
+  // Filter by ownership for non-admins
   const pipelineData = isAdmin 
-    ? allPipelineData 
-    : allPipelineData.filter(p => {
-        // Check pipeline ownership
+    ? allPipelineData || []
+    : (allPipelineData || []).filter(p => {
         if (p.owner_user_id === currentUserId) return true
-        // Check candidate ownership
         const candidate = p.candidates as { owner_user_id: string | null; uploaded_by_user_id: string | null; user_id: string | null } | null
         return candidate && (
           candidate.owner_user_id === currentUserId ||
@@ -101,400 +68,376 @@ export default async function DashboardPage() {
         )
       })
 
-  // Filter top matches for non-admins
-  const ownedCandidateMatches = isAdmin 
-    ? allTopMatches
-    : allTopMatches.filter(match => {
-        const candidate = match.candidate
-        return candidate && (
-          candidate.owner_user_id === currentUserId ||
-          candidate.uploaded_by_user_id === currentUserId ||
-          candidate.user_id === currentUserId
-        )
-      })
-
-  // Filter recent candidates for non-admins
-  const recentCandidates = (isAdmin 
-    ? allRecentCandidates
-    : allRecentCandidates.filter(c => {
-        return c.owner_user_id === currentUserId || c.uploaded_by_user_id === currentUserId || c.user_id === currentUserId
-      })).slice(0, 5)
-
-  // Filter recent activities for non-admins
-  const recentActivities = (isAdmin
-    ? allRecentActivities
-    : allRecentActivities.filter(a => {
-        if (a.owner_user_id === currentUserId) return true
-        const candidate = a.candidates as { owner_user_id: string | null; uploaded_by_user_id: string | null; user_id: string | null } | null
-        return candidate && (
-          candidate.owner_user_id === currentUserId ||
-          candidate.uploaded_by_user_id === currentUserId ||
-          candidate.user_id === currentUserId
-        )
-      })).slice(0, 25)
-
-  // Build pipeline stats by bucket for dashboard cards
+  // Calculate bucket stats
   type BucketStats = Record<string, { 
     count: number
-    thisMonth: number
-    lastMonth: number
+    thisWeek: number
+    staleCount: number
+    criticalCount: number
     subCounts?: Record<string, number>
   }>
   
   const bucketStats: BucketStats = {}
 
   for (const bucket of DASHBOARD_BUCKETS) {
-    bucketStats[bucket.key] = { count: 0, thisMonth: 0, lastMonth: 0, subCounts: {} }
+    bucketStats[bucket.key] = { count: 0, thisWeek: 0, staleCount: 0, criticalCount: 0, subCounts: {} }
   }
 
   for (const p of pipelineData) {
     const stage = p.stage as PipelineStage
     const updatedAt = new Date(p.updated_at)
+    const daysInStage = Math.floor((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24))
     
-    // Find which bucket this stage belongs to
     for (const bucket of DASHBOARD_BUCKETS) {
       if (bucket.stages.includes(stage)) {
         bucketStats[bucket.key].count++
         
-        // Track sub-counts for grouped buckets
         if (bucket.showSubCounts && bucketStats[bucket.key].subCounts) {
           bucketStats[bucket.key].subCounts![stage] = (bucketStats[bucket.key].subCounts![stage] || 0) + 1
         }
         
-        if (updatedAt >= thisMonthStart && updatedAt <= thisMonthEnd) {
-          bucketStats[bucket.key].thisMonth++
-        } else if (updatedAt >= lastMonthStart && updatedAt <= lastMonthEnd) {
-          bucketStats[bucket.key].lastMonth++
+        if (updatedAt >= weekStart) {
+          bucketStats[bucket.key].thisWeek++
+        }
+        
+        if (daysInStage > 14) {
+          bucketStats[bucket.key].criticalCount++
+        } else if (daysInStage > 7) {
+          bucketStats[bucket.key].staleCount++
         }
         break
       }
     }
   }
 
-  // Calculate overall stats
-  const totalInPipeline = pipelineData.length
-  const activeCount = pipelineData.filter(p => ACTIVE_STAGE_VALUES.includes(p.stage as PipelineStage)).length
-  const hiredCount = pipelineData.filter(p => p.stage === 'hired').length
-  const thisMonthTotal = Object.values(bucketStats).reduce((sum, s) => sum + s.thisMonth, 0)
-  const lastMonthTotal = Object.values(bucketStats).reduce((sum, s) => sum + s.lastMonth, 0)
-  const monthlyChange = lastMonthTotal > 0 ? Math.round(((thisMonthTotal - lastMonthTotal) / lastMonthTotal) * 100) : 0
-  
-  const topMatches = ownedCandidateMatches.slice(0, 5)
+  // Build action queue items
+  type ActionItem = {
+    id: string
+    candidateId: string
+    candidateName: string
+    candidateLinkedin: string | null
+    jobId: string
+    jobTitle: string
+    companyName: string
+    daysInStage: number
+    lastActivity: string
+    stage: string
+  }
 
-  // Calculate interview count (combined)
-  const interviewCount = bucketStats['interview']?.count || 0
+  const actionRows: {
+    urgency: 'red' | 'amber' | 'blue'
+    title: string
+    meta: string
+    items: ActionItem[]
+    defaultOpen?: boolean
+  }[] = []
+
+  // RED: Candidates in hm_pending for >14 days
+  const hmPendingCritical = pipelineData.filter(p => {
+    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    return p.stage === 'hm_pending' && daysInStage > 14
+  })
+
+  if (hmPendingCritical.length > 0) {
+    const companies = [...new Set(hmPendingCritical.map(p => (p.jobs as { company_name: string } | null)?.company_name).filter(Boolean))]
+    actionRows.push({
+      urgency: 'red',
+      title: `${hmPendingCritical.length} candidate${hmPendingCritical.length !== 1 ? 's' : ''} stale in Awaiting HM Feedback for 14+ days`,
+      meta: companies.slice(0, 3).join(' · '),
+      items: hmPendingCritical.slice(0, 5).map(p => ({
+        id: p.id,
+        candidateId: p.candidate_id,
+        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
+        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
+        jobId: p.job_id,
+        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
+        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
+        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
+        lastActivity: p.updated_at,
+        stage: p.stage,
+      })),
+      defaultOpen: true,
+    })
+  }
+
+  // AMBER: Candidates in offer for >5 days
+  const offerStale = pipelineData.filter(p => {
+    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    return p.stage === 'offer' && daysInStage > 5
+  })
+
+  for (const p of offerStale.slice(0, 2)) {
+    const candidateName = (p.candidates as { name: string } | null)?.name || 'Unknown'
+    const companyName = (p.jobs as { company_name: string } | null)?.company_name || 'Unknown'
+    const jobTitle = (p.jobs as { title: string } | null)?.title || 'Unknown'
+    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    
+    actionRows.push({
+      urgency: 'amber',
+      title: `${candidateName} at offer stage — closing window ${daysInStage} days`,
+      meta: `${companyName} · ${jobTitle}`,
+      items: [{
+        id: p.id,
+        candidateId: p.candidate_id,
+        candidateName,
+        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
+        jobId: p.job_id,
+        jobTitle,
+        companyName,
+        daysInStage,
+        lastActivity: p.updated_at,
+        stage: p.stage,
+      }],
+    })
+  }
+
+  // AMBER: Candidates in interest_confirmed for >3 days not moved to hm_shared
+  const interestConfirmedStale = pipelineData.filter(p => {
+    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    return p.stage === 'interest_confirmed' && daysInStage > 3
+  })
+
+  if (interestConfirmedStale.length > 0) {
+    const avgWait = Math.round(interestConfirmedStale.reduce((sum, p) => {
+      return sum + Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    }, 0) / interestConfirmedStale.length)
+
+    actionRows.push({
+      urgency: 'amber',
+      title: `${interestConfirmedStale.length} candidate${interestConfirmedStale.length !== 1 ? 's' : ''} confirmed interest, not yet shared to HM`,
+      meta: `Average wait ${avgWait} days`,
+      items: interestConfirmedStale.slice(0, 5).map(p => ({
+        id: p.id,
+        candidateId: p.candidate_id,
+        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
+        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
+        jobId: p.job_id,
+        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
+        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
+        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
+        lastActivity: p.updated_at,
+        stage: p.stage,
+      })),
+    })
+  }
+
+  // BLUE: Candidates in sourced for >14 days with no job_matched
+  const sourcedStale = pipelineData.filter(p => {
+    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
+    return p.stage === 'sourced' && daysInStage > 14
+  })
+
+  if (sourcedStale.length > 0) {
+    actionRows.push({
+      urgency: 'blue',
+      title: `${sourcedStale.length} candidate${sourcedStale.length !== 1 ? 's' : ''} in Sourced 14+ days with no match yet`,
+      meta: 'Review for potential matches',
+      items: sourcedStale.slice(0, 5).map(p => ({
+        id: p.id,
+        candidateId: p.candidate_id,
+        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
+        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
+        jobId: p.job_id,
+        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
+        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
+        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
+        lastActivity: p.updated_at,
+        stage: p.stage,
+      })),
+    })
+  }
+
+  // Action queue count for header
+  const actionCount = actionRows.length
+
+  // Calculate total candidates
+  const totalCandidates = pipelineData.length
+
+  // Mock earnings data (these would come from a real placement/earnings table)
+  const pendingPayout = '$32.4'
+  const paidYTD = '$187'
+  const thisMonth = '$42'
+
+  // Mock funnel data (would be calculated from real conversion data)
+  const funnelSteps = [
+    { label: 'Shared → Interest', value: 68, benchmark: 62 },
+    { label: 'Interest → HM', value: 84, benchmark: 78 },
+    { label: 'HM → Interview', value: 42, benchmark: 55 },
+    { label: 'Interview → Offer', value: 38, benchmark: 35 },
+    { label: 'Offer → Hired', value: 72, benchmark: 68 },
+  ]
+
+  // Find weakest funnel step
+  const weakestStep = funnelSteps.reduce((weakest, step) => {
+    const diff = step.value - step.benchmark
+    const weakestDiff = weakest.value - weakest.benchmark
+    return diff < weakestDiff ? step : weakest
+  }, funnelSteps[0])
+
+  const funnelInsight = weakestStep.value < weakestStep.benchmark 
+    ? `${weakestStep.label} is your weakest stage. Try improving your pitch or candidate preparation.`
+    : null
+
+  // Mock hot opportunities data
+  const newRolesMatching = [
+    { id: '1', title: 'Staff Engineer at Cursor', subtitle: 'Best match: Sarah Chen (92%)', link: '/jobs/1', matchPct: 92 },
+    { id: '2', title: 'Senior Backend at Anthropic', subtitle: 'Best match: Jay Patel (88%)', link: '/jobs/2', matchPct: 88 },
+  ]
+
+  const unmatchedCandidates = [
+    { id: '1', title: 'Morgan Lee', subtitle: 'Unmatched for 16 days', candidateLinkedin: 'https://linkedin.com/in/morgan-lee', link: '/candidates/1' },
+    { id: '2', title: 'Alex Chen', subtitle: 'Unmatched for 12 days', candidateLinkedin: 'https://linkedin.com/in/alex-chen', link: '/candidates/2' },
+  ]
+
+  const recentlyFunded = [
+    { id: '1', title: 'Artisan', subtitle: 'Series B · $25M · 4 open roles', link: '/companies/1' },
+    { id: '2', title: 'Mintlify', subtitle: 'Series A · $18M · 2 open roles', link: '/companies/2' },
+  ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-9 max-w-[1200px] mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+          <h1 className="font-serif text-[42px] font-normal leading-none tracking-tight text-[#100F0F]">
             Hey {userName}
           </h1>
-          <p className="text-sm sm:text-base text-muted-foreground">
-            Here&apos;s what&apos;s happening with your candidates today.
+          <p className="text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
+            <span className="text-[#B7791F] font-medium">{actionCount} thing{actionCount !== 1 ? 's' : ''}</span> need you today · refreshed just now
           </p>
         </div>
-        <div className="flex gap-2 sm:gap-3">
-          <Link href="/jobs/new" className="flex-1 sm:flex-none">
-            <Button className="w-full sm:w-auto h-10">Add Job</Button>
+        <div className="flex gap-2.5">
+          <Link href="/candidates/new">
+            <Button variant="outline" className="h-10 px-[18px] text-[13.5px] font-medium border-[rgba(16,15,15,0.10)] text-[#100F0F] hover:bg-[#F0F0EA]">
+              Upload resume
+            </Button>
           </Link>
-          <Link href="/candidates/new" className="flex-1 sm:flex-none">
-            <Button variant="outline" className="w-full sm:w-auto h-10">Upload Resume</Button>
+          <Link href="/jobs/new">
+            <Button className="h-10 px-[18px] text-[13.5px] font-medium bg-[#100F0F] hover:bg-[#2A2928]">
+              Add job
+            </Button>
           </Link>
         </div>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">In Pipeline</p>
-                <p className="text-3xl font-bold text-foreground">{totalInPipeline}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {activeCount} active
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Interviews</p>
-                <p className="text-3xl font-bold text-foreground">{interviewCount}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-purple-500/10 flex items-center justify-center">
-                <Briefcase className="h-5 w-5 text-purple-500" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Active interviews
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Hired</p>
-                <p className="text-3xl font-bold text-foreground">{hiredCount}</p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <TrendingUp className="h-5 w-5 text-emerald-500" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {bucketStats['hired']?.thisMonth || 0} this month
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Monthly Change</p>
-                <p className={`text-3xl font-bold ${monthlyChange >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                  {monthlyChange >= 0 ? '+' : ''}{monthlyChange}%
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-amber-500/10 flex items-center justify-center">
-                <Calendar className="h-5 w-5 text-amber-500" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              vs last month
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Section 1: Earnings Hero */}
+      <section>
+        <div className="grid grid-cols-3 gap-3">
+          <EarningsCard
+            label="Pending payout"
+            value={pendingPayout}
+            subtitle="$8.2k unlocks Nov 18"
+          />
+          <EarningsCard
+            label="Paid YTD"
+            value={paidYTD}
+            subtitle="↑ +24% vs last year"
+            isPositive
+          />
+          <EarningsCard
+            label="This month"
+            value={thisMonth}
+            subtitle="3 placed · +18%"
+            isPositive
+          />
+        </div>
+      </section>
 
-      {/* Pipeline Overview with Grouped Buckets - CLICKABLE */}
-      <Card>
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Pipeline Overview</CardTitle>
-              <CardDescription>
-                {totalInPipeline} candidate{totalInPipeline !== 1 ? 's' : ''} across all stages
-              </CardDescription>
-            </div>
-            <Link href="/candidates">
-              <Button variant="ghost" size="sm">View all</Button>
-            </Link>
+      {/* Section 2: Action Queue */}
+      <section>
+        <div className="flex justify-between items-end mb-3.5">
+          <div>
+            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Needs your attention</h2>
+            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Click any row to see who&apos;s involved and what&apos;s happening</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* 9 Grouped Bucket Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-3">
-            {DASHBOARD_BUCKETS.map((bucket) => {
-              const data = bucketStats[bucket.key]
-              const change = data.lastMonth > 0 
-                ? Math.round(((data.thisMonth - data.lastMonth) / data.lastMonth) * 100)
-                : data.thisMonth > 0 ? 100 : 0
-              
-              return (
-                <Link 
-                  key={bucket.key} 
-                  href={`/dashboard/pipeline/${bucket.key}`}
-                  className="block"
-                >
-                  <div 
-                    className="relative p-4 rounded-lg border bg-card hover:border-primary/50 hover:shadow-md transition-all cursor-pointer group"
-                  >
-                    <div className={`absolute top-0 left-0 right-0 h-1 ${bucket.borderColor} rounded-t-lg`} />
-                    <div className="text-3xl font-bold text-foreground group-hover:text-primary transition-colors">{data.count}</div>
-                    <div className="text-sm text-muted-foreground">{bucket.label}</div>
-                    
-                    {/* Sub-counts for grouped buckets */}
-                    {bucket.showSubCounts && data.subCounts && Object.keys(data.subCounts).length > 0 && (
-                      <div className="mt-1 space-y-0.5">
-                        {bucket.stages.map(stage => {
-                          const subCount = data.subCounts?.[stage] || 0
-                          if (subCount === 0) return null
-                          const stageConfig = getStageConfig(stage)
-                          const isAwaiting = stage === 'hm_pending'
-                          return (
-                            <div key={stage} className={`text-xs flex items-center gap-1 ${isAwaiting ? 'text-amber-600' : 'text-muted-foreground'}`}>
-                              {isAwaiting && <Clock className="h-3 w-3" />}
-                              {subCount} {stageConfig.label.replace('Interview – ', 'R')}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                    
-                    <div className="mt-2 pt-2 border-t">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="text-muted-foreground">This month</span>
-                        <span className="font-medium text-foreground">{data.thisMonth}</span>
-                      </div>
-                      {data.lastMonth > 0 && (
-                        <div className={`text-xs mt-1 ${change >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                          {change >= 0 ? '+' : ''}{change}% vs last month
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              )
-            })}
+          <span className="text-xs text-[rgba(16,15,15,0.40)] font-serif italic">
+            {actionCount} item{actionCount !== 1 ? 's' : ''} · sorted by urgency
+          </span>
+        </div>
+        <ActionQueueCard rows={actionRows} />
+      </section>
+
+      {/* Section 3: Pipeline Overview */}
+      <section>
+        <div className="flex justify-between items-end mb-3.5">
+          <div>
+            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Pipeline overview</h2>
+            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">{totalCandidates} candidates · click any stage to see who and how long</p>
           </div>
-        </CardContent>
-      </Card>
+          <span className="text-xs text-[rgba(16,15,15,0.40)] font-serif italic">Updated live</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {DASHBOARD_BUCKETS.map((bucket) => {
+            const stats = bucketStats[bucket.key]
+            const subText = bucket.showSubCounts && stats.subCounts
+              ? bucket.key === 'shared_to_hm'
+                ? `${stats.subCounts['hm_pending'] || 0} awaiting`
+                : bucket.key === 'interview'
+                  ? `R1: ${stats.subCounts['interview_1'] || 0} · R2: ${stats.subCounts['interview_2'] || 0}`
+                  : undefined
+              : undefined
 
-      {/* Recent Activity and Top Matches */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Activity Timeline */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Recent Activity</CardTitle>
-              <Link href="/candidates">
-                <Button variant="ghost" size="sm" className="h-8">View all</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent className="p-0">
-            {recentActivities.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No recent activity</p>
-            ) : (
-              <ScrollArea className="h-[320px]">
-                <div className="relative px-6 pb-6">
-                  {/* Timeline line */}
-                  <div className="absolute left-9 top-2 bottom-2 w-px bg-border" />
-                  
-                  <div className="space-y-4">
-                    {recentActivities.map((activity) => {
-                      const candidate = activity.candidates as { id: string; name: string } | null
-                      const job = activity.jobs as { id: string; title: string; company_name: string | null } | null
-                      const stageConfig = getStageConfig(activity.stage as string)
-                      const days = Math.floor((Date.now() - new Date(activity.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-                      const isStale = days > 7
-                      
-                      return (
-                        <div key={activity.id} className="flex items-start gap-3 relative">
-                          <div className={`h-2.5 w-2.5 rounded-full ${stageConfig.dotColor} mt-1.5 z-10 ring-2 ring-background`} />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-foreground">
-                              <Link href={`/candidates/${candidate?.id}`} className="font-medium hover:underline">
-                                {candidate?.name || 'Unknown'}
-                              </Link>
-                              {' moved to '}
-                              <Badge variant="outline" className={`${stageConfig.color} text-xs`}>
-                                {stageConfig.label}
-                              </Badge>
-                            </p>
-                            {job && (
-                              <p className="text-xs text-muted-foreground">
-                                {job.title} at {job.company_name}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <p className="text-xs text-muted-foreground">
-                                {formatDistanceToNow(new Date(activity.updated_at), { addSuffix: true })}
-                              </p>
-                              {isStale && (
-                                <Badge variant="outline" className="h-4 px-1 text-[10px] border-amber-300 text-amber-600 bg-amber-50">
-                                  <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
-                                  {days}d in stage
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+            return (
+              <StageOverviewCard
+                key={bucket.key}
+                href={`/dashboard/pipeline/${bucket.key}`}
+                accentColor={STAGE_ACCENT_COLORS[bucket.key] || '#2A6B45'}
+                stageName={bucket.label}
+                count={stats.count}
+                weeklyDelta={stats.thisWeek}
+                staleCount={stats.staleCount}
+                criticalCount={stats.criticalCount}
+                subText={subText}
+              />
+            )
+          })}
+        </div>
+      </section>
 
-        {/* Top Matches - Only Actively Looking */}
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-base">Top Matches</CardTitle>
-                <CardDescription className="text-xs">Actively looking candidates only</CardDescription>
-              </div>
-              <Link href="/candidates">
-                <Button variant="ghost" size="sm" className="h-8">View all</Button>
-              </Link>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {topMatches.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">No actively looking candidates with matches</p>
-            ) : (
-              <div className="space-y-2">
-                {topMatches.map((match) => (
-                  <Link key={match.id} href={`/candidates/${match.candidate_id}`}>
-                    <div className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent">
-                      <div className="flex items-center gap-3">
-                        <ScoreBadge score={match.overall_score} size="sm" />
-                        <div className="min-w-0">
-                          <p className="font-medium text-foreground text-sm truncate">{match.candidate?.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {match.job?.title} @ {match.job?.company_name}
-                          </p>
-                        </div>
-                      </div>
-                      <span className="text-xs px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 shrink-0">
-                        Active
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Candidates */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Recent Candidates</CardTitle>
-            <Link href="/candidates">
-              <Button variant="ghost" size="sm" className="h-8">View all</Button>
-            </Link>
+      {/* Section 4: Funnel Benchmark */}
+      <section>
+        <div className="flex justify-between items-end mb-3.5">
+          <div>
+            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Your funnel vs platform</h2>
+            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Stage-to-stage conversion rates (last 90 days)</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {recentCandidates.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No candidates yet</p>
-          ) : (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {recentCandidates.map((candidate) => (
-                <Link key={candidate.id} href={`/candidates/${candidate.id}`}>
-                  <div className="flex items-center justify-between rounded-lg border p-3 transition-colors hover:bg-accent">
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground text-sm truncate">{candidate.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {candidate.experience_years ? `${candidate.experience_years}+ years` : 'No experience listed'}
-                      </p>
-                    </div>
-                    <p className="text-xs text-muted-foreground shrink-0">
-                      {formatDistanceToNow(new Date(candidate.created_at), { addSuffix: true })}
-                    </p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+        <FunnelBenchmark 
+          steps={funnelSteps} 
+          insight={funnelInsight || undefined}
+          insightHighlight={weakestStep.value < weakestStep.benchmark ? `${weakestStep.label}` : undefined}
+        />
+      </section>
+
+      {/* Section 5: Hot Opportunities */}
+      <section>
+        <div className="flex justify-between items-end mb-3.5">
+          <div>
+            <h2 className="text-base font-semibold text-[#100F0F] tracking-tight">Hot opportunities</h2>
+            <p className="text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">Click to expand and explore</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <HotOpportunityCard
+            icon={<Briefcase className="h-4 w-4" />}
+            title="New roles matching your candidates"
+            subtitle="Roles posted in last 7 days where your candidates have a strong fit"
+            items={newRolesMatching}
+          />
+          <HotOpportunityCard
+            icon={<Users className="h-4 w-4" />}
+            title="Candidates without a match"
+            subtitle="Candidates in your pool over 14 days that haven&apos;t been matched"
+            items={unmatchedCandidates}
+          />
+          <HotOpportunityCard
+            icon={<DollarSign className="h-4 w-4" />}
+            title="Recently funded clients"
+            subtitle="Client companies with funding announcements in last 14 days"
+            items={recentlyFunded}
+          />
+        </div>
+      </section>
     </div>
   )
 }
