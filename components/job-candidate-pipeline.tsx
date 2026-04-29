@@ -417,7 +417,6 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
           <div className="overflow-x-auto pb-4 -mx-6 px-6">
             <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
               {pipelineByStage.map((stage, idx) => {
-                const StageIcon = stage.icon
                 const isTerminalSection = stage.category !== 'active' && idx > 0 && pipelineByStage[idx - 1].category === 'active'
                 
                 return (
@@ -429,11 +428,11 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                       </div>
                     )}
                     <div className="flex-shrink-0 w-64">
-                      <div className={`rounded-t-lg px-3 py-2 border ${stage.color}`}>
-                        <div className={`absolute -top-0 left-0 right-0 h-1 ${stage.borderColor} rounded-t-lg`} />
+                      <div className={`relative rounded-t-lg px-3 py-2 border ${stage.color}`}>
+                        <div className={`absolute top-0 left-0 right-0 h-1 ${stage.borderColor} rounded-t-lg`} />
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <StageIcon className="h-4 w-4" />
+                            <div className={`w-2 h-2 rounded-full ${stage.dotColor}`} />
                             <span className="font-medium text-xs">{stage.label}</span>
                           </div>
                           <Badge variant="secondary" className="text-xs h-5 px-1.5">

@@ -55,15 +55,15 @@ export default async function DashboardPage() {
         candidate_id,
         owner_user_id,
         jobs(id, title, company_name),
-        candidates(id, name, owner_user_id, uploaded_by_user_id, user_id, status, availability)
+        candidates(id, name, owner_user_id, uploaded_by_user_id, user_id)
       `)
       .order('updated_at', { ascending: false }),
     adminClient.from('job_matches').select(`
       *,
       job:jobs(id, title, company_name, department),
-      candidate:candidates(id, name, experience_years, location, owner_user_id, uploaded_by_user_id, user_id, status, availability)
+      candidate:candidates(id, name, experience_years, location, owner_user_id, uploaded_by_user_id, user_id)
     `).order('overall_score', { ascending: false }).limit(50),
-    adminClient.from('candidates').select('id, name, experience_years, status, availability, created_at, owner_user_id, uploaded_by_user_id, user_id').order('created_at', { ascending: false }).limit(30),
+    adminClient.from('candidates').select('id, name, experience_years, created_at, owner_user_id, uploaded_by_user_id, user_id').order('created_at', { ascending: false }).limit(30),
     adminClient
       .from('job_candidate_pipeline')
       .select(`
@@ -101,8 +101,8 @@ export default async function DashboardPage() {
         )
       })
 
-  // Filter top matches for non-admins and only show actively_looking candidates
-  const ownedCandidateMatches = (isAdmin 
+  // Filter top matches for non-admins
+  const ownedCandidateMatches = isAdmin 
     ? allTopMatches
     : allTopMatches.filter(match => {
         const candidate = match.candidate
@@ -111,9 +111,6 @@ export default async function DashboardPage() {
           candidate.uploaded_by_user_id === currentUserId ||
           candidate.user_id === currentUserId
         )
-      })).filter(match => {
-        const candidate = match.candidate
-        return candidate && candidate.availability === 'actively_looking'
       })
 
   // Filter recent candidates for non-admins

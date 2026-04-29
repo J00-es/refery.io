@@ -1,8 +1,3 @@
-import { 
-  Search, TrendingUp, FileText, CheckCircle2, Send, Clock, 
-  Users, UserCheck, Star, Trophy, XCircle, ThumbsDown, 
-  MessageSquareOff, ArrowRight
-} from 'lucide-react'
 import type { PipelineStage } from './types'
 
 export interface StageConfig {
@@ -11,7 +6,7 @@ export interface StageConfig {
   color: string // Tailwind classes for badge/card styling
   borderColor: string // Top border color for kanban columns
   dotColor: string // Timeline dot color
-  icon: typeof Search
+  iconName: string // Icon name for dynamic rendering
   category: 'active' | 'terminal_positive' | 'terminal_negative'
   order: number
 }
@@ -25,7 +20,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-slate-100 text-slate-700 border-slate-200',
     borderColor: 'bg-slate-400',
     dotColor: 'bg-slate-400',
-    icon: Search,
+    iconName: 'Search',
     category: 'active',
     order: 1
   },
@@ -35,7 +30,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-slate-100 text-slate-700 border-slate-200',
     borderColor: 'bg-slate-500',
     dotColor: 'bg-slate-500',
-    icon: TrendingUp,
+    iconName: 'TrendingUp',
     category: 'active',
     order: 2
   },
@@ -45,7 +40,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     borderColor: 'bg-blue-500',
     dotColor: 'bg-blue-500',
-    icon: FileText,
+    iconName: 'FileText',
     category: 'active',
     order: 3
   },
@@ -55,7 +50,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-cyan-100 text-cyan-700 border-cyan-200',
     borderColor: 'bg-cyan-500',
     dotColor: 'bg-cyan-500',
-    icon: CheckCircle2,
+    iconName: 'CheckCircle2',
     category: 'active',
     order: 4
   },
@@ -65,7 +60,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-teal-100 text-teal-700 border-teal-200',
     borderColor: 'bg-teal-500',
     dotColor: 'bg-teal-500',
-    icon: Send,
+    iconName: 'Send',
     category: 'active',
     order: 5
   },
@@ -75,7 +70,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-amber-100 text-amber-700 border-amber-200',
     borderColor: 'bg-amber-500',
     dotColor: 'bg-amber-500',
-    icon: Clock,
+    iconName: 'Clock',
     category: 'active',
     order: 6
   },
@@ -85,7 +80,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
     borderColor: 'bg-indigo-500',
     dotColor: 'bg-indigo-500',
-    icon: Users,
+    iconName: 'Users',
     category: 'active',
     order: 7
   },
@@ -95,7 +90,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-purple-100 text-purple-700 border-purple-200',
     borderColor: 'bg-purple-500',
     dotColor: 'bg-purple-500',
-    icon: UserCheck,
+    iconName: 'UserCheck',
     category: 'active',
     order: 8
   },
@@ -105,7 +100,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-violet-100 text-violet-700 border-violet-200',
     borderColor: 'bg-violet-500',
     dotColor: 'bg-violet-500',
-    icon: Star,
+    iconName: 'Star',
     category: 'active',
     order: 9
   },
@@ -116,7 +111,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     borderColor: 'bg-emerald-500',
     dotColor: 'bg-emerald-500',
-    icon: Trophy,
+    iconName: 'Trophy',
     category: 'terminal_positive',
     order: 10
   },
@@ -127,7 +122,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-gray-100 text-gray-600 border-gray-200',
     borderColor: 'bg-gray-400',
     dotColor: 'bg-gray-400',
-    icon: ThumbsDown,
+    iconName: 'ThumbsDown',
     category: 'terminal_negative',
     order: 11
   },
@@ -137,7 +132,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-red-100 text-red-700 border-red-200',
     borderColor: 'bg-red-500',
     dotColor: 'bg-red-500',
-    icon: XCircle,
+    iconName: 'XCircle',
     category: 'terminal_negative',
     order: 12
   },
@@ -147,7 +142,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-red-50 text-red-600 border-red-100',
     borderColor: 'bg-red-400',
     dotColor: 'bg-red-400',
-    icon: MessageSquareOff,
+    iconName: 'MessageSquareOff',
     category: 'terminal_negative',
     order: 13
   },
@@ -157,7 +152,7 @@ export const PIPELINE_STAGES: StageConfig[] = [
     color: 'bg-gray-100 text-gray-500 border-gray-200',
     borderColor: 'bg-gray-400',
     dotColor: 'bg-gray-400',
-    icon: ArrowRight,
+    iconName: 'ArrowRight',
     category: 'terminal_negative',
     order: 14
   },

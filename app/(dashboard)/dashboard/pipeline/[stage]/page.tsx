@@ -1,15 +1,9 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import type { PipelineStage } from '@/lib/types'
-import { formatDistanceToNow } from 'date-fns'
-import { 
-  ArrowLeft, Linkedin, Clock, AlertTriangle, User, Building2, 
-  MessageSquare, ExternalLink, Filter
-} from 'lucide-react'
-import { DASHBOARD_BUCKETS, getStageConfig, PIPELINE_STAGES } from '@/lib/pipeline-stages'
+import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { DASHBOARD_BUCKETS, getStageConfig } from '@/lib/pipeline-stages'
 import { notFound } from 'next/navigation'
 import { StageDrillDownClient } from './stage-drill-down-client'
 
@@ -84,24 +78,36 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
 
   // Fetch owner info for all pipeline items
   const ownerIds = [...new Set(filteredData.map(p => p.owner_user_id).filter(Boolean))]
-  const { data: owners } = await adminClient
-    .from('users_admin')
-    .select('user_id, email, full_name')
-    .in('user_id', ownerIds)
+  const { data: owners } = ownerIds.length > 0 
+    ? await adminClient
+        .from('users_admin')
+        .select('user_id, email, full_name')
+        .in('user_id', ownerIds)
+    : { data: [] }
 
   const ownerMap = new Map(owners?.map(o => [o.user_id, o]) || [])
 
-  // Calculate days in stage and add owner info
+  // Calculate days in stage and add owner info - serialize for client component
   const enrichedData = filteredData.map(item => {
     const daysInStage = Math.floor((Date.now() - new Date(item.updated_at).getTime()) / (1000 * 60 * 60 * 24))
     const owner = item.owner_user_id ? ownerMap.get(item.owner_user_id) : null
     const stageConfig = getStageConfig(item.stage)
     
     return {
-      ...item,
+      id: item.id,
+      stage: item.stage,
+      updated_at: item.updated_at,
+      created_at: item.created_at,
+      job_id: item.job_id,
+      candidate_id: item.candidate_id,
+      owner_user_id: item.owner_user_id,
+      jobs: item.jobs,
+      candidates: item.candidates,
       daysInStage,
-      owner,
-      stageConfig,
+      owner: owner ? { user_id: owner.user_id, email: owner.email, full_name: owner.full_name } : null,
+      stageLabel: stageConfig.label,
+      stageColor: stageConfig.color,
+      stageDotColor: stageConfig.dotColor,
       isStale: daysInStage > 7,
       isVeryStale: daysInStage > 14
     }
@@ -197,7 +203,6 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         currentSort={sort}
         showStaleOnly={stale === 'true'}
         isAdmin={isAdmin}
-        allStages={PIPELINE_STAGES}
       />
     </div>
   )

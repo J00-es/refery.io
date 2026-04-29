@@ -37,19 +37,22 @@ import {
   MessageSquare, ExternalLink, ArrowUpDown, Filter, Send
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import type { StageConfig } from '@/lib/pipeline-stages'
+import { PIPELINE_STAGES } from '@/lib/pipeline-stages'
 
 interface PipelineItem {
   id: string
   stage: string
   updated_at: string
+  created_at: string
   job_id: string
   candidate_id: string
   owner_user_id: string | null
   daysInStage: number
   isStale: boolean
   isVeryStale: boolean
-  stageConfig: StageConfig
+  stageLabel: string
+  stageColor: string
+  stageDotColor: string
   jobs: { id: string; title: string; company_name: string | null } | null
   candidates: { 
     id: string
@@ -67,7 +70,6 @@ interface StageDrillDownClientProps {
   currentSort: string
   showStaleOnly: boolean
   isAdmin: boolean
-  allStages: StageConfig[]
 }
 
 export function StageDrillDownClient({ 
@@ -76,7 +78,6 @@ export function StageDrillDownClient({
   currentSort, 
   showStaleOnly,
   isAdmin,
-  allStages
 }: StageDrillDownClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -314,7 +315,7 @@ export function StageDrillDownClient({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {allStages.map(stage => (
+                            {PIPELINE_STAGES.map(stage => (
                               <SelectItem key={stage.value} value={stage.value} className="text-xs">
                                 <div className="flex items-center gap-2">
                                   <div className={`w-2 h-2 rounded-full ${stage.borderColor}`} />
