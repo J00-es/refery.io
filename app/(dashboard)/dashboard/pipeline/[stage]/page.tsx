@@ -57,13 +57,11 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         email, 
         linkedin_url, 
         location,
-        current_title,
         experience_years,
-        resume_url,
+        resume_blob_pathname,
         owner_user_id, 
         uploaded_by_user_id, 
-        user_id,
-        notes
+        user_id
       )
     `)
     .in('stage', bucket.stages)
@@ -136,10 +134,8 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       email: string | null
       linkedin_url: string | null
       location: string | null
-      current_title: string | null
       experience_years: number | null
-      resume_url: string | null
-      notes: string | null
+      resume_blob_pathname: string | null
     } | null
     
     const job = item.jobs as {
@@ -164,12 +160,12 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         candidate_email: candidate.email,
         candidate_linkedin: candidate.linkedin_url,
         candidate_location: candidate.location,
-        candidate_current_title: candidate.current_title,
+        candidate_current_title: null,
         candidate_experience_years: candidate.experience_years,
-        resume_url: candidate.resume_url,
+        resume_url: candidate.resume_blob_pathname,
         source_type: null,
         source_name: null,
-        notes: candidate.notes,
+        notes: null,
         owner: ownerInfo ? { 
           user_id: ownerInfo.user_id, 
           email: ownerInfo.email, 

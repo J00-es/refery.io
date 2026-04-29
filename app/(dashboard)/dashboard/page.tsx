@@ -2,14 +2,11 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import type { PipelineStage } from '@/lib/types'
-import { subDays, startOfWeek, startOfMonth, startOfYear, format } from 'date-fns'
-import { DASHBOARD_BUCKETS, getStageConfig, STAGE_ACCENT_COLORS, ACTIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
+import { startOfWeek, startOfMonth, startOfYear, subDays } from 'date-fns'
+import { DASHBOARD_BUCKETS, STAGE_ACCENT_COLORS } from '@/lib/pipeline-stages'
 import { EarningsCard } from '@/components/dashboard/earnings-card'
-import { StageOverviewCard } from '@/components/dashboard/stage-overview-card'
-import { ActionQueueCard } from '@/components/dashboard/action-queue-card'
 import { FunnelBenchmark } from '@/components/dashboard/funnel-benchmark'
-import { HotOpportunityCard } from '@/components/dashboard/hot-opportunity-card'
-import { Briefcase, Users, DollarSign } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -111,151 +108,10 @@ export default async function DashboardPage() {
     }
   }
 
-  // Build action queue items
-  type ActionItem = {
-    id: string
-    candidateId: string
-    candidateName: string
-    candidateLinkedin: string | null
-    jobId: string
-    jobTitle: string
-    companyName: string
-    daysInStage: number
-    lastActivity: string
-    stage: string
-  }
-
-  const actionRows: {
-    urgency: 'red' | 'amber' | 'blue'
-    title: string
-    meta: string
-    items: ActionItem[]
-    defaultOpen?: boolean
-  }[] = []
-
-  // RED: Candidates in hm_pending for >14 days
-  const hmPendingCritical = pipelineData.filter(p => {
-    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    return p.stage === 'hm_pending' && daysInStage > 14
-  })
-
-  if (hmPendingCritical.length > 0) {
-    const companies = [...new Set(hmPendingCritical.map(p => (p.jobs as { company_name: string } | null)?.company_name).filter(Boolean))]
-    actionRows.push({
-      urgency: 'red',
-      title: `${hmPendingCritical.length} candidate${hmPendingCritical.length !== 1 ? 's' : ''} stale in Awaiting HM Feedback for 14+ days`,
-      meta: companies.slice(0, 3).join(' · '),
-      items: hmPendingCritical.slice(0, 5).map(p => ({
-        id: p.id,
-        candidateId: p.candidate_id,
-        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
-        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
-        jobId: p.job_id,
-        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
-        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
-        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
-        lastActivity: p.updated_at,
-        stage: p.stage,
-      })),
-      defaultOpen: true,
-    })
-  }
-
-  // AMBER: Candidates in offer for >5 days
-  const offerStale = pipelineData.filter(p => {
-    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    return p.stage === 'offer' && daysInStage > 5
-  })
-
-  for (const p of offerStale.slice(0, 2)) {
-    const candidateName = (p.candidates as { name: string } | null)?.name || 'Unknown'
-    const companyName = (p.jobs as { company_name: string } | null)?.company_name || 'Unknown'
-    const jobTitle = (p.jobs as { title: string } | null)?.title || 'Unknown'
-    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    
-    actionRows.push({
-      urgency: 'amber',
-      title: `${candidateName} at offer stage — closing window ${daysInStage} days`,
-      meta: `${companyName} · ${jobTitle}`,
-      items: [{
-        id: p.id,
-        candidateId: p.candidate_id,
-        candidateName,
-        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
-        jobId: p.job_id,
-        jobTitle,
-        companyName,
-        daysInStage,
-        lastActivity: p.updated_at,
-        stage: p.stage,
-      }],
-    })
-  }
-
-  // AMBER: Candidates in interest_confirmed for >3 days not moved to hm_shared
-  const interestConfirmedStale = pipelineData.filter(p => {
-    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    return p.stage === 'interest_confirmed' && daysInStage > 3
-  })
-
-  if (interestConfirmedStale.length > 0) {
-    const avgWait = Math.round(interestConfirmedStale.reduce((sum, p) => {
-      return sum + Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    }, 0) / interestConfirmedStale.length)
-
-    actionRows.push({
-      urgency: 'amber',
-      title: `${interestConfirmedStale.length} candidate${interestConfirmedStale.length !== 1 ? 's' : ''} confirmed interest, not yet shared to HM`,
-      meta: `Average wait ${avgWait} days`,
-      items: interestConfirmedStale.slice(0, 5).map(p => ({
-        id: p.id,
-        candidateId: p.candidate_id,
-        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
-        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
-        jobId: p.job_id,
-        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
-        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
-        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
-        lastActivity: p.updated_at,
-        stage: p.stage,
-      })),
-    })
-  }
-
-  // BLUE: Candidates in sourced for >14 days with no job_matched
-  const sourcedStale = pipelineData.filter(p => {
-    const daysInStage = Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))
-    return p.stage === 'sourced' && daysInStage > 14
-  })
-
-  if (sourcedStale.length > 0) {
-    actionRows.push({
-      urgency: 'blue',
-      title: `${sourcedStale.length} candidate${sourcedStale.length !== 1 ? 's' : ''} in Sourced 14+ days with no match yet`,
-      meta: 'Review for potential matches',
-      items: sourcedStale.slice(0, 5).map(p => ({
-        id: p.id,
-        candidateId: p.candidate_id,
-        candidateName: (p.candidates as { name: string } | null)?.name || 'Unknown',
-        candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || null,
-        jobId: p.job_id,
-        jobTitle: (p.jobs as { title: string } | null)?.title || 'Unknown',
-        companyName: (p.jobs as { company_name: string } | null)?.company_name || 'Unknown',
-        daysInStage: Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24)),
-        lastActivity: p.updated_at,
-        stage: p.stage,
-      })),
-    })
-  }
-
-  // Action queue count for header
-  const actionCount = actionRows.length
-
   // Calculate total candidates
   const totalCandidates = pipelineData.length
 
   // ===== REAL DATA: Earnings from hired candidates =====
-  // Get hired candidates (placement fees would be a percentage of their salary)
   const hiredPipeline = pipelineData.filter(p => p.stage === 'hired')
   const hiredThisMonth = hiredPipeline.filter(p => new Date(p.updated_at) >= monthStart)
   const hiredThisYear = hiredPipeline.filter(p => new Date(p.updated_at) >= yearStart)
@@ -279,7 +135,6 @@ export default async function DashboardPage() {
   const thisMonthStr = formatEarnings(thisMonthEarnings)
 
   // ===== REAL DATA: Funnel conversion rates (last 90 days) =====
-  // Get pipeline stage history or calculate from current data
   const last90DaysPipeline = pipelineData.filter(p => new Date(p.created_at) >= ninetyDaysAgo)
   
   // Count candidates that reached each stage
@@ -304,7 +159,7 @@ export default async function DashboardPage() {
   const interviewToOffer = interviewCount > 0 ? Math.round((offerCount / interviewCount) * 100) : 0
   const offerToHired = offerCount > 0 ? Math.round((hiredCount / offerCount) * 100) : 0
   
-  // Platform benchmarks (could be calculated from all users' data if admin)
+  // Platform benchmarks
   const funnelSteps = [
     { label: 'Shared → Interest', value: sharedToInterest || 0, benchmark: 62 },
     { label: 'Interest → HM', value: interestToHM || 0, benchmark: 78 },
@@ -329,67 +184,28 @@ export default async function DashboardPage() {
       ? 'Add more candidates to your pipeline to see conversion insights.'
       : null
 
-  // ===== REAL DATA: Hot Opportunities =====
-  // 1. New jobs posted in last 7 days
-  const sevenDaysAgo = subDays(now, 7)
-  const { data: newJobs } = await adminClient
-    .from('jobs')
-    .select('id, title, company_name, created_at')
-    .gte('created_at', sevenDaysAgo.toISOString())
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(5)
-
-  const newRolesMatching = (newJobs || []).map(job => ({
-    id: job.id,
-    title: `${job.title} at ${job.company_name || 'Unknown'}`,
-    subtitle: `Posted ${format(new Date(job.created_at), 'MMM d')}`,
-    link: `/jobs/${job.id}`,
-  }))
-
-  // 2. Candidates without a match (in sourced stage for >14 days)
-  const fourteenDaysAgo = subDays(now, 14)
-  const unmatchedCandidatesData = pipelineData
-    .filter(p => p.stage === 'sourced' && new Date(p.updated_at) < fourteenDaysAgo)
-    .slice(0, 5)
-
-  const unmatchedCandidates = unmatchedCandidatesData.map(p => ({
-    id: p.candidate_id,
-    title: (p.candidates as { name: string } | null)?.name || 'Unknown',
-    subtitle: `Unmatched for ${Math.floor((now.getTime() - new Date(p.updated_at).getTime()) / (1000 * 60 * 60 * 24))} days`,
-    candidateLinkedin: (p.candidates as { linkedin_url: string | null } | null)?.linkedin_url || undefined,
-    link: `/candidates/${p.candidate_id}`,
-  }))
-
-  // 3. Recently added companies with open jobs
-  const { data: recentCompanies } = await adminClient
-    .from('companies')
-    .select('id, name, description')
-    .order('created_at', { ascending: false })
-    .limit(5)
-
-  const recentlyFunded = (recentCompanies || []).map(company => ({
-    id: company.id,
-    title: company.name,
-    subtitle: company.description?.slice(0, 60) || 'Recently added client',
-    link: `/companies/${company.id}`,
-  }))
+  // Define the journey stages in order
+  const journeyStages = [
+    { key: 'sourced', phase: 'sourcing' },
+    { key: 'job_matched', phase: 'sourcing' },
+    { key: 'job_shared', phase: 'engagement' },
+    { key: 'interest_confirmed', phase: 'engagement' },
+    { key: 'shared_to_hm', phase: 'interview' },
+    { key: 'interview', phase: 'interview' },
+    { key: 'offer', phase: 'closing' },
+    { key: 'hired', phase: 'closing' },
+  ]
 
   return (
-    <div className="space-y-6 sm:space-y-9 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-0">
+    <div className="space-y-6 sm:space-y-8 max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4">
         <div>
-          <h1 className="text-[32px] sm:text-[42px] font-semibold leading-none tracking-tight text-[#100F0F]">
+          <h1 className="text-[28px] sm:text-[38px] font-semibold leading-none tracking-tight text-[#100F0F]">
             Hey {userName}
           </h1>
           <p className="text-xs sm:text-sm text-[rgba(16,15,15,0.64)] mt-1.5">
-            {actionCount > 0 ? (
-              <><span className="text-[#B7791F] font-medium">{actionCount} thing{actionCount !== 1 ? 's' : ''}</span> need you today · </>
-            ) : (
-              <>All clear · </>
-            )}
-            refreshed just now
+            {totalCandidates} candidate{totalCandidates !== 1 ? 's' : ''} in your pipeline · refreshed just now
           </p>
         </div>
         <div className="flex gap-2.5">
@@ -432,58 +248,184 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      {/* Section 2: Action Queue */}
+      {/* Section 2: Pipeline Journey View */}
       <section>
-        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
+        <div className="flex justify-between items-end mb-3 sm:mb-4">
           <div>
-            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Needs your attention</h2>
-            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5 hidden sm:block">Click any row to see who&apos;s involved and what&apos;s happening</p>
+            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Pipeline journey</h2>
+            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">{totalCandidates} candidate{totalCandidates !== 1 ? 's' : ''} across all stages</p>
           </div>
-          <span className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)]">
-            {actionCount} item{actionCount !== 1 ? 's' : ''}
-          </span>
         </div>
-        <ActionQueueCard rows={actionRows} />
+        
+        {/* Journey Flow */}
+        <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[12px] overflow-hidden">
+          {/* Phase labels */}
+          <div className="hidden sm:grid grid-cols-4 border-b border-[rgba(16,15,15,0.06)] bg-[#FAFAF8]">
+            <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">Sourcing</div>
+            <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">Engagement</div>
+            <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">Interviews</div>
+            <div className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">Closing</div>
+          </div>
+          
+          {/* Journey stages grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4">
+            {/* Sourcing phase */}
+            <div className="border-r border-[rgba(16,15,15,0.06)] border-b sm:border-b-0">
+              <div className="sm:hidden px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)] bg-[#FAFAF8] border-b border-[rgba(16,15,15,0.06)]">Sourcing</div>
+              <div className="p-2 space-y-1.5">
+                {['sourced', 'job_matched'].map((key) => {
+                  const bucket = DASHBOARD_BUCKETS.find(b => b.key === key)!
+                  const stats = bucketStats[key]
+                  const accentColor = STAGE_ACCENT_COLORS[key]
+                  return (
+                    <Link 
+                      key={key} 
+                      href={`/dashboard/pipeline/${key}`}
+                      className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-lg hover:bg-[#F8F8F3] transition-colors group"
+                    >
+                      <div className="w-1 h-8 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[20px] sm:text-[24px] font-semibold text-[#100F0F]">{stats.count}</span>
+                          {stats.thisWeek > 0 && (
+                            <span className="text-[10px] text-[#2A6B45] font-medium">+{stats.thisWeek} this week</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.64)] truncate">{bucket.label}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[rgba(16,15,15,0.20)] group-hover:text-[rgba(16,15,15,0.40)] transition-colors shrink-0" />
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Engagement phase */}
+            <div className="border-r-0 sm:border-r border-[rgba(16,15,15,0.06)] border-b sm:border-b-0">
+              <div className="sm:hidden px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)] bg-[#FAFAF8] border-b border-[rgba(16,15,15,0.06)]">Engagement</div>
+              <div className="p-2 space-y-1.5">
+                {['job_shared', 'interest_confirmed'].map((key) => {
+                  const bucket = DASHBOARD_BUCKETS.find(b => b.key === key)!
+                  const stats = bucketStats[key]
+                  const accentColor = STAGE_ACCENT_COLORS[key]
+                  return (
+                    <Link 
+                      key={key} 
+                      href={`/dashboard/pipeline/${key}`}
+                      className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-lg hover:bg-[#F8F8F3] transition-colors group"
+                    >
+                      <div className="w-1 h-8 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[20px] sm:text-[24px] font-semibold text-[#100F0F]">{stats.count}</span>
+                          {stats.staleCount > 0 && (
+                            <span className="text-[10px] text-[#B7791F] font-medium">{stats.staleCount} stale</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.64)] truncate">{bucket.label}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[rgba(16,15,15,0.20)] group-hover:text-[rgba(16,15,15,0.40)] transition-colors shrink-0" />
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Interview phase */}
+            <div className="border-r border-[rgba(16,15,15,0.06)]">
+              <div className="sm:hidden px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)] bg-[#FAFAF8] border-b border-[rgba(16,15,15,0.06)]">Interviews</div>
+              <div className="p-2 space-y-1.5">
+                {['shared_to_hm', 'interview'].map((key) => {
+                  const bucket = DASHBOARD_BUCKETS.find(b => b.key === key)!
+                  const stats = bucketStats[key]
+                  const accentColor = STAGE_ACCENT_COLORS[key]
+                  const subText = key === 'shared_to_hm' && stats.subCounts?.['hm_pending'] 
+                    ? `${stats.subCounts['hm_pending']} awaiting`
+                    : key === 'interview' && stats.subCounts
+                      ? `R1: ${stats.subCounts['interview_1'] || 0} · R2: ${stats.subCounts['interview_2'] || 0}`
+                      : null
+                  return (
+                    <Link 
+                      key={key} 
+                      href={`/dashboard/pipeline/${key}`}
+                      className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-lg hover:bg-[#F8F8F3] transition-colors group"
+                    >
+                      <div className="w-1 h-8 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-[20px] sm:text-[24px] font-semibold text-[#100F0F]">{stats.count}</span>
+                          {stats.criticalCount > 0 && (
+                            <span className="text-[10px] text-[#B23B3B] font-medium">{stats.criticalCount} critical</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.64)] truncate">
+                          {bucket.label}
+                          {subText && <span className="hidden sm:inline"> · {subText}</span>}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[rgba(16,15,15,0.20)] group-hover:text-[rgba(16,15,15,0.40)] transition-colors shrink-0" />
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+            
+            {/* Closing phase */}
+            <div>
+              <div className="sm:hidden px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)] bg-[#FAFAF8] border-b border-[rgba(16,15,15,0.06)]">Closing</div>
+              <div className="p-2 space-y-1.5">
+                {['offer', 'hired'].map((key) => {
+                  const bucket = DASHBOARD_BUCKETS.find(b => b.key === key)!
+                  const stats = bucketStats[key]
+                  const accentColor = STAGE_ACCENT_COLORS[key]
+                  const isHired = key === 'hired'
+                  return (
+                    <Link 
+                      key={key} 
+                      href={`/dashboard/pipeline/${key}`}
+                      className="flex items-center gap-2.5 p-2.5 sm:p-3 rounded-lg hover:bg-[#F8F8F3] transition-colors group"
+                    >
+                      <div className="w-1 h-8 rounded-full" style={{ backgroundColor: accentColor }} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-[20px] sm:text-[24px] font-semibold ${isHired ? 'text-[#3B6D11]' : 'text-[#100F0F]'}`}>{stats.count}</span>
+                          {isHired && stats.thisWeek > 0 && (
+                            <span className="text-[10px] text-[#3B6D11] font-medium">+{stats.thisWeek} this week</span>
+                          )}
+                          {!isHired && stats.staleCount > 0 && (
+                            <span className="text-[10px] text-[#B7791F] font-medium">{stats.staleCount} stale</span>
+                          )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.64)] truncate">{bucket.label}</p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-[rgba(16,15,15,0.20)] group-hover:text-[rgba(16,15,15,0.40)] transition-colors shrink-0" />
+                    </Link>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+          
+          {/* Rejected link */}
+          <div className="border-t border-[rgba(16,15,15,0.06)] bg-[#FAFAF8]">
+            <Link 
+              href="/dashboard/pipeline/rejected"
+              className="flex items-center justify-between px-4 py-2.5 hover:bg-[#F0F0EA] transition-colors group"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#A32D2D]" />
+                <span className="text-xs text-[rgba(16,15,15,0.64)]">Rejected / Declined / Withdrawn</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-[rgba(16,15,15,0.64)]">{bucketStats['rejected']?.count || 0}</span>
+                <ChevronRight className="h-3.5 w-3.5 text-[rgba(16,15,15,0.20)] group-hover:text-[rgba(16,15,15,0.40)] transition-colors" />
+              </div>
+            </Link>
+          </div>
+        </div>
       </section>
 
-      {/* Section 3: Pipeline Overview */}
-      <section>
-        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
-          <div>
-            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Pipeline overview</h2>
-            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5">{totalCandidates} candidate{totalCandidates !== 1 ? 's' : ''} · click any stage</p>
-          </div>
-          <span className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)]">Updated live</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-          {DASHBOARD_BUCKETS.map((bucket) => {
-            const stats = bucketStats[bucket.key]
-            const subText = bucket.showSubCounts && stats.subCounts
-              ? bucket.key === 'shared_to_hm'
-                ? `${stats.subCounts['hm_pending'] || 0} awaiting`
-                : bucket.key === 'interview'
-                  ? `R1: ${stats.subCounts['interview_1'] || 0} · R2: ${stats.subCounts['interview_2'] || 0}`
-                  : undefined
-              : undefined
-
-            return (
-              <StageOverviewCard
-                key={bucket.key}
-                href={`/dashboard/pipeline/${bucket.key}`}
-                accentColor={STAGE_ACCENT_COLORS[bucket.key] || '#2A6B45'}
-                stageName={bucket.label}
-                count={stats.count}
-                weeklyDelta={stats.thisWeek}
-                staleCount={stats.staleCount}
-                criticalCount={stats.criticalCount}
-                subText={subText}
-              />
-            )
-          })}
-        </div>
-      </section>
-
-      {/* Section 4: Funnel Benchmark */}
+      {/* Section 3: Funnel Benchmark */}
       <section>
         <div className="flex justify-between items-end mb-3 sm:mb-3.5">
           <div>
@@ -496,39 +438,6 @@ export default async function DashboardPage() {
           insight={funnelInsight || undefined}
           insightHighlight={weakestStep && weakestStep.value < weakestStep.benchmark ? `${weakestStep.label}` : undefined}
         />
-      </section>
-
-      {/* Section 5: Hot Opportunities */}
-      <section>
-        <div className="flex justify-between items-end mb-3 sm:mb-3.5">
-          <div>
-            <h2 className="text-sm sm:text-base font-semibold text-[#100F0F] tracking-tight">Hot opportunities</h2>
-            <p className="text-[11px] sm:text-[13px] text-[rgba(16,15,15,0.64)] mt-0.5 hidden sm:block">Click to expand and explore</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <HotOpportunityCard
-            icon={<Briefcase className="h-4 w-4" />}
-            title="New roles this week"
-            subtitle="Jobs posted in last 7 days"
-            items={newRolesMatching}
-            emptyText="No new roles this week"
-          />
-          <HotOpportunityCard
-            icon={<Users className="h-4 w-4" />}
-            title="Candidates without a match"
-            subtitle="In sourced 14+ days without a job match"
-            items={unmatchedCandidates}
-            emptyText="All candidates are matched"
-          />
-          <HotOpportunityCard
-            icon={<DollarSign className="h-4 w-4" />}
-            title="Recent clients"
-            subtitle="Recently added companies with open roles"
-            items={recentlyFunded}
-            emptyText="No recent clients"
-          />
-        </div>
       </section>
     </div>
   )
