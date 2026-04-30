@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import { UserAdmin } from '@/lib/types'
-import { Plus, Trash2, Shield, ShieldCheck, User, Eye, Building, Search, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Shield, ShieldCheck, User, Eye, Building, Search, ChevronRight, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import {
   Dialog,
@@ -44,6 +44,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('')
   const [isAddingUser, setIsAddingUser] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState('')
 
   // New user form
   const [newEmail, setNewEmail] = useState('')
@@ -143,6 +145,31 @@ export default function AdminUsersPage() {
     }
   }
 
+  async function handleSyncUsers() {
+    setIsSyncing(true)
+    setSyncMessage('')
+    setError('')
+
+    try {
+      const res = await fetch('/api/admin/sync-users', {
+        method: 'POST',
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync users')
+      }
+
+      setSyncMessage(data.message)
+      await fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+    } finally {
+      setIsSyncing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -161,6 +188,12 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {syncMessage && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-3 sm:p-4 text-sm text-green-700">
+          {syncMessage}
+        </div>
+      )}
+
       <Card>
         <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 sm:px-6">
           <div>
@@ -170,13 +203,26 @@ export default function AdminUsersPage() {
             </CardDescription>
           </div>
           {isSuperAdmin && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add User
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleSyncUsers}
+                disabled={isSyncing}
+                size="sm"
+                className="sm:size-default"
+              >
+                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Sync Auth Users</span>
+                <span className="sm:hidden">Sync</span>
+              </Button>
+              <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="sm:size-default">
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Add User</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New User</DialogTitle>
@@ -227,6 +273,7 @@ export default function AdminUsersPage() {
                 </form>
               </DialogContent>
             </Dialog>
+            </div>
           )}
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
