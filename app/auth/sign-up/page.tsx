@@ -1,6 +1,5 @@
 'use client'
 
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -73,39 +72,23 @@ export default function Page() {
     }
 
     try {
-      // Sign up the user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ??
-            `${window.location.origin}/auth/callback`,
-          data: {
-            full_name: fullName,
-            linkedin_url: linkedinUrl,
-          }
-        },
+      // Use API route to sign up (ensures admin client is used for users_admin insert)
+      const res = await fetch('/api/auth/sign-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName,
+          linkedinUrl,
+          role: selectedRole,
+        }),
       })
-      if (authError) throw authError
 
-      // Create users_admin record with selected role
-      if (authData.user) {
-        const { error: adminError } = await supabase
-          .from('users_admin')
-          .insert({
-            user_id: authData.user.id,
-            email: email,
-            full_name: fullName,
-            linkedin_url: linkedinUrl,
-            role: selectedRole,
-            status: 'pending',
-            accepted_terms_at: new Date().toISOString(),
-          })
-        
-        if (adminError) {
-          console.error('Failed to create user admin record:', adminError)
-        }
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Sign up failed')
       }
 
       // Save email to localStorage for resend functionality

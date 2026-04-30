@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -8,25 +8,44 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = await createClient()
+    const adminClient = createAdminClient()
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
       // Get the user after exchanging the code
       const { data: { user } } = await supabase.auth.getUser()
       
-      // Sync user_id in users_admin if the user exists but doesn't have user_id set
       if (user?.email) {
-        const { data: adminUser } = await supabase
+        // Check if user exists in users_admin using admin client to bypass RLS
+        const { data: adminUser } = await adminClient
           .from('users_admin')
           .select('id, user_id')
           .eq('email', user.email)
           .single()
         
-        // If user exists in users_admin but doesn't have user_id, update it
-        if (adminUser && !adminUser.user_id) {
-          await supabase
+        if (adminUser) {
+          // If user exists but doesn't have user_id, update it
+          if (!adminUser.user_id) {
+            await adminClient
+              .from('users_admin')
+              .update({ user_id: user.id })
+              .eq('id', adminUser.id)
+          }
+        } else {
+          // Create users_admin record if it doesn't exist
+          // This handles cases where users signed up via Supabase Auth directly
+          const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || ''
+          const linkedinUrl = user.user_metadata?.linkedin_url || null
+          
+          await adminClient
             .from('users_admin')
-            .update({ user_id: user.id })
-            .eq('id', adminUser.id)
+            .insert({
+              user_id: user.id,
+              email: user.email,
+              full_name: fullName,
+              linkedin_url: linkedinUrl,
+              role: 'viewer', // Default role for users who signed up without selecting
+              status: 'pending',
+            })
         }
       }
       
