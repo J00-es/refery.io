@@ -10,9 +10,10 @@ import type { Job, Candidate } from '@/lib/types'
 interface JobFiltersProps {
   jobs: Job[]
   onFilterChange: (filtered: Job[]) => void
+  showStatusFilter?: boolean
 }
 
-export function JobFilters({ jobs, onFilterChange }: JobFiltersProps) {
+export function JobFilters({ jobs, onFilterChange, showStatusFilter = false }: JobFiltersProps) {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [remotePolicyFilter, setRemotePolicyFilter] = useState<string>('all')
@@ -116,17 +117,19 @@ export function JobFilters({ jobs, onFilterChange }: JobFiltersProps) {
           />
         </div>
         
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-          </SelectContent>
-        </Select>
+        {showStatusFilter && (
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
 
         <Select value={remotePolicyFilter} onValueChange={setRemotePolicyFilter}>
           <SelectTrigger className="w-[130px]">

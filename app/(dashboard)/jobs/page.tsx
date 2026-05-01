@@ -128,9 +128,14 @@ export default async function JobsPage() {
     }
   }
 
+  // Non-admins only see open jobs — filter out draft and closed before enriching
+  const visibleJobs = isAdmin
+    ? (jobs as unknown as Job[])
+    : (jobs as unknown as Job[]).filter(j => j.status === 'open')
+
   // Enrich jobs with pipeline stats and company logos
   // For admins: show all pipeline stats, for non-admins: show only their owned candidates
-  const enrichedJobs = (jobs as unknown as Job[]).map(job => {
+  const enrichedJobs = visibleJobs.map(job => {
     // Try to get company data by id first, then by name
     const companyData = job.company_id 
       ? companyDataById[job.company_id] 
@@ -203,7 +208,7 @@ export default async function JobsPage() {
         </div>
       </div>
 
-      <JobList jobs={enrichedJobs} isAdmin={isAdmin} />
+      <JobList jobs={enrichedJobs} isAdmin={isAdmin} showStatusFilter={isAdmin} />
     </div>
   )
 }
