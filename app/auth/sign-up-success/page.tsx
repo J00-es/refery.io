@@ -97,9 +97,9 @@ export default function Page() {
             <div className="flex items-start gap-4">
               <div 
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: '#FBF3E1' }}
+                style={{ background: '#EBF4EF' }}
               >
-                <FileCheck className="h-5 w-5" style={{ color: '#B7791F' }} />
+                <FileCheck className="h-5 w-5" style={{ color: '#2A6B45' }} />
               </div>
               <div>
                 <h3 
@@ -110,7 +110,7 @@ export default function Page() {
                     color: '#100F0F',
                   }}
                 >
-                  Complete your partner agreement
+                  Partner agreement
                 </h3>
                 <p 
                   style={{ 
@@ -119,7 +119,18 @@ export default function Page() {
                     color: 'rgba(16,15,15,0.64)',
                   }}
                 >
-                  While you wait, please make sure you&apos;ve signed the partner agreement that our team sent to your email. This is required before your account can be activated.
+                  If you&apos;ve already signed your partner agreement, you&apos;re all set. 
+                  Our team will review your application and get you access as soon as possible.
+                </p>
+                <p 
+                  className="mt-3"
+                  style={{ 
+                    fontSize: '14px',
+                    lineHeight: 1.6,
+                    color: 'rgba(16,15,15,0.64)',
+                  }}
+                >
+                  Haven&apos;t received it yet? Check your inbox or reach out to us.
                 </p>
               </div>
             </div>
