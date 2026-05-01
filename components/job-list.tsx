@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 interface JobListProps {
   jobs: Job[]
   isAdmin?: boolean
+  showStatusFilter?: boolean
 }
 
 interface CompanyGroup {
@@ -122,7 +123,7 @@ const statusColors: Record<string, string> = {
   draft: 'bg-amber-100 text-amber-700',
 }
 
-export function JobList({ jobs, isAdmin = false }: JobListProps) {
+export function JobList({ jobs, isAdmin = false, showStatusFilter = false }: JobListProps) {
   const [filteredJobs, setFilteredJobs] = useState<Job[]>(jobs)
   const [viewMode, setViewMode] = useState<'jobs' | 'companies'>('jobs')
   const [jobViewStyle, setJobViewStyle] = useState<'card' | 'list'>('card')
@@ -210,7 +211,7 @@ export function JobList({ jobs, isAdmin = false }: JobListProps) {
     <div className="space-y-4 sm:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="flex-1">
-          <JobFilters jobs={jobs} onFilterChange={handleFilterChange} />
+          <JobFilters jobs={jobs} onFilterChange={handleFilterChange} showStatusFilter={showStatusFilter} />
         </div>
         
         <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
