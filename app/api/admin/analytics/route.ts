@@ -34,19 +34,15 @@ export async function GET() {
       { count: totalJobs },
       { count: openJobs },
       { count: totalCandidates },
-      { count: totalMatches },
       { data: recentJobs },
       { data: recentCandidates },
-      { data: topMatches },
       { count: totalUsers },
     ] = await Promise.all([
       adminClient.from('jobs').select('*', { count: 'exact', head: true }),
       adminClient.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'open'),
       adminClient.from('candidates').select('*', { count: 'exact', head: true }),
-      adminClient.from('job_matches').select('*', { count: 'exact', head: true }),
       adminClient.from('jobs').select('id, title, company_name, created_at, status').order('created_at', { ascending: false }).limit(5),
       adminClient.from('candidates').select('id, name, email, created_at, status').order('created_at', { ascending: false }).limit(5),
-      adminClient.from('job_matches').select('id, overall_score, job_id, candidate_id, jobs(title, company_name), candidates(name)').order('overall_score', { ascending: false }).limit(5),
       adminClient.from('users_admin').select('*', { count: 'exact', head: true }),
     ])
 
@@ -70,42 +66,20 @@ export async function GET() {
       return acc
     }, {} as Record<string, number>) || {}
 
-    // Get matches by score range
-    const { data: matchScores } = await adminClient
-      .from('job_matches')
-      .select('overall_score')
-
-    const scoreRanges = {
-      excellent: 0, // 80-100
-      good: 0, // 60-79
-      fair: 0, // 40-59
-      poor: 0, // 0-39
-    }
-
-    matchScores?.forEach(m => {
-      if (m.overall_score >= 80) scoreRanges.excellent++
-      else if (m.overall_score >= 60) scoreRanges.good++
-      else if (m.overall_score >= 40) scoreRanges.fair++
-      else scoreRanges.poor++
-    })
-
     return NextResponse.json({
       overview: {
         totalJobs: totalJobs || 0,
         openJobs: openJobs || 0,
         totalCandidates: totalCandidates || 0,
-        totalMatches: totalMatches || 0,
         totalUsers: totalUsers || 0,
       },
       distributions: {
         jobsByStatus: jobStatusCounts,
         candidatesByStatus: candidateStatusCounts,
-        matchesByScore: scoreRanges,
       },
       recent: {
         jobs: recentJobs || [],
         candidates: recentCandidates || [],
-        topMatches: topMatches || [],
       },
     })
   } catch (error) {

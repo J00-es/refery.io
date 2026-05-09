@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Briefcase, Users, Target, TrendingUp, Clock } from 'lucide-react'
+import { Briefcase, Users, Clock } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
 
@@ -11,18 +11,15 @@ interface Analytics {
     totalJobs: number
     openJobs: number
     totalCandidates: number
-    totalMatches: number
     totalUsers: number
   }
   distributions: {
     jobsByStatus: Record<string, number>
     candidatesByStatus: Record<string, number>
-    matchesByScore: Record<string, number>
   }
   recent: {
     jobs: Array<{ id: string; title: string; company_name: string; created_at: string; status: string }>
     candidates: Array<{ id: string; name: string; email: string; created_at: string; status: string }>
-    topMatches: Array<{ id: string; overall_score: number; jobs: { title: string; company_name: string }; candidates: { name: string } }>
   }
 }
 
@@ -95,30 +92,6 @@ export default function AdminPage() {
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Matches</CardTitle>
-            <Target className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{overview.totalMatches}</div>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Job pairs
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
-            <CardTitle className="text-xs sm:text-sm font-medium">Excellent</CardTitle>
-            <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="px-3 sm:px-6 pb-3 sm:pb-6">
-            <div className="text-xl sm:text-2xl font-bold">{distributions.matchesByScore.excellent || 0}</div>
-            <p className="text-[10px] sm:text-xs text-muted-foreground">
-              Score 80+
-            </p>
-          </CardContent>
-        </Card>
         <Card className="col-span-2 md:col-span-1">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-2 px-3 sm:px-6 pt-3 sm:pt-6">
             <CardTitle className="text-xs sm:text-sm font-medium">Team</CardTitle>
@@ -168,31 +141,6 @@ export default function AdminPage() {
               {Object.keys(distributions.candidatesByStatus).length === 0 && (
                 <p className="text-sm text-muted-foreground">No candidates yet</p>
               )}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Match Quality</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-green-600">Excellent (80+)</span>
-                <span className="text-sm font-medium">{distributions.matchesByScore.excellent || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-blue-600">Good (60-79)</span>
-                <span className="text-sm font-medium">{distributions.matchesByScore.good || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-yellow-600">Fair (40-59)</span>
-                <span className="text-sm font-medium">{distributions.matchesByScore.fair || 0}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-red-600">Poor (0-39)</span>
-                <span className="text-sm font-medium">{distributions.matchesByScore.poor || 0}</span>
-              </div>
             </div>
           </CardContent>
         </Card>
@@ -279,37 +227,6 @@ export default function AdminPage() {
         </Card>
       </div>
 
-      {/* Top Matches */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Top Matches</CardTitle>
-          <CardDescription>Highest scoring job-candidate matches</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {recent.topMatches.map((match) => (
-              <div key={match.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
-                  <div className="font-medium">{match.candidates?.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {match.jobs?.title} at {match.jobs?.company_name}
-                  </div>
-                </div>
-                <div className={`text-lg font-bold ${
-                  match.overall_score >= 80 ? 'text-green-600' :
-                  match.overall_score >= 60 ? 'text-blue-600' :
-                  'text-yellow-600'
-                }`}>
-                  {match.overall_score}%
-                </div>
-              </div>
-            ))}
-            {recent.topMatches.length === 0 && (
-              <p className="text-sm text-muted-foreground">No matches yet</p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

@@ -19,7 +19,6 @@ export default function NewCandidatePage() {
   const [error, setError] = useState('')
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [isCreating, setIsCreating] = useState(false)
-  const [isMatching, setIsMatching] = useState(false)
 
   const handleUploadComplete = (data: { pathname: string; filename: string; parsed_data: Record<string, unknown> }) => {
     setUploadResult(data as UploadResult)
@@ -31,7 +30,7 @@ export default function NewCandidatePage() {
     setUploadResult(null)
   }
 
-  const handleCreateCandidate = async (matchJobs: boolean = true) => {
+  const handleCreateCandidate = async () => {
     if (!uploadResult) return
 
     setIsCreating(true)
@@ -66,35 +65,12 @@ export default function NewCandidatePage() {
       }
 
       const { candidate } = await res.json()
-
-      if (matchJobs) {
-        setIsMatching(true)
-        
-        // Get all open jobs
-        const jobsRes = await fetch('/api/jobs')
-        const { jobs } = await jobsRes.json()
-        const openJobs = jobs?.filter((j: { status: string }) => j.status === 'open') ?? []
-
-        if (openJobs.length > 0) {
-          // Match against all open jobs
-          await fetch('/api/match-candidate', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              candidate_id: candidate.id,
-              job_ids: openJobs.map((j: { id: string }) => j.id),
-            }),
-          })
-        }
-      }
-
       router.push(`/candidates/${candidate.id}`)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setIsCreating(false)
-      setIsMatching(false)
     }
   }
 
@@ -103,7 +79,7 @@ export default function NewCandidatePage() {
       <div className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">Upload Resume</h1>
         <p className="text-sm sm:text-base text-muted-foreground">
-          Upload a PDF resume for AI-powered analysis and job matching.{' '}
+          Upload a PDF resume for AI-powered analysis.{' '}
           <a href="/candidates/bulk" className="text-primary hover:underline">
             Need to upload multiple resumes?
           </a>
@@ -224,14 +200,11 @@ export default function NewCandidatePage() {
           </Card>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Button onClick={() => handleCreateCandidate(true)} disabled={isCreating || isMatching} className="w-full sm:w-auto">
-              {(isCreating || isMatching) && <Spinner className="mr-2 h-4 w-4" />}
-              {isMatching ? 'Matching Jobs...' : isCreating ? 'Creating...' : 'Create & Match Jobs'}
+            <Button onClick={() => handleCreateCandidate()} disabled={isCreating} className="w-full sm:w-auto">
+              {isCreating && <Spinner className="mr-2 h-4 w-4" />}
+              {isCreating ? 'Creating...' : 'Create Candidate'}
             </Button>
-            <Button variant="outline" onClick={() => handleCreateCandidate(false)} disabled={isCreating || isMatching} className="w-full sm:w-auto">
-              Create Without Matching
-            </Button>
-            <Button variant="ghost" onClick={() => setUploadResult(null)} disabled={isCreating || isMatching} className="w-full sm:w-auto">
+            <Button variant="ghost" onClick={() => setUploadResult(null)} disabled={isCreating} className="w-full sm:w-auto">
               Upload Different Resume
             </Button>
           </div>

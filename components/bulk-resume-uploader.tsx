@@ -10,7 +10,7 @@ import type { ParsedResumeData } from '@/lib/types'
 
 interface FileUploadState {
   file: File
-  status: 'pending' | 'uploading' | 'analyzing' | 'creating' | 'matching' | 'done' | 'error'
+  status: 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'error'
   error?: string
   candidateId?: string
   parsedData?: ParsedResumeData
@@ -116,23 +116,6 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
 
       const { candidate } = await createRes.json()
 
-      // Match against jobs
-      updateFileStatus(index, { status: 'matching' })
-      const jobsRes = await fetch('/api/jobs')
-      const { jobs } = await jobsRes.json()
-      const openJobs = jobs?.filter((j: { status: string }) => j.status === 'open') ?? []
-
-      if (openJobs.length > 0) {
-        await fetch('/api/match-candidate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            candidate_id: candidate.id,
-            job_ids: openJobs.map((j: { id: string }) => j.id),
-          }),
-        })
-      }
-
       updateFileStatus(index, { status: 'done', candidateId: candidate.id })
       return true
     } catch (error) {
@@ -168,7 +151,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
   const pendingCount = files.filter(f => f.status === 'pending').length
   const completedCount = files.filter(f => f.status === 'done').length
   const errorCount = files.filter(f => f.status === 'error').length
-  const processingCount = files.filter(f => ['uploading', 'analyzing', 'creating', 'matching'].includes(f.status)).length
+  const processingCount = files.filter(f => ['uploading', 'analyzing', 'creating'].includes(f.status)).length
 
   const getStatusLabel = (status: FileUploadState['status']) => {
     switch (status) {
@@ -176,7 +159,6 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       case 'uploading': return 'Uploading...'
       case 'analyzing': return 'Analyzing...'
       case 'creating': return 'Creating candidate...'
-      case 'matching': return 'Matching jobs...'
       case 'done': return 'Complete'
       case 'error': return 'Failed'
     }
@@ -187,8 +169,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       case 'pending': return 'text-muted-foreground'
       case 'uploading':
       case 'analyzing':
-      case 'creating':
-      case 'matching': return 'text-amber-600'
+      case 'creating': return 'text-amber-600'
       case 'done': return 'text-emerald-600'
       case 'error': return 'text-red-600'
     }

@@ -152,6 +152,7 @@ export default async function OutreachHubPage() {
       .from('outreach_messages')
       .select(`
         id,
+        thread_id,
         direction,
         channel,
         subject,

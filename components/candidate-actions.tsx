@@ -20,7 +20,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Spinner } from '@/components/ui/spinner'
 import type { Candidate } from '@/lib/types'
 
 interface CandidateActionsProps {
@@ -31,7 +30,6 @@ export function CandidateActions({ candidate }: CandidateActionsProps) {
   const router = useRouter()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [isRematching, setIsRematching] = useState(false)
 
   const handleStatusChange = async (status: string) => {
     try {
@@ -43,32 +41,6 @@ export function CandidateActions({ candidate }: CandidateActionsProps) {
       router.refresh()
     } catch (error) {
       console.error('Failed to update status:', error)
-    }
-  }
-
-  const handleRematch = async () => {
-    setIsRematching(true)
-    try {
-      // Get all open jobs
-      const jobsRes = await fetch('/api/jobs')
-      const { jobs } = await jobsRes.json()
-      const openJobs = jobs?.filter((j: { status: string }) => j.status === 'open') ?? []
-
-      if (openJobs.length > 0) {
-        await fetch('/api/match-candidate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            candidate_id: candidate.id,
-            job_ids: openJobs.map((j: { id: string }) => j.id),
-          }),
-        })
-      }
-      router.refresh()
-    } catch (error) {
-      console.error('Failed to rematch:', error)
-    } finally {
-      setIsRematching(false)
     }
   }
 
@@ -90,11 +62,6 @@ export function CandidateActions({ candidate }: CandidateActionsProps) {
 
   return (
     <>
-      <Button variant="outline" onClick={handleRematch} disabled={isRematching}>
-        {isRematching && <Spinner className="mr-2 h-4 w-4" />}
-        {isRematching ? 'Matching...' : 'Rematch Jobs'}
-      </Button>
-
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon">
@@ -134,7 +101,7 @@ export function CandidateActions({ candidate }: CandidateActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Candidate</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {candidate.name}? This will also delete their resume and all job matches. This action cannot be undone.
+              Are you sure you want to delete {candidate.name}? This will also delete their resume and all related records. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

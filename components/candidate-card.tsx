@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { Candidate } from '@/lib/types'
 import { AVAILABILITY_STATUSES } from '@/lib/types'
-import { Linkedin, User, Briefcase, CheckCircle, XCircle, HelpCircle, Clock } from 'lucide-react'
+import { Linkedin, Briefcase, CheckCircle, XCircle, HelpCircle, Clock, UserCircle2 } from 'lucide-react'
 import { VerdictDisplay } from '@/components/candidate-verdict'
 
 // Format date as relative time
@@ -96,6 +96,18 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
   // Get current role from work history
   const currentRole = candidate.parsed_data?.work_history?.[0]
 
+  // Owner display name + initials for avatar
+  const ownerName = candidate.owner?.full_name || candidate.owner?.email?.split('@')[0] || null
+  const ownerInitials = ownerName
+    ? ownerName
+        .split(' ')
+        .map(p => p[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('')
+        .toUpperCase()
+    : null
+
   return (
     <Link href={`/candidates/${candidate.id}`}>
       <Card className="h-full transition-all hover:shadow-md hover:border-primary/30">
@@ -134,6 +146,26 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
         </CardHeader>
         
         <CardContent className="space-y-2.5 pt-0">
+          {/* Owner row - prominent and immediately visible */}
+          <div className="flex items-center gap-1.5">
+            {candidate.owner ? (
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 pl-0.5 pr-2 py-0.5 text-[11px] font-medium text-primary"
+                title={`Owner: ${candidate.owner.full_name || candidate.owner.email}`}
+              >
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                  {ownerInitials}
+                </span>
+                <span className="truncate max-w-[120px]">{ownerName}</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+                <UserCircle2 className="h-3 w-3" />
+                Unassigned
+              </span>
+            )}
+          </div>
+
           {/* Key Info Row */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
             {candidate.location && (
@@ -199,22 +231,14 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
             </div>
           )}
 
-          {/* Footer - Owner and Updated */}
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1">
+          {/* Footer - Last activity */}
+          <div className="flex items-center text-[10px] text-muted-foreground pt-1">
             <div className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
               {candidate.last_activity 
                 ? formatRelativeTime(candidate.last_activity)
                 : formatRelativeTime(candidate.updated_at)}
             </div>
-            {candidate.owner && (
-              <div className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                <span className="truncate max-w-[80px]">
-                  {candidate.owner.full_name?.split(' ')[0] || candidate.owner.email.split('@')[0]}
-                </span>
-              </div>
-            )}
           </div>
         </CardContent>
       </Card>

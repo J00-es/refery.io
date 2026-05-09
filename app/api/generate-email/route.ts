@@ -26,27 +26,19 @@ export async function POST(req: Request) {
         .select('*')
         .in('id', candidateIds)
 
-      const { data: matches } = await supabase
-        .from('job_matches')
-        .select('*')
-        .eq('job_id', jobId)
-        .in('candidate_id', candidateIds)
-
       if (!job || !candidates) {
         return NextResponse.json({ error: 'Job or candidates not found' }, { status: 404 })
       }
 
       // Build candidate summaries
       const candidateSummaries = candidates.map(c => {
-        const match = matches?.find(m => m.candidate_id === c.id)
         const parsed = c.parsed_data as { summary?: string; work_history?: Array<{ title: string; company: string }> } | null
-        
+
         if (mode === 'anonymized') {
           return {
             title: parsed?.work_history?.[0]?.title || 'Professional',
             experience: c.experience_years || 'N/A',
             skills: c.skills?.slice(0, 5).join(', ') || 'Various',
-            score: match?.overall_score || 'N/A',
             summary: parsed?.summary?.slice(0, 200) || '',
           }
         } else {
@@ -55,7 +47,6 @@ export async function POST(req: Request) {
             title: parsed?.work_history?.[0]?.title || 'Professional',
             experience: c.experience_years || 'N/A',
             skills: c.skills?.slice(0, 5).join(', ') || 'Various',
-            score: match?.overall_score || 'N/A',
             summary: parsed?.summary?.slice(0, 200) || '',
             linkedin: c.linkedin_url || null,
             email: c.email,
@@ -75,7 +66,6 @@ Candidate ${i + 1}:
 - Current/Recent Role: ${c.title}
 - Experience: ${c.experience} years
 - Key Skills: ${c.skills}
-- Match Score: ${c.score}%
 - Summary: ${c.summary}
 `).join('\n')}
 
@@ -97,7 +87,6 @@ ${i + 1}. ${c.name}
 - Current/Recent Role: ${c.title}
 - Experience: ${c.experience} years
 - Key Skills: ${c.skills}
-- Match Score: ${c.score}%
 - LinkedIn: ${c.linkedin || 'N/A'}
 - Summary: ${c.summary}
 `).join('\n')}

@@ -11,262 +11,507 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { User, Search, Building } from 'lucide-react'
+import { User, Search, Building, ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { SCOUT_AGREEMENT_TEXT, RECRUITER_AGREEMENT_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
+
+type Role = 'scout' | 'recruiter' | 'hiring_manager'
+type Step = 1 | 2 | 3
+
+const ROLE_OPTIONS: Array<{
+  value: Role
+  title: string
+  description: string
+  icon: typeof User
+  bg: string
+  fg: string
+}> = [
+  {
+    value: 'scout',
+    title: 'Scout',
+    description: 'You have a great network and want to share talented people you know.',
+    icon: Search,
+    bg: 'bg-teal-100',
+    fg: 'text-teal-700',
+  },
+  {
+    value: 'recruiter',
+    title: 'Partner Recruiter',
+    description: 'A professional recruiter or independent talent partner looking to collaborate.',
+    icon: User,
+    bg: 'bg-green-100',
+    fg: 'text-green-700',
+  },
+  {
+    value: 'hiring_manager',
+    title: 'Hiring Manager',
+    description: 'You want to hire talent for your company through our network.',
+    icon: Building,
+    bg: 'bg-orange-100',
+    fg: 'text-orange-700',
+  },
+]
+
+// Simple deterministic hash so client and server agree on the agreement_hash value.
+function generateAgreementHash(text: string): string {
+  let hash = 0
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash
+  }
+  return Math.abs(hash).toString(16)
+}
+
+function getAgreementForRole(role: Role): { text: string; version: string; type: string } | null {
+  if (role === 'scout') {
+    return {
+      text: SCOUT_AGREEMENT_TEXT,
+      version: AGREEMENT_VERSIONS.scout,
+      type: 'scout',
+    }
+  }
+  if (role === 'recruiter') {
+    return {
+      text: RECRUITER_AGREEMENT_TEXT,
+      version: AGREEMENT_VERSIONS.recruiter,
+      type: 'recruiter',
+    }
+  }
+  return null
+}
 
 export default function Page() {
-  const [email, setEmail] = useState('')
+  const router = useRouter()
+  const [step, setStep] = useState<Step>(1)
+  const [selectedRole, setSelectedRole] = useState<Role | ''>('')
   const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
   const [password, setPassword] = useState('')
   const [repeatPassword, setRepeatPassword] = useState('')
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
-  const [selectedRole, setSelectedRole] = useState('')
+  const [acceptedAgreement, setAcceptedAgreement] = useState(false)
+  const [hasScrolledAgreement, setHasScrolledAgreement] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
+  const agreement = selectedRole ? getAgreementForRole(selectedRole as Role) : null
+
+  const handleNextFromRole = () => {
     setError(null)
-
-    if (!acceptedTerms) {
-      setError('You must accept the Terms & Conditions to continue')
-      setIsLoading(false)
+    if (!selectedRole) {
+      setError('Please select your role to continue')
       return
     }
+    setStep(2)
+  }
 
-    if (password !== repeatPassword) {
-      setError('Passwords do not match')
-      setIsLoading(false)
-      return
-    }
-
+  const handleNextFromDetails = () => {
+    setError(null)
     if (!fullName.trim()) {
-      setError('Please enter your full name')
-      setIsLoading(false)
+      setError('Please enter your full legal name')
       return
     }
-
+    if (!email.trim()) {
+      setError('Please enter your email')
+      return
+    }
     if (!linkedinUrl.trim()) {
       setError('LinkedIn profile URL is required')
-      setIsLoading(false)
       return
     }
-
     if (!linkedinUrl.includes('linkedin.com')) {
       setError('Please enter a valid LinkedIn URL')
-      setIsLoading(false)
+      return
+    }
+    if (!password || password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+    if (password !== repeatPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    setStep(3)
+  }
+
+  const handleSubmit = async () => {
+    setError(null)
+
+    if (selectedRole !== 'hiring_manager' && !acceptedAgreement) {
+      setError('Please accept the agreement to continue')
       return
     }
 
-    if (!selectedRole) {
-      setError('Please select your role')
-      setIsLoading(false)
-      return
-    }
-
+    setIsLoading(true)
     try {
-      // Use API route to sign up (ensures admin client is used for users_admin insert)
+      const payload: Record<string, unknown> = {
+        email,
+        password,
+        fullName,
+        linkedinUrl,
+        role: selectedRole,
+      }
+
+      if (agreement && acceptedAgreement) {
+        payload.agreement = {
+          version: agreement.version,
+          type: agreement.type,
+          hash: generateAgreementHash(agreement.text),
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
+        }
+      }
+
       const res = await fetch('/api/auth/sign-up', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          fullName,
-          linkedinUrl,
-          role: selectedRole,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
-
       if (!res.ok) {
         throw new Error(data.error || 'Sign up failed')
       }
 
-      // Save email to localStorage for resend functionality
-      localStorage.setItem('pendingVerificationEmail', email)
-      
+      try {
+        localStorage.setItem('pendingVerificationEmail', email)
+      } catch {
+        // ignore storage errors
+      }
+
       router.push('/auth/sign-up-success')
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setIsLoading(false)
     }
   }
 
+  // When agreement scroll reaches near bottom, allow checkbox
+  const handleAgreementScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 24) {
+      setHasScrolledAgreement(true)
+    }
+  }
+
   return (
-    <div className="flex min-h-svh w-full items-center justify-center p-4 sm:p-6 md:p-10 bg-muted/30">
-      <div className="w-full max-w-md">
+    <div className="flex min-h-svh w-full items-start sm:items-center justify-center p-4 sm:p-6 md:p-10 bg-muted/30">
+      <div className="w-full max-w-xl">
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="text-center mb-1 sm:mb-2">
             <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
               Refery<span className="text-green-500">.</span>io
             </Link>
           </div>
+
+          {/* Stepper */}
+          <ol className="flex items-center justify-center gap-2 text-xs">
+            {[1, 2, 3].map((n) => (
+              <li key={n} className="flex items-center gap-2">
+                <span
+                  className={`flex h-6 w-6 items-center justify-center rounded-full font-medium ${
+                    step === n
+                      ? 'bg-primary text-primary-foreground'
+                      : step > n
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-muted text-muted-foreground'
+                  }`}
+                  aria-current={step === n ? 'step' : undefined}
+                >
+                  {step > n ? <Check className="h-3.5 w-3.5" /> : n}
+                </span>
+                {n < 3 && (
+                  <span className={`h-px w-8 ${step > n ? 'bg-primary/40' : 'bg-border'}`} />
+                )}
+              </li>
+            ))}
+          </ol>
+
           <Card className="border-0 sm:border shadow-lg sm:shadow-md">
-            <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
-              <CardTitle className="text-xl sm:text-2xl">Join Refery</CardTitle>
-              <CardDescription className="text-sm">Create your account to get started</CardDescription>
-            </CardHeader>
-            <CardContent className="px-4 sm:px-6 pb-6">
-              <form onSubmit={handleSignUp}>
-                <div className="flex flex-col gap-3 sm:gap-4">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="fullName" className="text-sm">Full Name *</Label>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="John Smith"
-                      required
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      className="h-11 sm:h-10 text-base sm:text-sm"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="email" className="text-sm">Email *</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="john@example.com"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="h-11 sm:h-10 text-base sm:text-sm"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="linkedinUrl" className="text-sm">LinkedIn Profile URL *</Label>
-                    <Input
-                      id="linkedinUrl"
-                      type="url"
-                      placeholder="linkedin.com/in/yourprofile"
-                      required
-                      value={linkedinUrl}
-                      onChange={(e) => setLinkedinUrl(e.target.value)}
-                      className="h-11 sm:h-10 text-base sm:text-sm"
-                      autoCapitalize="none"
-                      autoCorrect="off"
-                    />
-                    <p className="text-xs text-muted-foreground">Required to verify your professional identity</p>
+            {step === 1 && (
+              <>
+                <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
+                  <CardTitle className="text-xl sm:text-2xl">Welcome to Refery</CardTitle>
+                  <CardDescription className="text-sm">
+                    Let&apos;s start with what best describes you.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-6">
+                  <div className="grid gap-2.5">
+                    {ROLE_OPTIONS.map((opt) => {
+                      const Icon = opt.icon
+                      const active = selectedRole === opt.value
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setSelectedRole(opt.value)}
+                          className={`flex items-start gap-3 rounded-lg border p-3 sm:p-4 text-left transition-colors ${
+                            active ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full ${opt.bg} ${opt.fg}`}
+                          >
+                            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-medium text-sm sm:text-base">{opt.title}</span>
+                            <span className="block text-xs sm:text-sm text-muted-foreground leading-snug mt-0.5">
+                              {opt.description}
+                            </span>
+                          </span>
+                          <span
+                            className={`mt-1 h-4 w-4 rounded-full border-2 shrink-0 ${
+                              active ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                            }`}
+                            aria-hidden
+                          />
+                        </button>
+                      )
+                    })}
                   </div>
 
-                  <div className="grid gap-3 mt-2">
-                    <Label>What best describes you? *</Label>
-                    <RadioGroup value={selectedRole} onValueChange={setSelectedRole} className="grid gap-2">
-                      <div className={`flex items-start space-x-3 rounded-lg border p-3 sm:p-4 cursor-pointer transition-colors ${selectedRole === 'scout' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                        <RadioGroupItem value="scout" id="scout" className="mt-1" />
-                        <Label htmlFor="scout" className="flex items-start gap-3 cursor-pointer flex-1">
-                          <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-teal-100 text-teal-700">
-                            <Search className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm sm:text-base">Scout</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground leading-snug">Not a professional recruiter, but you have a great network and want to share talented people with Refery</p>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className={`flex items-start space-x-3 rounded-lg border p-3 sm:p-4 cursor-pointer transition-colors ${selectedRole === 'recruiter' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                        <RadioGroupItem value="recruiter" id="recruiter" className="mt-1" />
-                        <Label htmlFor="recruiter" className="flex items-start gap-3 cursor-pointer flex-1">
-                          <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-700">
-                            <User className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm sm:text-base">Partner Recruiter</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground leading-snug">A professional recruiter or independent talent partner looking to collaborate on placements</p>
-                          </div>
-                        </Label>
-                      </div>
-                      <div className={`flex items-start space-x-3 rounded-lg border p-3 sm:p-4 cursor-pointer transition-colors ${selectedRole === 'hiring_manager' ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
-                        <RadioGroupItem value="hiring_manager" id="hiring_manager" className="mt-1" />
-                        <Label htmlFor="hiring_manager" className="flex items-start gap-3 cursor-pointer flex-1">
-                          <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-orange-100 text-orange-700">
-                            <Building className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm sm:text-base">Hiring Manager</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground leading-snug">Looking to hire talent for your company through our network of recruiters and scouts</p>
-                          </div>
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  <div className="grid gap-1.5 mt-2">
-                    <Label htmlFor="password" className="text-sm">Password *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="h-11 sm:h-10 text-base sm:text-sm"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="repeat-password" className="text-sm">Confirm Password *</Label>
-                    <Input
-                      id="repeat-password"
-                      type="password"
-                      required
-                      value={repeatPassword}
-                      onChange={(e) => setRepeatPassword(e.target.value)}
-                      className="h-11 sm:h-10 text-base sm:text-sm"
-                    />
-                  </div>
-                  
-                  <div className="space-y-3 mt-2">
-                    <div className="flex items-start gap-2">
-                      <Checkbox 
-                        id="terms" 
-                        checked={acceptedTerms}
-                        onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                      />
-                      <label htmlFor="terms" className="text-sm text-muted-foreground leading-tight cursor-pointer">
-                        I agree to the{' '}
-                        <Link href="/terms" className="text-primary hover:underline" target="_blank">
-                          Terms & Conditions
-                        </Link>{' '}
-                        and{' '}
-                        <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                          Privacy Policy
-                        </Link>
-                        <span className="text-red-500 ml-0.5">*</span>
-                      </label>
-                    </div>
-                  </div>
-                  
                   {error && (
-                    <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
                       <p className="text-sm text-red-600">{error}</p>
                     </div>
                   )}
-                  
-                  <Button type="submit" className="w-full h-11 sm:h-10 mt-2 text-base sm:text-sm" disabled={isLoading}>
-                    {isLoading ? 'Creating account...' : 'Create Account'}
-                  </Button>
-                </div>
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  Already have an account?{' '}
-                  <Link
-                    href="/auth/login"
-                    className="text-primary font-medium hover:underline underline-offset-4"
+
+                  <Button
+                    type="button"
+                    onClick={handleNextFromRole}
+                    className="w-full h-11 sm:h-10 mt-4 text-base sm:text-sm"
                   >
-                    Sign in
-                  </Link>
-                </div>
-              </form>
-            </CardContent>
+                    Continue
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+
+                  <div className="mt-4 text-center text-sm text-muted-foreground">
+                    Already have an account?{' '}
+                    <Link
+                      href="/auth/login"
+                      className="text-primary font-medium hover:underline underline-offset-4"
+                    >
+                      Sign in
+                    </Link>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
+                  <CardTitle className="text-xl sm:text-2xl">Your details</CardTitle>
+                  <CardDescription className="text-sm">
+                    Use your full legal name — this is what we&apos;ll use on your agreement.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-6">
+                  <div className="flex flex-col gap-3 sm:gap-4">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="fullName" className="text-sm">Full Legal Name *</Label>
+                      <Input
+                        id="fullName"
+                        type="text"
+                        placeholder="Jane Doe"
+                        required
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="h-11 sm:h-10 text-base sm:text-sm"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="email" className="text-sm">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        placeholder="jane@example.com"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="h-11 sm:h-10 text-base sm:text-sm"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                      />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="linkedinUrl" className="text-sm">LinkedIn Profile URL *</Label>
+                      <Input
+                        id="linkedinUrl"
+                        type="url"
+                        placeholder="linkedin.com/in/yourprofile"
+                        required
+                        value={linkedinUrl}
+                        onChange={(e) => setLinkedinUrl(e.target.value)}
+                        className="h-11 sm:h-10 text-base sm:text-sm"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="password" className="text-sm">Password *</Label>
+                        <Input
+                          id="password"
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="h-11 sm:h-10 text-base sm:text-sm"
+                        />
+                      </div>
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="repeat-password" className="text-sm">Confirm *</Label>
+                        <Input
+                          id="repeat-password"
+                          type="password"
+                          required
+                          value={repeatPassword}
+                          onChange={(e) => setRepeatPassword(e.target.value)}
+                          className="h-11 sm:h-10 text-base sm:text-sm"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => { setError(null); setStep(1) }}
+                      className="h-11 sm:h-10"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleNextFromDetails}
+                      className="flex-1 h-11 sm:h-10 text-base sm:text-sm"
+                    >
+                      Continue
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
+                  <CardTitle className="text-xl sm:text-2xl">
+                    {selectedRole === 'hiring_manager'
+                      ? 'Almost done'
+                      : selectedRole === 'recruiter'
+                        ? 'Recruiting Partner Agreement'
+                        : 'Scout Partner Agreement'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {selectedRole === 'hiring_manager'
+                      ? "We'll review your account and reach out to you shortly."
+                      : `Review the agreement, then accept to finish creating your account.`}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-6">
+                  {agreement ? (
+                    <>
+                      <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <span>
+                          Signing as <strong className="text-foreground">{fullName}</strong>
+                        </span>
+                        <span>Version {agreement.version}</span>
+                      </div>
+
+                      <div
+                        onScroll={handleAgreementScroll}
+                        className="border rounded-lg max-h-[320px] sm:max-h-[380px] overflow-y-auto p-4 text-[13px] leading-relaxed text-foreground/85 whitespace-pre-wrap font-mono"
+                      >
+                        {agreement.text}
+                      </div>
+                      {!hasScrolledAgreement && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Scroll to the end of the agreement to enable acceptance.
+                        </p>
+                      )}
+
+                      <div className="flex items-start gap-2 mt-4">
+                        <Checkbox
+                          id="accept-agreement"
+                          checked={acceptedAgreement}
+                          onCheckedChange={(checked) => setAcceptedAgreement(checked === true)}
+                          disabled={!hasScrolledAgreement}
+                          className="mt-0.5"
+                        />
+                        <label
+                          htmlFor="accept-agreement"
+                          className={`text-sm leading-snug cursor-pointer ${!hasScrolledAgreement ? 'opacity-60' : ''}`}
+                        >
+                          I have read and agree to the {selectedRole === 'recruiter' ? 'Recruiting Partner' : 'Scout'} Agreement.
+                          My click constitutes a legally binding electronic signature.
+                        </label>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-foreground/80">
+                      <p className="mb-2">
+                        Thanks, <strong className="text-foreground">{fullName}</strong>.
+                      </p>
+                      <p>
+                        We&apos;ll review your account and reach out to set up your company. Your
+                        Refery service agreement will be sent to you separately by our team for
+                        electronic signature.
+                      </p>
+                    </div>
+                  )}
+
+                  {error && (
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 mt-5">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => { setError(null); setStep(2) }}
+                      disabled={isLoading}
+                      className="h-11 sm:h-10"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={
+                        isLoading ||
+                        (selectedRole !== 'hiring_manager' && !acceptedAgreement)
+                      }
+                      className="flex-1 h-11 sm:h-10 text-base sm:text-sm"
+                    >
+                      {isLoading
+                        ? 'Creating account...'
+                        : agreement
+                          ? 'Accept & Create Account'
+                          : 'Create Account'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
           </Card>
         </div>
       </div>
