@@ -83,9 +83,9 @@ export default function RecruitingPartnerAgreementPage() {
             fontWeight: 500,
             color: 'var(--green)'
           }}>
-            <span>Version 1.1</span>
+            <span>Version 1.2</span>
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--green)', opacity: 0.4 }} />
-            <span>Last Updated: April 23, 2026</span>
+            <span>Last Updated: May 9, 2026</span>
           </div>
 
           {/* Agreement Content */}

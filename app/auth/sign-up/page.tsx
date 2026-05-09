@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { User, Search, Building, ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { SCOUT_AGREEMENT_TEXT, RECRUITER_AGREEMENT_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
+import { AgreementContent } from '@/components/agreement-content'
 
 type Role = 'scout' | 'recruiter' | 'hiring_manager'
 type Step = 1 | 2 | 3
@@ -436,9 +437,13 @@ export default function Page() {
 
                       <div
                         onScroll={handleAgreementScroll}
-                        className="border rounded-lg max-h-[320px] sm:max-h-[380px] overflow-y-auto p-4 text-[13px] leading-relaxed text-foreground/85 whitespace-pre-wrap font-mono"
+                        className="border rounded-lg max-h-[320px] sm:max-h-[380px] overflow-y-auto px-4 sm:px-6 py-5 bg-white"
                       >
-                        {agreement.text}
+                        <AgreementContent
+                          content={agreement.text}
+                          density="compact"
+                          showEyebrow={false}
+                        />
                       </div>
                       {!hasScrolledAgreement && (
                         <p className="text-xs text-muted-foreground mt-2">
