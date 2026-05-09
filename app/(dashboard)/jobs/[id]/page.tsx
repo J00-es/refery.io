@@ -3,10 +3,9 @@ import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import type { Job, JobMatch, Candidate } from '@/lib/types'
+import type { Job } from '@/lib/types'
 import { ScoreBadge } from '@/components/score-badge'
 import { JobActions } from '@/components/job-actions'
-import { JobAiMatches } from '@/components/job-ai-matches'
 import { JobInternalNotes } from '@/components/job-internal-notes'
 import { JobCandidatePipeline } from '@/components/job-candidate-pipeline'
 import { JobOwnerAssignment } from '@/components/job-owner-assignment'
@@ -20,201 +19,6 @@ interface PageProps {
 }
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
-
-// Job category definitions for matching
-const JOB_CATEGORIES: Record<string, { primary: string[]; secondary: string[] }> = {
-  engineering: {
-    primary: ['engineer', 'developer', 'software', 'backend', 'frontend', 'fullstack', 'full-stack', 'devops', 'sre', 'architect', 'programmer', 'tech lead', 'cto'],
-    secondary: ['react', 'node', 'python', 'java', 'javascript', 'typescript', 'golang', 'rust', 'c++', 'kubernetes', 'docker', 'aws', 'api'],
-  },
-  product: {
-    primary: ['product manager', 'product owner', 'product lead', 'head of product', 'vp product', 'cpo', 'pm'],
-    secondary: ['roadmap', 'user research', 'a/b testing', 'metrics', 'okr', 'stakeholder'],
-  },
-  design: {
-    primary: ['designer', 'ux', 'ui', 'user experience', 'product designer', 'design lead', 'creative director'],
-    secondary: ['figma', 'sketch', 'adobe', 'prototype', 'wireframe', 'design system'],
-  },
-  data: {
-    primary: ['data scientist', 'data analyst', 'data engineer', 'machine learning', 'ml engineer', 'ai engineer', 'analytics'],
-    secondary: ['python', 'sql', 'tableau', 'spark', 'tensorflow', 'pytorch', 'statistics'],
-  },
-  customer_success: {
-    primary: ['customer success', 'customer support', 'support engineer', 'account manager', 'client success', 'customer service'],
-    secondary: ['zendesk', 'intercom', 'salesforce', 'crm', 'nps', 'csat'],
-  },
-  marketing: {
-    primary: ['marketing', 'growth', 'brand', 'content', 'seo', 'sem', 'demand gen'],
-    secondary: ['google analytics', 'hubspot', 'campaign', 'acquisition', 'funnel'],
-  },
-  sales: {
-    primary: ['sales', 'account executive', 'business development', 'bdr', 'sdr', 'sales manager'],
-    secondary: ['salesforce', 'outreach', 'quota', 'pipeline', 'closing'],
-  },
-}
-
-const INCOMPATIBLE_CATEGORIES: Record<string, string[]> = {
-  engineering: ['customer_success', 'sales', 'marketing'],
-  product: ['customer_success', 'sales'],
-  design: ['customer_success', 'sales', 'engineering'],
-  data: ['customer_success', 'sales'],
-  customer_success: ['engineering', 'design', 'data', 'product'],
-  marketing: ['engineering', 'design', 'data'],
-  sales: ['engineering', 'design', 'data', 'product'],
-}
-
-function getJobCategory(job: Job): string[] {
-  const titleLower = (job.title || '').toLowerCase()
-  const deptLower = (job.department || '').toLowerCase()
-  const categories: string[] = []
-  for (const [category, config] of Object.entries(JOB_CATEGORIES)) {
-    if (config.primary.some(kw => titleLower.includes(kw) || deptLower.includes(kw))) {
-      categories.push(category)
-    }
-  }
-  return categories.length > 0 ? categories : ['general']
-}
-
-function getCandidateCategory(candidate: Candidate): string[] {
-  const categories: string[] = []
-  const skillsLower = (candidate.skills || []).map(s => s.toLowerCase())
-  const parsedData = candidate.parsed_data as { work_history?: { title: string }[] } | null
-  const titles = parsedData?.work_history?.map(w => w.title.toLowerCase()) || []
-  
-  for (const [category, config] of Object.entries(JOB_CATEGORIES)) {
-    if (titles.some(title => config.primary.some(kw => title.includes(kw)))) {
-      categories.push(category)
-      continue
-    }
-    if (skillsLower.some(skill => config.primary.some(kw => skill.includes(kw)) || config.secondary.some(kw => skill.includes(kw)))) {
-      categories.push(category)
-    }
-  }
-  return categories.length > 0 ? categories : ['general']
-}
-
-function computeJobMatches(job: Job, candidates: Candidate[]): (JobMatch & { candidate: Candidate })[] {
-  const jobCategories = getJobCategory(job)
-  
-  return candidates
-    .map(candidate => {
-      const candidateCategories = getCandidateCategory(candidate)
-      
-      // Check for incompatibility
-      for (const candCat of candidateCategories) {
-        const incompatible = INCOMPATIBLE_CATEGORIES[candCat] || []
-        if (jobCategories.some(jc => incompatible.includes(jc))) {
-          return null // Incompatible
-        }
-      }
-      
-      // Skills match (30% weight -> scale to 0-100)
-      let skillsScore = 50 // Default when no data
-      if (job.skills_required?.length && candidate.skills?.length) {
-        const jobSkillsLower = job.skills_required.map(s => s.toLowerCase())
-        const candidateSkillsLower = candidate.skills.map(s => s.toLowerCase())
-        const matchingSkills = jobSkillsLower.filter(js => 
-          candidateSkillsLower.some(cs => cs.includes(js) || js.includes(cs))
-        ).length
-        skillsScore = Math.round((matchingSkills / job.skills_required.length) * 100)
-      }
-      
-      // Experience match (25% weight -> scale to 0-100)
-      let experienceScore = 50 // Default
-      if (candidate.experience_years) {
-        const minExp = job.experience_years_min || 0
-        const maxExp = job.experience_years_max || minExp + 5
-        const diff = candidate.experience_years - minExp
-        if (diff >= 0 && candidate.experience_years <= maxExp + 2) {
-          experienceScore = 100
-        } else if (diff > 0 && diff <= 5) {
-          experienceScore = 85
-        } else if (diff < 0 && diff >= -2) {
-          experienceScore = 70
-        } else if (diff < -2) {
-          experienceScore = 40
-        } else {
-          experienceScore = 60 // Overqualified
-        }
-      }
-      
-      // Keywords match (20% weight) - based on category alignment and additional keywords
-      let keywordsScore = 50
-      const categoryMatch = candidateCategories.some(cc => jobCategories.includes(cc))
-      if (categoryMatch) {
-        keywordsScore = 90
-      } else if (jobCategories.includes('general') || candidateCategories.includes('general')) {
-        keywordsScore = 60
-      } else {
-        keywordsScore = 30
-      }
-      // Boost keywords score if candidate has many relevant skills
-      if (candidate.skills && candidate.skills.length > 10) keywordsScore = Math.min(100, keywordsScore + 10)
-      
-      // Location match (15% weight -> scale to 0-100)
-      let locationScore = 50
-      if (job.remote_policy === 'remote') {
-        locationScore = 100
-      } else if (job.location && candidate.location) {
-        const jobLoc = job.location.toLowerCase()
-        const candLoc = candidate.location.toLowerCase()
-        if (candLoc.includes(jobLoc) || jobLoc.includes(candLoc)) {
-          locationScore = 100
-        } else if (candLoc.includes('bay area') && jobLoc.includes('san francisco') ||
-                   candLoc.includes('san francisco') && jobLoc.includes('bay area') ||
-                   candLoc.includes('nyc') && jobLoc.includes('new york') ||
-                   candLoc.includes('new york') && jobLoc.includes('nyc')) {
-          locationScore = 95
-        } else {
-          locationScore = 40
-        }
-      } else if (job.remote_policy === 'hybrid') {
-        locationScore = 70
-      }
-      
-      // Salary match (10% weight) - estimate based on experience level
-      let salaryScore = 60 // Default - assume reasonable match
-      if (job.salary_min && job.salary_max && candidate.experience_years) {
-        // Higher experience often means higher salary expectations
-        // This is a rough heuristic without actual salary data
-        if (candidate.experience_years >= 8) {
-          salaryScore = job.salary_max >= 180000 ? 90 : 60
-        } else if (candidate.experience_years >= 5) {
-          salaryScore = job.salary_max >= 140000 ? 85 : 65
-        } else {
-          salaryScore = 80 // Junior candidates often flexible
-        }
-      }
-      
-      // Calculate overall score (weighted average)
-      const overallScore = Math.round(
-        (skillsScore * 0.30) +
-        (experienceScore * 0.25) +
-        (keywordsScore * 0.20) +
-        (locationScore * 0.15) +
-        (salaryScore * 0.10)
-      )
-      
-      if (overallScore < 30) return null // Filter out very low matches
-      
-      return {
-        id: `${job.id}-${candidate.id}`,
-        job_id: job.id,
-        candidate_id: candidate.id,
-        overall_score: overallScore,
-        skills_score: skillsScore,
-        experience_score: experienceScore,
-        keywords_score: keywordsScore,
-        location_score: locationScore,
-        salary_score: salaryScore,
-        created_at: new Date().toISOString(),
-        candidate,
-      } as JobMatch & { candidate: Candidate }
-    })
-    .filter((m): m is JobMatch & { candidate: Candidate } => m !== null && m.overall_score > 0)
-    .sort((a, b) => b.overall_score - a.overall_score)
-    .slice(0, 50)
-}
 
 export default async function JobDetailPage({ params }: PageProps) {
   const { id } = await params
@@ -248,23 +52,6 @@ export default async function JobDetailPage({ params }: PageProps) {
   if (jobError || !job) {
     notFound()
   }
-
-  // Fetch candidates based on role - admins see all, others see only their own
-  let candidatesQuery = dbClient
-    .from('candidates')
-    .select('*')
-    .limit(200)
-
-  if (!isAdmin) {
-    candidatesQuery = candidatesQuery.or(
-      `owner_user_id.eq.${user?.id},uploaded_by_user_id.eq.${user?.id},user_id.eq.${user?.id}`
-    )
-  }
-
-  const { data: candidates } = await candidatesQuery
-
-  // Compute match scores dynamically
-  const matches = computeJobMatches(job as Job, (candidates || []) as Candidate[])
 
   // Fetch owner info
   let ownerInfo = null
@@ -307,7 +94,6 @@ export default async function JobDetailPage({ params }: PageProps) {
   }
 
   const typedJob = job as Job
-  const typedMatches = (matches ?? []) as (JobMatch & { candidate: Candidate })[]
   const canViewHiringInsights = isSuperAdmin || isAdmin || userRole === 'recruiter'
 
   // Check if user has accepted agreement for this company
@@ -540,9 +326,6 @@ export default async function JobDetailPage({ params }: PageProps) {
             companyId={companyData?.id}
             hasAgreement={hasAgreement || isAdmin}
           />
-
-          {/* AI-Matched Candidates with refresh and filtering */}
-          <JobAiMatches job={typedJob} matches={typedMatches} userRole={userRole} userId={user?.id} />
         </div>
 
         <div className="space-y-6">

@@ -10,7 +10,7 @@ import type { ParsedResumeData } from '@/lib/types'
 
 interface FileUploadState {
   file: File
-  status: 'pending' | 'uploading' | 'analyzing' | 'creating' | 'matching' | 'done' | 'error'
+  status: 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'error'
   error?: string
   candidateId?: string
   parsedData?: ParsedResumeData
@@ -115,23 +115,6 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       }
 
       const { candidate } = await createRes.json()
-
-      // Match against jobs
-      updateFileStatus(index, { status: 'matching' })
-      const jobsRes = await fetch('/api/jobs')
-      const { jobs } = await jobsRes.json()
-      const openJobs = jobs?.filter((j: { status: string }) => j.status === 'open') ?? []
-
-      if (openJobs.length > 0) {
-        await fetch('/api/match-candidate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            candidate_id: candidate.id,
-            job_ids: openJobs.map((j: { id: string }) => j.id),
-          }),
-        })
-      }
 
       updateFileStatus(index, { status: 'done', candidateId: candidate.id })
       return true

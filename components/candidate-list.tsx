@@ -321,20 +321,6 @@ export function CandidateList({ candidates }: CandidateListProps) {
       ) : (
         /* Card View */
         <div className="space-y-8">
-          {newCandidates.length > 0 && (
-            <section>
-              <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-blue-500" />
-                New ({newCandidates.length})
-              </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {newCandidates.map((candidate) => (
-                  <CandidateCard key={candidate.id} candidate={candidate} />
-                ))}
-              </div>
-            </section>
-          )}
-
           {reviewingCandidates.length > 0 && (
             <section>
               <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
@@ -343,6 +329,20 @@ export function CandidateList({ candidates }: CandidateListProps) {
               </h2>
               <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {reviewingCandidates.map((candidate) => (
+                  <CandidateCard key={candidate.id} candidate={candidate} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {newCandidates.length > 0 && (
+            <section>
+              <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-blue-500" />
+                New ({newCandidates.length})
+              </h2>
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {newCandidates.map((candidate) => (
                   <CandidateCard key={candidate.id} candidate={candidate} />
                 ))}
               </div>
