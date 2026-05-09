@@ -24,17 +24,7 @@ export async function GET(
       throw error
     }
 
-    // Also get matches for this candidate
-    const { data: matches } = await supabase
-      .from('job_matches')
-      .select(`
-        *,
-        job:jobs(*)
-      `)
-      .eq('candidate_id', id)
-      .order('overall_score', { ascending: false })
-
-    return NextResponse.json({ candidate, matches })
+    return NextResponse.json({ candidate })
   } catch (error) {
     console.error('Error fetching candidate:', error)
     return NextResponse.json({ error: 'Failed to fetch candidate' }, { status: 500 })

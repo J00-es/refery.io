@@ -151,7 +151,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
   const pendingCount = files.filter(f => f.status === 'pending').length
   const completedCount = files.filter(f => f.status === 'done').length
   const errorCount = files.filter(f => f.status === 'error').length
-  const processingCount = files.filter(f => ['uploading', 'analyzing', 'creating', 'matching'].includes(f.status)).length
+  const processingCount = files.filter(f => ['uploading', 'analyzing', 'creating'].includes(f.status)).length
 
   const getStatusLabel = (status: FileUploadState['status']) => {
     switch (status) {
@@ -159,7 +159,6 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       case 'uploading': return 'Uploading...'
       case 'analyzing': return 'Analyzing...'
       case 'creating': return 'Creating candidate...'
-      case 'matching': return 'Matching jobs...'
       case 'done': return 'Complete'
       case 'error': return 'Failed'
     }
@@ -170,8 +169,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       case 'pending': return 'text-muted-foreground'
       case 'uploading':
       case 'analyzing':
-      case 'creating':
-      case 'matching': return 'text-amber-600'
+      case 'creating': return 'text-amber-600'
       case 'done': return 'text-emerald-600'
       case 'error': return 'text-red-600'
     }

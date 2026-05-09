@@ -307,23 +307,6 @@ export const ROLE_PERMISSIONS = {
   },
 } as const
 
-export interface JobMatch {
-  id: string
-  job_id: string
-  candidate_id: string
-  overall_score: number
-  skills_score: number | null
-  experience_score: number | null
-  keywords_score: number | null
-  location_score: number | null
-  salary_score: number | null
-  ai_reasoning: string | null
-  created_at: string
-  // Joined data
-  job?: Job
-  candidate?: Candidate
-}
-
 export interface ParsedResumeData {
   name: string
   email: string | null
