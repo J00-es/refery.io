@@ -2,7 +2,7 @@
 
 export const AGREEMENT_VERSIONS = {
   scout: '1.0.0',
-  recruiter: '1.1.0',
+  recruiter: '1.2.0',
   client: '1.0.0',
 } as const
 
@@ -244,7 +244,7 @@ This Scout/Partner Agreement ("Agreement") is entered into between Refery, Inc. 
 
 BY ACCEPTING THIS AGREEMENT, YOU ACKNOWLEDGE THAT YOU HAVE READ, UNDERSTOOD, AND AGREE TO BE BOUND BY ALL TERMS AND CONDITIONS SET FORTH HEREIN.`
 
-// Recruiter Agreement Text — Recruiting Partner Agreement v1.1
+// Recruiter Agreement Text — Recruiting Partner Agreement v1.2
 // Uses lightweight markup parsed by <AgreementContent />:
 //   "# "  document title
 //   "## " numbered section heading
@@ -273,8 +273,6 @@ Refery runs the entire business side so you can focus on what you do best — fi
 **Candidate tracking and protection.** Every qualified submission is timestamped and recorded. Your work is documented and protected from the moment Refery confirms your submission.
 
 **Multi-role matching.** Candidates who pass vetting are matched across every relevant open role on the platform — not just the role you submitted them for. One strong submission has compounding value.
-
-**No cost to you — ever.** No subscription fees, no platform fees, no membership dues. Refery earns only when you earn.
 
 ## 2. Your payout
 
