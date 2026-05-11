@@ -25,6 +25,7 @@ type Block =
   | { type: 'h3'; text: string }
   | { type: 'paragraph'; text: string }
   | { type: 'list'; items: string[] }
+  | { type: 'table'; rows: string[][] }
   | { type: 'hr' }
 
 /**
@@ -47,6 +48,7 @@ function parse(content: string): Block[] {
   const blocks: Block[] = []
   let pBuf: string[] = []
   let ulBuf: string[] = []
+  let tableBuf: string[][] = []
 
   const flushP = () => {
     if (pBuf.length) {
@@ -60,10 +62,31 @@ function parse(content: string): Block[] {
       ulBuf = []
     }
   }
+  const flushTable = () => {
+    if (tableBuf.length) {
+      // Drop trailing empty/header rows (e.g. "| | |" or all-empty cells).
+      const dataRows = tableBuf.filter((row) => row.some((c) => c.trim() !== ''))
+      if (dataRows.length) blocks.push({ type: 'table', rows: dataRows })
+      tableBuf = []
+    }
+  }
   const flushAll = () => {
     flushP()
     flushUl()
+    flushTable()
   }
+
+  // Parse one "| a | b | c |" line into cells, trimmed.
+  const parseTableRow = (line: string): string[] | null => {
+    if (!line.startsWith('|') || !line.endsWith('|')) return null
+    return line
+      .slice(1, -1)
+      .split('|')
+      .map((c) => c.trim())
+  }
+  // Separator row: cells are all dashes (and optional colons for alignment).
+  const isTableSeparator = (cells: string[]): boolean =>
+    cells.length > 0 && cells.every((c) => /^:?-+:?$/.test(c))
 
   for (const raw of lines) {
     const line = raw.trim()
@@ -100,10 +123,20 @@ function parse(content: string): Block[] {
     }
     if (line.startsWith('- ')) {
       flushP()
+      flushTable()
       ulBuf.push(line.slice(2).trim())
       continue
     }
+    const cells = parseTableRow(line)
+    if (cells) {
+      flushP()
+      flushUl()
+      // Skip the markdown separator row.
+      if (!isTableSeparator(cells)) tableBuf.push(cells)
+      continue
+    }
     flushUl()
+    flushTable()
     pBuf.push(line)
   }
   flushAll()
@@ -374,6 +407,84 @@ export function AgreementContent({
                   </li>
                 ))}
               </ul>
+            )
+
+          case 'table':
+            return (
+              <div
+                key={i}
+                style={{
+                  margin: '0 0 24px 0',
+                  border: `1px solid ${C.border}`,
+                  borderRadius: 10,
+                  background: '#fff',
+                  overflow: 'hidden',
+                }}
+              >
+                {block.rows.map((row, r) => {
+                  const isLast = r === block.rows.length - 1
+                  // Two-column "label | value" row (used by "At a glance" tables).
+                  if (row.length === 2) {
+                    return (
+                      <div
+                        key={r}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'minmax(140px, 32%) 1fr',
+                          alignItems: 'baseline',
+                          gap: 16,
+                          padding: compact ? '12px 16px' : '16px 22px',
+                          borderBottom: isLast ? 'none' : `1px solid ${C.borderSoft}`,
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontFamily: SANS,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            letterSpacing: '0.1em',
+                            textTransform: 'uppercase',
+                            color: C.ink3,
+                          }}
+                        >
+                          {renderInline(row[0], `${i}-${r}-l`)}
+                        </div>
+                        <div
+                          style={{
+                            fontFamily: SANS,
+                            fontSize: bodySize,
+                            lineHeight: bodyLine,
+                            color: C.ink,
+                          }}
+                        >
+                          {renderInline(row[1], `${i}-${r}-v`)}
+                        </div>
+                      </div>
+                    )
+                  }
+                  // Generic N-column row (fallback).
+                  return (
+                    <div
+                      key={r}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `repeat(${row.length}, 1fr)`,
+                        gap: 16,
+                        padding: compact ? '12px 16px' : '16px 22px',
+                        borderBottom: isLast ? 'none' : `1px solid ${C.borderSoft}`,
+                        fontFamily: SANS,
+                        fontSize: bodySize,
+                        lineHeight: bodyLine,
+                        color: C.ink,
+                      }}
+                    >
+                      {row.map((cell, c) => (
+                        <div key={c}>{renderInline(cell, `${i}-${r}-${c}`)}</div>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
             )
 
           case 'hr':

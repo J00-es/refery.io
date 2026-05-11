@@ -11,6 +11,7 @@ import { CompanyRelationshipStatus } from '@/components/company-relationship-sta
 import { CompanyContacts } from '@/components/company-contacts'
 import { CompanyHiringInsights } from '@/components/company-hiring-insights'
 import { CompanyAgreements } from '@/components/company-agreements'
+import { CompanyServicesAgreement } from '@/components/company-services-agreement'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -245,7 +246,16 @@ export default async function CompanyDetailPage({ params }: PageProps) {
           {/* Company Contacts - Admin only */}
           {isAdmin && <CompanyContacts companyId={id} canEdit={canManageCompany} />}
 
-          {/* Company Agreements - Admin only */}
+          {/* Services Agreement (clickwrap, sent to client/company) - Admin only */}
+          {isAdmin && (
+            <CompanyServicesAgreement
+              companyId={id}
+              companyName={typedCompany.name}
+              isAdmin={isAdmin}
+            />
+          )}
+
+          {/* Recruiter/Scout Agreement acknowledgments - Admin only */}
           {isAdmin && <CompanyAgreements companyId={id} companyName={typedCompany.name} isAdmin={isAdmin} />}
         </div>
 

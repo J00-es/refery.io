@@ -3,7 +3,7 @@
 export const AGREEMENT_VERSIONS = {
   scout: '1.2.0',
   recruiter: '1.2.0',
-  client: '1.0.0',
+  client: '2.4',
 } as const
 
 export type AgreementType = 'scout' | 'recruiter'
@@ -487,8 +487,64 @@ Your click constitutes a legally binding electronic signature under applicable e
 
 Refery Recruiting Partner Agreement v1.1 · Confidential`
 
-// Client Recruitment Services Agreement Template (with placeholders)
+// Format fee percentage: whole number as "20", fractional as "17.5".
+export function formatFeePercent(pct: number): string {
+  return Number.isInteger(pct) ? String(pct) : pct.toFixed(1)
+}
+
+// v2.4 Recruitment Services Agreement. Uses the same lightweight markup as the
+// scout/recruiter agreements (parsed by <AgreementContent />), plus a markdown
+// table for the "At a glance" block. The {FEE_PERCENT} placeholder is the only
+// configurable term — all other values (30-day payment, 90-day guarantee,
+// 12-month intro window) are baked into the text per v2.4.
 export function generateClientAgreementText(
+  companyName: string,
+  options: { feePercent?: number } = {},
+): string {
+  const feePercent = options.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
+  const fee = formatFeePercent(feePercent)
+
+  return `# RECRUITMENT SERVICES AGREEMENT
+
+**v${AGREEMENT_VERSIONS.client}** · Effective on electronic acceptance · ~90-second read
+
+This Agreement is between **Refery** ("Platform") and ${companyName} ("Client"). It covers every role Client submits through Refery, now and in the future. One agreement, all roles.
+
+## At a glance
+
+| | |
+|---|---|
+| **Fee** | ${fee}% of first-year base salary |
+| **Payment** | Due 30 days after candidate's start date |
+| **Guarantee** | Free replacement search if hire leaves within 90 days |
+
+## Terms
+
+**1. Fee and payment.** When a candidate introduced by Refery or its partners is hired by Client within 12 months of introduction, for any role in any department, Client pays Refery ${fee}% of the candidate's first-year annual base salary. Signing bonuses, equity, commissions, and variable compensation are excluded. Payment is due within 30 calendar days of the candidate's start date. Overdue balances accrue interest at 1.5% per month, or the maximum rate permitted by law, whichever is lower.
+
+**2. 90-day guarantee.** If the placed candidate's employment ends within 90 days of starting due to resignation, performance, or termination for cause, Refery will conduct a free replacement search to fill the same role at no additional placement fee. Notify Refery within 14 business days of departure. The guarantee doesn't apply where the role, compensation, or working conditions materially changed from the original listing, or where departure resulted from layoffs, restructuring, or reduction in force. The guarantee is conditioned on Client not being materially overdue on undisputed payment obligations.
+
+**3. Anti-circumvention.** Client agrees not to hire an introduced candidate through any channel that bypasses Refery, including direct contact, other agencies, contractor arrangements, or hiring through affiliates. The full placement fee remains due in any such case. Refery's platform records, emails, and written introduction records constitute prima facie evidence of the date and fact of introduction.
+
+**4. Confidentiality.** Refery and every recruiter and scout on its platform are contractually bound to hold Client's information confidential. Company name, role details, hiring manager identities, compensation, and team information aren't shared publicly or posted on job boards, and aren't disclosed to candidates until those candidates pass Refery's Talent Committee vetting and sign Refery's Candidate Confidentiality Acknowledgment. In turn, Client treats all candidate information received from Refery as confidential and uses it only to evaluate candidates for employment. Both obligations survive termination of this Agreement.
+
+**5. How Refery uses AI.** Refery uses AI to parse resumes, match candidates to roles, and operate the platform, with trusted providers (such as Anthropic, OpenAI, and Google) acting as sub-processors under confidentiality and data-protection terms. Refery doesn't sell Client data and doesn't allow third-party AI providers to use it to train their public foundation models. Refery's AI supports matching and operations. **Final hiring decisions are made by Client.** Refery is responsible for the operation of its platform and AI tools. Client is responsible for its own hiring process, employment decisions, and any compliance obligations that apply to Client as the employer making the hire (such as those under NYC Local Law 144, the Illinois AI Video Interview Act, Colorado SB 205, and the EU AI Act).
+
+**6. Liability, warranties, and indemnification.** The Refery platform and services are provided on an "as-is" basis. Refery doesn't guarantee placement outcomes or warrant individual candidates beyond its Talent Committee vetting standard. Refery's total monetary liability under this Agreement is capped at fees paid in the prior 12 months, and Refery isn't liable for indirect, incidental, or consequential damages. Each party indemnifies the other for third-party claims arising from its own material breach of this Agreement, gross negligence, or willful misconduct, capped at the same amount.
+
+**7. Disputes.** This Agreement is governed by Delaware law, without regard to conflicts-of-law rules. Disputes will be resolved by binding individual arbitration under the American Arbitration Association (AAA) Commercial Arbitration Rules, conducted remotely. Both parties waive any right to class actions or class-wide arbitration. Either party may bring claims in small claims court or seek injunctive relief in court without first arbitrating. Neither party is liable for delays or failures caused by events beyond reasonable control.
+
+**8. General.** Either party may terminate on 30 days' written notice. Termination doesn't cancel: fees owed, the 12-month introduction window for already-introduced candidates, active guarantees, or the obligations in Sections 4 (Confidentiality) and 5 (AI). Refery may update operational terms (such as platform features and rules) with 30 days' notice. Material changes to fees, payment terms, or core obligations require Client's affirmative consent. If Client objects to any update, Client may terminate without penalty during the notice period. Refery may assign this Agreement to a successor entity in a merger, acquisition, or restructuring. If any provision is unenforceable, the remaining provisions remain in full effect. This is the entire agreement between the parties.
+
+## Acceptance
+
+By checking the box and clicking **Accept**, the signer confirms they are at least 18 years old, authorized to bind their company, have read this Agreement, and agree to its terms. This constitutes a legally binding electronic agreement under the E-SIGN Act and UETA. Questions: **legal@refery.io**.`
+}
+
+// Legacy generator kept for the old company_agreements code path (which is not
+// in active use but is referenced by app/api/agreements/sign/route.ts). New
+// callers should use generateClientAgreementText() above.
+export function generateClientAgreementTextLegacy(
   companyName: string,
   terms: ClientAgreementTerms
 ): string {
