@@ -43,73 +43,55 @@ export default async function JobsPage() {
   // RLS policies handle access control at database level
   // Admins and recruiters see all, others see only owned/assigned jobs
   // Order: open jobs first, then by most recent
-  // Paginate to ensure all rows are fetched regardless of total count
-  const PAGE_SIZE = 1000
+  // Non-admins only see open jobs — push that filter into SQL so we don't
+  // download closed/draft rows we'd just throw away.
+  // Select only the columns the list view needs (avoids the heavy `description`,
+  // `requirements`, `skills_required`, `tags`, and the vector `embedding` column).
+  const JOB_LIST_COLUMNS = 'id, title, company_name, company_id, company_stage, department, location, remote_policy, salary_min, salary_max, status, referral_bonus, referral_bonus_type, created_at, internal_deal_type'
+  const PAGE_SIZE = 5000
   let allJobs: Record<string, unknown>[] = []
   let jobsPage = 0
   while (true) {
-    const { data, error } = await dbClient
+    let q = dbClient
       .from('jobs')
-      .select('*')
+      .select(JOB_LIST_COLUMNS)
       .order('created_at', { ascending: false })
       .range(jobsPage * PAGE_SIZE, (jobsPage + 1) * PAGE_SIZE - 1)
+    if (!isAdmin) q = q.eq('status', 'open')
+    const { data, error } = await q
     if (error) break
     if (data) allJobs = allJobs.concat(data)
     if (!data || data.length < PAGE_SIZE) break
     jobsPage++
   }
 
-  // Paginate pipeline query to handle large datasets
-  let allPipeline: Record<string, unknown>[] = []
-  let pipelinePage = 0
-  while (true) {
-    const { data, error } = await dbClient
-      .from('job_candidate_pipeline')
-      .select('job_id, stage, candidate_id, candidates!inner(owner_user_id)')
-      .range(pipelinePage * PAGE_SIZE, (pipelinePage + 1) * PAGE_SIZE - 1)
-    if (error) break
-    if (data) allPipeline = allPipeline.concat(data)
-    if (!data || data.length < PAGE_SIZE) break
-    pipelinePage++
-  }
-
-  const [companiesResult] = await Promise.all([
+  // Pipeline stage counts and company enrichment data — run in parallel.
+  // Admins get global counts from a view; non-admins get user-scoped counts
+  // from an RPC that joins through candidates.owner_user_id (matches the
+  // previous JS-side filter exactly).
+  const [pipelineResult, companiesResult] = await Promise.all([
+    isAdmin
+      ? dbClient.from('job_pipeline_stats').select('job_id, sourced, screening, interview, offer, hired, total')
+      : dbClient.rpc('user_job_pipeline_stats', { uid: user.id }),
     dbClient
       .from('companies')
       .select('id, name, description, logo_url')
   ])
 
   const jobs = allJobs
-  const pipelineData = allPipeline
   const companies = companiesResult.data
 
-  type PipelineRow = { job_id: string; stage: string; candidate_id: string; candidates: { owner_user_id: string | null } | null }
-
-  // Group pipeline data by job - separate for all and user-owned
-  const pipelineByJob: Record<string, Record<string, number>> = {}
-  const userPipelineByJob: Record<string, Record<string, number>> = {}
-  if (pipelineData) {
-    for (const p of (pipelineData as unknown as PipelineRow[])) {
-      const candidate = p.candidates
-      
-      // All pipeline data (for admins)
-      if (!pipelineByJob[p.job_id]) {
-        pipelineByJob[p.job_id] = { sourced: 0, screening: 0, interview: 0, offer: 0, hired: 0, total: 0 }
-      }
-      if (p.stage in pipelineByJob[p.job_id]) {
-        pipelineByJob[p.job_id][p.stage]++
-      }
-      pipelineByJob[p.job_id].total++
-      
-      // User-owned pipeline data (for non-admins)
-      if (candidate?.owner_user_id === user.id) {
-        if (!userPipelineByJob[p.job_id]) {
-          userPipelineByJob[p.job_id] = { sourced: 0, screening: 0, interview: 0, offer: 0, hired: 0, total: 0 }
-        }
-        if (p.stage in userPipelineByJob[p.job_id]) {
-          userPipelineByJob[p.job_id][p.stage]++
-        }
-        userPipelineByJob[p.job_id].total++
+  type PipelineStatsRow = { job_id: string; sourced: number; screening: number; interview: number; offer: number; hired: number; total: number }
+  const pipelineByJob: Record<string, { sourced: number; screening: number; interview: number; offer: number; hired: number; total: number }> = {}
+  if (pipelineResult.data) {
+    for (const row of pipelineResult.data as unknown as PipelineStatsRow[]) {
+      pipelineByJob[row.job_id] = {
+        sourced: Number(row.sourced) || 0,
+        screening: Number(row.screening) || 0,
+        interview: Number(row.interview) || 0,
+        offer: Number(row.offer) || 0,
+        hired: Number(row.hired) || 0,
+        total: Number(row.total) || 0,
       }
     }
   }
@@ -128,24 +110,22 @@ export default async function JobsPage() {
     }
   }
 
-  // Non-admins only see open jobs — filter out draft and closed before enriching
-  const visibleJobs = isAdmin
-    ? (jobs as unknown as Job[])
-    : (jobs as unknown as Job[]).filter(j => j.status === 'open')
+  // Non-admins already had status='open' applied at SQL; admins see everything.
+  const visibleJobs = jobs as unknown as Job[]
 
-  // Enrich jobs with pipeline stats and company logos
-  // For admins: show all pipeline stats, for non-admins: show only their owned candidates
+  // Enrich jobs with pipeline stats (admin: global; non-admin: user-scoped) and
+  // company logos/taglines from the companies lookup.
   const enrichedJobs = visibleJobs.map(job => {
     // Try to get company data by id first, then by name
-    const companyData = job.company_id 
-      ? companyDataById[job.company_id] 
-      : job.company_name 
-        ? companyDataByName[job.company_name.toLowerCase()] 
+    const companyData = job.company_id
+      ? companyDataById[job.company_id]
+      : job.company_name
+        ? companyDataByName[job.company_name.toLowerCase()]
         : null
-    
+
     return {
       ...job,
-      pipeline_stats: isAdmin ? pipelineByJob[job.id] || null : userPipelineByJob[job.id] || null,
+      pipeline_stats: pipelineByJob[job.id] || null,
       company_tagline: companyData?.tagline || null,
       company_logo_url: companyData?.logo_url || null,
     }
