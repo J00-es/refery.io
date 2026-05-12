@@ -6,6 +6,27 @@ import {
   AGREEMENT_VERSIONS,
   AgreementType,
 } from '@/lib/agreements'
+import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
+import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
+
+const STORAGE_BUCKET = 'signed-agreements'
+
+function slugifyName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'signer'
+  )
+}
+
+function lastName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || 'signer'
+}
 
 /**
  * Compare two semver-ish version strings ("1.1.0" > "1.0.0").
@@ -28,6 +49,8 @@ function isNewer(a: string, b: string): boolean {
 
 // Force dynamic - never cache, always check fresh data
 export const dynamic = 'force-dynamic'
+// PDF rendering + email send takes a few seconds — match the client route.
+export const maxDuration = 60
 
 // GET - Get agreement details for public signing (no auth required - secret token IS the auth)
 export async function GET(
@@ -296,26 +319,72 @@ export async function POST(
       .update({ status: 'active', updated_at: signedAt })
       .eq('id', link.recruiter_id)
 
-    // Confirmation email, fire and forget
+    // Generate signed PDF, upload to storage, save pdf_url on the signature row,
+    // then send branded signer + plain admin emails. All best-effort: any
+    // failure here is logged but never rolls back the signature, which has
+    // already been persisted above.
+    let pdfBuffer: Buffer | null = null
+    let pdfPath: string | null = null
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin
-
-      fetch(`${baseUrl}/api/email/agreement-confirmation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: signer_email,
-          signer_name,
-          agreement_type: link.agreement_type,
-          agreement_version: storedVersion,
-          signed_at: signedAt,
-          agreement_hash: storedHash,
-        }),
-      }).catch((emailError) => {
-        console.error('[agreements/public POST] confirmation email failed:', emailError)
+      pdfBuffer = await generateAgreementPdf({
+        kind: 'partner',
+        content: storedContent,
+        signerName: signer_name,
+        signerEmail: signer_email,
+        signedAt,
+        version: storedVersion,
+        termsHash: storedHash,
+        agreementLinkId: link.id,
+        ipAddress,
+        partnerType: link.agreement_type as 'scout' | 'recruiter' | null,
       })
-    } catch (emailError) {
-      console.error('[agreements/public POST] confirmation email failed:', emailError)
+
+      pdfPath = `partner-agreements/${signature.id}.pdf`
+      const { error: uploadError } = await adminClient.storage
+        .from(STORAGE_BUCKET)
+        .upload(pdfPath, pdfBuffer, {
+          contentType: 'application/pdf',
+          upsert: true,
+        })
+
+      if (uploadError) {
+        console.error('[agreements/public POST] pdf upload failed:', uploadError)
+      } else {
+        await adminClient
+          .from('agreement_signatures')
+          .update({ pdf_url: pdfPath })
+          .eq('id', signature.id)
+      }
+    } catch (pdfErr) {
+      console.error('[agreements/public POST] pdf generation failed:', pdfErr)
+    }
+
+    try {
+      if (pdfBuffer) {
+        const signedAtHuman = new Date(signedAt).toUTCString().replace(' GMT', ' UTC')
+        const partnerType = (link.agreement_type as 'scout' | 'recruiter' | null) ?? null
+        const result = await sendPartnerAgreementEmails({
+          signerName: signer_name,
+          signerEmail: signer_email,
+          partnerType,
+          version: storedVersion,
+          signedAtIso: signedAt,
+          signedAtHuman,
+          ipAddress,
+          termsHash: storedHash,
+          agreementLinkId: link.id,
+          adminUrl: `${request.nextUrl.origin}/dashboard`,
+          pdfBuffer,
+          pdfFilename: `Refery-Partner-Agreement-${slugifyName(lastName(signer_name))}.pdf`,
+        })
+        if (result.errors.length) {
+          console.error('[agreements/public POST] email errors:', result.errors)
+        }
+      } else {
+        console.error('[agreements/public POST] skipped emails — no PDF buffer')
+      }
+    } catch (emailErr) {
+      console.error('[agreements/public POST] email send threw:', emailErr)
     }
 
     return NextResponse.json({

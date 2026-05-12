@@ -288,6 +288,7 @@ export async function POST(
     let pdfPath: string | null = null
     try {
       pdfBuffer = await generateAgreementPdf({
+        kind: 'client',
         content: storedContent,
         companyName: link.company_name,
         signerName,
