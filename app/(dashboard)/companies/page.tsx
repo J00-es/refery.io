@@ -27,14 +27,19 @@ export default async function CompaniesPage() {
   const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
   const dbClient = isSuperAdmin ? adminClient : supabase
   
-  // Run all queries in parallel
-  const [companiesResult, jobsResult] = await Promise.all([
-    dbClient.from('companies').select('*').order('name', { ascending: true }),
-    dbClient.from('jobs').select('company_name, status')
+  // Pull only the columns the list view actually uses (skips heavy fields like
+  // hiring_dna, eng_team_dna, gtm_team_dna, hiring_insights, etc.). The active
+  // job counts come from a SQL view that aggregates jobs in the database
+  // instead of shipping every job row to the server just to count them.
+  const COMPANY_LIST_COLUMNS = 'id, name, description, logo_url, employee_count, industry, linkedin_url, location, relationship_status, stage, created_at'
+  const [companiesResult, jobCountsResult] = await Promise.all([
+    dbClient.from('companies').select(COMPANY_LIST_COLUMNS).order('name', { ascending: true }),
+    dbClient.from('company_active_job_counts').select('company_name_lower, company_name, job_count'),
   ])
 
   const companies = companiesResult.data as (Company & { relationship_status?: string })[] | null
-  const jobs = jobsResult.data
+  type JobCountRow = { company_name_lower: string; company_name: string; job_count: number }
+  const jobCounts = (jobCountsResult.data ?? []) as JobCountRow[]
 
   // Check admin status
   let isAdmin = isSuperAdmin
@@ -60,21 +65,19 @@ export default async function CompaniesPage() {
     })
   })
 
-  // Add/update with job data
-  jobs?.forEach(job => {
-    if (job.company_name) {
-      const key = job.company_name.toLowerCase()
-      const existing = companyMap.get(key)
-      const isActive = job.status === 'open' || job.status === 'active'
-      if (existing) {
-        if (isActive) existing.jobCount++
-      } else {
-        companyMap.set(key, {
-          name: job.company_name,
-          jobCount: isActive ? 1 : 0,
-          isFromDatabase: false,
-        })
-      }
+  // Merge in aggregated active job counts (one row per distinct lower(company_name))
+  jobCounts.forEach(row => {
+    const key = row.company_name_lower
+    const count = Number(row.job_count) || 0
+    const existing = companyMap.get(key)
+    if (existing) {
+      existing.jobCount = count
+    } else {
+      companyMap.set(key, {
+        name: row.company_name,
+        jobCount: count,
+        isFromDatabase: false,
+      })
     }
   })
 
