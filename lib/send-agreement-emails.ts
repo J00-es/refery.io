@@ -269,6 +269,253 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/* ----------------------------------------------------------------------------
+ * Partner (scout/recruiter) agreement emails
+ *
+ * Same brand template family as the client services email, but intentionally
+ * simpler — no "At a glance" card, shorter body. Spec wording matched verbatim.
+ * -------------------------------------------------------------------------- */
+
+export type PartnerType = 'scout' | 'recruiter' | null
+
+export interface PartnerAgreementEmailData {
+  signerName: string
+  signerEmail: string
+  partnerType: PartnerType
+  version: string
+  signedAtIso: string
+  signedAtHuman: string
+  ipAddress: string | null
+  termsHash: string
+  agreementLinkId: string
+  adminUrl: string
+  pdfBuffer: Buffer
+  pdfFilename: string
+}
+
+function partnerLabel(t: PartnerType): string {
+  if (t === 'scout') return 'scout'
+  if (t === 'recruiter') return 'recruiter'
+  return 'partner'
+}
+
+function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
+  const greeting = firstName(d.signerName)
+  const label = partnerLabel(d.partnerType)
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your Refery partner agreement is signed</title>
+</head>
+<body style="margin:0; padding:0; background-color:${M.cream}; -webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${M.cream};">
+    <tr>
+      <td align="center" style="padding:32px 16px 48px 16px;">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:560px; background-color:${M.cream};">
+
+          <!-- Header: wordmark + forest green rule -->
+          <tr>
+            <td style="padding:0 0 8px 0; font-family:Georgia, 'Times New Roman', serif; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">
+              Refery<span style="font-style:italic;">.</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 32px 0;">
+              <div style="width:48px; height:2px; background-color:${M.green}; line-height:2px; font-size:0;">&nbsp;</div>
+            </td>
+          </tr>
+
+          <!-- Greeting + confirmation -->
+          <tr>
+            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.6; color:${M.body};">
+              Hi ${escapeHtml(greeting)},
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+              You&rsquo;re signed up as a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner. Thanks for completing the agreement.
+            </td>
+          </tr>
+
+          <!-- Signature details block -->
+          <tr>
+            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:0 0 8px 0; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">Signed by</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 14px 0; font-size:14px; line-height:1.5; color:${M.body};">
+                    ${escapeHtml(d.signerName)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 8px 0; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">Signed on</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 14px 0; font-size:14px; line-height:1.5; color:${M.body};">
+                    ${escapeHtml(d.signedAtHuman)}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 8px 0; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">Version</td>
+                </tr>
+                <tr>
+                  <td style="padding:0 0 0 0; font-size:14px; line-height:1.5; color:${M.body};">
+                    v${escapeHtml(d.version)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 0 24px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.6; color:${M.muted};">
+              A signed PDF copy is attached to this email for your records.
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 0 32px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.65; color:${M.body};">
+              Any questions, reply to this email or reach <a href="mailto:legal@refery.io" style="color:${M.green}; text-decoration:underline;">legal@refery.io</a>.
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0 0 6px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
+              Lily Joo
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 36px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
+              Founding Partner, Refery
+            </td>
+          </tr>
+
+          <tr>
+            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
+              Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`
+}
+
+function partnerSignerEmailText(d: PartnerAgreementEmailData): string {
+  const label = partnerLabel(d.partnerType)
+  return [
+    `Hi ${firstName(d.signerName)},`,
+    '',
+    `You're signed up as a Refery ${label} partner. Thanks for completing the agreement.`,
+    '',
+    `Signed by: ${d.signerName}`,
+    `Signed on: ${d.signedAtHuman}`,
+    `Version: v${d.version}`,
+    '',
+    'A signed PDF copy is attached for your records.',
+    '',
+    'Any questions, reply to this email or reach legal@refery.io.',
+    '',
+    'Lily Joo',
+    'Founding Partner, Refery',
+  ].join('\n')
+}
+
+function partnerAdminEmailHtml(d: PartnerAgreementEmailData): string {
+  const label = partnerLabel(d.partnerType)
+  return `<!DOCTYPE html>
+<html><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#111;font-size:14px;line-height:1.55;">
+<p style="margin:0 0 12px 0;"><strong>${escapeHtml(d.signerName)}</strong> just signed the v${escapeHtml(d.version)} ${escapeHtml(label)} agreement.</p>
+<table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0; font-size:14px;">
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">Email</td><td style="padding:2px 0;">${escapeHtml(d.signerEmail)}</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">Signed at</td><td style="padding:2px 0;">${escapeHtml(d.signedAtIso)}</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || '—')}</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">Hash</td><td style="padding:2px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;">${escapeHtml(d.termsHash)}</td></tr>
+</table>
+<p style="margin:0;"><a href="${escapeHtml(d.adminUrl)}" style="color:#1f3a2f;">Admin view</a></p>
+</body></html>`
+}
+
+function partnerAdminEmailText(d: PartnerAgreementEmailData): string {
+  const label = partnerLabel(d.partnerType)
+  return [
+    `${d.signerName} just signed the v${d.version} ${label} agreement.`,
+    '',
+    `Email: ${d.signerEmail}`,
+    `Signed at: ${d.signedAtIso}`,
+    `IP: ${d.ipAddress ?? '—'}`,
+    `Hash: ${d.termsHash}`,
+    '',
+    `Admin view: ${d.adminUrl}`,
+  ].join('\n')
+}
+
+export async function sendPartnerAgreementEmails(
+  data: PartnerAgreementEmailData,
+): Promise<{ signerSent: boolean; adminSent: boolean; errors: string[] }> {
+  const errors: string[] = []
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    return {
+      signerSent: false,
+      adminSent: false,
+      errors: ['RESEND_API_KEY not set'],
+    }
+  }
+
+  const resend = new Resend(apiKey)
+  const from = envFrom()
+  const attachment = { filename: data.pdfFilename, content: data.pdfBuffer }
+  const label = partnerLabel(data.partnerType)
+
+  let signerSent = false
+  try {
+    const res = await resend.emails.send({
+      from,
+      to: data.signerEmail,
+      replyTo: REPLY_TO,
+      subject: 'Your Refery partner agreement is signed',
+      html: partnerSignerEmailHtml(data),
+      text: partnerSignerEmailText(data),
+      attachments: [attachment],
+    })
+    if (res.error) {
+      errors.push(`signer: ${res.error.message || JSON.stringify(res.error)}`)
+    } else {
+      signerSent = true
+    }
+  } catch (err) {
+    errors.push(`signer: ${(err as Error).message}`)
+  }
+
+  let adminSent = false
+  try {
+    const res = await resend.emails.send({
+      from,
+      to: ADMIN_INBOX,
+      subject: `[Refery] ${data.signerName} signed v${data.version} ${label} agreement`,
+      html: partnerAdminEmailHtml(data),
+      text: partnerAdminEmailText(data),
+      attachments: [attachment],
+    })
+    if (res.error) {
+      errors.push(`admin: ${res.error.message || JSON.stringify(res.error)}`)
+    } else {
+      adminSent = true
+    }
+  } catch (err) {
+    errors.push(`admin: ${(err as Error).message}`)
+  }
+
+  return { signerSent, adminSent, errors }
+}
+
 export async function sendAgreementEmails(data: AgreementEmailData): Promise<{
   signerSent: boolean
   adminSent: boolean

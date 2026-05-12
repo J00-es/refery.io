@@ -322,11 +322,9 @@ function renderInline(text: string): React.ReactNode {
   })
 }
 
-export interface AgreementPdfData {
+interface AgreementPdfBase {
   content: string
-  companyName: string
   signerName: string
-  signerTitle: string | null
   signerEmail: string
   signedAt: string // ISO
   version: string
@@ -335,13 +333,47 @@ export interface AgreementPdfData {
   ipAddress: string | null
 }
 
+export interface ClientAgreementPdfData extends AgreementPdfBase {
+  kind: 'client'
+  companyName: string
+  signerTitle: string | null
+}
+
+export interface PartnerAgreementPdfData extends AgreementPdfBase {
+  kind: 'partner'
+  partnerType: 'scout' | 'recruiter' | null
+}
+
+export type AgreementPdfData = ClientAgreementPdfData | PartnerAgreementPdfData
+
+function partnerLabel(t: PartnerAgreementPdfData['partnerType']): string {
+  if (t === 'scout') return 'Scout Partner'
+  if (t === 'recruiter') return 'Recruiting Partner'
+  return 'Partner'
+}
+
+function documentTitle(data: AgreementPdfData): string {
+  if (data.kind === 'client') {
+    return `Refery Recruitment Services Agreement — ${data.companyName}`
+  }
+  return `Refery ${partnerLabel(data.partnerType)} Agreement — ${data.signerName}`
+}
+
+function footerLabel(data: AgreementPdfData): string {
+  if (data.kind === 'client') {
+    return `Refery · Recruitment Services Agreement · v${data.version}`
+  }
+  return `Refery · ${partnerLabel(data.partnerType)} Agreement · v${data.version}`
+}
+
 function AgreementDocument(data: AgreementPdfData) {
   const blocks = parse(data.content)
   let h2Seen = 0
+  const showTitleField = data.kind === 'client'
 
   return React.createElement(
     Document,
-    { title: `Refery Recruitment Services Agreement — ${data.companyName}` },
+    { title: documentTitle(data) },
     React.createElement(
       Page,
       { size: 'LETTER', style: styles.page },
@@ -455,16 +487,18 @@ function AgreementDocument(data: AgreementPdfData) {
             React.createElement(Text, { style: styles.sigLabel }, 'Signed by'),
             React.createElement(Text, { style: styles.sigValue }, data.signerName),
           ),
-          React.createElement(
-            View,
-            { style: styles.sigField },
-            React.createElement(Text, { style: styles.sigLabel }, 'Title'),
-            React.createElement(
-              Text,
-              { style: styles.sigValue },
-              data.signerTitle || '—',
-            ),
-          ),
+          showTitleField
+            ? React.createElement(
+                View,
+                { style: styles.sigField },
+                React.createElement(Text, { style: styles.sigLabel }, 'Title'),
+                React.createElement(
+                  Text,
+                  { style: styles.sigValue },
+                  (data as ClientAgreementPdfData).signerTitle || '—',
+                ),
+              )
+            : React.createElement(View, { style: styles.sigField }),
           React.createElement(
             View,
             { style: styles.sigField },
@@ -511,11 +545,7 @@ function AgreementDocument(data: AgreementPdfData) {
       React.createElement(
         View,
         { style: styles.pageNumber, fixed: true },
-        React.createElement(
-          Text,
-          {},
-          `Refery · Recruitment Services Agreement · v${data.version}`,
-        ),
+        React.createElement(Text, {}, footerLabel(data)),
         React.createElement(Text, {
           render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
             `${pageNumber} / ${totalPages}`,
