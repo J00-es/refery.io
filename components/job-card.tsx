@@ -1,37 +1,19 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import type { Job } from '@/lib/types'
 import { INTERNAL_DEAL_TYPES } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { Users, Calendar } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 
 interface JobCardProps {
   job: Job & {
-    pipeline_stats?: { total: number; sourced: number; screening: number; interview: number; offer: number; hired: number }
     company_tagline?: string
     company_logo_url?: string | null
   }
   compact?: boolean
   isAdmin?: boolean
-}
-
-const visaLabels: Record<string, { label: string; color: string }> = {
-  us_citizen_only: { label: 'US Citizen Only', color: 'bg-red-100 text-red-700 border-red-200' },
-  us_authorized: { label: 'Work Auth Required', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  sponsorship_available: { label: 'Sponsorship Available', color: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
-  no_restriction: { label: 'Open to All', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-}
-
-// Pipeline stage colors for mini view
-const stageColors = {
-  sourced: 'bg-slate-400',
-  screening: 'bg-blue-400',
-  interview: 'bg-purple-400',
-  offer: 'bg-amber-400',
-  hired: 'bg-emerald-400',
 }
 
 function JobCardComponent({ job, compact = false, isAdmin = false }: JobCardProps) {
@@ -56,7 +38,6 @@ function JobCardComponent({ job, compact = false, isAdmin = false }: JobCardProp
   }
 
   const salary = formatSalary(job.salary_min, job.salary_max)
-  const pipelineStats = job.pipeline_stats
 
   return (
     <Link href={`/jobs/${job.id}`}>
@@ -132,38 +113,6 @@ function JobCardComponent({ job, compact = false, isAdmin = false }: JobCardProp
               {job.experience_years_min}-{job.experience_years_max ?? '+'} yrs
             </span>
           </div>
-
-          {/* Pipeline Status - compact */}
-          {pipelineStats && pipelineStats.total > 0 && (
-            <div className="pt-2 border-t">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {pipelineStats.total} in pipeline
-                </span>
-                {pipelineStats.hired > 0 && (
-                  <span className="text-xs text-emerald-600 font-medium">{pipelineStats.hired} hired</span>
-                )}
-              </div>
-              <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
-                {pipelineStats.sourced > 0 && (
-                  <div className={stageColors.sourced} style={{ width: `${(pipelineStats.sourced / pipelineStats.total) * 100}%` }} />
-                )}
-                {pipelineStats.screening > 0 && (
-                  <div className={stageColors.screening} style={{ width: `${(pipelineStats.screening / pipelineStats.total) * 100}%` }} />
-                )}
-                {pipelineStats.interview > 0 && (
-                  <div className={stageColors.interview} style={{ width: `${(pipelineStats.interview / pipelineStats.total) * 100}%` }} />
-                )}
-                {pipelineStats.offer > 0 && (
-                  <div className={stageColors.offer} style={{ width: `${(pipelineStats.offer / pipelineStats.total) * 100}%` }} />
-                )}
-                {pipelineStats.hired > 0 && (
-                  <div className={stageColors.hired} style={{ width: `${(pipelineStats.hired / pipelineStats.total) * 100}%` }} />
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Footer - posted date and bonus */}
           <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
