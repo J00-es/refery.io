@@ -85,14 +85,19 @@ export default async function CandidatesPage() {
   // Get unique owner IDs that exist
   const ownerIds = [...new Set((candidates ?? []).filter(c => c.owner_user_id).map(c => c.owner_user_id))]
   
-  // Only fetch owners if there are any
+  // Only fetch owners if there are any.
+  // Use adminClient: RLS on users_admin restricts each viewer to their own row,
+  // so the RLS-scoped client only returned the current user — candidates owned
+  // by other admins fell through to ownerMap[id] = undefined and rendered as
+  // "Unassigned" on the card. users_admin is internal team metadata, safe to
+  // surface regardless of the viewer.
   let ownerMap: Record<string, { email: string; full_name: string | null }> = {}
   if (ownerIds.length > 0) {
-    const { data: owners } = await supabase
+    const { data: owners } = await adminClient
       .from('users_admin')
       .select('user_id, email, full_name')
       .in('user_id', ownerIds)
-    
+
     if (owners) {
       ownerMap = Object.fromEntries(owners.map(o => [o.user_id, { email: o.email, full_name: o.full_name }]))
     }
