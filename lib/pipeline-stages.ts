@@ -2,6 +2,10 @@ import type { PipelineStage } from './types'
 
 // Stage accent hex colors for direct CSS usage
 export const STAGE_ACCENT_COLORS: Record<string, string> = {
+  // AI-driven matching stages (written by the auto-matching automation)
+  auto_matched: '#6366F1',
+  screening: '#0891B2',
+  auto_passed: '#A32D2D',
   sourced: '#888780',
   job_matched: '#185FA5',
   job_shared: '#378ADD',
@@ -22,10 +26,14 @@ export const STAGE_ACCENT_COLORS: Record<string, string> = {
 
 // Stage descriptions for drilldown page
 export const STAGE_DESCRIPTIONS: Record<string, string> = {
+  auto_matched: 'Candidates the AI matched to a role automatically, awaiting your review',
+  screening: 'Candidates being screened for fit before advancing in the pipeline',
+  auto_passed: 'Candidates the AI screened out as not a fit for the role',
   sourced: 'Candidates added to your talent pool, ready to be matched with open roles',
   job_matched: 'Candidates matched to a role, waiting to be shared with the candidate',
   job_shared: 'Role details shared with candidate, awaiting their interest confirmation',
   interest_confirmed: 'Candidate confirmed interest in the role, ready to be shared with hiring manager',
+  hm_shared: 'Profile shared with the hiring manager, awaiting their feedback',
   shared_to_hm: 'Profile shared with hiring manager, includes candidates awaiting HM feedback',
   interview: 'Candidates in active interview rounds with the hiring team',
   offer: 'Candidates who received an offer, pending their decision',
@@ -197,9 +205,45 @@ export const PIPELINE_STAGES: StageConfig[] = [
   },
 ]
 
+// AI-matching stages live in the DB stage CHECK constraint but are not part of
+// the manual PIPELINE_STAGES board. Provide configs so labels/colors resolve
+// correctly anywhere getStageConfig is used (e.g. drilldown activity log).
+const EXTRA_STAGE_CONFIGS: Record<string, StageConfig> = {
+  auto_matched: {
+    value: 'auto_matched' as PipelineStage,
+    label: 'AI Matched',
+    color: 'bg-[#ECECFB] text-[#6366F1] border-[#6366F1]/20',
+    borderColor: 'bg-[#6366F1]',
+    dotColor: 'bg-[#6366F1]',
+    iconName: 'Sparkles',
+    category: 'active',
+    order: 0,
+  },
+  screening: {
+    value: 'screening' as PipelineStage,
+    label: 'Screening',
+    color: 'bg-[#E0F4F8] text-[#0891B2] border-[#0891B2]/20',
+    borderColor: 'bg-[#0891B2]',
+    dotColor: 'bg-[#0891B2]',
+    iconName: 'Search',
+    category: 'active',
+    order: 0,
+  },
+  auto_passed: {
+    value: 'auto_passed' as PipelineStage,
+    label: 'AI Passed',
+    color: 'bg-[#FDECEC] text-[#A32D2D] border-[#A32D2D]/20',
+    borderColor: 'bg-[#A32D2D]',
+    dotColor: 'bg-[#A32D2D]',
+    iconName: 'XCircle',
+    category: 'terminal_negative',
+    order: 0,
+  },
+}
+
 // Helper functions
 export function getStageConfig(stage: string): StageConfig {
-  return PIPELINE_STAGES.find(s => s.value === stage) || PIPELINE_STAGES[0]
+  return PIPELINE_STAGES.find(s => s.value === stage) || EXTRA_STAGE_CONFIGS[stage] || PIPELINE_STAGES[0]
 }
 
 export function getStageLabel(stage: string): string {
@@ -232,78 +276,85 @@ export const TERMINAL_NEGATIVE_STAGE_VALUES: PipelineStage[] = [
 export interface DashboardBucket {
   key: string
   label: string
-  stages: PipelineStage[]
+  stages: string[]
   color: string
   borderColor: string
   showSubCounts?: boolean
   subCountLabel?: string
 }
 
+// Buckets mirror the actual stages stored in job_candidate_pipeline.stage
+// (auto_matched, auto_passed, job_matched, job_shared, hm_shared,
+// interest_confirmed, screening, rejected). Each maps 1:1 to a real stage so no
+// data is silently dropped from the dashboard.
 export const DASHBOARD_BUCKETS: DashboardBucket[] = [
-  { 
-    key: 'sourced', 
-    label: 'Sourced', 
-    stages: ['sourced'],
-    color: 'bg-[#F0F0EA] text-[#888780]',
-    borderColor: 'bg-[#888780]'
+  {
+    key: 'auto_matched',
+    label: 'AI Matched',
+    stages: ['auto_matched'],
+    color: 'bg-[#ECECFB] text-[#6366F1]',
+    borderColor: 'bg-[#6366F1]'
   },
-  { 
-    key: 'job_matched', 
-    label: 'Job Matched', 
+  {
+    key: 'screening',
+    label: 'Screening',
+    stages: ['screening'],
+    color: 'bg-[#E0F4F8] text-[#0891B2]',
+    borderColor: 'bg-[#0891B2]'
+  },
+  {
+    key: 'job_matched',
+    label: 'Job Matched',
     stages: ['job_matched'],
     color: 'bg-[#EAF1FB] text-[#185FA5]',
     borderColor: 'bg-[#185FA5]'
   },
-  { 
-    key: 'job_shared', 
-    label: 'Job Shared', 
+  {
+    key: 'job_shared',
+    label: 'Job Shared',
     stages: ['job_shared'],
     color: 'bg-[#E8F4FC] text-[#378ADD]',
     borderColor: 'bg-[#378ADD]'
   },
-  { 
-    key: 'interest_confirmed', 
-    label: 'Interest Confirmed', 
+  {
+    key: 'interest_confirmed',
+    label: 'Interest Confirmed',
     stages: ['interest_confirmed'],
     color: 'bg-[#E1F5EE] text-[#1D9E75]',
     borderColor: 'bg-[#1D9E75]'
   },
-  { 
-    key: 'shared_to_hm', 
-    label: 'Shared to HM', 
-    stages: ['hm_shared', 'hm_pending'],
+  {
+    key: 'hm_shared',
+    label: 'Shared to HM',
+    stages: ['hm_shared'],
     color: 'bg-[#E1F5EE] text-[#0F6E56]',
-    borderColor: 'bg-[#0F6E56]',
-    showSubCounts: true,
-    subCountLabel: 'awaiting'
+    borderColor: 'bg-[#0F6E56]'
   },
-  { 
-    key: 'interview', 
-    label: 'Interview', 
-    stages: ['interview_1', 'interview_2'],
-    color: 'bg-[#EFEDFA] text-[#534AB7]',
-    borderColor: 'bg-[#534AB7]',
-    showSubCounts: true
+  {
+    key: 'auto_passed',
+    label: 'AI Passed',
+    stages: ['auto_passed'],
+    color: 'bg-[#FDECEC] text-[#A32D2D]',
+    borderColor: 'bg-[#A32D2D]'
   },
-  { 
-    key: 'offer', 
-    label: 'Offer', 
-    stages: ['offer'],
-    color: 'bg-[#F3F1FC] text-[#7F77DD]',
-    borderColor: 'bg-[#7F77DD]'
-  },
-  { 
-    key: 'hired', 
-    label: 'Hired', 
-    stages: ['hired'],
-    color: 'bg-[#EBF4EF] text-[#3B6D11]',
-    borderColor: 'bg-[#3B6D11]'
-  },
-  { 
-    key: 'rejected', 
-    label: 'Rejected', 
-    stages: ['interest_declined', 'rejected', 'rejected_no_feedback', 'withdrawn'],
+  {
+    key: 'rejected',
+    label: 'Rejected',
+    stages: ['rejected'],
     color: 'bg-[#FDECEC] text-[#A32D2D]',
     borderColor: 'bg-[#A32D2D]'
   },
 ]
+
+// Stages that represent active, in-flight pipeline (excludes AI-passed/rejected).
+export const DASHBOARD_ACTIVE_BUCKET_KEYS = [
+  'auto_matched',
+  'screening',
+  'job_matched',
+  'job_shared',
+  'interest_confirmed',
+  'hm_shared',
+] as const
+
+// Terminal (negative) buckets shown separately from the active journey.
+export const DASHBOARD_TERMINAL_BUCKET_KEYS = ['auto_passed', 'rejected'] as const

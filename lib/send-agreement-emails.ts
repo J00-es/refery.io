@@ -16,6 +16,13 @@ const FROM_DEFAULT = 'Refery <agreements@refery.io>'
 const ADMIN_INBOX = 'lily@refery.io'
 const REPLY_TO = 'lily@refery.io'
 
+// Partner (scout/recruiter) agreement emails are always sent from and copied to
+// the dedicated agreements mailbox so the Refery team has a single archive of
+// every signed partner agreement (with the legally-binding PDF attached).
+const PARTNER_FROM = 'Refery <agreements@refery.io>'
+const AGREEMENTS_INBOX = 'agreements@refery.io'
+const PARTNER_REPLY_TO = 'agreements@refery.io'
+
 export interface AgreementEmailData {
   signerName: string
   signerTitle: string | null
@@ -327,15 +334,20 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
             </td>
           </tr>
 
-          <!-- Greeting + confirmation -->
+          <!-- Welcome headline -->
           <tr>
-            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.6; color:${M.body};">
-              Hi ${escapeHtml(greeting)},
+            <td style="padding:0 0 14px 0; font-family:Georgia, 'Times New Roman', serif; font-size:24px; line-height:1.25; color:${M.green};">
+              Welcome to Refery, ${escapeHtml(greeting)}.
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+              You&rsquo;re officially a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner &mdash; we&rsquo;re genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.
             </td>
           </tr>
           <tr>
             <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
-              You&rsquo;re signed up as a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner. Thanks for completing the agreement.
+              From here, we handle the business side &mdash; clients, contracts, invoicing, and the guarantee &mdash; so you can focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.
             </td>
           </tr>
 
@@ -410,9 +422,11 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
 function partnerSignerEmailText(d: PartnerAgreementEmailData): string {
   const label = partnerLabel(d.partnerType)
   return [
-    `Hi ${firstName(d.signerName)},`,
+    `Welcome to Refery, ${firstName(d.signerName)}.`,
     '',
-    `You're signed up as a Refery ${label} partner. Thanks for completing the agreement.`,
+    `You're officially a Refery ${label} partner — we're genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.`,
+    '',
+    'From here, we handle the business side — clients, contracts, invoicing, and the guarantee — so you can focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.',
     '',
     `Signed by: ${d.signerName}`,
     `Signed on: ${d.signedAtHuman}`,
@@ -470,17 +484,16 @@ export async function sendPartnerAgreementEmails(
   }
 
   const resend = new Resend(apiKey)
-  const from = envFrom()
   const attachment = { filename: data.pdfFilename, content: data.pdfBuffer }
   const label = partnerLabel(data.partnerType)
 
   let signerSent = false
   try {
     const res = await resend.emails.send({
-      from,
+      from: PARTNER_FROM,
       to: data.signerEmail,
-      replyTo: REPLY_TO,
-      subject: 'Your Refery partner agreement is signed',
+      replyTo: PARTNER_REPLY_TO,
+      subject: 'Welcome to Refery — your partner agreement is signed',
       html: partnerSignerEmailHtml(data),
       text: partnerSignerEmailText(data),
       attachments: [attachment],
@@ -497,8 +510,9 @@ export async function sendPartnerAgreementEmails(
   let adminSent = false
   try {
     const res = await resend.emails.send({
-      from,
-      to: ADMIN_INBOX,
+      from: PARTNER_FROM,
+      to: AGREEMENTS_INBOX,
+      replyTo: PARTNER_REPLY_TO,
       subject: `[Refery] ${data.signerName} signed v${data.version} ${label} agreement`,
       html: partnerAdminEmailHtml(data),
       text: partnerAdminEmailText(data),

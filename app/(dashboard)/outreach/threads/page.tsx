@@ -61,7 +61,7 @@ export default async function ThreadsListPage({
         company:companies(id, name, stage)
       )
     `)
-    .order('last_touch_at', { ascending: false, nullsFirst: false })
+    .order('last_activity_at', { ascending: false, nullsFirst: false })
 
   // Apply filters
   if (params.status) {

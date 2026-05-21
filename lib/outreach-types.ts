@@ -146,6 +146,8 @@ export interface OutreachThread {
   inbound_count: number
   first_touch_at: string | null
   last_touch_at: string | null
+  // Generated: coalesce(last_touch_at, updated_at, created_at) — always populated.
+  last_activity_at: string | null
   first_reply_at: string | null
   time_to_first_reply_hours: number | null
   meeting_booked_at: string | null
@@ -181,6 +183,9 @@ export interface OutreachMessage {
   included_calendar_link: boolean
   included_attachment: boolean
   sent_at: string | null
+  // Generated: coalesce(sent_at, replied_at, created_at) — always populated, used
+  // by the outreach hub for all activity filtering/sorting.
+  activity_at: string | null
   opened_at: string | null
   clicked_at: string | null
   replied_at: string | null

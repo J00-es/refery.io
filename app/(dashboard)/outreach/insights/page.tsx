@@ -12,6 +12,9 @@ import { InsightsCharts } from './insights-charts'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
+// Always render fresh — outreach data is updated frequently by external syncs.
+export const dynamic = 'force-dynamic'
+
 export default async function InsightsPage() {
   await cookies()
   const supabase = await createClient()
@@ -53,17 +56,17 @@ export default async function InsightsPage() {
     threadsResult,
     recipientsResult
   ] = await Promise.all([
-    // Messages last 30 days
+    // Messages last 30 days (activity_at = coalesce(sent_at, replied_at, created_at))
     adminClient
       .from('outreach_messages')
       .select('*')
-      .gte('sent_at', thirtyDaysAgo.toISOString()),
+      .gte('activity_at', thirtyDaysAgo.toISOString()),
     // Messages prior 30 days (for comparison)
     adminClient
       .from('outreach_messages')
       .select('*')
-      .gte('sent_at', sixtyDaysAgo.toISOString())
-      .lt('sent_at', thirtyDaysAgo.toISOString()),
+      .gte('activity_at', sixtyDaysAgo.toISOString())
+      .lt('activity_at', thirtyDaysAgo.toISOString()),
     // All threads
     adminClient
       .from('outreach_threads')
@@ -141,8 +144,9 @@ export default async function InsightsPage() {
 
   // Day of week performance
   const dayStats = outbound.reduce((acc, m) => {
-    if (!m.sent_at) return acc
-    const day = format(new Date(m.sent_at), 'EEEE')
+    const activityAt = m.activity_at ?? m.sent_at
+    if (!activityAt) return acc
+    const day = format(new Date(activityAt), 'EEEE')
     acc[day] = acc[day] || { sent: 0, replied: 0 }
     acc[day].sent++
     if (m.replied_at) acc[day].replied++
@@ -152,8 +156,8 @@ export default async function InsightsPage() {
   // Daily volume for chart (last 30 days)
   const dailyVolume = eachDayOfInterval({ start: thirtyDaysAgo, end: now }).map(day => {
     const dayStr = format(day, 'yyyy-MM-dd')
-    const dayOutbound = outbound.filter(m => m.sent_at && format(new Date(m.sent_at), 'yyyy-MM-dd') === dayStr)
-    const dayInbound = inbound.filter(m => m.sent_at && format(new Date(m.sent_at), 'yyyy-MM-dd') === dayStr)
+    const dayOutbound = outbound.filter(m => (m.activity_at ?? m.sent_at) && format(new Date(m.activity_at ?? m.sent_at!), 'yyyy-MM-dd') === dayStr)
+    const dayInbound = inbound.filter(m => (m.activity_at ?? m.sent_at) && format(new Date(m.activity_at ?? m.sent_at!), 'yyyy-MM-dd') === dayStr)
     return {
       date: format(day, 'MMM d'),
       outbound: dayOutbound.length,

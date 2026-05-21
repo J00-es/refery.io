@@ -1,5 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import {
+  generateAgreementHash,
+  getAgreementText,
+  AGREEMENT_VERSIONS,
+  type AgreementType,
+} from '@/lib/agreements'
+import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
+import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
+
+// PDF rendering + email send adds a few seconds; give the function room.
+export const maxDuration = 60
+
+const STORAGE_BUCKET = 'signed-agreements'
 
 interface AgreementPayload {
   version: string
@@ -15,6 +28,25 @@ function getClientIp(req: Request): string | null {
   if (real) return real
   return null
 }
+
+function lastName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean)
+  return parts.length > 1 ? parts[parts.length - 1] : parts[0] || 'signer'
+}
+
+function slugifyName(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'signer'
+  )
+}
+
+const PARTNER_TYPES: AgreementType[] = ['scout', 'recruiter']
 
 export async function POST(req: Request) {
   try {
@@ -59,25 +91,114 @@ export async function POST(req: Request) {
         // Don't fail the whole sign-up if admin record creation fails
       }
 
-      // Persist the role-specific clickwrap acceptance for legal record-keeping
-      if (agreement) {
-        const ip = getClientIp(req)
-        const ua = agreement.userAgent || req.headers.get('user-agent') || null
-        const { error: acceptError } = await adminClient
-          .from('agreement_acceptances')
-          .insert({
-            user_id: authData.user.id,
-            user_email: email,
-            user_name: fullName,
-            ip_address: ip,
-            user_agent: ua,
-            agreement_version: agreement.version,
-            agreement_hash: agreement.hash,
-            acceptance_method: 'clickwrap_checkbox_and_button',
-            agreement_type: agreement.type,
-          })
-        if (acceptError) {
-          console.error('Failed to record agreement acceptance:', acceptError)
+      // Persist the role-specific clickwrap acceptance for legal record-keeping,
+      // generate the legally-binding signed PDF, and email it to the signer and
+      // the Refery team. All best-effort — never fail the sign-up over it.
+      const partnerType = PARTNER_TYPES.find((t) => t === agreement?.type) ?? null
+
+      if (agreement && partnerType) {
+        try {
+          const ip = getClientIp(req)
+          const ua = agreement.userAgent || req.headers.get('user-agent') || null
+          const signedAt = new Date().toISOString()
+
+          // Canonical agreement text + version + integrity hash, computed server
+          // side so the recorded hash, the PDF, and the email all match.
+          const content = getAgreementText(partnerType)
+          const version = AGREEMENT_VERSIONS[partnerType]
+          const termsHash = await generateAgreementHash(content)
+
+          const { data: acceptance, error: acceptError } = await adminClient
+            .from('agreement_acceptances')
+            .insert({
+              user_id: authData.user.id,
+              user_email: email,
+              user_name: fullName,
+              ip_address: ip,
+              user_agent: ua,
+              agreement_version: version,
+              agreement_hash: termsHash,
+              acceptance_method: 'clickwrap_checkbox_and_button',
+              agreement_type: partnerType,
+              accepted_at: signedAt,
+            })
+            .select('id')
+            .single()
+
+          if (acceptError) {
+            console.error('Failed to record agreement acceptance:', acceptError)
+          }
+
+          const acceptanceId = acceptance?.id || authData.user.id
+
+          // Generate the signed PDF (captures name, email, signed-at, IP, version,
+          // SHA-256 terms hash, and a reference id — everything needed for a
+          // legally-binding electronic signature record).
+          let pdfBuffer: Buffer | null = null
+          try {
+            pdfBuffer = await generateAgreementPdf({
+              kind: 'partner',
+              content,
+              signerName: fullName,
+              signerEmail: email,
+              signedAt,
+              version,
+              termsHash,
+              agreementLinkId: acceptanceId,
+              ipAddress: ip,
+              partnerType,
+            })
+
+            // Store a copy for record-keeping (best-effort).
+            const pdfPath = `partner-agreements/signup-${acceptanceId}.pdf`
+            const { error: uploadError } = await adminClient.storage
+              .from(STORAGE_BUCKET)
+              .upload(pdfPath, pdfBuffer, {
+                contentType: 'application/pdf',
+                upsert: true,
+              })
+            if (uploadError) {
+              console.error('[sign-up] pdf upload failed:', uploadError)
+            } else if (acceptance?.id) {
+              await adminClient
+                .from('agreement_acceptances')
+                .update({ pdf_url: pdfPath })
+                .eq('id', acceptance.id)
+            }
+          } catch (pdfErr) {
+            console.error('[sign-up] pdf generation failed:', pdfErr)
+          }
+
+          if (pdfBuffer) {
+            const origin =
+              process.env.NEXT_PUBLIC_SITE_URL ||
+              process.env.NEXT_PUBLIC_APP_URL ||
+              new URL(req.url).origin
+            const signedAtHuman = new Date(signedAt)
+              .toUTCString()
+              .replace(' GMT', ' UTC')
+            const result = await sendPartnerAgreementEmails({
+              signerName: fullName,
+              signerEmail: email,
+              partnerType,
+              version,
+              signedAtIso: signedAt,
+              signedAtHuman,
+              ipAddress: ip,
+              termsHash,
+              agreementLinkId: acceptanceId,
+              adminUrl: `${origin}/dashboard`,
+              pdfBuffer,
+              pdfFilename: `Refery-Partner-Agreement-${slugifyName(lastName(fullName))}.pdf`,
+            })
+            if (result.errors.length) {
+              console.error('[sign-up] agreement email errors:', result.errors)
+            }
+          } else {
+            console.error('[sign-up] skipped agreement emails — no PDF buffer')
+          }
+        } catch (agreementErr) {
+          console.error('[sign-up] agreement PDF/email step threw:', agreementErr)
         }
       }
     }

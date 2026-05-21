@@ -29,6 +29,9 @@ import { OutreachActivityFeed } from './outreach-activity-feed'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
+// Always render fresh — outreach data is updated frequently by external syncs.
+export const dynamic = 'force-dynamic'
+
 function getChannelIcon(channel: string) {
   switch (channel) {
     case 'email': return <Mail className="h-3.5 w-3.5" />
@@ -86,32 +89,32 @@ export default async function OutreachHubPage() {
     recentMessagesResult,
     sparklineResult
   ] = await Promise.all([
-    // Touches last 7 days
+    // Touches last 7 days (activity_at = coalesce(sent_at, replied_at, created_at))
     adminClient
       .from('outreach_messages')
       .select('id, channel, direction')
       .eq('direction', 'outbound')
-      .gte('sent_at', sevenDaysAgo.toISOString()),
+      .gte('activity_at', sevenDaysAgo.toISOString()),
     // Prior 7 days for comparison
     adminClient
       .from('outreach_messages')
       .select('id')
       .eq('direction', 'outbound')
-      .gte('sent_at', subDays(sevenDaysAgo, 7).toISOString())
-      .lt('sent_at', sevenDaysAgo.toISOString()),
+      .gte('activity_at', subDays(sevenDaysAgo, 7).toISOString())
+      .lt('activity_at', sevenDaysAgo.toISOString()),
     // Replies last 30 days
     adminClient
       .from('outreach_messages')
       .select('id')
       .eq('direction', 'inbound')
-      .gte('sent_at', thirtyDaysAgo.toISOString()),
+      .gte('activity_at', thirtyDaysAgo.toISOString()),
     // Prior 30 days replies
     adminClient
       .from('outreach_messages')
       .select('id')
       .eq('direction', 'inbound')
-      .gte('sent_at', sixtyDaysAgo.toISOString())
-      .lt('sent_at', thirtyDaysAgo.toISOString()),
+      .gte('activity_at', sixtyDaysAgo.toISOString())
+      .lt('activity_at', thirtyDaysAgo.toISOString()),
     // Meetings this month
     adminClient
       .from('outreach_threads')
@@ -143,9 +146,9 @@ export default async function OutreachHubPage() {
         recipient:outreach_recipients(id, name, persona, current_company_id, company:companies(id, name))
       `)
       .in('status', ['active', 'awaiting_reply', 'no_response_following_up'])
-      .lt('last_touch_at', subDays(now, 5).toISOString())
+      .lt('last_activity_at', subDays(now, 5).toISOString())
       .is('first_reply_at', null)
-      .order('last_touch_at', { ascending: true })
+      .order('last_activity_at', { ascending: true })
       .limit(10),
     // Recent messages for activity feed
     adminClient
@@ -158,16 +161,17 @@ export default async function OutreachHubPage() {
         subject,
         body,
         sent_at,
+        activity_at,
         recipient:outreach_recipients(id, name, company:companies(id, name))
       `)
-      .order('sent_at', { ascending: false })
+      .order('activity_at', { ascending: false })
       .limit(20),
     // Sparkline data (last 14 days daily)
     adminClient
       .from('outreach_messages')
-      .select('sent_at, direction')
+      .select('activity_at, direction')
       .eq('direction', 'outbound')
-      .gte('sent_at', subDays(now, 14).toISOString())
+      .gte('activity_at', subDays(now, 14).toISOString())
   ])
 
   const touches = touchesResult.data || []
@@ -194,7 +198,8 @@ export default async function OutreachHubPage() {
     const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate())
     const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000)
     const count = sparklineData.filter(m => {
-      const sentAt = new Date(m.sent_at)
+      if (!m.activity_at) return false
+      const sentAt = new Date(m.activity_at)
       return sentAt >= dayStart && sentAt < dayEnd
     }).length
     dailyCounts.push(count)

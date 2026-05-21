@@ -46,8 +46,9 @@ export function OutreachActivityFeed({ messages }: OutreachActivityFeedProps) {
     <div className="space-y-0.5 -mx-2">
       {messages.map((message) => {
         const isInbound = message.direction === 'inbound'
-        const timeAgo = message.sent_at 
-          ? formatDistanceToNow(new Date(message.sent_at), { addSuffix: false })
+        const activityAt = message.activity_at ?? message.sent_at
+        const timeAgo = activityAt
+          ? formatDistanceToNow(new Date(activityAt), { addSuffix: false })
           : 'Unknown'
 
         return (

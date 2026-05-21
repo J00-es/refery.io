@@ -337,7 +337,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         ownerFilter={owner || ''}
         owners={uniqueOwners}
         stageAccentColor={stageAccentColor}
-        isTerminalStage={bucketKey === 'hired' || bucketKey === 'rejected'}
+        isTerminalStage={bucketKey === 'hired' || bucketKey === 'rejected' || bucketKey === 'auto_passed'}
       />
     </div>
   )
