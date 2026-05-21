@@ -178,7 +178,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     )
   }, [allCandidates, pipeline, searchTerm])
 
-  // Group pipeline by stage for kanban view - ALL 14 stages
+  // Group pipeline by stage for kanban view - all real pipeline stages
   const pipelineByStage = useMemo(() => {
     return PIPELINE_STAGES.map(stage => ({
       ...stage,
@@ -186,11 +186,11 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     }))
   }, [pipeline])
 
-  // Stats - Active = stages 1-9, Hired = stage 10, Rejected = stages 11-14
+  // Stats - Active = in-flight stages, Shared to HM = furthest positive, Rejected = terminal negative
   const stats = useMemo(() => ({
     total: pipeline.length,
     active: pipeline.filter(p => ACTIVE_STAGE_VALUES.includes(p.stage as PipelineStage)).length,
-    hired: pipeline.filter(p => p.stage === 'hired').length,
+    sharedToHm: pipeline.filter(p => p.stage === 'hm_shared').length,
     rejected: pipeline.filter(p => TERMINAL_NEGATIVE_STAGE_VALUES.includes(p.stage as PipelineStage)).length,
   }), [pipeline])
 
@@ -387,7 +387,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-              <span className="text-sm text-muted-foreground">Hired: <span className="font-medium text-foreground">{stats.hired}</span></span>
+              <span className="text-sm text-muted-foreground">Shared to HM: <span className="font-medium text-foreground">{stats.sharedToHm}</span></span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500"></div>
@@ -413,7 +413,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
             </Button>
           </div>
         ) : viewMode === 'kanban' ? (
-          /* Kanban View - All 14 stages with horizontal scroll */
+          /* Kanban View - all stages with horizontal scroll */
           <div className="overflow-x-auto pb-4 -mx-6 px-6">
             <div className="flex gap-3" style={{ minWidth: 'max-content' }}>
               {pipelineByStage.map((stage, idx) => {

@@ -155,25 +155,21 @@ export interface JobInternalNote {
   updated_at: string
 }
 
-// Pipeline stage type - all 14 stages in order
-export type PipelineStage = 
-  // Active stages (1-9)
-  | 'sourced'
+// Pipeline stage type — matches the job_candidate_pipeline.stage DB CHECK
+// constraint exactly. The matching automation writes auto_matched/auto_passed/
+// screening; the rest are set as candidates progress. There is no separate
+// "hired" pipeline stage (placement is tracked elsewhere).
+export type PipelineStage =
+  // Active flow
+  | 'auto_matched'
+  | 'screening'
   | 'job_matched'
   | 'job_shared'
   | 'interest_confirmed'
   | 'hm_shared'
-  | 'hm_pending'
-  | 'interview_1'
-  | 'interview_2'
-  | 'offer'
-  // Terminal positive (10)
-  | 'hired'
-  // Terminal negative (11-14)
-  | 'interest_declined'
+  // Terminal negative
+  | 'auto_passed'
   | 'rejected'
-  | 'rejected_no_feedback'
-  | 'withdrawn'
 
 export interface JobCandidatePipeline {
   id: string

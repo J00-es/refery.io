@@ -1,7 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { startOfWeek, startOfMonth, startOfYear, subDays } from 'date-fns'
+import { startOfWeek, subDays } from 'date-fns'
 import {
   DASHBOARD_BUCKETS,
   DASHBOARD_ACTIVE_BUCKET_KEYS,
@@ -57,8 +57,6 @@ export default async function DashboardPage() {
   // Get date ranges
   const now = new Date()
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-  const monthStart = startOfMonth(now)
-  const yearStart = startOfYear(now)
   const ninetyDaysAgo = subDays(now, 90)
 
   // Fetch all pipeline data
@@ -134,28 +132,15 @@ export default async function DashboardPage() {
   )
   const totalCandidates = pipelineData.length
 
-  // ===== REAL DATA: Earnings from hired candidates =====
-  const hiredPipeline = pipelineData.filter(p => p.stage === 'hired')
-  const hiredThisMonth = hiredPipeline.filter(p => new Date(p.updated_at) >= monthStart)
-  const hiredThisYear = hiredPipeline.filter(p => new Date(p.updated_at) >= yearStart)
-
-  // Calculate earnings: Assume avg salary $120k, 15% fee = $18k per placement
-  const avgPlacementFee = 18 // $18k per placement
-  const pendingPayout = hiredThisMonth.length * avgPlacementFee
-  const paidYTD = hiredThisYear.length * avgPlacementFee
-  const thisMonthEarnings = hiredThisMonth.length * avgPlacementFee
-
-  // Format earnings
-  const formatEarnings = (amount: number) => {
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(amount % 1000 === 0 ? 0 : 1)}`
-    }
-    return `$${amount}`
-  }
-
-  const pendingPayoutStr = formatEarnings(pendingPayout)
-  const paidYTDStr = formatEarnings(paidYTD)
-  const thisMonthStr = formatEarnings(thisMonthEarnings)
+  // ===== Pipeline at-a-glance metrics =====
+  // The pipeline has no "hired" stage (placement is tracked elsewhere), so the
+  // top row surfaces real, in-flight pipeline health instead of $0 earnings.
+  const newThisWeek = DASHBOARD_ACTIVE_BUCKET_KEYS.reduce(
+    (sum, key) => sum + (bucketStats[key]?.thisWeek || 0),
+    0,
+  )
+  const interestConfirmedCount = bucketStats['interest_confirmed']?.count || 0
+  const sharedToHmCount = bucketStats['hm_shared']?.count || 0
 
   // ===== REAL DATA: Funnel conversion (last 90 days, positive flow) =====
   // Approximate "reached stage X" as candidates currently at X or any later
@@ -251,28 +236,29 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Section 1: Earnings Hero */}
+      {/* Section 1: Pipeline at a glance */}
       <section>
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <EarningsCard
-            label="Pending payout"
-            value={pendingPayoutStr}
-            suffix={pendingPayout >= 1000 ? 'k' : ''}
-            subtitle={hiredThisMonth.length > 0 ? `${hiredThisMonth.length} placed this month` : 'No placements yet'}
+            label="Active pipeline"
+            value={String(activeCandidates)}
+            suffix=""
+            subtitle={newThisWeek > 0 ? `${newThisWeek} added this week` : 'No new candidates this week'}
+            isPositive={newThisWeek > 0}
           />
           <EarningsCard
-            label="Paid YTD"
-            value={paidYTDStr}
-            suffix={paidYTD >= 1000 ? 'k' : ''}
-            subtitle={hiredThisYear.length > 0 ? `${hiredThisYear.length} placed this year` : 'Start placing to earn'}
-            isPositive={hiredThisYear.length > 0}
+            label="Interest confirmed"
+            value={String(interestConfirmedCount)}
+            suffix=""
+            subtitle={interestConfirmedCount > 0 ? 'Ready to share with HM' : 'None yet'}
+            isPositive={interestConfirmedCount > 0}
           />
           <EarningsCard
-            label="This month"
-            value={thisMonthStr}
-            suffix={thisMonthEarnings >= 1000 ? 'k' : ''}
-            subtitle={`${hiredThisMonth.length} placed`}
-            isPositive={hiredThisMonth.length > 0}
+            label="Shared to HM"
+            value={String(sharedToHmCount)}
+            suffix=""
+            subtitle={sharedToHmCount > 0 ? 'Awaiting HM feedback' : 'None yet'}
+            isPositive={sharedToHmCount > 0}
           />
         </div>
       </section>

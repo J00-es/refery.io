@@ -240,24 +240,18 @@ export async function PATCH(
 
     // Auto-log stage change to candidate activity log
     const stageLabels: Record<string, string> = {
-      sourced: 'Sourced',
+      auto_matched: 'AI Matched',
+      screening: 'Screening',
       job_matched: 'Job Matched',
       job_shared: 'Job Shared',
       interest_confirmed: 'Interest Confirmed',
       hm_shared: 'Shared to HM',
-      hm_pending: 'Awaiting HM Feedback',
-      interview_1: 'Interview – Round 1',
-      interview_2: 'Interview – Round 2',
-      offer: 'Offer',
-      hired: 'Hired',
-      interest_declined: 'Not Interested',
-      rejected: 'Rejected',
-      rejected_no_feedback: 'Rejected (No Response)',
-      withdrawn: 'Withdrawn'
+      auto_passed: 'AI Passed',
+      rejected: 'Rejected'
     }
 
-    const activityType = ['hired', 'rejected', 'rejected_no_feedback', 'interest_declined', 'withdrawn', 'interview_1', 'interview_2', 'offer'].includes(stage) 
-      ? stage 
+    const activityType = ['auto_passed', 'rejected'].includes(stage)
+      ? stage
       : 'stage_changed'
     
     const stageDescription = job 
