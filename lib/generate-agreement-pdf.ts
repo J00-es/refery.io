@@ -178,15 +178,14 @@ const styles = StyleSheet.create({
     color: C.ink2,
     fontFamily: 'Courier',
   },
-  pageNumber: {
-    position: 'absolute',
-    bottom: 28,
-    left: 56,
-    right: 56,
+  footerLine: {
+    marginTop: 28,
+    paddingTop: 14,
+    borderTopWidth: 0.5,
+    borderTopColor: C.border,
     fontSize: 8.5,
     color: C.ink3,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    textAlign: 'center',
   },
 })
 
@@ -541,16 +540,12 @@ function AgreementDocument(data: AgreementPdfData) {
           ),
         ),
       ),
-      // Page footer with page numbers.
-      React.createElement(
-        View,
-        { style: styles.pageNumber, fixed: true },
-        React.createElement(Text, {}, footerLabel(data)),
-        React.createElement(Text, {
-          render: ({ pageNumber, totalPages }: { pageNumber: number; totalPages: number }) =>
-            `${pageNumber} / ${totalPages}`,
-        }),
-      ),
+      // Inline footer label rendered once at the end of the document. A `fixed`
+      // absolutely-positioned footer with a `render` callback was crashing
+      // @react-pdf/pdfkit on the recruiter agreement layout
+      // (`unsupported number: -3.998...e+22` in PDFDocument.transform), which
+      // silently aborted PDF generation and skipped the partner welcome emails.
+      React.createElement(Text, { style: styles.footerLine }, footerLabel(data)),
     ),
   )
 }

@@ -16,11 +16,12 @@ const FROM_DEFAULT = 'Refery <agreements@refery.io>'
 const ADMIN_INBOX = 'lily@refery.io'
 const REPLY_TO = 'lily@refery.io'
 
-// Partner (scout/recruiter) agreement emails are always sent from and copied to
-// the dedicated agreements mailbox so the Refery team has a single archive of
-// every signed partner agreement (with the legally-binding PDF attached).
+// Partner (scout/recruiter) agreement emails. The admin notification goes to
+// Lily directly so she sees every new partner sign-up in her primary inbox;
+// from/reply-to stay on the dedicated agreements mailbox so threaded replies
+// land in the shared archive.
 const PARTNER_FROM = 'Refery <agreements@refery.io>'
-const AGREEMENTS_INBOX = 'agreements@refery.io'
+const PARTNER_ADMIN_INBOX = 'lily@refery.io'
 const PARTNER_REPLY_TO = 'agreements@refery.io'
 
 export interface AgreementEmailData {
@@ -511,7 +512,7 @@ export async function sendPartnerAgreementEmails(
   try {
     const res = await resend.emails.send({
       from: PARTNER_FROM,
-      to: AGREEMENTS_INBOX,
+      to: PARTNER_ADMIN_INBOX,
       replyTo: PARTNER_REPLY_TO,
       subject: `[Refery] ${data.signerName} signed v${data.version} ${label} agreement`,
       html: partnerAdminEmailHtml(data),
