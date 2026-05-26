@@ -162,6 +162,60 @@ export async function GET() {
   return NextResponse.json({ pending: data })
 }
 
+// Materialize an acceptance row for a partner sign-up that completed before
+// the 5/21 nullable-company_name fix (so the original insert was blocked and
+// no row exists). Pulls the synthesized row from users_admin and inserts it
+// with a server-recomputed agreement hash + the current version, using
+// accepted_terms_at as the signed-at timestamp.
+async function ensureAcceptanceForUser(
+  adminClient: ReturnType<typeof createAdminClient>,
+  email: string,
+): Promise<{ row?: PartnerRow; error?: string }> {
+  const { data: user, error: userErr } = await adminClient
+    .from('users_admin')
+    .select('user_id, email, full_name, role, accepted_terms_at')
+    .eq('email', email)
+    .maybeSingle()
+  if (userErr) return { error: `users_admin: ${userErr.message}` }
+  if (!user) return { error: `no users_admin row for ${email}` }
+  const partnerType = PARTNER_TYPES.find((t) => t === user.role) ?? null
+  if (!partnerType) return { error: `role ${user.role} is not a partner type` }
+
+  const { data: existing } = await adminClient
+    .from('agreement_acceptances')
+    .select('id, user_email, user_name, agreement_type, agreement_version, ip_address, accepted_at, pdf_url')
+    .eq('user_id', user.user_id)
+    .eq('agreement_type', partnerType)
+    .order('accepted_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (existing) return { row: existing as PartnerRow }
+
+  const content = getAgreementText(partnerType)
+  const version = AGREEMENT_VERSIONS[partnerType]
+  const termsHash = await generateAgreementHash(content)
+  const signedAt = user.accepted_terms_at || new Date().toISOString()
+
+  const { data: inserted, error: insertErr } = await adminClient
+    .from('agreement_acceptances')
+    .insert({
+      user_id: user.user_id,
+      user_email: user.email,
+      user_name: user.full_name,
+      ip_address: null,
+      user_agent: null,
+      agreement_version: version,
+      agreement_hash: termsHash,
+      acceptance_method: 'clickwrap_checkbox_and_button_backfilled',
+      agreement_type: partnerType,
+      accepted_at: signedAt,
+    })
+    .select('id, user_email, user_name, agreement_type, agreement_version, ip_address, accepted_at, pdf_url')
+    .single()
+  if (insertErr || !inserted) return { error: `insert acceptance: ${insertErr?.message || 'unknown'}` }
+  return { row: inserted as PartnerRow }
+}
+
 export async function POST(req: Request) {
   const gate = await requireAdmin()
   if ('error' in gate) return NextResponse.json({ error: gate.error }, { status: gate.status })
@@ -169,6 +223,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     acceptanceId?: string
     all?: boolean
+    userEmails?: string[]
   }
   const origin =
     process.env.NEXT_PUBLIC_SITE_URL ||
@@ -176,6 +231,8 @@ export async function POST(req: Request) {
     new URL(req.url).origin
 
   let rows: PartnerRow[] = []
+  const synthesizeErrors: Array<{ email: string; error: string }> = []
+
   if (body.acceptanceId) {
     const { data, error } = await gate.adminClient
       .from('agreement_acceptances')
@@ -184,6 +241,12 @@ export async function POST(req: Request) {
       .single()
     if (error || !data) return NextResponse.json({ error: error?.message || 'not found' }, { status: 404 })
     rows = [data as PartnerRow]
+  } else if (body.userEmails?.length) {
+    for (const email of body.userEmails) {
+      const result = await ensureAcceptanceForUser(gate.adminClient, email)
+      if (result.row) rows.push(result.row)
+      else synthesizeErrors.push({ email, error: result.error || 'unknown' })
+    }
   } else if (body.all) {
     const { data, error } = await gate.adminClient
       .from('agreement_acceptances')
@@ -194,12 +257,16 @@ export async function POST(req: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     rows = (data || []) as PartnerRow[]
   } else {
-    return NextResponse.json({ error: 'pass acceptanceId or all:true' }, { status: 400 })
+    return NextResponse.json({ error: 'pass acceptanceId, userEmails, or all:true' }, { status: 400 })
   }
 
   const results = []
   for (const row of rows) {
     results.push(await processOne(gate.adminClient, row, origin))
   }
-  return NextResponse.json({ processed: results.length, results })
+  return NextResponse.json({
+    processed: results.length,
+    results,
+    synthesizeErrors,
+  })
 }
