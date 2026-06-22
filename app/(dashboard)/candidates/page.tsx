@@ -47,7 +47,6 @@ export default async function CandidatesPage() {
       .from('candidates')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(100)
   } else {
     // Non-admins (including recruiters) only see candidates they own, uploaded, or created
     candidatesResult = await dbClient
@@ -55,7 +54,6 @@ export default async function CandidatesPage() {
       .select('*')
       .or(`owner_user_id.eq.${currentUserId},uploaded_by_user_id.eq.${currentUserId},user_id.eq.${currentUserId}`)
       .order('created_at', { ascending: false })
-      .limit(100)
   }
 
   // Get pipeline data
