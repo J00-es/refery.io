@@ -1,6 +1,6 @@
-import { memo, useMemo } from 'react'
+import { memo } from 'react'
 import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import type { Candidate } from '@/lib/types'
 import { AVAILABILITY_STATUSES } from '@/lib/types'
 import { Linkedin, Briefcase, CheckCircle, XCircle, HelpCircle, Clock, UserCircle2 } from 'lucide-react'
@@ -52,7 +52,7 @@ function detectRoleCategories(skills: string[] | null, name?: string): { label: 
   const skillsStr = (skills || []).join(' ').toLowerCase()
   const nameLower = (name || '').toLowerCase()
   const categories: { label: string; color: string }[] = []
-  
+
   for (const cat of Object.values(CATEGORIES)) {
     if (cat.skills.some(s => skillsStr.includes(s)) || nameLower.includes(cat.nameMatch)) {
       categories.push({ label: cat.label, color: cat.color })
@@ -79,6 +79,10 @@ const availabilityIcons: Record<string, React.ReactNode> = {
   not_qualified: <XCircle className="h-3 w-3" />,
 }
 
+// Shared pill token so every tag/stage chip has identical height, padding,
+// radius, and font size. Color is appended per-chip.
+const PILL = 'inline-flex items-center rounded-md px-2 py-1 text-[10px] font-medium leading-none'
+
 function CandidateCardComponent({ candidate }: CandidateCardProps) {
   const formatSalary = (min?: number | null, max?: number | null) => {
     if (!min && !max) return null
@@ -92,7 +96,7 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
   const roleCategories = detectRoleCategories(candidate.skills, candidate.name)
   const availabilityStatus = candidate.availability_status || 'not_yet_talked'
   const availabilityConfig = AVAILABILITY_STATUSES[availabilityStatus]
-  
+
   // Get current role from work history
   const currentRole = candidate.parsed_data?.work_history?.[0]
 
@@ -109,101 +113,109 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
     : null
 
   return (
-    <Link href={`/candidates/${candidate.id}`}>
-      <Card className="h-full transition-all hover:shadow-md hover:border-primary/30">
-        <CardHeader className="pb-2">
-          {/* Name and LinkedIn */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <CardTitle className="text-base leading-tight truncate">{candidate.name}</CardTitle>
-                {candidate.linkedin_url && (
-                  <span 
-                    onClick={(e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      window.open(candidate.linkedin_url!, '_blank')
-                    }}
-                    className="flex-shrink-0 cursor-pointer"
-                  >
-                    <Linkedin className="h-3.5 w-3.5 text-blue-600 hover:text-blue-800" />
-                  </span>
-                )}
-              </div>
-              {/* Current Role */}
-              {currentRole && (
-                <p className="text-sm text-muted-foreground truncate mt-0.5">
-                  {currentRole.title} <span className="text-xs">at</span> {currentRole.company}
-                </p>
-              )}
-            </div>
-            {/* Availability Badge */}
-            <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5 ${availabilityConfig.color}`}>
-              {availabilityIcons[availabilityStatus]}
-              <span className="hidden sm:inline">{availabilityConfig.label}</span>
-            </span>
-          </div>
-        </CardHeader>
-        
-        <CardContent className="space-y-2.5 pt-0">
-          {/* Owner row - prominent and immediately visible */}
-          <div className="flex items-center gap-1.5">
-            {candidate.owner ? (
+    <Link href={`/candidates/${candidate.id}`} className="block h-full">
+      {/*
+        Card interior is a fixed 7-row grid so every card reserves the same
+        slots in the same order regardless of which fields are populated:
+        header / subheadline / assignee / meta / tags / variable content / footer.
+        The single 1fr track (variable content) absorbs slack, pinning the footer
+        to the bottom so timestamps line up across a row.
+      */}
+      <Card className="grid h-full grid-rows-[auto_auto_auto_auto_auto_1fr_auto] gap-2 overflow-hidden p-4 transition-all hover:border-primary/30 hover:shadow-md">
+        {/* Slot 1 — header: name (truncates) + status badge in a reserved gutter.
+            Mobile: single column, badge drops to its own row below the name. */}
+        <div className="grid grid-cols-1 items-start gap-x-3 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="min-w-0 truncate text-base font-semibold leading-tight">{candidate.name}</h3>
+            {candidate.linkedin_url && (
               <span
-                className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 pl-0.5 pr-2 py-0.5 text-[11px] font-medium text-primary"
-                title={`Owner: ${candidate.owner.full_name || candidate.owner.email}`}
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  window.open(candidate.linkedin_url!, '_blank')
+                }}
+                className="shrink-0 cursor-pointer"
               >
-                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
-                  {ownerInitials}
-                </span>
-                <span className="truncate max-w-[120px]">{ownerName}</span>
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] text-muted-foreground">
-                <UserCircle2 className="h-3 w-3" />
-                Unassigned
+                <Linkedin className="h-3.5 w-3.5 text-blue-600 hover:text-blue-800" />
               </span>
             )}
           </div>
+          <span className={`${PILL} gap-1 justify-self-start sm:justify-self-end ${availabilityConfig.color}`}>
+            {availabilityIcons[availabilityStatus]}
+            {availabilityConfig.label}
+          </span>
+        </div>
 
-          {/* Key Info Row */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-            {candidate.location && (
-              <span className="flex items-center gap-1">
-                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                {candidate.location}
+        {/* Slot 2 — subheadline: role at company, single line. Role truncates
+            first; company is preserved (capped so it can never overflow). */}
+        <div className="flex min-h-5 items-baseline">
+          {currentRole && (
+            <p className="flex min-w-0 items-baseline gap-1 text-sm text-muted-foreground">
+              <span className="min-w-0 flex-1 truncate">{currentRole.title}</span>
+              <span className="max-w-[60%] shrink-0 truncate">
+                <span className="text-xs">at</span> {currentRole.company}
               </span>
-            )}
-            {candidate.experience_years && (
-              <span>{candidate.experience_years} yrs</span>
-            )}
-            {salary && (
-              <span className="font-medium text-foreground">{salary}</span>
-            )}
-          </div>
+            </p>
+          )}
+        </div>
 
-          {/* Brief - most important info about candidate */}
+        {/* Slot 3 — assignee chip (always rendered: owner or Unassigned) */}
+        <div className="flex min-h-6 items-center">
+          {candidate.owner ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 py-0.5 pl-0.5 pr-2 text-[11px] font-medium text-primary"
+              title={`Owner: ${candidate.owner.full_name || candidate.owner.email}`}
+            >
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                {ownerInitials}
+              </span>
+              <span className="max-w-[120px] truncate">{ownerName}</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full border border-dashed border-muted-foreground/40 px-2 py-0.5 text-[11px] text-muted-foreground">
+              <UserCircle2 className="h-3 w-3" />
+              Unassigned
+            </span>
+          )}
+        </div>
+
+        {/* Slot 4 — meta row: location · years · salary (reserved height) */}
+        <div className="flex min-h-5 flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          {candidate.location && (
+            <span className="flex items-center gap-1">
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              {candidate.location}
+            </span>
+          )}
+          {candidate.experience_years && (
+            <span>{candidate.experience_years} yrs</span>
+          )}
+          {salary && (
+            <span className="font-medium text-foreground">{salary}</span>
+          )}
+        </div>
+
+        {/* Slot 5 — tag row: role categories (reserved height when absent) */}
+        <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+          {roleCategories.map((cat, i) => (
+            <span key={i} className={`${PILL} ${cat.color}`}>
+              {cat.label}
+            </span>
+          ))}
+        </div>
+
+        {/* Slot 6 — variable content (brief / verdicts / pipeline). Occupies the
+            1fr track so the footer is pushed to the bottom of every card. */}
+        <div className="min-w-0 space-y-2">
           {candidate.brief && (
-            <p className="text-xs text-muted-foreground italic line-clamp-2 border-l-2 border-primary/30 pl-2">
+            <p className="line-clamp-2 border-l-2 border-primary/30 pl-2 text-xs italic text-muted-foreground">
               {candidate.brief}
             </p>
           )}
 
-          {/* Role Categories */}
-          {roleCategories.length > 0 && (
-            <div className="flex flex-wrap gap-1">
-              {roleCategories.map((cat, i) => (
-                <span key={i} className={`text-[10px] px-1.5 py-0.5 rounded ${cat.color}`}>
-                  {cat.label}
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Verdicts - compact display */}
           {(candidate.recruiter_verdict || candidate.lily_verdict) && (
             <VerdictDisplay
               recruiterVerdict={candidate.recruiter_verdict}
@@ -212,35 +224,30 @@ function CandidateCardComponent({ candidate }: CandidateCardProps) {
             />
           )}
 
-          {/* Pipeline Status - compact */}
           {candidate.pipeline_jobs && candidate.pipeline_jobs.length > 0 && (
-            <div className="pt-2 border-t">
-              <div className="flex items-center gap-2 text-xs">
-                <Briefcase className="h-3 w-3 text-muted-foreground shrink-0" />
-                <div className="flex flex-wrap gap-1">
-                  {candidate.pipeline_jobs.slice(0, 2).map((pj, i) => (
-                    <span key={i} className={`px-1.5 py-0.5 rounded text-[10px] ${stageColors[pj.stage] || 'bg-muted text-muted-foreground'}`}>
-                      {pj.stage}
-                    </span>
-                  ))}
-                  {candidate.pipeline_jobs.length > 2 && (
-                    <span className="text-muted-foreground">+{candidate.pipeline_jobs.length - 2}</span>
-                  )}
-                </div>
+            <div className="flex items-center gap-2 text-xs">
+              <Briefcase className="h-3 w-3 shrink-0 text-muted-foreground" />
+              <div className="flex flex-wrap gap-1.5">
+                {candidate.pipeline_jobs.slice(0, 2).map((pj, i) => (
+                  <span key={i} className={`${PILL} ${stageColors[pj.stage] || 'bg-muted text-muted-foreground'}`}>
+                    {pj.stage}
+                  </span>
+                ))}
+                {candidate.pipeline_jobs.length > 2 && (
+                  <span className="text-[10px] text-muted-foreground">+{candidate.pipeline_jobs.length - 2}</span>
+                )}
               </div>
             </div>
           )}
+        </div>
 
-          {/* Footer - Last activity */}
-          <div className="flex items-center text-[10px] text-muted-foreground pt-1">
-            <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {candidate.last_activity 
-                ? formatRelativeTime(candidate.last_activity)
-                : formatRelativeTime(candidate.updated_at)}
-            </div>
-          </div>
-        </CardContent>
+        {/* Slot 7 — footer: relative timestamp, pinned to the bottom */}
+        <div className="flex items-center gap-1 border-t pt-2 text-[10px] text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          {candidate.last_activity
+            ? formatRelativeTime(candidate.last_activity)
+            : formatRelativeTime(candidate.updated_at)}
+        </div>
       </Card>
     </Link>
   )

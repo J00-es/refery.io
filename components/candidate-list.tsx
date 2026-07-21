@@ -48,6 +48,14 @@ const availabilityIcons: Record<string, React.ReactNode> = {
   not_qualified: <XCircle className="h-3 w-3" />,
 }
 
+// Responsive card grid: auto-fill tracks with a 320px minimum and a 16px (gap-4)
+// gutter, so the grid degrades gracefully — 3 columns on desktop, 2 on tablet,
+// 1 on mobile — without hardcoded breakpoints. `min(100%, 20rem)` keeps the
+// track from overflowing below 320px. `auto-rows-fr` makes every row equal
+// height so cards never differ in height across a row.
+const CARD_GRID_CLASS =
+  'grid gap-4 auto-rows-fr [grid-template-columns:repeat(auto-fill,minmax(min(100%,20rem),1fr))]'
+
 // Format date as relative time (e.g., "2 days ago", "3 hours ago")
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr)
@@ -327,7 +335,7 @@ export function CandidateList({ candidates }: CandidateListProps) {
                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                 Reviewing ({reviewingCandidates.length})
               </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={CARD_GRID_CLASS}>
                 {reviewingCandidates.map((candidate) => (
                   <CandidateCard key={candidate.id} candidate={candidate} />
                 ))}
@@ -341,7 +349,7 @@ export function CandidateList({ candidates }: CandidateListProps) {
                 <span className="h-2 w-2 rounded-full bg-blue-500" />
                 New ({newCandidates.length})
               </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={CARD_GRID_CLASS}>
                 {newCandidates.map((candidate) => (
                   <CandidateCard key={candidate.id} candidate={candidate} />
                 ))}
@@ -355,7 +363,7 @@ export function CandidateList({ candidates }: CandidateListProps) {
                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                 Shortlisted ({shortlistedCandidates.length})
               </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={CARD_GRID_CLASS}>
                 {shortlistedCandidates.map((candidate) => (
                   <CandidateCard key={candidate.id} candidate={candidate} />
                 ))}
@@ -369,7 +377,7 @@ export function CandidateList({ candidates }: CandidateListProps) {
                 <span className="h-2 w-2 rounded-full bg-muted-foreground" />
                 Archived ({otherCandidates.length})
               </h2>
-              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              <div className={CARD_GRID_CLASS}>
                 {otherCandidates.map((candidate) => (
                   <CandidateCard key={candidate.id} candidate={candidate} />
                 ))}
