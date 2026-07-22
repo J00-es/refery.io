@@ -237,3 +237,71 @@ export const DASHBOARD_ACTIVE_BUCKET_KEYS = [
 
 // Terminal (negative) buckets shown separately from the active journey.
 export const DASHBOARD_TERMINAL_BUCKET_KEYS = ['auto_passed', 'rejected'] as const
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scout dashboard display stages (frontend-only naming).
+//
+// SINGLE SOURCE OF TRUTH for the scout-facing stage names. These are a display
+// mapping only — they never rename any DB enum value, column, or anything the
+// nightly automation / skills read. Every dashboard component imports from here.
+//
+// `placed` has no pipeline stage (job_candidate_pipeline.stage has no such
+// value); it is sourced from candidates.status = 'hired'. Its `stages` list is
+// therefore empty and it is counted separately.
+// ─────────────────────────────────────────────────────────────────────────────
+export type DisplayStageKey = 'in_review' | 'matched' | 'in_play' | 'placed'
+
+export interface DisplayStage {
+  key: DisplayStageKey
+  name: string
+  description: string
+  dotColor: string // segment / legend dot color
+  stages: PipelineStage[] // real internal stages this display stage aggregates
+}
+
+export const DISPLAY_STAGES: DisplayStage[] = [
+  {
+    key: 'in_review',
+    name: 'In review',
+    description: "We're screening them and finding the right roles.",
+    dotColor: '#C9D9CF',
+    stages: ['auto_matched', 'screening'],
+  },
+  {
+    key: 'matched',
+    name: 'Matched to roles',
+    description: 'Open roles found. We are sharing them with the candidate.',
+    dotColor: '#5E8571',
+    stages: ['job_matched', 'job_shared'],
+  },
+  {
+    key: 'in_play',
+    name: 'In play with companies',
+    description: 'Interested candidates, introduced to hiring teams.',
+    dotColor: '#1F4D3A',
+    stages: ['interest_confirmed', 'hm_shared'],
+  },
+  {
+    key: 'placed',
+    name: 'Placed',
+    description: 'Hired. Your payout is on its way.',
+    dotColor: '#8A6A1F',
+    stages: [], // sourced from candidates.status = 'hired'
+  },
+]
+
+// Closed / archive display bucket (auto_passed + rejected).
+export const CLOSED_STAGE_VALUES: PipelineStage[] = ['auto_passed', 'rejected']
+export const CLOSED_DISPLAY_NAME = 'Closed'
+
+// The internal stages counted toward a scout's non-closed ("your candidates")
+// total: everything except the closed/archive stages. Mirrors ACTIVE_STAGE_VALUES.
+export const NON_CLOSED_STAGE_VALUES: PipelineStage[] = ACTIVE_STAGE_VALUES
+
+// Map a raw internal stage to its scout-facing display name. Used by the
+// activity feed so no enum value ever reaches rendered copy.
+export function stageDisplayName(stage: string): string {
+  const match = DISPLAY_STAGES.find(ds => ds.stages.includes(stage as PipelineStage))
+  if (match) return match.name
+  return CLOSED_DISPLAY_NAME
+}
