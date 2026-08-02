@@ -74,7 +74,9 @@ export default async function DashboardPage() {
     redirect('/auth/login')
   }
 
-  const isAdmin = appUser.isAdmin
+  // Candidate visibility follows canViewAllCandidates (super admin only), not
+  // the broader admin-console capability. See lib/current-user.ts.
+  const canViewAll = appUser.canViewAllCandidates
   const firstName = appUser.fullName?.split(' ')[0] || 'there'
   const me = appUser.id
 
@@ -88,7 +90,7 @@ export default async function DashboardPage() {
   let ownedCandidateIds: string[] = []
   let placedCount = 0
 
-  if (!isAdmin) {
+  if (!canViewAll) {
     const { data: ownedCands } = await adminClient
       .from('candidates')
       .select('id, status')
@@ -111,7 +113,7 @@ export default async function DashboardPage() {
       'stage, candidate_id, created_at, updated_at, owner_user_id, candidates(id, name, status, resume_blob_pathname)',
     )
 
-  if (!isAdmin) {
+  if (!canViewAll) {
     const orParts = [`owner_user_id.eq.${me}`]
     if (ownedCandidateIds.length > 0) {
       orParts.push(`candidate_id.in.(${ownedCandidateIds.join(',')})`)
@@ -176,14 +178,14 @@ export default async function DashboardPage() {
     candidate_name: string
   }[] = []
 
-  const runActivity = isAdmin || ownedCandidateIds.length > 0
+  const runActivity = canViewAll || ownedCandidateIds.length > 0
   if (runActivity) {
     let histQuery = adminClient
       .from('pipeline_stage_history')
       .select('id, previous_stage, new_stage, changed_at, candidate_id, candidates(name)')
       .order('changed_at', { ascending: false })
       .limit(10)
-    if (!isAdmin) histQuery = histQuery.in('candidate_id', ownedCandidateIds)
+    if (!canViewAll) histQuery = histQuery.in('candidate_id', ownedCandidateIds)
     const { data: hist } = await histQuery
     activity = (hist || []).map(h => {
       const candRaw = h.candidates as unknown
@@ -239,7 +241,7 @@ export default async function DashboardPage() {
   // Greeting summary sentence
   const summary =
     yourCandidates === 0
-      ? isAdmin
+      ? canViewAll
         ? 'No candidates in the pipeline yet.'
         : "You have no candidates in your pipeline yet. Refer someone to get started."
       : `${newThisWeek.size > 0 ? `${newThisWeek.size} ${newThisWeek.size === 1 ? 'candidate' : 'candidates'} joined your pipeline this week. ` : ''}${counts.matched} ${counts.matched === 1 ? 'is' : 'are'} matched to open roles.`
@@ -256,7 +258,7 @@ export default async function DashboardPage() {
             <h1 className="font-serif font-normal text-[30px] sm:text-[38px] tracking-[-0.02em] leading-[1.15] text-[#161613]">
               {timeGreeting(now)}, {firstName}
             </h1>
-            {isAdmin && (
+            {canViewAll && (
               <span className="shrink-0 rounded-full bg-[#E9F0EC] text-[#1F4D3A] text-[11px] font-semibold px-2.5 py-1">
                 Viewing all candidates
               </span>

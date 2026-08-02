@@ -24,7 +24,7 @@ export async function PUT(
     // Reassigning to a *different* person grants them access and revokes the
     // current owner's — an admin-only action. Partners may only claim a
     // candidate they can already see.
-    if (!appUser.isAdmin && owner_user_id && owner_user_id !== appUser.id) {
+    if (!appUser.canViewAllCandidates && owner_user_id && owner_user_id !== appUser.id) {
       return NextResponse.json(
         { error: 'Only admins can assign a candidate to another user' },
         { status: 403 },
@@ -53,9 +53,9 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // The dropdown is a directory of every partner's name and email. Only
-    // admins can reassign to another user, so only admins get the directory.
-    if (!appUser.isAdmin) {
+    // The dropdown is a directory of every partner's name and email. Only the
+    // super admin can reassign across partners, so only they get the directory.
+    if (!appUser.canViewAllCandidates) {
       return NextResponse.json({
         users: [
           {

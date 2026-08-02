@@ -27,7 +27,9 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
     redirect('/auth/login')
   }
 
-  const isAdmin = appUser.isAdmin
+  // Candidate visibility follows canViewAllCandidates (super admin only), not
+  // the broader admin-console capability. See lib/current-user.ts.
+  const canViewAll = appUser.canViewAllCandidates
   const currentUserId = appUser.id
 
   // Scope before fetching. This used to pull every pipeline row and filter in
@@ -35,7 +37,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
   // caps a response at 1000 rows, so a partner whose rows sorted past the cap
   // saw an empty stage.
   let ownedCandidateIds: string[] = []
-  if (!isAdmin) {
+  if (!canViewAll) {
     const { data: ownedCands } = await adminClient
       .from('candidates')
       .select('id')
@@ -71,7 +73,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
     .in('stage', bucket.stages)
     .order('updated_at', { ascending: false })
 
-  if (!isAdmin) {
+  if (!canViewAll) {
     // A row is yours if you own the row itself, or if it is about your
     // candidate — the matching automation owns most rows.
     const orParts = [`owner_user_id.eq.${currentUserId}`]
@@ -105,7 +107,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
 
   // Second pass over the same rule the query already applied — cheap, and it
   // keeps the page correct if the query filter is ever loosened.
-  const filteredData = isAdmin
+  const filteredData = canViewAll
     ? pipelineData || []
     : (pipelineData || []).filter(p => {
         if (p.owner_user_id === currentUserId) return true

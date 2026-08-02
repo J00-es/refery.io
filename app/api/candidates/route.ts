@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
       .order('name')
       .limit(limit)
 
-    if (!appUser.isAdmin) {
+    if (!appUser.canViewAllCandidates) {
       query = query.or(candidateOwnershipFilter(appUser.id))
     }
 

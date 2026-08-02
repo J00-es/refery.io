@@ -29,8 +29,18 @@ export interface AppUser {
   status: string
   fullName: string | null
   isSuperAdmin: boolean
-  /** Admins see every candidate; everyone else is scoped to their own. */
+  /** Admin-console capability: managing users, agreements, settings. */
   isAdmin: boolean
+  /**
+   * Whether this user may see candidates that are not their own.
+   *
+   * Deliberately narrower than `isAdmin`: candidate records are the partners'
+   * own book of business, so only the super admin gets a cross-partner view.
+   * Every other role — including `admin` — sees only what is assigned to them.
+   * Mirrored in the database by `public.can_view_all_candidates()`; keep the
+   * two definitions in step.
+   */
+  canViewAllCandidates: boolean
   isActive: boolean
 }
 
@@ -98,6 +108,7 @@ export async function getAppUser(): Promise<AppUser | null> {
     fullName: row?.full_name ?? null,
     isSuperAdmin,
     isAdmin: role === 'super_admin' || role === 'admin',
+    canViewAllCandidates: role === 'super_admin',
     isActive: status === 'active',
   }
 }
@@ -121,7 +132,7 @@ export function ownsCandidate(
   } | null,
 ): boolean {
   if (!candidate) return false
-  if (appUser.isAdmin) return true
+  if (appUser.canViewAllCandidates) return true
   return (
     candidate.owner_user_id === appUser.id ||
     candidate.uploaded_by_user_id === appUser.id ||
