@@ -41,13 +41,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
   const currentRole = candidate.parsed_data?.work_history?.[0]
   const owner = ownerName(candidate.owner)
 
-  // Meta line: only the facts that exist, joined by middots. An empty line is
-  // better than a line of placeholder dashes.
-  const meta = [
-    candidate.location,
-    candidate.experience_years ? `${candidate.experience_years} yrs` : null,
-    salary,
-  ].filter(Boolean) as string[]
+  const years = candidate.experience_years ? `${candidate.experience_years} yrs` : null
 
   const skills = (candidate.skills ?? []).slice(0, 3)
   const stages = candidate.pipeline_jobs ?? []
@@ -72,12 +66,19 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
         Three tracks: identity block / flexible body / footer. Only the body
         flexes, which pins the footer to the bottom so timestamps line up
         across a row without every optional field reserving empty height.
+
+        grid-cols-[minmax(0,1fr)] is load-bearing, not decoration. A grid with
+        only rows declared gets an implicit `auto` column, which is sized to
+        min-content and will happily grow past the card — so a 60-character
+        role or a 36-character skill spilled over the border and `truncate`
+        could not help, because the track itself was expanding. minmax(0,…)
+        lets the column shrink so the children actually clip.
       */}
       <article
-        className={`${CARD} grid h-full grid-rows-[auto_1fr_auto] gap-3.5 p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D8D8D0] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
+        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D8D8D0] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
       >
         {/* ── identity ───────────────────────────────────────────────────── */}
-        <header className="flex items-start gap-3">
+        <header className="flex min-w-0 items-start gap-3">
           <span
             aria-hidden
             className={`grid h-11 w-11 shrink-0 place-items-center rounded-full text-[14px] font-semibold ${avatarTint(candidate.name)}`}
@@ -148,17 +149,36 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
 
         {/* ── body ───────────────────────────────────────────────────────── */}
         <div className="min-w-0 space-y-3">
-          {meta.length > 0 && (
-            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[#6E6E68]">
-              {candidate.location && <MapPin className="h-3.5 w-3.5 shrink-0 text-[#9C9C95]" />}
-              {meta.map((m, i) => (
-                <span key={i} className="flex items-center gap-2">
-                  {i > 0 && <span className="text-[#D8D8D0]">·</span>}
-                  <span className={i === meta.length - 1 && salary ? 'font-medium text-[#161613]' : ''}>
-                    {m}
+          {/*
+            One guaranteed line. Only the location flexes and truncates —
+            years and salary are shrink-0, so a 40-character location like
+            "San Luis Obispo, California, United States" never wraps the row
+            and never pushes the salary out of view.
+          */}
+          {(candidate.location || years || salary) && (
+            <p className="flex min-w-0 items-center gap-2 text-[13px] text-[#6E6E68]">
+              {candidate.location && (
+                <>
+                  <MapPin className="h-3.5 w-3.5 shrink-0 text-[#9C9C95]" />
+                  <span className="min-w-0 flex-1 truncate" title={candidate.location}>
+                    {candidate.location}
                   </span>
-                </span>
-              ))}
+                </>
+              )}
+              {years && (
+                <>
+                  {candidate.location && <span className="shrink-0 text-[#D8D8D0]">·</span>}
+                  <span className="shrink-0">{years}</span>
+                </>
+              )}
+              {salary && (
+                <>
+                  {(candidate.location || years) && (
+                    <span className="shrink-0 text-[#D8D8D0]">·</span>
+                  )}
+                  <span className="shrink-0 font-medium text-[#161613]">{salary}</span>
+                </>
+              )}
             </p>
           )}
 
@@ -169,10 +189,10 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
           )}
 
           {skills.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
               {skills.map((s, i) => (
-                <span key={i} className={CHIP}>
-                  {s}
+                <span key={i} className={CHIP} title={s}>
+                  <span className="truncate">{s}</span>
                 </span>
               ))}
               {(candidate.skills?.length ?? 0) > 3 && (
@@ -186,11 +206,11 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
           {/* Stages only — the verdict now lives in the grade badge. Capped at
               two so this row never wraps and pads the whole grid row. */}
           {stages.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex min-w-0 flex-wrap gap-1.5">
               {stages.slice(0, 2).map((pj, i) => (
                 <span key={i} className={CHIP} title={pj.job_title || pj.company}>
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stageDot(pj.stage)}`} />
-                  {stageLabel(pj.stage)}
+                  <span className="truncate">{stageLabel(pj.stage)}</span>
                 </span>
               ))}
               {stages.length > 2 && (
@@ -203,7 +223,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
         </div>
 
         {/* ── footer: ownership + recency, the two metadata facts ────────── */}
-        <footer className="flex items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
+        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
           {canViewAll ? (
             owner ? (
               <span className="flex min-w-0 items-center gap-1.5 text-[#6E6E68]">

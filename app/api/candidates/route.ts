@@ -56,12 +56,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    // Whoever creates the profile owns it by default. Both creation paths —
+    // the single upload form and the bulk uploader — post here, so this is the
+    // one place that needs it. An explicit owner_user_id in the body still
+    // wins, and it can be reassigned later from the candidate page.
     const { data: candidate, error } = await adminClient
       .from('candidates')
       .insert({
         ...body,
         user_id: user.id,
         uploaded_by_user_id: user.id,
+        owner_user_id: body.owner_user_id ?? user.id,
       })
       .select()
       .single()

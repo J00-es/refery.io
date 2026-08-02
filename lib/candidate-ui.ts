@@ -28,9 +28,13 @@ export const CARD = 'bg-white border border-[#ECECE6] rounded-[18px]'
  * Neutral chip. Status is carried by a small colored dot inside the chip
  * rather than by tinting the whole chip — with eight-plus signals on a card,
  * full-color pills compete with each other and nothing reads as important.
+ *
+ * `max-w-full min-w-0` matters: real skill labels run to 35+ characters
+ * ("AI/LLM systems & harness engineering"), and without a cap a single chip
+ * sets the row's min-content width and pushes past the card edge.
  */
 export const CHIP =
-  'inline-flex items-center gap-1.5 rounded-full border border-[#ECECE6] bg-[#FAFAF6] px-2.5 py-1 text-[11.5px] font-medium text-[#6E6E68] leading-none'
+  'inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-[#ECECE6] bg-[#FAFAF6] px-2.5 py-1 text-[11.5px] font-medium text-[#6E6E68] leading-none'
 
 /** Minimum comfortable touch target (WCAG 2.2 target-size guidance). */
 export const TAP = 'min-h-[44px]'
