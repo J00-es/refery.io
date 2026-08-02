@@ -19,6 +19,17 @@ interface Suggestion {
   salary_min: number | null
   salary_max: number | null
   similarity: number
+  /** Composite score: similarity + function affinity + seniority fit. */
+  match_score: number | null
+  job_function: string | null
+}
+
+/** Plain-language read of the composite score, so a number is never shown bare. */
+function fitLabel(score: number): { label: string; className: string } {
+  if (score >= 0.7) return { label: 'Strong fit', className: 'bg-[#1F4D3A] text-white' }
+  if (score >= 0.6) return { label: 'Good fit', className: 'bg-[#E9F0EC] text-[#1F4D3A]' }
+  if (score >= 0.5) return { label: 'Possible fit', className: 'bg-[#F3F1E6] text-[#6E6A2E]' }
+  return { label: 'Loose fit', className: 'bg-[#F0F0EA] text-[#6E6E68]' }
 }
 
 /**
@@ -119,9 +130,20 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
                 </div>
 
                 <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <span className={CHIP} title="Embedding similarity to this candidate">
-                    {Math.round(s.similarity * 100)}% fit
-                  </span>
+                  {(() => {
+                    const score = s.match_score ?? s.similarity
+                    const fit = fitLabel(score)
+                    return (
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none ${fit.className}`}
+                        title={`Score ${score.toFixed(2)} — similarity ${s.similarity.toFixed(2)}${
+                          s.job_function ? `, ${s.job_function} role` : ''
+                        }`}
+                      >
+                        {fit.label}
+                      </span>
+                    )
+                  })()}
                   {isAdded ? (
                     <span className="flex items-center gap-1 text-[12px] font-medium text-[#1F4D3A]">
                       <Check className="h-3.5 w-3.5" />
@@ -146,9 +168,9 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
       )}
 
       <p className="mt-3 text-[11.5px] leading-[1.5] text-[#9C9C95]">
-        Ranked by similarity against open roles. Adding one puts the candidate in that job&apos;s
-        pipeline at <span className="font-medium">Job Matched</span> — nothing is sent to the
-        candidate.
+        Ranked on role similarity, function fit and seniority — the same scoring the nightly
+        matcher uses. Adding one puts the candidate in that job&apos;s pipeline at{' '}
+        <span className="font-medium">Job Matched</span> — nothing is sent to the candidate.
       </p>
     </section>
   )
