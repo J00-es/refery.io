@@ -32,6 +32,10 @@ export default async function JobsPage({ searchParams }: PageProps) {
   }
 
   const isAdmin = appUser.isAdmin
+  // Pipeline visibility follows the candidate rule, not the admin-console one:
+  // only the super admin sees candidates that are not their own, so only they
+  // get a board-wide pipeline count. Everyone else sees their own count.
+  const canViewAllPipeline = appUser.canViewAllCandidates
 
   const q = one(sp.q).trim()
   const fns = many(sp.fn)
@@ -40,7 +44,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const pay = many(sp.pay)
   const statuses = isAdmin ? many(sp.status) : []
   const posted = one(sp.posted)
-  const withCands = one(sp.cands) === '1' && isAdmin
+  const withCands = one(sp.cands) === '1'
   const sort = one(sp.sort) || 'newest'
   const page = Math.max(1, parseInt(one(sp.page) || '1', 10) || 1)
 
@@ -90,14 +94,27 @@ export default async function JobsPage({ searchParams }: PageProps) {
     const band = POSTED_BANDS.find(b => b.key === posted)
     if (band) query = query.gte('created_at', daysAgoIso(band.days))
   }
-  if (withCands) query = query.gt('pipeline_count', 0)
+  if (withCands) {
+    // "Roles with candidates" means *my* candidates unless you are the super
+    // admin. candidate_owner_ids makes that one array-contains rather than
+    // inlining thousands of job ids — one recruiter matches 2,064 roles.
+    query = canViewAllPipeline
+      ? query.gt('pipeline_count', 0)
+      : query.contains('candidate_owner_ids', [appUser.id])
+  }
 
   switch (sort) {
     case 'salary':
       query = query.order('salary_max', { ascending: false, nullsFirst: false })
       break
     case 'pipeline':
-      query = query.order('pipeline_count', { ascending: false })
+      // Ordering by the board-wide count would rank roles by other partners'
+      // activity, so this sort is super-admin only; others fall through.
+      if (canViewAllPipeline) {
+        query = query.order('pipeline_count', { ascending: false })
+        break
+      }
+      query = query.order('created_at', { ascending: false, nullsFirst: false })
       break
     case 'company':
       query = query.order('company_name', { ascending: true })
@@ -111,24 +128,37 @@ export default async function JobsPage({ searchParams }: PageProps) {
 
   const from = (page - 1) * PAGE_SIZE
   const { data, count } = await query.range(from, from + PAGE_SIZE - 1)
-  const jobs = (data ?? []) as unknown as JobRow[]
+  let jobs = (data ?? []) as unknown as JobRow[]
 
-  // Head-only counts for the admin strip — no rows fetched.
-  let stats: JobStats | null = null
-  if (isAdmin) {
-    const base = () => adminClient.from('jobs_list').select('id', { count: 'exact', head: true })
-    const [openRes, weekRes, candsRes, remoteRes] = await Promise.all([
-      base().eq('status', 'open'),
-      base().gte('created_at', daysAgoIso(7)),
-      base().gt('pipeline_count', 0),
-      base().eq('remote_policy', 'remote').eq('status', 'open'),
-    ])
-    stats = {
-      open: openRes.count ?? 0,
-      newThisWeek: weekRes.count ?? 0,
-      withCandidates: candsRes.count ?? 0,
-      remote: remoteRes.count ?? 0,
-    }
+  // Replace the board-wide count with this viewer's own, for just the 24 rows
+  // on screen. Without this a partner reads another partner's submission
+  // volume off every card.
+  if (!canViewAllPipeline && jobs.length) {
+    const { data: mine } = await adminClient
+      .from('job_candidate_owner_counts')
+      .select('job_id, cnt')
+      .eq('owner_user_id', appUser.id)
+      .in('job_id', jobs.map(j => j.id))
+    const byJob = new Map((mine ?? []).map(r => [r.job_id as string, r.cnt as number]))
+    jobs = jobs.map(j => ({ ...j, pipeline_count: byJob.get(j.id) ?? 0 }))
+  }
+
+  // Head-only counts for the insight strip — no rows fetched. The board-level
+  // numbers are the same for everyone; only "with candidates" is per-viewer.
+  const base = () => adminClient.from('jobs_list').select('id', { count: 'exact', head: true })
+  const [openRes, weekRes, candsRes, remoteRes] = await Promise.all([
+    base().eq('status', 'open'),
+    base().gte('created_at', daysAgoIso(7)).eq('status', 'open'),
+    canViewAllPipeline
+      ? base().gt('pipeline_count', 0)
+      : base().contains('candidate_owner_ids', [appUser.id]),
+    base().eq('remote_policy', 'remote').eq('status', 'open'),
+  ])
+  const stats: JobStats = {
+    open: openRes.count ?? 0,
+    newThisWeek: weekRes.count ?? 0,
+    withCandidates: candsRes.count ?? 0,
+    remote: remoteRes.count ?? 0,
   }
 
   return (
@@ -172,6 +202,7 @@ export default async function JobsPage({ searchParams }: PageProps) {
         page={page}
         pageSize={PAGE_SIZE}
         isAdmin={isAdmin}
+        canViewAllPipeline={canViewAllPipeline}
         stats={stats}
       />
     </div>

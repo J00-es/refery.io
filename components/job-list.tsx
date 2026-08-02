@@ -43,7 +43,14 @@ interface JobListProps {
   total: number
   page: number
   pageSize: number
+  /** Admin console capability: drafts, closed roles, job status. */
   isAdmin: boolean
+  /**
+   * Super admin. Pipeline counts are board-wide for them and scoped to the
+   * viewer's own candidates for everyone else, so the wording and the
+   * sort-by-pipeline option change with it.
+   */
+  canViewAllPipeline: boolean
   stats?: JobStats | null
 }
 
@@ -228,7 +235,15 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
 
 // ── main ────────────────────────────────────────────────────────────────────
 
-export function JobList({ jobs, total, page, pageSize, isAdmin, stats }: JobListProps) {
+export function JobList({
+  jobs,
+  total,
+  page,
+  pageSize,
+  isAdmin,
+  canViewAllPipeline,
+  stats,
+}: JobListProps) {
   const { params, set, list, toggle, pending } = useQueryState()
 
   const q = params.get('q') || ''
@@ -335,34 +350,43 @@ export function JobList({ jobs, total, page, pageSize, isAdmin, stats }: JobList
         </div>
       </div>
       {isAdmin && (
-        <>
-          <FacetGroup
-            title="Status"
-            options={JOB_STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))}
-            selected={statuses}
-            onToggle={k => toggle('status', k)}
-          />
-          <FacetGroup
-            title="Pipeline"
-            options={[{ key: 'cands', label: 'Has candidates' }]}
-            selected={withCands ? ['cands'] : []}
-            onToggle={() => set({ cands: withCands ? null : '1' })}
-          />
-        </>
+        <FacetGroup
+          title="Status"
+          options={JOB_STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))}
+          selected={statuses}
+          onToggle={k => toggle('status', k)}
+        />
       )}
+      <FacetGroup
+        title="Pipeline"
+        options={[
+          { key: 'cands', label: canViewAllPipeline ? 'Has candidates' : 'Where I have candidates' },
+        ]}
+        selected={withCands ? ['cands'] : []}
+        onToggle={() => set({ cands: withCands ? null : '1' })}
+      />
     </div>
   )
 
   return (
     <div className="space-y-4">
-      {/* ── admin insight strip: each number is also a filter ───────────── */}
-      {isAdmin && stats && (
+      {/* ── insight strip: each number is also a filter ─────────────────── */}
+      {stats && (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {(
             [
-              { label: 'Open roles', value: stats.open, patch: { status: 'open' } },
+              {
+                label: 'Open roles',
+                value: stats.open,
+                patch: isAdmin ? { status: 'open' } : {},
+              },
               { label: 'New this week', value: stats.newThisWeek, patch: { posted: '7d' } },
-              { label: 'With candidates', value: stats.withCandidates, patch: { cands: '1' } },
+              {
+                // Board-wide for the super admin, this viewer's own otherwise.
+                label: canViewAllPipeline ? 'With candidates' : 'Your candidates',
+                value: stats.withCandidates,
+                patch: { cands: '1' },
+              },
               { label: 'Remote', value: stats.remote, patch: { remote: 'remote' } },
             ] as { label: string; value: number; patch: Record<string, string | null> }[]
           ).map(s => (
@@ -484,7 +508,9 @@ export function JobList({ jobs, total, page, pageSize, isAdmin, stats }: JobList
               </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[200px] rounded-[14px] border-[#ECECE6] p-1.5">
-              {JOB_SORTS.map(s => (
+              {/* Sorting by pipeline size would rank roles by other partners'
+                  activity, so it is offered only to the super admin. */}
+              {JOB_SORTS.filter(s => s.key !== 'pipeline' || canViewAllPipeline).map(s => (
                 <button
                   key={s.key}
                   type="button"
@@ -565,7 +591,12 @@ export function JobList({ jobs, total, page, pageSize, isAdmin, stats }: JobList
             onClear={() => set({ posted: null })}
           />
         )}
-        {withCands && <ActiveChip label="Has candidates" onClear={() => set({ cands: null })} />}
+        {withCands && (
+          <ActiveChip
+            label={canViewAllPipeline ? 'Has candidates' : 'Where I have candidates'}
+            onClear={() => set({ cands: null })}
+          />
+        )}
 
         {hasAny && (
           <button

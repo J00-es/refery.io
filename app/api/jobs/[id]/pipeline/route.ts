@@ -1,8 +1,7 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { getAppUser } from '@/lib/current-user'
 import { NextResponse } from 'next/server'
 import type { Candidate } from '@/lib/types'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 export async function GET(
   request: Request,
@@ -17,17 +16,11 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check user role using admin client to avoid RLS
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role')
-    .eq('email', user.email)
-    .single()
-  
-  const userRole = SUPER_ADMIN_EMAILS.includes(user.email || '') 
-    ? 'super_admin' 
-    : adminData?.role || 'viewer'
-  const isAdmin = ['super_admin', 'admin'].includes(userRole)
+  // Only the super admin sees candidates that are not their own — the same
+  // rule the candidates page and RLS use. This was `super_admin OR admin`,
+  // which would have let an admin read every partner's submissions.
+  const appUser = await getAppUser()
+  const isAdmin = appUser?.canViewAllCandidates ?? false
 
   // Fetch pipeline candidates with their details using admin client
   const { data, error } = await adminClient
