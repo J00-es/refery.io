@@ -148,7 +148,9 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
         {/* ── qualifiers ─────────────────────────────────────────────────── */}
         <div className="min-w-0 space-y-2.5">
           <div className="flex min-w-0 flex-wrap gap-1.5">
-            {job.department && (
+            {/* A few dozen scraped rows have the city pasted into department;
+                repeating the location as a chip just reads as a mistake. */}
+            {job.department && job.department !== job.location && (
               <span className={CHIP} title={job.department}>
                 <span className="truncate">{job.department}</span>
               </span>

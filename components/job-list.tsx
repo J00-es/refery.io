@@ -204,7 +204,7 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
         {salary || '—'}
       </span>
       <span className="hidden w-32 shrink-0 truncate text-[12.5px] text-[#6E6E68] lg:block">
-        {j.department || '—'}
+        {j.department && j.department !== j.location ? j.department : '—'}
       </span>
       {isAdmin && status && (
         <span className="hidden w-20 shrink-0 items-center gap-1.5 text-[12.5px] text-[#6E6E68] lg:flex">

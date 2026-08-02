@@ -12,10 +12,17 @@ export function formatSalary(min?: number | null, max?: number | null): string |
   return null
 }
 
+/**
+ * Returns null for the default-shaped value. 72,165 of 72,862 jobs carry
+ * experience_years_min = 0 with no max — the column was defaulted rather than
+ * filled, so rendering it would put a meaningless "0+ yrs" on 99% of cards.
+ * Only a real floor or a range is worth the space.
+ */
 export function formatExperience(min?: number | null, max?: number | null): string | null {
-  if (min == null && max == null) return null
-  if (min != null && max != null) return min === max ? `${min} yrs` : `${min}–${max} yrs`
-  if (min != null) return `${min}+ yrs`
+  const lo = min ?? 0
+  if (!lo && max == null) return null
+  if (lo && max != null) return lo === max ? `${lo} yrs` : `${lo}–${max} yrs`
+  if (lo) return `${lo}+ yrs`
   return `Up to ${max} yrs`
 }
 
