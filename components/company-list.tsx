@@ -159,6 +159,16 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
   const stage = stageLabel(c.stage)
   const href = c.id ? `/companies/${c.id}` : `/companies/view/${encodeURIComponent(c.name)}`
 
+  const [logoFailed, setLogoFailed] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+  // Rows are server-rendered too, so a dead logo URL can fail before onError
+  // is attached. Re-check the decoded size on mount. See Logo in company-card.
+  useEffect(() => {
+    const img = imgRef.current
+    if (img?.complete && img.naturalWidth === 0) setLogoFailed(true)
+  }, [c.logo_url])
+  const showLogo = Boolean(c.logo_url) && !logoFailed
+
   return (
     <Link
       href={href}
@@ -167,12 +177,19 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] text-[12px] font-semibold ${
-          c.logo_url ? 'border border-[#ECECE6] bg-white p-0.5' : avatarTint(c.name)
+          showLogo ? 'border border-[#ECECE6] bg-white p-0.5' : avatarTint(c.name)
         }`}
       >
-        {c.logo_url ? (
+        {showLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={c.logo_url} alt="" loading="lazy" className="h-full w-full object-contain" />
+          <img
+            ref={imgRef}
+            src={c.logo_url!}
+            alt=""
+            loading="lazy"
+            className="h-full w-full object-contain"
+            onError={() => setLogoFailed(true)}
+          />
         ) : (
           initialsOf(c.name)
         )}

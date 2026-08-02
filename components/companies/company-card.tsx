@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Briefcase, MapPin, TriangleAlert } from 'lucide-react'
 import { CARD, CHIP, FOCUS, avatarTint, initialsOf } from '@/lib/candidate-ui'
@@ -38,6 +38,16 @@ export interface CompanyRow {
  *  remote logo URLs go stale, so the error path is the common path. */
 function Logo({ name, url }: { name: string; url?: string | null }) {
   const [failed, setFailed] = useState(false)
+  const imgRef = useRef<HTMLImageElement>(null)
+
+  // The card is server-rendered, so a dead logo URL can fail before React
+  // attaches onError — the handler never fires and a broken-image glyph is
+  // left on screen. Re-check the decoded size once on mount to catch those.
+  useEffect(() => {
+    const img = imgRef.current
+    if (img?.complete && img.naturalWidth === 0) setFailed(true)
+  }, [url])
+
   if (!url || failed) {
     return (
       <span
@@ -52,6 +62,7 @@ function Logo({ name, url }: { name: string; url?: string | null }) {
     <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[#ECECE6] bg-white p-1">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
+        ref={imgRef}
         src={url}
         alt=""
         loading="lazy"
