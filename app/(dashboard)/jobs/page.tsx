@@ -1,172 +1,179 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
+import { createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import type { Job } from '@/lib/types'
-import { JobList } from '@/components/job-list'
 import { BatchUpload } from '@/components/batch-upload'
-import { cookies } from 'next/headers'
+import { JobList, type JobStats } from '@/components/job-list'
+import type { JobRow } from '@/components/jobs/job-card'
+import { getAppUser } from '@/lib/current-user'
+import { FOCUS } from '@/lib/candidate-ui'
+import { POSTED_BANDS, SALARY_BANDS, functionFilterClauses } from '@/lib/job-ui'
 
-// Hardcoded super admins
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+export const dynamic = 'force-dynamic'
 
-export default async function JobsPage() {
-  await cookies()
-  const supabase = await createClient()
+const PAGE_SIZE = 24
+
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
+const many = (v: string | string[] | undefined) => one(v).split(',').filter(Boolean)
+
+function daysAgoIso(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString()
+}
+
+export default async function JobsPage({ searchParams }: PageProps) {
+  const sp = await searchParams
   const adminClient = createAdminClient()
+  const appUser = await getAppUser()
 
-  // Get current user and their role
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
+  if (!appUser) {
     return <div>Please log in to view jobs.</div>
   }
 
-  // Check if super admin - use admin client to bypass RLS
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-  const dbClient = isSuperAdmin ? adminClient : supabase
+  const isAdmin = appUser.isAdmin
 
-  // Get user role for display purposes
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role')
-    .eq('email', user.email)
-    .single()
+  const q = one(sp.q).trim()
+  const fns = many(sp.fn)
+  const remotes = many(sp.remote)
+  const stages = many(sp.stage)
+  const pay = many(sp.pay)
+  const statuses = isAdmin ? many(sp.status) : []
+  const posted = one(sp.posted)
+  const withCands = one(sp.cands) === '1' && isAdmin
+  const sort = one(sp.sort) || 'newest'
+  const page = Math.max(1, parseInt(one(sp.page) || '1', 10) || 1)
 
-  const userRole = isSuperAdmin
-    ? 'super_admin' 
-    : adminData?.role || 'viewer'
-  
-  const isAdmin = ['super_admin', 'admin'].includes(userRole)
-  const isRecruiter = userRole === 'recruiter'
-  const canSeeAllJobs = isAdmin || isRecruiter
+  /*
+    All filtering runs in Postgres against jobs_list. The table holds ~73k rows;
+    the previous implementation pulled a 2,000-row slice and filtered it in the
+    browser, so most of the board was simply unreachable and the header count
+    described the slice rather than the board.
+  */
+  let query = adminClient.from('jobs_list').select('*', { count: 'exact' })
 
-  // RLS policies handle access control at database level
-  // Admins and recruiters see all, others see only owned/assigned jobs
-  // Non-admins only see open jobs — push that filter into SQL.
-  // Select only the columns the list view needs (avoids `description`,
-  // `requirements`, `skills_required`, `tags`, and the vector `embedding`).
-  // Cap at JOB_LIST_LIMIT most-recent jobs (idx_jobs_created_at, desc) — older
-  // archive drafts/closed still reachable via search and direct URL.
-  const JOB_LIST_COLUMNS = 'id, title, company_name, company_id, company_stage, department, location, remote_policy, salary_min, salary_max, status, referral_bonus, referral_bonus_type, created_at, internal_deal_type'
-  const JOB_LIST_LIMIT = 2000
-  let jobsQuery = dbClient
-    .from('jobs')
-    .select(JOB_LIST_COLUMNS)
-    .order('created_at', { ascending: false })
-    .limit(JOB_LIST_LIMIT)
-  if (!isAdmin) jobsQuery = jobsQuery.eq('status', 'open')
-  const { data: jobsData } = await jobsQuery
-  const allJobs = (jobsData ?? []) as Record<string, unknown>[]
+  // Only admins see drafts and closed roles. Everyone else sees open roles,
+  // which is what the old page enforced too.
+  if (!isAdmin) query = query.eq('status', 'open')
+  else if (statuses.length) query = query.in('status', statuses)
 
-  // Collect the company ids referenced by the fetched jobs and fetch only those
-  // for tagline/logo enrichment (vs. pulling all ~4k companies).
-  const referencedCompanyIds = new Set<string>()
-  for (const j of allJobs) {
-    const cid = (j as { company_id?: string | null }).company_id
-    if (cid) referencedCompanyIds.add(cid)
-  }
-  const companiesResult = referencedCompanyIds.size > 0
-    ? await dbClient
-        .from('companies')
-        .select('id, name, description, logo_url')
-        .in('id', [...referencedCompanyIds])
-    : { data: [] as Array<{ id: string; name: string; description: string | null; logo_url: string | null }> }
-
-  const jobs = allJobs
-  const companies = companiesResult.data
-
-  // Create company data lookup (by name for legacy jobs without company_id, and by id for proper relationships)
-  const companyDataByName: Record<string, { tagline: string | null; logo_url: string | null }> = {}
-  const companyDataById: Record<string, { tagline: string | null; logo_url: string | null }> = {}
-  if (companies) {
-    for (const c of companies) {
-      const data = {
-        tagline: c.description ? c.description.split('.')[0].trim().substring(0, 100) : null,
-        logo_url: c.logo_url,
-      }
-      companyDataByName[c.name.toLowerCase()] = data
-      companyDataById[c.id] = data
-    }
+  if (q) {
+    const safe = q.replace(/[,()]/g, ' ')
+    query = query.or(`title.ilike.%${safe}%,company_name.ilike.%${safe}%,location.ilike.%${safe}%`)
   }
 
-  // Non-admins already had status='open' applied at SQL; admins see everything.
-  const visibleJobs = jobs as unknown as Job[]
+  // Department is free text and fragmented, so each function bucket expands to
+  // a set of ILIKE patterns, all OR-ed into one clause.
+  if (fns.length) {
+    const clauses = functionFilterClauses(fns)
+    if (clauses.length) query = query.or(clauses.join(','))
+  }
 
-  // Enrich jobs with company logos/taglines from the companies lookup.
-  // Pipeline stats are intentionally omitted — they don't render on the list
-  // view anymore, so the underlying view/RPC isn't queried here.
-  const enrichedJobs = visibleJobs.map(job => {
-    // Try to get company data by id first, then by name
-    const companyData = job.company_id
-      ? companyDataById[job.company_id]
-      : job.company_name
-        ? companyDataByName[job.company_name.toLowerCase()]
-        : null
+  if (remotes.length) query = query.in('remote_policy', remotes)
+  if (stages.length) query = query.in('company_stage', stages)
 
-    return {
-      ...job,
-      company_tagline: companyData?.tagline || null,
-      company_logo_url: companyData?.logo_url || null,
+  // Salary bands are OR-ed with each other. Matched against salary_max so a
+  // wide posted range still lands in the band a referrer would expect.
+  if (pay.length) {
+    const clauses = pay
+      .map(k => SALARY_BANDS.find(b => b.key === k))
+      .filter((b): b is (typeof SALARY_BANDS)[number] => Boolean(b))
+      .map(b => {
+        if (b.min === null) return `salary_max.lt.${b.max}`
+        if (b.max === null) return `salary_max.gte.${b.min}`
+        return `and(salary_max.gte.${b.min},salary_max.lt.${b.max})`
+      })
+    if (clauses.length) query = query.or(clauses.join(','))
+  }
+
+  if (posted) {
+    const band = POSTED_BANDS.find(b => b.key === posted)
+    if (band) query = query.gte('created_at', daysAgoIso(band.days))
+  }
+  if (withCands) query = query.gt('pipeline_count', 0)
+
+  switch (sort) {
+    case 'salary':
+      query = query.order('salary_max', { ascending: false, nullsFirst: false })
+      break
+    case 'pipeline':
+      query = query.order('pipeline_count', { ascending: false })
+      break
+    case 'company':
+      query = query.order('company_name', { ascending: true })
+      break
+    case 'title':
+      query = query.order('title', { ascending: true })
+      break
+    default:
+      query = query.order('created_at', { ascending: false, nullsFirst: false })
+  }
+
+  const from = (page - 1) * PAGE_SIZE
+  const { data, count } = await query.range(from, from + PAGE_SIZE - 1)
+  const jobs = (data ?? []) as unknown as JobRow[]
+
+  // Head-only counts for the admin strip — no rows fetched.
+  let stats: JobStats | null = null
+  if (isAdmin) {
+    const base = () => adminClient.from('jobs_list').select('id', { count: 'exact', head: true })
+    const [openRes, weekRes, candsRes, remoteRes] = await Promise.all([
+      base().eq('status', 'open'),
+      base().gte('created_at', daysAgoIso(7)),
+      base().gt('pipeline_count', 0),
+      base().eq('remote_policy', 'remote').eq('status', 'open'),
+    ])
+    stats = {
+      open: openRes.count ?? 0,
+      newThisWeek: weekRes.count ?? 0,
+      withCandidates: candsRes.count ?? 0,
+      remote: remoteRes.count ?? 0,
     }
-  }).sort((a, b) => {
-    // Sort by: open status first, then non-pipeline deal types before pipeline, then by created_at desc
-    // Status priority: open > draft > closed
-    const statusPriority = { open: 0, draft: 1, closed: 2 }
-    const statusDiff = (statusPriority[a.status] ?? 2) - (statusPriority[b.status] ?? 2)
-    if (statusDiff !== 0) return statusDiff
-
-    // Pipeline deal type should be shown lower (less visible)
-    const aIsPipeline = a.internal_deal_type === 'pipeline' ? 1 : 0
-    const bIsPipeline = b.internal_deal_type === 'pipeline' ? 1 : 0
-    if (aIsPipeline !== bIsPipeline) return aIsPipeline - bIsPipeline
-
-    // Then by created_at descending (newest first)
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  }) as (Job & {
-    company_tagline: string | null
-    company_logo_url: string | null
-  })[]
+  }
 
   return (
-    <div className="space-y-6 sm:space-y-8 px-4 sm:px-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Jobs</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            {canSeeAllJobs 
-              ? 'Manage all job listings and requirements' 
-              : 'View jobs assigned to you or created by you'}
+          <h1 className="font-serif text-[30px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[36px]">
+            Jobs
+          </h1>
+          <p className="mt-2 text-[14px] text-[#6E6E68] sm:text-[15px]">
+            {isAdmin
+              ? 'Every role on the board — filter by function, pay, stage or pipeline.'
+              : 'Open roles across the network. Find one, refer someone great.'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 items-center gap-2.5">
           <BatchUpload type="jobs" />
-          <Link href="/jobs/new">
-            <Button size="sm" className="sm:size-default">Add Job</Button>
+          <Link
+            href="/jobs/new"
+            className={`flex h-11 items-center rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+          >
+            Add role
           </Link>
         </div>
+      </header>
+
+      {/* Confidentiality reminder — the reason partners can browse the board
+          at all, so it stays on the page rather than living in a doc. */}
+      <div className="rounded-[14px] border border-[#ECECE6] bg-[#FAFAF6] px-4 py-3">
+        <p className="text-[13px] leading-[1.55] text-[#6E6E68]">
+          <span className="font-semibold text-[#161613]">Keep these roles confidential.</span>{' '}
+          Company names and role details stay private until a candidate clears vetting — then we
+          share the opportunity with them directly. It is what keeps founders sending us their
+          hardest roles.
+        </p>
       </div>
 
-      {/* Confidentiality Reminder - Shown to all users */}
-      <div className="rounded-lg border border-green-200/60 bg-green-50/40 px-4 py-3">
-        <div className="flex gap-3">
-          <span className="text-green-600 mt-0.5 flex-shrink-0">
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
-          </span>
-          <div className="text-sm text-green-900/80">
-            <p className="font-medium text-green-900 mb-0.5">Friendly reminder</p>
-            <p>
-              This page gives you visibility into available roles so you can identify great candidates. 
-              <strong> Company names and role details stay private</strong> until candidates complete our vetting process — 
-              then we share opportunities directly with them. Our founders appreciate this selective approach, 
-              and it ensures your referrals get premium treatment.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <JobList jobs={enrichedJobs} isAdmin={isAdmin} showStatusFilter={isAdmin} />
+      <JobList
+        jobs={jobs}
+        total={count ?? 0}
+        page={page}
+        pageSize={PAGE_SIZE}
+        isAdmin={isAdmin}
+        stats={stats}
+      />
     </div>
   )
 }
