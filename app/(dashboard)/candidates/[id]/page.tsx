@@ -11,6 +11,7 @@ import { CandidateAvailabilityStatus } from '@/components/candidate-availability
 import { CandidateActions } from '@/components/candidate-actions'
 import { RecruiterNotes } from '@/components/recruiter-notes'
 import { CandidateActivityLog } from '@/components/candidate-activity-log'
+import { SuggestedJobs } from '@/components/candidates/suggested-jobs'
 import { CandidateOwnerAssignment } from '@/components/candidate-owner-assignment'
 import { Linkedin, Clock, Calendar, Briefcase, ArrowRight, User, Sparkles, Brain } from 'lucide-react'
 import { CandidateVerdict } from '@/components/candidate-verdict'
@@ -390,6 +391,9 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               )}
             </CardContent>
           </Card>
+
+          {/* Open roles ranked against this candidate's embedding. */}
+          <SuggestedJobs candidateId={id} />
 
           {/* Recruiter Notes - Private */}
           <RecruiterNotes candidateId={id} />
