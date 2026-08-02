@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+import { createAdminClient } from '@/lib/supabase/server'
+import { getAppUser, requireCandidateAccess } from '@/lib/current-user'
 
 export async function PUT(
   req: Request,
@@ -9,34 +8,30 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const adminClient = createAdminClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // This handler reassigns a candidate through the service-role client, so
+    // it must first prove the caller can reach the candidate at all —
+    // otherwise any partner could hand themselves someone else's candidate by
+    // posting its id.
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-
-    // Check role
-    const { data: adminUser } = await adminClient
-      .from('users_admin')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-
-    const userRole = isSuperAdmin ? 'super_admin' : (adminUser?.role || 'viewer')
-    
-    // Only admins, recruiters, and scouts can assign owners
-    if (!['super_admin', 'admin', 'recruiter', 'scout'].includes(userRole)) {
-      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
-    }
-
+    const { appUser } = access
     const { owner_user_id } = await req.json()
 
-    // Use admin client to bypass RLS
-    const { error } = await adminClient
+    // Reassigning to a *different* person grants them access and revokes the
+    // current owner's — an admin-only action. Partners may only claim a
+    // candidate they can already see.
+    if (!appUser.isAdmin && owner_user_id && owner_user_id !== appUser.id) {
+      return NextResponse.json(
+        { error: 'Only admins can assign a candidate to another user' },
+        { status: 403 },
+      )
+    }
+
+    const { error } = await createAdminClient()
       .from('candidates')
       .update({ owner_user_id: owner_user_id || null })
       .eq('id', id)
@@ -50,25 +45,33 @@ export async function PUT(
   }
 }
 
-// Get list of users for assignment dropdown
-export async function GET(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// Get list of users for the assignment dropdown
+export async function GET(req: Request) {
   try {
-    const supabase = await createClient()
-    const adminClient = createAdminClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
+    const appUser = await getAppUser()
+    if (!appUser?.isActive) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // The dropdown is a directory of every partner's name and email. Only
+    // admins can reassign to another user, so only admins get the directory.
+    if (!appUser.isAdmin) {
+      return NextResponse.json({
+        users: [
+          {
+            user_id: appUser.id,
+            email: appUser.email,
+            full_name: appUser.fullName,
+            role: appUser.role,
+          },
+        ],
+      })
     }
 
     const url = new URL(req.url)
     const search = url.searchParams.get('search') || ''
 
-    // Use admin client to fetch users
-    let query = adminClient
+    let query = createAdminClient()
       .from('users_admin')
       .select('user_id, email, full_name, role')
       .not('user_id', 'is', null)

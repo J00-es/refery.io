@@ -54,7 +54,7 @@ export async function POST() {
         // User doesn't exist in users_admin, create them
         usersToCreate.push({
           user_id: authUser.id,
-          email: authUser.email,
+          email: emailLower,
           full_name: authUser.user_metadata?.full_name || authUser.email.split('@')[0] || '',
           linkedin_url: authUser.user_metadata?.linkedin_url || null,
           role: 'viewer',
@@ -68,8 +68,8 @@ export async function POST() {
           const { data: userToUpdate } = await adminClient
             .from('users_admin')
             .select('id')
-            .eq('email', authUser.email)
-            .single()
+            .eq('email', emailLower)
+            .maybeSingle()
           
           if (userToUpdate) {
             usersToUpdate.push({ id: userToUpdate.id, user_id: authUser.id })

@@ -1,6 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+import { normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
 
 export type AdminCheckResult =
   | { ok: true; userId: string; email: string; role: 'super_admin' | 'admin' }
@@ -29,24 +28,30 @@ export async function requireAdmin(): Promise<AdminCheckResult> {
     return { ok: false, status: 401, message: 'Unauthorized' }
   }
 
-  if (SUPER_ADMIN_EMAILS.includes(user.email)) {
-    return { ok: true, userId: user.id, email: user.email, role: 'super_admin' }
+  const email = normalizeEmail(user.email)
+
+  if (SUPER_ADMIN_EMAILS.includes(email)) {
+    return { ok: true, userId: user.id, email, role: 'super_admin' }
   }
 
   const { data: adminUser } = await adminClient
     .from('users_admin')
-    .select('role')
-    .eq('email', user.email)
+    .select('role, status')
+    .eq('email', email)
     .maybeSingle()
 
-  if (!adminUser || !['admin', 'super_admin'].includes(adminUser.role)) {
+  if (
+    !adminUser ||
+    adminUser.status !== 'active' ||
+    !['admin', 'super_admin'].includes(adminUser.role)
+  ) {
     return { ok: false, status: 403, message: 'Forbidden' }
   }
 
   return {
     ok: true,
     userId: user.id,
-    email: user.email,
+    email,
     role: adminUser.role as 'admin' | 'super_admin',
   }
 }

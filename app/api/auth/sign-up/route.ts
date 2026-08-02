@@ -8,6 +8,7 @@ import {
 } from '@/lib/agreements'
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
+import { normalizeEmail } from '@/lib/current-user'
 
 // PDF rendering + email send adds a few seconds; give the function room.
 export const maxDuration = 60
@@ -51,7 +52,11 @@ const PARTNER_TYPES: AgreementType[] = ['scout', 'recruiter']
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { email, password, fullName, linkedinUrl, role } = body
+    const { password, fullName, linkedinUrl, role } = body
+    // Supabase Auth lower-cases the address it stores. Match it here so the
+    // users_admin row can always be found by the auth email — a mixed-case row
+    // is invisible to every lookup and reads back as `pending`.
+    const email = normalizeEmail(body.email)
     const agreement: AgreementPayload | undefined = body.agreement
 
     const supabase = await createClient()
@@ -87,8 +92,22 @@ export async function POST(req: Request) {
         accepted_terms_at: new Date().toISOString(),
       })
       if (adminError) {
-        console.error('Failed to create user admin record:', adminError)
-        // Don't fail the whole sign-up if admin record creation fails
+        // Most likely an admin pre-created the row (email is unique). Keep the
+        // role and status they set, but link it to the new auth id so every
+        // ownership lookup resolves.
+        const { error: linkError } = await adminClient
+          .from('users_admin')
+          .update({
+            user_id: authData.user.id,
+            linkedin_url: linkedinUrl,
+            accepted_terms_at: new Date().toISOString(),
+          })
+          .eq('email', email)
+          .is('user_id', null)
+        if (linkError) {
+          console.error('Failed to create user admin record:', adminError, linkError)
+          // Don't fail the whole sign-up if admin record creation fails
+        }
       }
 
       // Persist the role-specific clickwrap acceptance for legal record-keeping,

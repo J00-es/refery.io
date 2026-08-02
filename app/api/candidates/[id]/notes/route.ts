@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireCandidateAccess } from '@/lib/current-user'
 
 export async function GET(
   req: Request,
@@ -9,25 +8,18 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
     const adminClient = createAdminClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    // Notes are read with the service-role client, so ownership of the
+    // candidate has to be proven here — RLS is not in play.
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-
-    // Check if user is a recruiter/admin (hiring managers can't see notes)
-    const { data: adminUser } = await adminClient
-      .from('users_admin')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-
-    if (adminUser && adminUser.role === 'hiring_manager') {
-      return NextResponse.json({ notes: [] }) // Return empty for hiring managers
+    // Hiring managers can't see notes
+    if (access.appUser.role === ('hiring_manager' as typeof access.appUser.role)) {
+      return NextResponse.json({ notes: [] })
     }
 
     // Use admin client to bypass RLS for fetching notes
@@ -52,24 +44,17 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
     const adminClient = createAdminClient()
-    
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
+    const { appUser } = access
 
-    // Check role - only recruiters and admins can add notes
-    const { data: adminUser } = await adminClient
-      .from('users_admin')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-
-    if (!isSuperAdmin && adminUser && !['super_admin', 'admin', 'recruiter', 'scout'].includes(adminUser.role)) {
+    // Only recruiters, scouts and admins can add notes
+    if (!['super_admin', 'admin', 'recruiter', 'scout'].includes(appUser.role)) {
       return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 })
     }
 
@@ -80,7 +65,7 @@ export async function POST(
       .from('recruiter_notes')
       .insert({
         candidate_id: id,
-        user_id: user.id,
+        user_id: appUser.id,
         note_type: note_type || 'general',
         content,
       })

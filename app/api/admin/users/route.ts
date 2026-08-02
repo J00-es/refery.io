@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { normalizeEmail } from '@/lib/current-user'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -70,7 +71,11 @@ export async function POST(req: Request) {
       }
     }
 
-    const { email, role, status } = await req.json()
+    const body = await req.json()
+    const { role, status } = body
+    // Store the same casing Supabase Auth will, so this row is findable once
+    // the invitee signs in.
+    const email = normalizeEmail(body.email)
 
     // Use admin client to insert to bypass RLS
     const { data, error } = await adminClient

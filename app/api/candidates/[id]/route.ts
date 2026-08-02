@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireCandidateAccess } from '@/lib/current-user'
 
 export async function GET(
   request: NextRequest,
@@ -7,14 +8,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
-    const { data: candidate, error } = await supabase
+    const { data: candidate, error } = await createAdminClient()
       .from('candidates')
       .select('*')
       .eq('id', id)
@@ -37,20 +36,22 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
     const body = await request.json()
 
-    const { data: candidate, error } = await supabase
+    // Ownership columns are reassigned through /api/candidates/[id]/owner,
+    // which is admin-gated. Never let them ride in on a generic field update.
+    const { owner_user_id, uploaded_by_user_id, user_id, id: _id, ...updates } = body
+
+    const { data: candidate, error } = await createAdminClient()
       .from('candidates')
       .update({
-        ...body,
-        updated_at: new Date().toISOString()
+        ...updates,
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()
@@ -73,14 +74,12 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
-    const { error } = await supabase
+    const { error } = await createAdminClient()
       .from('candidates')
       .delete()
       .eq('id', id)

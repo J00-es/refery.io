@@ -1,10 +1,9 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { DASHBOARD_BUCKETS, getStageConfig, STAGE_ACCENT_COLORS, STAGE_DESCRIPTIONS } from '@/lib/pipeline-stages'
 import { StageDrilldownClient } from './stage-drilldown-client'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 interface PageProps {
   params: Promise<{ stage: string }>
@@ -15,7 +14,6 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
   const { stage: bucketKey } = await params
   const { sort = 'days_desc', stale, search, owner } = await searchParams
   
-  const supabase = await createClient()
   const adminClient = createAdminClient()
 
   // Find the bucket configuration
@@ -24,23 +22,29 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
     notFound()
   }
 
-  // Get current user and role
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
-  
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role, full_name, user_id')
-    .eq('email', user?.email)
-    .single()
-  
-  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
-  const isAdmin = ['super_admin', 'admin'].includes(userRole)
-  const currentUserId = adminData?.user_id || user?.id
+  const appUser = await getAppUser()
+  if (!appUser) {
+    redirect('/auth/login')
+  }
+
+  const isAdmin = appUser.isAdmin
+  const currentUserId = appUser.id
+
+  // Scope before fetching. This used to pull every pipeline row and filter in
+  // JS, which both read other partners' rows and silently lost data: PostgREST
+  // caps a response at 1000 rows, so a partner whose rows sorted past the cap
+  // saw an empty stage.
+  let ownedCandidateIds: string[] = []
+  if (!isAdmin) {
+    const { data: ownedCands } = await adminClient
+      .from('candidates')
+      .select('id')
+      .or(candidateOwnershipFilter(currentUserId))
+    ownedCandidateIds = (ownedCands || []).map(c => c.id)
+  }
 
   // Fetch pipeline data for the stages in this bucket
-  const { data: pipelineData, error } = await adminClient
+  let pipelineQuery = adminClient
     .from('job_candidate_pipeline')
     .select(`
       id,
@@ -52,20 +56,32 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
       owner_user_id,
       jobs(id, title, company_name, company_id, location, salary_min, salary_max, created_at),
       candidates(
-        id, 
-        name, 
-        email, 
-        linkedin_url, 
+        id,
+        name,
+        email,
+        linkedin_url,
         location,
         experience_years,
         resume_blob_pathname,
-        owner_user_id, 
-        uploaded_by_user_id, 
+        owner_user_id,
+        uploaded_by_user_id,
         user_id
       )
     `)
     .in('stage', bucket.stages)
     .order('updated_at', { ascending: false })
+
+  if (!isAdmin) {
+    // A row is yours if you own the row itself, or if it is about your
+    // candidate — the matching automation owns most rows.
+    const orParts = [`owner_user_id.eq.${currentUserId}`]
+    if (ownedCandidateIds.length > 0) {
+      orParts.push(`candidate_id.in.(${ownedCandidateIds.join(',')})`)
+    }
+    pipelineQuery = pipelineQuery.or(orParts.join(','))
+  }
+
+  const { data: pipelineData, error } = await pipelineQuery
 
   // Fetch company logos for all jobs
   const companyIds = [...new Set(
@@ -87,8 +103,9 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
     console.error('Pipeline fetch error:', error)
   }
 
-  // Filter by ownership for non-admins
-  const filteredData = isAdmin 
+  // Second pass over the same rule the query already applied — cheap, and it
+  // keeps the page correct if the query filter is ever loosened.
+  const filteredData = isAdmin
     ? pipelineData || []
     : (pipelineData || []).filter(p => {
         if (p.owner_user_id === currentUserId) return true

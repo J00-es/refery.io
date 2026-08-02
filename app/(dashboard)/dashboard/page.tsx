@@ -1,4 +1,6 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { startOfWeek, subDays } from 'date-fns'
 import {
@@ -9,8 +11,6 @@ import {
   type DisplayStageKey,
 } from '@/lib/pipeline-stages'
 import type { PipelineStage } from '@/lib/types'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 // Pipeline data is refreshed continuously by the matching automation.
 export const dynamic = 'force-dynamic'
@@ -66,25 +66,17 @@ interface PipeRow {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
   const adminClient = createAdminClient()
 
   // ── auth + role (server-side, from the authenticated session only) ──────────
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const appUser = await getAppUser()
+  if (!appUser) {
+    redirect('/auth/login')
+  }
 
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role, full_name, user_id')
-    .eq('email', user?.email)
-    .single()
-
-  const userRole = isSuperAdmin ? 'super_admin' : adminData?.role || 'viewer'
-  const isAdmin = ['super_admin', 'admin'].includes(userRole)
-  const firstName = adminData?.full_name?.split(' ')[0] || 'there'
-  const me = adminData?.user_id || user?.id || ''
+  const isAdmin = appUser.isAdmin
+  const firstName = appUser.fullName?.split(' ')[0] || 'there'
+  const me = appUser.id
 
   const now = new Date()
   const weekStart = startOfWeek(now, { weekStartsOn: 1 })
@@ -100,7 +92,7 @@ export default async function DashboardPage() {
     const { data: ownedCands } = await adminClient
       .from('candidates')
       .select('id, status')
-      .or(`owner_user_id.eq.${me},uploaded_by_user_id.eq.${me},user_id.eq.${me}`)
+      .or(candidateOwnershipFilter(me))
     ownedCandidateIds = (ownedCands || []).map(c => c.id)
     placedCount = (ownedCands || []).filter(c => c.status === 'hired').length
   } else {

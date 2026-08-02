@@ -1,4 +1,5 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getAppUser, ownsCandidate } from '@/lib/current-user'
 import { notFound } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -54,29 +55,27 @@ const stageLabels: Record<string, string> = {
 
 export default async function CandidateDetailPage({ params }: PageProps) {
   const { id } = await params
-  const supabase = await createClient()
   const adminClient = createAdminClient()
-  
-  // Get current user and their role for permission checks first
-  const { data: { user } } = await supabase.auth.getUser()
-  const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
-  
-  // Use admin client for super admins to bypass RLS
-  const dbClient = isSuperAdmin ? adminClient : supabase
 
-  const { data: candidate, error: candidateError } = await dbClient
+  const appUser = await getAppUser()
+  if (!appUser) {
+    notFound()
+  }
+
+  const { data: candidate, error: candidateError } = await adminClient
     .from('candidates')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
-  if (candidateError || !candidate) {
+  // 404 rather than 403 for someone else's candidate: guessing an id should
+  // not confirm that the candidate exists.
+  if (candidateError || !ownsCandidate(appUser, candidate)) {
     notFound()
   }
 
   // Fetch pipeline data for this candidate
-  const { data: pipelineData } = await dbClient
+  const { data: pipelineData } = await adminClient
     .from('job_candidate_pipeline')
     .select(`
       *,
@@ -107,15 +106,10 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     createdByInfo = createdBy
   }
 
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role')
-    .eq('email', user?.email)
-    .single()
-  
-  const userRole = isSuperAdmin ? 'super_admin' : (adminData?.role || 'viewer')
-  const isAdmin = isSuperAdmin || userRole === 'admin'
-  const canSetRecruiterVerdict = isSuperAdmin || ['admin', 'recruiter', 'scout'].includes(userRole)
+  const { isSuperAdmin, role: userRole } = appUser
+  const isAdmin = appUser.isAdmin
+  const canSetRecruiterVerdict =
+    isSuperAdmin || ['admin', 'recruiter', 'scout'].includes(userRole)
 
   const typedCandidate = candidate as Candidate
   const parsedData = typedCandidate.parsed_data as ParsedResumeData | null

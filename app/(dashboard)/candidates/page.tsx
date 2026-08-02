@@ -1,74 +1,63 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import type { Candidate } from '@/lib/types'
 import { CandidateList } from '@/components/candidate-list'
+import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { cookies } from 'next/headers'
-
-// Hardcoded super admins
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 export default async function CandidatesPage() {
   await cookies()
-  const supabase = await createClient()
   const adminClient = createAdminClient()
 
-  // Get current user and their role
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (!user) {
+  const appUser = await getAppUser()
+
+  if (!appUser) {
     return <div>Please log in to view candidates.</div>
   }
 
-  // Check if super admin - use admin client to bypass RLS
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-  const dbClient = isSuperAdmin ? adminClient : supabase
+  const isAdmin = appUser.isAdmin
 
-  // Get user role for display purposes
-  const { data: adminData } = await adminClient
-    .from('users_admin')
-    .select('role')
-    .eq('email', user.email)
-    .single()
+  // Admins see every candidate; everyone else sees only the ones they own,
+  // uploaded, or created. The scope is applied to every query below — the
+  // candidate list and the pipeline/notes joins that decorate it — so nothing
+  // about another partner's candidates reaches the page.
+  let candidatesQuery = adminClient
+    .from('candidates')
+    .select('*')
+    .order('created_at', { ascending: false })
 
-  const userRole = isSuperAdmin
-    ? 'super_admin' 
-    : adminData?.role || 'viewer'
-  
-  const isAdmin = ['super_admin', 'admin'].includes(userRole)
-  const currentUserId = user.id
-
-  // Build query based on role
-  // Admins see all candidates, others see only owned/uploaded/created candidates
-  let candidatesResult
-  
-  if (isAdmin) {
-    candidatesResult = await dbClient
-      .from('candidates')
-      .select('*')
-      .order('created_at', { ascending: false })
-  } else {
-    // Non-admins (including recruiters) only see candidates they own, uploaded, or created
-    candidatesResult = await dbClient
-      .from('candidates')
-      .select('*')
-      .or(`owner_user_id.eq.${currentUserId},uploaded_by_user_id.eq.${currentUserId},user_id.eq.${currentUserId}`)
-      .order('created_at', { ascending: false })
+  if (!isAdmin) {
+    candidatesQuery = candidatesQuery.or(candidateOwnershipFilter(appUser.id))
   }
 
-  // Get pipeline data
-  const pipelineResult = await dbClient
+  const candidatesResult = await candidatesQuery
+  const candidates = candidatesResult.data ?? []
+  const visibleIds = candidates.map(c => c.id)
+
+  // Pipeline rows and notes only decorate the candidates scoped above, so
+  // restrict them to that set — an unscoped fetch here would leak other
+  // partners' activity and read the whole table to do it.
+  let pipelineQuery = adminClient
     .from('job_candidate_pipeline')
     .select('candidate_id, stage, job:jobs(title, company_name)')
 
-  // Get latest recruiter note date for each candidate
-  const { data: recruiterNotes } = await dbClient
+  let notesQuery = adminClient
     .from('recruiter_notes')
     .select('candidate_id, created_at')
     .order('created_at', { ascending: false })
 
-  const candidates = candidatesResult.data
-  const pipelineData = pipelineResult.data
+  if (!isAdmin) {
+    pipelineQuery = pipelineQuery.in('candidate_id', visibleIds)
+    notesQuery = notesQuery.in('candidate_id', visibleIds)
+  }
+
+  const [pipelineResult, notesResult] = visibleIds.length
+    ? await Promise.all([pipelineQuery, notesQuery])
+    : [null, null]
+
+  const recruiterNotes = notesResult?.data
+  const pipelineData = pipelineResult?.data
 
   // Build map of candidate_id -> latest note date
   const latestNoteByCandidate: Record<string, string> = {}
@@ -81,14 +70,13 @@ export default async function CandidatesPage() {
   }
 
   // Get unique owner IDs that exist
-  const ownerIds = [...new Set((candidates ?? []).filter(c => c.owner_user_id).map(c => c.owner_user_id))]
-  
-  // Only fetch owners if there are any.
-  // Use adminClient: RLS on users_admin restricts each viewer to their own row,
-  // so the RLS-scoped client only returned the current user — candidates owned
-  // by other admins fell through to ownerMap[id] = undefined and rendered as
-  // "Unassigned" on the card. users_admin is internal team metadata, safe to
-  // surface regardless of the viewer.
+  const ownerIds = [...new Set(candidates.filter(c => c.owner_user_id).map(c => c.owner_user_id))]
+
+  // Only fetch owners if there are any. adminClient rather than the RLS-scoped
+  // client: users_admin only exposes the viewer's own row, so a candidate owned
+  // by a teammate fell through to ownerMap[id] = undefined and rendered as
+  // "Unassigned" on the card. The ids come from candidates already scoped to
+  // this viewer, so this reveals no one they can't already see.
   let ownerMap: Record<string, { email: string; full_name: string | null }> = {}
   if (ownerIds.length > 0) {
     const { data: owners } = await adminClient
@@ -120,7 +108,7 @@ export default async function CandidatesPage() {
   }
 
   // Enrich candidates with last_activity (max of updated_at, created_at, and latest recruiter note)
-  const enrichedCandidates = (candidates ?? []).map(candidate => {
+  const enrichedCandidates = candidates.map(candidate => {
     const latestNoteDate = latestNoteByCandidate[candidate.id]
     const candidateUpdated = new Date(candidate.updated_at).getTime()
     const candidateCreated = new Date(candidate.created_at).getTime()

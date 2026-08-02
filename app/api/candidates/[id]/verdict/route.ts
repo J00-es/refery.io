@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+import { createAdminClient } from '@/lib/supabase/server'
+import { requireCandidateAccess } from '@/lib/current-user'
 
 export async function PATCH(
   request: NextRequest,
@@ -9,13 +8,13 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const access = await requireCandidateAccess(id)
+    if (!access.ok) {
+      return NextResponse.json({ error: access.message }, { status: access.status })
     }
 
+    const { appUser } = access
     const { type, verdict } = await request.json()
 
     // Validate verdict type
@@ -30,40 +29,31 @@ export async function PATCH(
     }
 
     // Check permissions - lily verdict can only be set by super admin
-    const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user.email || '')
-    
-    if (type === 'lily' && !isSuperAdmin) {
-      return NextResponse.json({ 
-        error: 'Only super admin can set Lily verdict' 
-      }, { status: 403 })
+    if (type === 'lily' && !appUser.isSuperAdmin) {
+      return NextResponse.json(
+        { error: 'Only super admin can set Lily verdict' },
+        { status: 403 }
+      )
     }
 
-    // For recruiter verdict, check if user has permission (admin, recruiter, scout)
-    if (type === 'recruiter' && !isSuperAdmin) {
-      const { data: adminData } = await supabase
-        .from('users_admin')
-        .select('role')
-        .eq('email', user.email)
-        .single()
-
-      const userRole = adminData?.role || 'viewer'
-      const canSetRecruiterVerdict = ['admin', 'recruiter', 'scout'].includes(userRole)
-
-      if (!canSetRecruiterVerdict) {
-        return NextResponse.json({ 
-          error: 'You do not have permission to set recruiter verdict' 
-        }, { status: 403 })
-      }
+    if (
+      type === 'recruiter' &&
+      !['super_admin', 'admin', 'recruiter', 'scout'].includes(appUser.role)
+    ) {
+      return NextResponse.json(
+        { error: 'You do not have permission to set recruiter verdict' },
+        { status: 403 }
+      )
     }
 
     // Update the appropriate verdict field
     const updateField = type === 'lily' ? 'lily_verdict' : 'recruiter_verdict'
-    
-    const { data, error } = await supabase
+
+    const { data, error } = await createAdminClient()
       .from('candidates')
-      .update({ 
+      .update({
         [updateField]: verdict,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .select()

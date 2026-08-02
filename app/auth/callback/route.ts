@@ -1,4 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { normalizeEmail } from '@/lib/current-user'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function GET(request: NextRequest) {
@@ -15,13 +16,14 @@ export async function GET(request: NextRequest) {
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user?.email) {
+        const email = normalizeEmail(user.email)
         // Check if user exists in users_admin using admin client to bypass RLS
         const { data: adminUser } = await adminClient
           .from('users_admin')
           .select('id, user_id')
-          .eq('email', user.email)
-          .single()
-        
+          .eq('email', email)
+          .maybeSingle()
+
         if (adminUser) {
           // If user exists but doesn't have user_id, update it
           if (!adminUser.user_id) {
@@ -40,7 +42,7 @@ export async function GET(request: NextRequest) {
             .from('users_admin')
             .insert({
               user_id: user.id,
-              email: user.email,
+              email,
               full_name: fullName,
               linkedin_url: linkedinUrl,
               role: 'viewer', // Default role for users who signed up without selecting
