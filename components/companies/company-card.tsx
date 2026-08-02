@@ -13,6 +13,7 @@ import {
   shortRound,
   stageLabel,
   stageTint,
+  usableLogo,
 } from '@/lib/company-ui'
 
 export interface CompanyRow {
@@ -36,7 +37,8 @@ export interface CompanyRow {
 
 /** Logo with an initials fallback — roughly 40% of rows have no logo, and
  *  remote logo URLs go stale, so the error path is the common path. */
-function Logo({ name, url }: { name: string; url?: string | null }) {
+function Logo({ name, url: rawUrl }: { name: string; url?: string | null }) {
+  const url = usableLogo(rawUrl)
   const [failed, setFailed] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
 

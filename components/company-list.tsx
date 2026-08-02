@@ -30,6 +30,7 @@ import {
   shortRound,
   stageLabel,
   stageTint,
+  usableLogo,
 } from '@/lib/company-ui'
 
 export interface CompanyStats {
@@ -159,6 +160,7 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
   const stage = stageLabel(c.stage)
   const href = c.id ? `/companies/${c.id}` : `/companies/view/${encodeURIComponent(c.name)}`
 
+  const logoUrl = usableLogo(c.logo_url)
   const [logoFailed, setLogoFailed] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
   // Rows are server-rendered too, so a dead logo URL can fail before onError
@@ -166,8 +168,8 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
   useEffect(() => {
     const img = imgRef.current
     if (img?.complete && img.naturalWidth === 0) setLogoFailed(true)
-  }, [c.logo_url])
-  const showLogo = Boolean(c.logo_url) && !logoFailed
+  }, [logoUrl])
+  const showLogo = Boolean(logoUrl) && !logoFailed
 
   return (
     <Link
@@ -184,7 +186,7 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             ref={imgRef}
-            src={c.logo_url!}
+            src={logoUrl!}
             alt=""
             loading="lazy"
             className="h-full w-full object-contain"

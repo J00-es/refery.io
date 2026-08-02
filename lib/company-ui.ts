@@ -138,6 +138,28 @@ export function employeeLabel(v?: string | null): string | null {
   return /^\d/.test(t) ? `${t} emp` : t
 }
 
+/**
+ * Hosts that no longer serve logos. Clearbit's free logo API was retired, and
+ * `logo.clearbit.com` now fails to connect at all rather than returning 404 —
+ * so the request hangs, `onError` never fires, and the browser leaves a broken
+ * image box on the card. 10,612 of the 11,831 stored logo URLs point there.
+ *
+ * Filtering at render time rather than nulling the column keeps the URLs
+ * around in case the logos get re-sourced from these slugs later.
+ */
+const DEAD_LOGO_HOSTS = ['logo.clearbit.com']
+
+/** The logo URL to actually render, or null to fall back to initials. */
+export function usableLogo(url?: string | null): string | null {
+  if (!url) return null
+  try {
+    const host = new URL(url).hostname.toLowerCase()
+    return DEAD_LOGO_HOSTS.includes(host) ? null : url
+  } catch {
+    return null
+  }
+}
+
 /** top_investors is a comma-separated string; show the first few. */
 export function investorList(v?: string | null, take = 2): { shown: string[]; extra: number } {
   if (!v) return { shown: [], extra: 0 }
