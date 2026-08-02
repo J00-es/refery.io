@@ -1,113 +1,160 @@
-import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
+import { createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import type { Company } from '@/lib/types'
-import { Plus } from 'lucide-react'
 import { BatchUpload } from '@/components/batch-upload'
-import { CompanyList } from '@/components/company-list'
+import { CompanyList, type CompanyStats } from '@/components/company-list'
+import type { CompanyRow } from '@/components/companies/company-card'
+import { getAppUser } from '@/lib/current-user'
+import { FOCUS } from '@/lib/candidate-ui'
+import { RAISE_BANDS, RECENCY_BANDS } from '@/lib/company-ui'
 
-// Hardcoded super admins
-const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
+export const dynamic = 'force-dynamic'
 
-interface CompanyFromJobs {
-  name: string
-  jobCount: number
-  isFromDatabase: boolean
-  companyData?: Company & { relationship_status?: string }
+const PAGE_SIZE = 24
+
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-export default async function CompaniesPage() {
-  const supabase = await createClient()
+const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? ''
+const many = (v: string | string[] | undefined) => one(v).split(',').filter(Boolean)
+
+/** ISO date N months before today, for the "funded within" filter. */
+function monthsAgo(months: number): string {
+  const d = new Date()
+  d.setMonth(d.getMonth() - months)
+  return d.toISOString().slice(0, 10)
+}
+
+export default async function CompaniesPage({ searchParams }: PageProps) {
+  const sp = await searchParams
   const adminClient = createAdminClient()
-  
-  // Get current user first
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  // Check if super admin - use admin client to bypass RLS
-  const isSuperAdmin = SUPER_ADMIN_EMAILS.includes(user?.email || '')
-  const dbClient = isSuperAdmin ? adminClient : supabase
-  
-  // Pull only the columns the list view actually uses (skips heavy fields like
-  // hiring_dna, eng_team_dna, gtm_team_dna, hiring_insights, etc.). The active
-  // job counts come from a SQL view that aggregates jobs in the database
-  // instead of shipping every job row to the server just to count them.
-  const COMPANY_LIST_COLUMNS = 'id, name, description, logo_url, employee_count, industry, linkedin_url, location, relationship_status, stage, created_at'
-  const [companiesResult, jobCountsResult] = await Promise.all([
-    dbClient.from('companies').select(COMPANY_LIST_COLUMNS).order('name', { ascending: true }),
-    dbClient.from('company_active_job_counts').select('company_name_lower, company_name, job_count'),
-  ])
+  const appUser = await getAppUser()
+  const isAdmin = appUser?.isAdmin ?? false
 
-  const companies = companiesResult.data as (Company & { relationship_status?: string })[] | null
-  type JobCountRow = { company_name_lower: string; company_name: string; job_count: number }
-  const jobCounts = (jobCountsResult.data ?? []) as JobCountRow[]
+  const q = one(sp.q).trim()
+  const stages = many(sp.stage)
+  const rounds = many(sp.round)
+  const raise = many(sp.raise)
+  const funded = one(sp.funded)
+  const openOnly = one(sp.open) === '1'
+  const dncOnly = one(sp.dnc) === '1' && isAdmin
+  const sort = one(sp.sort) || 'recent_funding'
+  const page = Math.max(1, parseInt(one(sp.page) || '1', 10) || 1)
 
-  // Check admin status
-  let isAdmin = isSuperAdmin
-  if (!isAdmin && user?.email) {
-    const { data: adminData } = await adminClient
-      .from('users_admin')
-      .select('role')
-      .eq('email', user.email)
-      .single()
-    isAdmin = adminData && ['super_admin', 'admin'].includes(adminData.role)
+  /*
+    Every filter runs in Postgres against companies_list, which carries the
+    active job count as a column. The previous implementation fetched the whole
+    table and filtered in the browser — at ~20k rows that silently truncated at
+    PostgREST's 1000-row ceiling, so the header count never matched the list.
+  */
+  let query = adminClient.from('companies_list').select('*', { count: 'exact' })
+
+  if (q) {
+    // Commas and parens are PostgREST `or` syntax; neutralise them.
+    const safe = q.replace(/[,()]/g, ' ')
+    query = query.or(`name.ilike.%${safe}%,industry.ilike.%${safe}%,location.ilike.%${safe}%`)
+  }
+  if (stages.length) query = query.in('stage', stages)
+  if (rounds.length) query = query.in('last_funding_type', rounds)
+
+  // Raise bands are OR-ed with each other but AND-ed with everything else.
+  if (raise.length) {
+    const clauses = raise
+      .map(k => RAISE_BANDS.find(b => b.key === k))
+      .filter((b): b is (typeof RAISE_BANDS)[number] => Boolean(b))
+      .map(b =>
+        b.max === null
+          ? `last_funding_amount_usd.gte.${b.min}`
+          : `and(last_funding_amount_usd.gte.${b.min},last_funding_amount_usd.lt.${b.max})`,
+      )
+    if (clauses.length) query = query.or(clauses.join(','))
   }
 
-  // Build company map efficiently
-  const companyMap = new Map<string, CompanyFromJobs>()
+  if (funded) {
+    const band = RECENCY_BANDS.find(b => b.key === funded)
+    if (band) query = query.gte('last_funding_date', monthsAgo(band.months))
+  }
+  if (openOnly) query = query.gt('active_job_count', 0)
+  if (dncOnly) query = query.eq('do_not_contact', true)
 
-  // Add database companies
-  companies?.forEach(company => {
-    companyMap.set(company.name.toLowerCase(), {
-      name: company.name,
-      jobCount: 0,
-      isFromDatabase: true,
-      companyData: company,
-    })
+  switch (sort) {
+    case 'largest_round':
+      query = query.order('last_funding_amount_usd', { ascending: false, nullsFirst: false })
+      break
+    case 'name':
+      query = query.order('name', { ascending: true })
+      break
+    case 'newest':
+      query = query.order('created_at', { ascending: false, nullsFirst: false })
+      break
+    default:
+      query = query.order('last_funding_date', { ascending: false, nullsFirst: false })
+  }
+
+  const from = (page - 1) * PAGE_SIZE
+  const { data, count } = await query.range(from, from + PAGE_SIZE - 1)
+
+  const companies: CompanyRow[] = (data ?? []).map(c => {
+    const row = c as unknown as CompanyRow & { active_job_count?: number }
+    return { ...row, jobCount: row.active_job_count ?? 0, isFromDatabase: true }
   })
 
-  // Merge in aggregated active job counts (one row per distinct lower(company_name))
-  jobCounts.forEach(row => {
-    const key = row.company_name_lower
-    const count = Number(row.job_count) || 0
-    const existing = companyMap.get(key)
-    if (existing) {
-      existing.jobCount = count
-    } else {
-      companyMap.set(key, {
-        name: row.company_name,
-        jobCount: count,
-        isFromDatabase: false,
-      })
+  // Portfolio numbers for the admin strip — head-only counts, no rows fetched.
+  let stats: CompanyStats | null = null
+  if (isAdmin) {
+    const [totalRes, openRes, fundedRes, missingRes] = await Promise.all([
+      adminClient.from('companies').select('id', { count: 'exact', head: true }),
+      adminClient
+        .from('companies_list')
+        .select('id', { count: 'exact', head: true })
+        .gt('active_job_count', 0),
+      adminClient
+        .from('companies')
+        .select('id', { count: 'exact', head: true })
+        .gte('last_funding_date', monthsAgo(6)),
+      adminClient
+        .from('companies')
+        .select('id', { count: 'exact', head: true })
+        .is('last_funding_amount_usd', null),
+    ])
+    stats = {
+      total: totalRes.count ?? 0,
+      withOpenRoles: openRes.count ?? 0,
+      fundedLast6Mo: fundedRes.count ?? 0,
+      missingFunding: missingRes.count ?? 0,
     }
-  })
-
-  // Filter out "in_pipeline" companies for non-admins
-  const allCompanies = Array.from(companyMap.values())
-    .filter(company => {
-      // If not admin and company is in pipeline status, hide it
-      if (!isAdmin && company.companyData?.relationship_status === 'in_pipeline') {
-        return false
-      }
-      return true
-    })
-    .sort((a, b) => a.name.localeCompare(b.name))
+  }
 
   return (
-    <div className="space-y-6 sm:space-y-8 px-4 sm:px-0">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Companies</h1>
-          <p className="text-muted-foreground text-sm sm:text-base">{allCompanies.length} companies</p>
+          <h1 className="font-serif text-[30px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[36px]">
+            Companies
+          </h1>
+          <p className="mt-2 text-[14px] text-[#6E6E68] sm:text-[15px]">
+            Stage, last round, and who is hiring — across the whole network.
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex shrink-0 items-center gap-2.5">
           <BatchUpload type="companies" />
-          <Link href="/companies/new">
-            <Button size="sm" className="sm:size-default"><Plus className="h-4 w-4 mr-2" />Add Company</Button>
+          <Link
+            href="/companies/new"
+            className={`flex h-11 items-center rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+          >
+            Add company
           </Link>
         </div>
-      </div>
+      </header>
 
-      <CompanyList companies={allCompanies} isAdmin={isAdmin} />
+      <CompanyList
+        companies={companies}
+        total={count ?? 0}
+        page={page}
+        pageSize={PAGE_SIZE}
+        isAdmin={isAdmin}
+        stats={stats}
+      />
     </div>
   )
 }
