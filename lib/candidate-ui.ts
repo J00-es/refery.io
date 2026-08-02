@@ -73,22 +73,49 @@ export function stageLabel(stage: string): string {
   return stage.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// ── verdicts ────────────────────────────────────────────────────────────────
-export const VERDICT_DOTS: Record<string, string> = {
-  very_strong: 'bg-[#1F7A54]',
-  strong: 'bg-[#2E9E6B]',
-  moderate: 'bg-[#C79A2E]',
-  weak: 'bg-[#D08A4C]',
-  pass: 'bg-[#C2544B]',
+// ── verdicts, rendered as grades ────────────────────────────────────────────
+/**
+ * On a list card a verdict only needs to answer "how good, at a glance".
+ * Spelling it out ("Very strong") costs a chip's width and reads as prose in a
+ * grid, so the card shows the grade and the detail page keeps the full wording.
+ */
+export const VERDICT_GRADES: Record<string, { grade: string; label: string; className: string }> = {
+  very_strong: {
+    grade: 'A+',
+    label: 'Very strong',
+    className: 'bg-[#1F4D3A] text-white border-transparent',
+  },
+  strong: {
+    grade: 'A',
+    label: 'Strong',
+    className: 'bg-[#E9F0EC] text-[#1F4D3A] border-[#1F4D3A]/20',
+  },
+  moderate: {
+    grade: 'A−',
+    label: 'Moderate',
+    className: 'bg-[#F3F1E6] text-[#6E6A2E] border-[#6E6A2E]/20',
+  },
+  weak: {
+    grade: 'B+',
+    label: 'Weak',
+    className: 'bg-[#F5EEDD] text-[#8A6A1F] border-[#8A6A1F]/20',
+  },
+  pass: {
+    grade: 'Pass',
+    label: 'Pass',
+    className: 'bg-[#F7EDEC] text-[#9C4038] border-[#9C4038]/20',
+  },
 }
 
-export const VERDICT_LABELS: Record<string, string> = {
-  very_strong: 'Very strong',
-  strong: 'Strong',
-  moderate: 'Moderate',
-  weak: 'Weak',
-  pass: 'Pass',
+/** Shown when nobody has graded the candidate yet. */
+export const UNGRADED = {
+  grade: '—',
+  label: 'Not yet calibrated',
+  className: 'bg-transparent text-[#9C9C95] border-dashed border-[#D8D8D0]',
 }
+
+export const GRADE_BADGE =
+  'inline-flex h-[26px] min-w-[34px] items-center justify-center rounded-lg border px-1.5 text-[12.5px] font-semibold leading-none tabular-nums'
 
 // ── avatars ─────────────────────────────────────────────────────────────────
 /**

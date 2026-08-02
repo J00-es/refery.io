@@ -14,8 +14,9 @@ import {
   relativeTime,
   stageDot,
   stageLabel,
-  VERDICT_DOTS,
-  VERDICT_LABELS,
+  GRADE_BADGE,
+  UNGRADED,
+  VERDICT_GRADES,
 } from '@/lib/candidate-ui'
 
 export interface EnrichedCandidate extends Candidate {
@@ -27,11 +28,14 @@ export interface EnrichedCandidate extends Candidate {
 
 interface CandidateCardProps {
   candidate: EnrichedCandidate
-  /** Owner is meaningful only when you can see other people's candidates. */
-  showOwner?: boolean
+  /**
+   * Super admin. Gates the two things that only mean something across
+   * partners: the owner line, and Lily's (admin-only) verdict.
+   */
+  canViewAll?: boolean
 }
 
-function CandidateCardComponent({ candidate, showOwner = false }: CandidateCardProps) {
+function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCardProps) {
   const availability = availabilityOf(candidate.availability_status)
   const salary = formatSalary(candidate.salary_expectation_min, candidate.salary_expectation_max)
   const currentRole = candidate.parsed_data?.work_history?.[0]
@@ -46,35 +50,17 @@ function CandidateCardComponent({ candidate, showOwner = false }: CandidateCardP
   ].filter(Boolean) as string[]
 
   const skills = (candidate.skills ?? []).slice(0, 3)
+  const stages = candidate.pipeline_jobs ?? []
 
-  // Pipeline stages and human verdicts are both "where does this person
-  // stand" signals, so they share one row. Verdicts lead — an assessment is
-  // scarcer and more decision-relevant than a stage.
-  const signals: { label: string; dot: string; title: string }[] = [
-    ...(candidate.recruiter_verdict
-      ? [
-          {
-            label: VERDICT_LABELS[candidate.recruiter_verdict] ?? candidate.recruiter_verdict,
-            dot: VERDICT_DOTS[candidate.recruiter_verdict] ?? 'bg-[#B8B8B0]',
-            title: 'Recruiter verdict',
-          },
-        ]
-      : []),
-    ...(candidate.lily_verdict
-      ? [
-          {
-            label: VERDICT_LABELS[candidate.lily_verdict] ?? candidate.lily_verdict,
-            dot: VERDICT_DOTS[candidate.lily_verdict] ?? 'bg-[#B8B8B0]',
-            title: 'Lily verdict',
-          },
-        ]
-      : []),
-    ...(candidate.pipeline_jobs ?? []).map(pj => ({
-      label: stageLabel(pj.stage),
-      dot: stageDot(pj.stage),
-      title: pj.job_title || pj.company,
-    })),
-  ]
+  // One grade per card. Lily's assessment is the calibrated one so it wins when
+  // present, but it is admin-only on the detail page — so partners only ever
+  // see the recruiter grade here, and the two surfaces agree.
+  const gradedBy = canViewAll && candidate.lily_verdict ? 'lily' : 'recruiter'
+  const verdict = gradedBy === 'lily' ? candidate.lily_verdict : candidate.recruiter_verdict
+  const grade = (verdict && VERDICT_GRADES[verdict]) || UNGRADED
+  const gradeTitle = verdict
+    ? `${gradedBy === 'lily' ? 'Lily' : 'Recruiter'} verdict: ${grade.label}`
+    : UNGRADED.label
 
   return (
     <Link
@@ -148,6 +134,16 @@ function CandidateCardComponent({ candidate, showOwner = false }: CandidateCardP
               {availability.label}
             </p>
           </div>
+
+          {/* Grade sits in a fixed top-right slot on every card, so it forms a
+              readable column down the grid instead of moving with the content. */}
+          <span
+            className={`${GRADE_BADGE} ${grade.className} shrink-0`}
+            title={gradeTitle}
+            aria-label={gradeTitle}
+          >
+            {grade.grade}
+          </span>
         </header>
 
         {/* ── body ───────────────────────────────────────────────────────── */}
@@ -187,23 +183,19 @@ function CandidateCardComponent({ candidate, showOwner = false }: CandidateCardP
             </div>
           )}
 
-          {/*
-            Stages and verdicts share one capped row. Given as separate rows
-            they were the main driver of height variance, and in an
-            equal-height grid the tallest card pads every other card in its
-            row with dead space.
-          */}
-          {signals.length > 0 && (
+          {/* Stages only — the verdict now lives in the grade badge. Capped at
+              two so this row never wraps and pads the whole grid row. */}
+          {stages.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {signals.slice(0, 2).map((s, i) => (
-                <span key={i} className={CHIP} title={s.title}>
-                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${s.dot}`} />
-                  {s.label}
+              {stages.slice(0, 2).map((pj, i) => (
+                <span key={i} className={CHIP} title={pj.job_title || pj.company}>
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${stageDot(pj.stage)}`} />
+                  {stageLabel(pj.stage)}
                 </span>
               ))}
-              {signals.length > 2 && (
+              {stages.length > 2 && (
                 <span className="self-center text-[11.5px] text-[#9C9C95]">
-                  +{signals.length - 2}
+                  +{stages.length - 2}
                 </span>
               )}
             </div>
@@ -212,7 +204,7 @@ function CandidateCardComponent({ candidate, showOwner = false }: CandidateCardP
 
         {/* ── footer: ownership + recency, the two metadata facts ────────── */}
         <footer className="flex items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
-          {showOwner ? (
+          {canViewAll ? (
             owner ? (
               <span className="flex min-w-0 items-center gap-1.5 text-[#6E6E68]">
                 <span

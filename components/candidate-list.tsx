@@ -12,6 +12,9 @@ import {
   AVAILABILITY,
   CARD,
   FOCUS,
+  GRADE_BADGE,
+  UNGRADED,
+  VERDICT_GRADES,
   availabilityOf,
   avatarTint,
   formatSalary,
@@ -128,15 +131,20 @@ function ActiveChip({ label, onClear }: { label: string; onClear: () => void }) 
 /** Compact row — replaces the old wide table, which needed horizontal scroll. */
 function CandidateRow({
   candidate,
-  showOwner,
+  canViewAll,
 }: {
   candidate: EnrichedCandidate
-  showOwner: boolean
+  canViewAll: boolean
 }) {
   const availability = availabilityOf(candidate.availability_status)
   const role = candidate.parsed_data?.work_history?.[0]
   const owner = ownerName(candidate.owner)
   const salary = formatSalary(candidate.salary_expectation_min, candidate.salary_expectation_max)
+
+  // Same rule as the card: Lily's grade wins for super admins, and partners
+  // never see it — it is admin-only on the detail page.
+  const verdict = (canViewAll && candidate.lily_verdict) || candidate.recruiter_verdict
+  const grade = (verdict && VERDICT_GRADES[verdict]) || UNGRADED
 
   return (
     <Link
@@ -160,7 +168,7 @@ function CandidateRow({
         </span>
         {/* Below sm the meta collapses under the name instead of into columns. */}
         <span className="mt-0.5 block truncate text-[12px] text-[#9C9C95] md:hidden">
-          {[candidate.location, salary, showOwner ? owner : null].filter(Boolean).join(' · ') || '—'}
+          {[candidate.location, salary, canViewAll ? owner : null].filter(Boolean).join(' · ') || '—'}
         </span>
       </span>
 
@@ -170,7 +178,15 @@ function CandidateRow({
       <span className="hidden w-24 shrink-0 truncate text-[12.5px] text-[#6E6E68] lg:block">
         {salary || '—'}
       </span>
-      {showOwner && (
+      <span
+        className={`${GRADE_BADGE} ${grade.className} shrink-0`}
+        title={verdict ? grade.label : UNGRADED.label}
+        aria-label={verdict ? `Grade ${grade.grade}` : UNGRADED.label}
+      >
+        {grade.grade}
+      </span>
+
+      {canViewAll && (
         <span className="hidden w-36 shrink-0 items-center gap-1.5 md:flex">
           {owner ? (
             <>
@@ -641,13 +657,13 @@ export function CandidateList({ candidates, owners, canViewAll }: CandidateListP
       ) : view === 'card' ? (
         <div className={GRID}>
           {visible.map(c => (
-            <CandidateCard key={c.id} candidate={c} showOwner={canViewAll} />
+            <CandidateCard key={c.id} candidate={c} canViewAll={canViewAll} />
           ))}
         </div>
       ) : (
         <div className={`${CARD} divide-y divide-[#ECECE6] overflow-hidden`}>
           {visible.map(c => (
-            <CandidateRow key={c.id} candidate={c} showOwner={canViewAll} />
+            <CandidateRow key={c.id} candidate={c} canViewAll={canViewAll} />
           ))}
         </div>
       )}
