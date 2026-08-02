@@ -4,11 +4,19 @@
  * one system.
  */
 
+/**
+ * Note: the jobs table has no currency column, so a figure posted in pesos or
+ * yen is rendered with a dollar sign like every other. Values roll over to
+ * millions above 999k rather than printing "$1385k".
+ */
 export function formatSalary(min?: number | null, max?: number | null): string | null {
-  const k = (n: number) => `$${Math.round(n / 1000)}k`
-  if (min && max) return `${k(min)}–${k(max)}`
-  if (min) return `${k(min)}+`
-  if (max) return `Up to ${k(max)}`
+  const fmt = (n: number) =>
+    n >= 1_000_000
+      ? `$${(n / 1_000_000).toFixed(n / 1_000_000 >= 10 ? 0 : 1).replace(/\.0$/, '')}M`
+      : `$${Math.round(n / 1000)}k`
+  if (min && max) return `${fmt(min)}–${fmt(max)}`
+  if (min) return `${fmt(min)}+`
+  if (max) return `Up to ${fmt(max)}`
   return null
 }
 
