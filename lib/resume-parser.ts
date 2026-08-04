@@ -45,6 +45,16 @@ function reasoningOptions() {
  */
 const MODEL_CHAIN = [
   process.env.RESUME_PARSER_MODEL,
+  // Measured, on a one-page résumé fed as text: gpt-5.6-sol produced 1,198
+  // output tokens in 43 seconds — about 28 tokens a second. Only 316 of those
+  // were reasoning tokens, so the wait was not deliberation we could tune away;
+  // it is simply how fast that model writes. A Flash-class model is built for
+  // exactly this shape of work — pull structure out of text that already
+  // contains the answer — at a fraction of the latency and the price.
+  'google/gemini-3.6-flash',
+  // Kept behind it on quality grounds: this is what produced the extractions we
+  // verified, so if Flash ever returns something the schema rejects, the résumé
+  // still gets read properly rather than failing.
   'openai/gpt-5.6-sol',
   'openai/gpt-4o',
 ].filter((m): m is string => !!m)
