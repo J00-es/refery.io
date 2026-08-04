@@ -192,8 +192,17 @@ Specifically:
   away.
 - Capture EVERY education entry, including bootcamps, certificates, exchange
   programmes and unfinished degrees, along with honours and activities.
-- Skills must include everything named anywhere on the page, including tools
-  mentioned only inside a bullet point, not just the "Skills" section.
+- Skills must cover two things, not one. First, every tool, language, framework
+  and platform named anywhere on the page, including ones mentioned only inside
+  a bullet point. Second, the capabilities the résumé demonstrates even where it
+  never names them as skills — "cut p95 latency by moving reads to a cache" is
+  evidence of performance optimisation and caching; "lifted activation from 22%
+  to 41%" is evidence of onboarding and growth work. Most résumés have no skills
+  section at all, and a list of only the tools makes an experienced candidate
+  look narrow and stops them matching roles they can plainly do. Aim to be
+  generous here: twenty entries is normal, five means you have under-read.
+- Name an award the way the résumé does. "Runner-up, Edinburgh Hack 2024" is the
+  award's name; do not split the placing from the competition.
 
 Accuracy rules:
 - Extract what is stated. Infer only where the inference is unambiguous — for
