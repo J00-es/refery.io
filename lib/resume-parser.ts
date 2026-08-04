@@ -222,8 +222,25 @@ text and nothing else.`
  */
 export const EXTRACTION_BUDGET_MS = 240_000
 
+/**
+ * The longest any single model call may run.
+ *
+ * Measured: a one-page résumé extracts in the mid-twenties of seconds and a
+ * dense three-page CV in the mid-forties. Anything past this is not a slow
+ * résumé, it is a stalled request — and without a cap it consumed the entire
+ * budget, so the user sat on a spinner for four minutes and then got nothing.
+ * Capping the attempt turns that into a fast failure with the whole fallback
+ * chain still ahead of it.
+ */
+const ATTEMPT_TIMEOUT_MS = 75_000
+
 /** Too little time left to be worth starting another model. */
 const MIN_ATTEMPT_MS = 10_000
+
+/** What this attempt gets: its own cap, or whatever is left, whichever is less. */
+function attemptBudget(deadline: number): number {
+  return Math.min(ATTEMPT_TIMEOUT_MS, deadline - Date.now())
+}
 
 interface AnalyzeSuccess {
   parsed: z.infer<typeof ParsedResumeSchema>
@@ -245,23 +262,6 @@ function modelChain(): string[] {
     : MODEL_CHAIN
 }
 
-/**
- * True when the attempt died because it ran out of time rather than because the
- * model was wrong for the job.
- *
- * The distinction decides whether falling back is worth anything: a model id the
- * gateway does not serve fails in milliseconds and the next one deserves a go,
- * whereas a model that ran out the clock has left nothing for anyone else — and
- * the next model would be no faster on the same document.
- */
-function isTimeout(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  return (
-    (error instanceof Error && error.name === 'TimeoutError') ||
-    message.includes('aborted') ||
-    message.includes('timeout')
-  )
-}
 
 /**
  * Transcribe the document in full.
@@ -273,7 +273,7 @@ function isTimeout(error: unknown): boolean {
  */
 async function transcribeResume(base64: string, deadline: number): Promise<string | null> {
   for (const model of modelChain()) {
-    const remaining = deadline - Date.now()
+    const remaining = attemptBudget(deadline)
     if (remaining < MIN_ATTEMPT_MS) break
 
     try {
@@ -299,7 +299,7 @@ async function transcribeResume(base64: string, deadline: number): Promise<strin
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Résumé transcription failed on ${model}: ${message}`)
-      if (isAccountError(message) || isTimeout(error)) return null
+      if (isAccountError(message)) return null
     }
   }
 
@@ -342,7 +342,7 @@ async function analyzeWithFallback(
         ]
 
   for (const model of modelChain()) {
-    const remaining = deadline - Date.now()
+    const remaining = attemptBudget(deadline)
     if (remaining < MIN_ATTEMPT_MS) break
 
     const startedAt = Date.now()
@@ -382,8 +382,8 @@ async function analyzeWithFallback(
       // Billing and quota problems will hit every model in the chain
       // identically, so surface them immediately instead of burning the chain.
       if (isAccountError(message)) throw error
-      // Out of time, not out of options — another model will not be faster.
-      if (isTimeout(error)) throw error
+      // A stall is now capped rather than open-ended, so there is time left to
+      // hand the same résumé to the next model — which is usually all it takes.
     }
   }
 
