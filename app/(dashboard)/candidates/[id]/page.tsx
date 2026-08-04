@@ -122,6 +122,8 @@ export default async function CandidateDetailPage({ params }: PageProps) {
   // education detail, links and the document text are worth re-reading.
   const isStaleParse = (parsedData?.parser_version ?? 0) < PARSER_VERSION
 
+  const displayedExperience = parsedData?.experience_years ?? typedCandidate.experience_years
+
   const statusColors = {
     new: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
     reviewing: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
@@ -166,7 +168,9 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </p>
           )}
           <p className="text-sm sm:text-base text-muted-foreground">
-            {typedCandidate.experience_years && `${typedCandidate.experience_years} years experience • `}
+            {/* The column is an integer, so 1.5 years is stored as 2. The parse
+                kept the exact figure — prefer it where we have it. */}
+            {displayedExperience != null && `${displayedExperience} years experience • `}
             {typedCandidate.location ?? 'Unknown location'}
             {parsedData?.seniority_level && ` • ${parsedData.seniority_level}`}
           </p>
