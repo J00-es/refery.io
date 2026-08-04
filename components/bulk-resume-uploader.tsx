@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
 import { resumeCompleteness } from '@/lib/resume'
+import { readJsonResponse } from '@/lib/api-client'
 import type { ParsedResumeData } from '@/lib/types'
 
 type FileStatus = 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'duplicate' | 'error'
@@ -80,7 +81,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       formData.append('file', file)
 
       const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
-      const uploadData = await uploadRes.json()
+      const uploadData = await readJsonResponse<{ pathname: string; filename: string; error?: string }>(uploadRes)
 
       if (!uploadRes.ok) {
         throw new Error(uploadData.error || 'Upload failed')
@@ -95,7 +96,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pathname }),
       })
-      const analyzeData = await analyzeRes.json()
+      const analyzeData = await readJsonResponse<{ parsed_data?: ParsedResumeData; error?: string; code?: string }>(analyzeRes)
 
       if (!analyzeRes.ok) {
         if (analyzeData.code === 'VERIFICATION_REQUIRED') {
@@ -125,7 +126,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
           status: 'new',
         }),
       })
-      const createData = await createRes.json()
+      const createData = await readJsonResponse<{ candidate?: { id: string; name: string }; error?: string; code?: string }>(createRes)
 
       if (!createRes.ok) {
         // Already on file is not a failure — it is the correct outcome, and
@@ -143,8 +144,8 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
 
       updateFileStatus(index, {
         status: 'done',
-        candidateId: createData.candidate.id,
-        candidateName: createData.candidate.name,
+        candidateId: createData.candidate!.id,
+        candidateName: createData.candidate!.name,
       })
       return 'created'
     } catch (error) {

@@ -9,6 +9,7 @@ import { ResumeUploader } from '@/components/resume-uploader'
 import { Spinner } from '@/components/ui/spinner'
 import { ResumeBodySections, LanguagesSection } from '@/components/candidates/parsed-resume'
 import { resumeCompleteness } from '@/lib/resume'
+import { readJsonResponse } from '@/lib/api-client'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { ParsedResumeData } from '@/lib/types'
 
@@ -58,7 +59,7 @@ export default function NewCandidatePage() {
         }),
       })
 
-      const data = await res.json()
+      const data = await readJsonResponse<{ candidate?: { id: string }; error?: string; code?: string }>(res)
 
       if (!res.ok) {
         if (data.code === 'DUPLICATE' && data.candidate) {
@@ -67,7 +68,7 @@ export default function NewCandidatePage() {
         throw new Error(data.error || 'Failed to create candidate')
       }
 
-      router.push(`/candidates/${data.candidate.id}`)
+      router.push(`/candidates/${data.candidate!.id}`)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')

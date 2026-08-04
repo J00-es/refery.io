@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
+import { readJsonResponse } from '@/lib/api-client'
 
 interface ResumeUploaderProps {
   onUploadComplete: (data: { pathname: string; filename: string; parsed_data: Record<string, unknown> }) => void
@@ -45,7 +46,7 @@ export function ResumeUploader({ onUploadComplete, onError }: ResumeUploaderProp
       })
 
       if (!uploadRes.ok) {
-        const error = await uploadRes.json()
+        const error = await readJsonResponse<{ error?: string }>(uploadRes)
         throw new Error(error.error || 'Upload failed')
       }
 
@@ -63,7 +64,7 @@ export function ResumeUploader({ onUploadComplete, onError }: ResumeUploaderProp
       })
 
       if (!analyzeRes.ok) {
-        const errorData = await analyzeRes.json()
+        const errorData = await readJsonResponse<{ error?: string; code?: string }>(analyzeRes)
         if (errorData.code === 'VERIFICATION_REQUIRED') {
           throw new Error('Add a credit card to your Vercel account to unlock AI features')
         }

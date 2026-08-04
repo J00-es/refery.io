@@ -124,7 +124,6 @@ const ParsedResumeSchema = z.object({
   salary_currency: z.string().nullable(),
 
   // Fidelity
-  raw_text: z.string().describe('The ENTIRE resume transcribed in reading order, including every section, header, bullet and date. This is the record that nothing was dropped.'),
   extraction_notes: z.string().nullable().describe('Anything present on the resume that did not fit a field above'),
 })
 
@@ -147,9 +146,6 @@ Specifically:
   programmes and unfinished degrees, along with honours and activities.
 - Skills must include everything named anywhere on the page, including tools
   mentioned only inside a bullet point, not just the "Skills" section.
-- raw_text must be the full document transcribed in reading order. Include
-  section headings and dates. This field is how we verify nothing was lost, so
-  never abbreviate it or write a placeholder such as "[rest of resume]".
 
 Accuracy rules:
 - Extract what is stated. Infer only where the inference is unambiguous — for
@@ -162,9 +158,78 @@ Accuracy rules:
 - Preserve the candidate's own wording for titles and companies; do not
   normalise "Founding Engineer" into "Software Engineer".`
 
+const TRANSCRIBE_PROMPT = `Transcribe this document verbatim, in reading order.
+
+Include every section heading, every bullet point, every date, every company and
+every contact line, exactly as written. Preserve the order they appear in and put
+each logical line on its own line.
+
+Do not summarise, do not reformat into prose, do not comment on the document, and
+never write a placeholder such as "[remainder of resume]". Output the document
+text and nothing else.`
+
+/**
+ * Wall-clock budget for each model call.
+ *
+ * The route gets 60s from the platform. A single call that produced the
+ * structured fields *and* a full transcription blew through that on a dense
+ * three-page CV, and a timeout means the user gets nothing at all. The two are
+ * now separate calls with their own budgets, run concurrently, so the slow path
+ * is the longer of the two rather than their sum — and the transcription can
+ * give up on its own without taking the profile down with it.
+ */
+const CALL_TIMEOUT_MS = 45_000
+
 interface AnalyzeSuccess {
   parsed: z.infer<typeof ParsedResumeSchema>
   model: string
+}
+
+/** The chain to try, most recently successful model first. */
+function modelChain(): string[] {
+  return preferredModel
+    ? [preferredModel, ...MODEL_CHAIN.filter(m => m !== preferredModel)]
+    : MODEL_CHAIN
+}
+
+/**
+ * Transcribe the document in full.
+ *
+ * Deliberately not part of the structured call: it is by far the largest chunk
+ * of output, and it is also the part we can most afford to lose. Returns null
+ * rather than throwing, so a résumé too long to transcribe inside the budget
+ * still produces a complete structured profile.
+ */
+async function transcribeResume(base64: string): Promise<string | null> {
+  for (const model of modelChain()) {
+    try {
+      const { text } = await generateText({
+        model,
+        system: TRANSCRIBE_PROMPT,
+        maxOutputTokens: 16000,
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'file', data: base64, mediaType: 'application/pdf' },
+              { type: 'text', text: 'Transcribe this document in full.' },
+            ],
+          },
+        ],
+      })
+
+      const trimmed = text?.trim()
+      if (trimmed) return trimmed
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.warn(`Résumé transcription failed on ${model}: ${message}`)
+      if (isAccountError(message)) return null
+    }
+  }
+
+  return null
 }
 
 /**
@@ -177,21 +242,19 @@ interface AnalyzeSuccess {
  * unreadable.
  */
 async function analyzeWithFallback(base64: string): Promise<AnalyzeSuccess> {
-  const chain = preferredModel
-    ? [preferredModel, ...MODEL_CHAIN.filter(m => m !== preferredModel)]
-    : MODEL_CHAIN
-
   let lastError: unknown
 
-  for (const model of chain) {
+  for (const model of modelChain()) {
     try {
       const { output } = await generateText({
         model,
         output: Output.object({ schema: ParsedResumeSchema }),
         system: SYSTEM_PROMPT,
-        // Transcribing a long resume in full needs real room; the default cap
-        // truncates raw_text mid-sentence on anything past two pages.
-        maxOutputTokens: 32000,
+        // Every bullet of a long career is a lot of structured output; the
+        // default cap truncates the last few roles on a dense CV.
+        maxOutputTokens: 16000,
+        maxRetries: 1,
+        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
         messages: [
           {
             role: 'user',
@@ -199,7 +262,7 @@ async function analyzeWithFallback(base64: string): Promise<AnalyzeSuccess> {
               { type: 'file', data: base64, mediaType: 'application/pdf' },
               {
                 type: 'text',
-                text: 'Read this resume end to end and extract every field. Include every role, every bullet point, and the complete transcription in raw_text.',
+                text: 'Read this resume end to end and extract every field. Include every role and every bullet point.',
               },
             ],
           },
@@ -254,12 +317,20 @@ export async function analyzeResumeFromBlob(pathname: string): Promise<ParsedRes
   }
 
   const base64 = Buffer.concat(chunks).toString('base64')
-  const { parsed, model } = await analyzeWithFallback(base64)
+
+  // Concurrent, not sequential: the platform gives the route 60 seconds total,
+  // and running these back to back is what made long CVs time out with nothing
+  // to show for it.
+  const [structured, rawText] = await Promise.all([
+    analyzeWithFallback(base64),
+    transcribeResume(base64),
+  ])
 
   return {
-    ...parsed,
+    ...structured.parsed,
+    raw_text: rawText,
     parser_version: PARSER_VERSION,
-    parser_model: model,
+    parser_model: structured.model,
     parsed_at: new Date().toISOString(),
   } as ParsedResumeData
 }

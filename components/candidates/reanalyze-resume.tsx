@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { RefreshCw } from 'lucide-react'
+import { readJsonResponse } from '@/lib/api-client'
 
 /**
  * Re-read this candidate's resume with the current extractor.
@@ -24,7 +25,7 @@ export function ReanalyzeResume({ candidateId, isStale }: { candidateId: string;
 
     try {
       const res = await fetch(`/api/candidates/${candidateId}/reanalyze`, { method: 'POST' })
-      const data = await res.json()
+      const data = await readJsonResponse<{ error?: string }>(res)
 
       if (!res.ok) {
         throw new Error(data.error || 'Could not re-read this resume')
