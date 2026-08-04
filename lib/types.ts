@@ -365,6 +365,11 @@ export interface ParsedResumeData {
    * shows under "Full résumé text".
    */
   raw_text?: string | null
+  /**
+   * How the résumé was read: straight from the PDF's own text layer, or by the
+   * model looking at the rendered pages because there was no text to take.
+   */
+  source?: 'text-layer' | 'vision'
   /** Anything the model saw but could not confidently place in a field. */
   extraction_notes?: string | null
   parser_version?: number
@@ -375,9 +380,16 @@ export interface ParsedResumeData {
 export interface WorkExperience {
   company: string
   title: string
-  duration: string
-  description: string
-  // Added by the richer extractor; absent on older profiles.
+  /**
+   * The date range as a formatted string, and a prose summary of the role.
+   *
+   * Both were dropped from the extractor once every role carried structured
+   * dates and its own bullet points — they were the same facts a second time,
+   * paid for in output tokens. Still present on profiles parsed before that,
+   * so the display falls back to them.
+   */
+  duration?: string
+  description?: string
   location?: string | null
   employment_type?: string | null
   start_date?: string | null
@@ -392,8 +404,8 @@ export interface Education {
   institution: string
   degree: string
   field: string
-  year: string
-  // Added by the richer extractor; absent on older profiles.
+  /** Superseded by start_year/end_year; kept for older profiles. */
+  year?: string
   start_year?: string | null
   end_year?: string | null
   gpa?: string | null

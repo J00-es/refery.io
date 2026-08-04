@@ -1,6 +1,7 @@
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { get } from '@vercel/blob'
+import { extractPdfText } from '@/lib/pdf-text'
 import type { ParsedResumeData } from '@/lib/types'
 
 /**
@@ -9,6 +10,18 @@ import type { ParsedResumeData } from '@/lib/types'
  * extractor and would benefit from a re-run.
  */
 export const PARSER_VERSION = 2
+
+/**
+ * How hard the model should think about the extraction.
+ *
+ * This is transcription with structure, not a problem to be reasoned about: the
+ * answer is on the page. The default effort spends reasoning tokens — billed at
+ * output rates — deliberating over facts that are simply written down, which is
+ * most of what made a dense CV take over a minute. 'low' keeps enough judgement
+ * for the genuinely ambiguous parts (which dates overlap, what counts as
+ * professional experience) without paying to re-read a bullet point.
+ */
+const REASONING_EFFORT = process.env.RESUME_PARSER_EFFORT || 'low'
 
 /**
  * Models to try, in order, stopping at the first that answers.
@@ -31,6 +44,22 @@ const MODEL_CHAIN = [
  */
 let preferredModel: string | null = null
 
+/**
+ * Note on what is deliberately *not* in these schemas.
+ *
+ * Every field costs output tokens, and output is the expensive half. Three
+ * fields were asking the model to say the same thing twice:
+ *
+ * - `description`, a 1-3 sentence summary of a role, said nothing that
+ *   `highlights` did not already say in the candidate's own words.
+ * - `duration`, the date range as a formatted string, is `start_date` and
+ *   `end_date` glued together — which the UI can do for free, and which also
+ *   leaves the dates sortable rather than trapped in prose.
+ * - education `year`, likewise, next to `start_year` and `end_year`.
+ *
+ * Profiles parsed before this change still carry all three, so the display
+ * falls back to them; nothing that was captured is lost.
+ */
 const WorkExperienceSchema = z.object({
   company: z.string(),
   title: z.string(),
@@ -39,8 +68,6 @@ const WorkExperienceSchema = z.object({
   start_date: z.string().nullable().describe('As written, e.g. "March 2022" or "2022-03"'),
   end_date: z.string().nullable().describe('As written, or null when the role is current'),
   is_current: z.boolean().nullable(),
-  duration: z.string().describe('The date range exactly as it appears on the resume'),
-  description: z.string().describe('A faithful summary of the role in 1-3 sentences'),
   highlights: z.array(z.string()).describe('EVERY bullet point under this role, verbatim. Do not summarise, merge or drop any.'),
   technologies: z.array(z.string()).describe('Tools, languages and platforms named in this role'),
 })
@@ -49,7 +76,6 @@ const EducationSchema = z.object({
   institution: z.string(),
   degree: z.string(),
   field: z.string(),
-  year: z.string().describe('The years as written, e.g. "2018 - 2022"'),
   start_year: z.string().nullable(),
   end_year: z.string().nullable(),
   gpa: z.string().nullable(),
@@ -192,6 +218,14 @@ interface AnalyzeSuccess {
   model: string
 }
 
+/**
+ * What we hand the model: the résumé's own text layer where the PDF has one,
+ * the rendered pages where it does not.
+ */
+type ResumeSource =
+  | { kind: 'text'; text: string }
+  | { kind: 'pdf'; base64: string }
+
 /** The chain to try, most recently successful model first. */
 function modelChain(): string[] {
   return preferredModel
@@ -269,8 +303,31 @@ async function transcribeResume(base64: string, deadline: number): Promise<strin
  * model too, since the alternative is telling the user their resume is
  * unreadable.
  */
-async function analyzeWithFallback(base64: string, deadline: number): Promise<AnalyzeSuccess> {
+async function analyzeWithFallback(
+  source: ResumeSource,
+  deadline: number,
+): Promise<AnalyzeSuccess> {
   let lastError: unknown
+
+  // Plain text where we have it. Handing the model the résumé's own text layer
+  // instead of its rendered pages is the cheapest change available: pages are
+  // billed as images and cost several times what the same words cost as text,
+  // and the model spends none of its budget doing OCR it does not need to do.
+  const content =
+    source.kind === 'text'
+      ? [
+          {
+            type: 'text' as const,
+            text: `Here is the résumé, as extracted from the PDF's text layer:\n\n<resume>\n${source.text}\n</resume>`,
+          },
+        ]
+      : [
+          { type: 'file' as const, data: source.base64, mediaType: 'application/pdf' },
+          {
+            type: 'text' as const,
+            text: 'Read this résumé end to end and extract every field. Include every role and every bullet point.',
+          },
+        ]
 
   for (const model of modelChain()) {
     const remaining = deadline - Date.now()
@@ -286,18 +343,8 @@ async function analyzeWithFallback(base64: string, deadline: number): Promise<An
         maxOutputTokens: 16000,
         maxRetries: 1,
         abortSignal: AbortSignal.timeout(remaining),
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { type: 'file', data: base64, mediaType: 'application/pdf' },
-              {
-                type: 'text',
-                text: 'Read this resume end to end and extract every field. Include every role and every bullet point.',
-              },
-            ],
-          },
-        ],
+        providerOptions: { openai: { reasoningEffort: REASONING_EFFORT } },
+        messages: [{ role: 'user', content }],
       })
 
       preferredModel = model
@@ -354,13 +401,35 @@ export async function analyzeResumeFromBlob(
     chunks.push(value)
   }
 
-  const base64 = Buffer.concat(chunks).toString('base64')
+  const bytes = Buffer.concat(chunks)
 
-  // Concurrent, not sequential: the platform gives the route 60 seconds total,
-  // and running these back to back is what made long CVs time out with nothing
-  // to show for it.
+  // Almost every résumé is a text export, and its words are already in the
+  // file. Taking them from there means the verbatim record costs nothing and is
+  // exact, and — more importantly — the extraction call can be fed text instead
+  // of rendered pages. That turns the common case from two vision calls into
+  // one text call.
+  const pdfText = await extractPdfText(new Uint8Array(bytes))
+
+  if (pdfText.usable) {
+    const structured = await analyzeWithFallback({ kind: 'text', text: pdfText.text }, deadline)
+
+    return {
+      ...structured.parsed,
+      raw_text: pdfText.text,
+      parser_version: PARSER_VERSION,
+      parser_model: structured.model,
+      parsed_at: new Date().toISOString(),
+      source: 'text-layer',
+    } as ParsedResumeData
+  }
+
+  // A scan, or a design-led CV whose text is all outlines. The model has to
+  // look at the pages, and it has to transcribe them too, since there is no
+  // text layer to take the verbatim record from. Run both concurrently so the
+  // slow path is the longer of the two rather than their sum.
+  const base64 = bytes.toString('base64')
   const [structured, rawText] = await Promise.all([
-    analyzeWithFallback(base64, deadline),
+    analyzeWithFallback({ kind: 'pdf', base64 }, deadline),
     transcribeResume(base64, deadline),
   ])
 
@@ -370,6 +439,7 @@ export async function analyzeResumeFromBlob(
     parser_version: PARSER_VERSION,
     parser_model: structured.model,
     parsed_at: new Date().toISOString(),
+    source: 'vision',
   } as ParsedResumeData
 }
 

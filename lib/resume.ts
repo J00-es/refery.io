@@ -1,4 +1,4 @@
-import type { ParsedResumeData } from '@/lib/types'
+import type { Education, ParsedResumeData, WorkExperience } from '@/lib/types'
 
 /**
  * Everything that turns an AI-parsed resume into a `candidates` row.
@@ -123,6 +123,29 @@ export function deriveBackgroundKeywords(parsed: Partial<ParsedResumeData>): str
 }
 
 /**
+ * A role's date range for display and for the embedding.
+ *
+ * The extractor stores structured `start_date`/`end_date`/`is_current` rather
+ * than a pre-formatted string, so this is the one place that decides how they
+ * read. Older profiles still carry the formatted `duration` and fall back to it.
+ */
+export function formatRoleDates(role: WorkExperience): string | null {
+  if (role.start_date || role.end_date) {
+    const end = role.is_current ? 'Present' : role.end_date || 'Present'
+    return [role.start_date, end].filter(Boolean).join(' — ')
+  }
+  return role.duration ?? null
+}
+
+/** Same idea for an education entry. */
+export function formatEducationYears(edu: Education): string | null {
+  if (edu.start_year || edu.end_year) {
+    return [edu.start_year, edu.end_year].filter(Boolean).join(' - ')
+  }
+  return edu.year ?? null
+}
+
+/**
  * The text we embed for job matching.
  *
  * Ordered most- to least-discriminating, because the embedding model weights
@@ -144,9 +167,10 @@ export function buildEmbeddingText(parsed: Partial<ParsedResumeData>, name: stri
   const roles = (parsed.work_history ?? []).slice(0, 10).map(role =>
     [
       [role.title, role.company].filter(Boolean).join(' at '),
-      role.duration,
-      role.description,
-      (role.highlights ?? []).join(' '),
+      formatRoleDates(role),
+      // `description` only exists on older parses; the bullets say the same
+      // thing in the candidate's own words, so prefer them when both are there.
+      (role.highlights ?? []).length ? role.highlights!.join(' ') : role.description,
     ]
       .filter(Boolean)
       .join(' — '),

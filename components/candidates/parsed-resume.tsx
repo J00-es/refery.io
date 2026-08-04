@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { FileText, GraduationCap, Briefcase, Award, BookOpen, Heart, Lightbulb, Languages } from 'lucide-react'
+import { formatEducationYears, formatRoleDates } from '@/lib/resume'
 import type { ParsedResumeData } from '@/lib/types'
 
 /**
@@ -20,15 +21,6 @@ import type { ParsedResumeData } from '@/lib/types'
 
 function hasItems(value: unknown[] | undefined | null): boolean {
   return Array.isArray(value) && value.length > 0
-}
-
-/** "March 2022 — Present", falling back to whatever the resume wrote. */
-function roleDates(role: ParsedResumeData['work_history'][number]): string | null {
-  if (role.start_date || role.end_date) {
-    const end = role.is_current ? 'Present' : role.end_date || 'Present'
-    return [role.start_date, end].filter(Boolean).join(' — ')
-  }
-  return role.duration || null
 }
 
 export function WorkHistorySection({ parsed }: { parsed: ParsedResumeData }) {
@@ -56,7 +48,7 @@ export function WorkHistorySection({ parsed }: { parsed: ParsedResumeData }) {
                 )}
               </div>
               <p className="text-sm text-muted-foreground">
-                {[role.company, roleDates(role), role.location, role.employment_type]
+                {[role.company, formatRoleDates(role), role.location, role.employment_type]
                   .filter(Boolean)
                   .join(' · ')}
               </p>
@@ -112,7 +104,7 @@ export function EducationSection({ parsed }: { parsed: ParsedResumeData }) {
                 {[edu.degree, edu.field].filter(Boolean).join(' in ') || edu.institution}
               </p>
               <p className="text-sm text-muted-foreground">
-                {[edu.institution, edu.year || [edu.start_year, edu.end_year].filter(Boolean).join(' - '), edu.location]
+                {[edu.institution, formatEducationYears(edu), edu.location]
                   .filter(Boolean)
                   .join(' · ')}
               </p>

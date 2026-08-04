@@ -59,7 +59,7 @@ export default function NewCandidatePage() {
         }),
       })
 
-      const data = await readJsonResponse<{ candidate?: { id: string }; error?: string; code?: string }>(res)
+      const data = await readJsonResponse<{ candidate?: { id: string; name: string }; error?: string; code?: string }>(res)
 
       if (!res.ok) {
         if (data.code === 'DUPLICATE' && data.candidate) {
