@@ -24,6 +24,18 @@ export const PARSER_VERSION = 2
 const REASONING_EFFORT = process.env.RESUME_PARSER_EFFORT || 'low'
 
 /**
+ * Reasoning settings, omitted entirely when set to 'default'.
+ *
+ * Sending a provider option a model does not understand is a good way to turn a
+ * working upload into a gateway error, so there has to be a way to switch it off
+ * without a deploy — `RESUME_PARSER_EFFORT=default` does that.
+ */
+function reasoningOptions() {
+  if (REASONING_EFFORT === 'default') return {}
+  return { providerOptions: { openai: { reasoningEffort: REASONING_EFFORT } } }
+}
+
+/**
  * Models to try, in order, stopping at the first that answers.
  *
  * The gateway's catalogue moves faster than this repo does, so a hard-coded
@@ -269,7 +281,7 @@ async function transcribeResume(base64: string, deadline: number): Promise<strin
         model,
         system: TRANSCRIBE_PROMPT,
         maxOutputTokens: 16000,
-        maxRetries: 1,
+        maxRetries: 0,
         abortSignal: AbortSignal.timeout(remaining),
         messages: [
           {
@@ -333,23 +345,36 @@ async function analyzeWithFallback(
     const remaining = deadline - Date.now()
     if (remaining < MIN_ATTEMPT_MS) break
 
+    const startedAt = Date.now()
     try {
-      const { output } = await generateText({
+      const { output, usage } = await generateText({
         model,
         output: Output.object({ schema: ParsedResumeSchema }),
         system: SYSTEM_PROMPT,
         // Every bullet of a long career is a lot of structured output; the
         // default cap truncates the last few roles on a dense CV.
         maxOutputTokens: 16000,
-        maxRetries: 1,
+        // No retry. A structured call that has already run for tens of seconds
+        // is not helped by silently running again — it just doubles the wait
+        // with nothing on screen to explain it.
+        maxRetries: 0,
         abortSignal: AbortSignal.timeout(remaining),
-        providerOptions: { openai: { reasoningEffort: REASONING_EFFORT } },
+        ...reasoningOptions(),
         messages: [{ role: 'user', content }],
       })
+
+      // Kept permanently: without it, "uploads feel slow" is unanswerable.
+      // Reads as one line per extraction in the runtime logs.
+      console.log(
+        `[resume-parser] ok model=${model} source=${source.kind} ms=${Date.now() - startedAt} ` +
+          `in=${usage?.inputTokens ?? '?'} out=${usage?.outputTokens ?? '?'} ` +
+          `reasoning=${usage?.reasoningTokens ?? 0} effort=${REASONING_EFFORT}`,
+      )
 
       preferredModel = model
       return { parsed: output, model }
     } catch (error) {
+      console.warn(`[resume-parser] fail model=${model} ms=${Date.now() - startedAt}`)
       lastError = error
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Resume analysis failed on ${model}: ${message}`)
