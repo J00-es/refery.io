@@ -5,7 +5,7 @@ import { analyzeResumeFromBlob, ResumeNotFoundError } from '@/lib/resume-parser'
 import { candidateRowFromParsed } from '@/lib/resume'
 import { embedCandidate } from '@/lib/embeddings'
 
-export const maxDuration = 60
+export const maxDuration = 300
 
 /**
  * Re-read a candidate's resume with the current extractor.

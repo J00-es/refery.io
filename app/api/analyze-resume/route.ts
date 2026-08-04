@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { analyzeResumeFromBlob, ResumeNotFoundError } from '@/lib/resume-parser'
 
-/** Transcribing a whole resume takes longer than the default budget. */
-export const maxDuration = 60
+/**
+ * Reading a résumé end to end takes far longer than the default budget, and a
+ * dense multi-page CV is the case that matters — that is exactly the candidate
+ * whose profile is worth having.
+ */
+export const maxDuration = 300
 
 export async function POST(request: NextRequest) {
   try {

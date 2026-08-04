@@ -169,16 +169,23 @@ never write a placeholder such as "[remainder of resume]". Output the document
 text and nothing else.`
 
 /**
- * Wall-clock budget for each model call.
+ * Wall-clock budget for one extraction, shared by every attempt it makes.
  *
- * The route gets 60s from the platform. A single call that produced the
- * structured fields *and* a full transcription blew through that on a dense
- * three-page CV, and a timeout means the user gets nothing at all. The two are
- * now separate calls with their own budgets, run concurrently, so the slow path
- * is the longer of the two rather than their sum — and the transcription can
- * give up on its own without taking the profile down with it.
+ * Two things went wrong before this was a shared deadline. A single call that
+ * produced the structured fields *and* the transcription blew past the route's
+ * limit on a dense three-page CV — so those are now separate calls run
+ * concurrently, and the slow path is the longer of the two rather than their
+ * sum. And when the first model timed out, the fallback started a *fresh* full
+ * timeout, guaranteeing the route was killed before it could answer. The budget
+ * now belongs to the operation, not to each attempt.
+ *
+ * Kept below the route's `maxDuration` so there is room to read the blob and
+ * write the row.
  */
-const CALL_TIMEOUT_MS = 45_000
+export const EXTRACTION_BUDGET_MS = 240_000
+
+/** Too little time left to be worth starting another model. */
+const MIN_ATTEMPT_MS = 10_000
 
 interface AnalyzeSuccess {
   parsed: z.infer<typeof ParsedResumeSchema>
@@ -193,6 +200,24 @@ function modelChain(): string[] {
 }
 
 /**
+ * True when the attempt died because it ran out of time rather than because the
+ * model was wrong for the job.
+ *
+ * The distinction decides whether falling back is worth anything: a model id the
+ * gateway does not serve fails in milliseconds and the next one deserves a go,
+ * whereas a model that ran out the clock has left nothing for anyone else — and
+ * the next model would be no faster on the same document.
+ */
+function isTimeout(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return (
+    (error instanceof Error && error.name === 'TimeoutError') ||
+    message.includes('aborted') ||
+    message.includes('timeout')
+  )
+}
+
+/**
  * Transcribe the document in full.
  *
  * Deliberately not part of the structured call: it is by far the largest chunk
@@ -200,15 +225,18 @@ function modelChain(): string[] {
  * rather than throwing, so a résumé too long to transcribe inside the budget
  * still produces a complete structured profile.
  */
-async function transcribeResume(base64: string): Promise<string | null> {
+async function transcribeResume(base64: string, deadline: number): Promise<string | null> {
   for (const model of modelChain()) {
+    const remaining = deadline - Date.now()
+    if (remaining < MIN_ATTEMPT_MS) break
+
     try {
       const { text } = await generateText({
         model,
         system: TRANSCRIBE_PROMPT,
         maxOutputTokens: 16000,
         maxRetries: 1,
-        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        abortSignal: AbortSignal.timeout(remaining),
         messages: [
           {
             role: 'user',
@@ -225,7 +253,7 @@ async function transcribeResume(base64: string): Promise<string | null> {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Résumé transcription failed on ${model}: ${message}`)
-      if (isAccountError(message)) return null
+      if (isAccountError(message) || isTimeout(error)) return null
     }
   }
 
@@ -241,10 +269,13 @@ async function transcribeResume(base64: string): Promise<string | null> {
  * model too, since the alternative is telling the user their resume is
  * unreadable.
  */
-async function analyzeWithFallback(base64: string): Promise<AnalyzeSuccess> {
+async function analyzeWithFallback(base64: string, deadline: number): Promise<AnalyzeSuccess> {
   let lastError: unknown
 
   for (const model of modelChain()) {
+    const remaining = deadline - Date.now()
+    if (remaining < MIN_ATTEMPT_MS) break
+
     try {
       const { output } = await generateText({
         model,
@@ -254,7 +285,7 @@ async function analyzeWithFallback(base64: string): Promise<AnalyzeSuccess> {
         // default cap truncates the last few roles on a dense CV.
         maxOutputTokens: 16000,
         maxRetries: 1,
-        abortSignal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+        abortSignal: AbortSignal.timeout(remaining),
         messages: [
           {
             role: 'user',
@@ -279,6 +310,8 @@ async function analyzeWithFallback(base64: string): Promise<AnalyzeSuccess> {
       // Billing and quota problems will hit every model in the chain
       // identically, so surface them immediately instead of burning the chain.
       if (isAccountError(message)) throw error
+      // Out of time, not out of options — another model will not be faster.
+      if (isTimeout(error)) throw error
     }
   }
 
@@ -300,7 +333,12 @@ export function isAccountError(message: string): boolean {
  * Shared by the upload flow and by re-analysis, so a profile parsed today and a
  * profile re-parsed a year from now go through exactly the same extractor.
  */
-export async function analyzeResumeFromBlob(pathname: string): Promise<ParsedResumeData> {
+export async function analyzeResumeFromBlob(
+  pathname: string,
+  budgetMs: number = EXTRACTION_BUDGET_MS,
+): Promise<ParsedResumeData> {
+  const deadline = Date.now() + budgetMs
+
   const result = await get(pathname, { access: 'private' })
 
   if (!result?.stream) {
@@ -322,8 +360,8 @@ export async function analyzeResumeFromBlob(pathname: string): Promise<ParsedRes
   // and running these back to back is what made long CVs time out with nothing
   // to show for it.
   const [structured, rawText] = await Promise.all([
-    analyzeWithFallback(base64),
-    transcribeResume(base64),
+    analyzeWithFallback(base64, deadline),
+    transcribeResume(base64, deadline),
   ])
 
   return {
