@@ -11,6 +11,7 @@ import {
   formatExperience,
   formatSalary,
   isFresh,
+  isPartnerRole,
   shortAge,
   visaSignal,
 } from '@/lib/job-ui'
@@ -31,6 +32,7 @@ export interface JobRow {
   experience_years_max?: number | null
   visa_requirement?: string | null
   status?: string | null
+  internal_deal_type?: string | null
   referral_bonus?: number | null
   referral_bonus_type?: string | null
   pipeline_count?: number | null
@@ -80,6 +82,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
   const visa = visaSignal(job.visa_requirement)
   const status = STATUS_META[job.status || 'open']
   const fresh = isFresh(job.created_at)
+  const partner = isPartnerRole(job.internal_deal_type)
   const pipeline = job.pipeline_count ?? 0
 
   return (
@@ -110,10 +113,23 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
               )}
             </p>
           </div>
-          {fresh && (
-            <span className="shrink-0 rounded-full bg-[#E9F0EC] px-2 py-0.5 text-[10.5px] font-semibold text-[#1F4D3A]">
-              New
+          {/* Almost the whole board is sourced by us, so the few roles we
+              actually have an agreement on need to be identifiable at a
+              glance — that changes how a scout approaches them. It outranks
+              the freshness marker. */}
+          {partner ? (
+            <span
+              className="shrink-0 rounded-full bg-[#1F4D3A] px-2 py-0.5 text-[10.5px] font-semibold text-white"
+              title="We have an agreement or a live conversation on this role"
+            >
+              Partner
             </span>
+          ) : (
+            fresh && (
+              <span className="shrink-0 rounded-full bg-[#E9F0EC] px-2 py-0.5 text-[10.5px] font-semibold text-[#1F4D3A]">
+                New
+              </span>
+            )
           )}
         </header>
 

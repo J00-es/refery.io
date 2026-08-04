@@ -1,14 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { JobCard, type JobRow } from '@/components/jobs/job-card'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { Input } from '@/components/ui/input'
 import {
   ArrowUpDown,
+  Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   LayoutGrid,
@@ -23,11 +32,17 @@ import {
   FUNCTIONS,
   JOB_SORTS,
   JOB_STATUSES,
+  LOCATION_GROUPS,
+  LOCATIONS,
   POSTED_BANDS,
   REMOTE_LABELS,
   SALARY_BANDS,
+  SENIORITY_LEVELS,
   STATUS_META,
   formatSalary,
+  isPartnerRole,
+  locationLabel,
+  seniorityLabel,
   shortAge,
 } from '@/lib/job-ui'
 
@@ -36,6 +51,7 @@ export interface JobStats {
   newThisWeek: number
   withCandidates: number
   remote: number
+  partner: number
 }
 
 interface JobListProps {
@@ -96,42 +112,270 @@ function useQueryState() {
   return { params, set, list, toggle, pending }
 }
 
-function FacetGroup({
-  title,
+// ── filter primitives ───────────────────────────────────────────────────────
+
+/**
+ * Full-width option row rather than a wrapped pill.
+ *
+ * The previous pill grid put ~30 small targets inside a 360px popover that
+ * clipped at the viewport, so the lower half of the filter list could be
+ * neither seen nor clicked. A single-column list of 40px rows scrolls
+ * predictably, gives every option a real touch target, and its height is
+ * something the container can be sized against.
+ */
+function OptionRow({
+  label,
+  hint,
+  on,
+  single,
+  onToggle,
+}: {
+  label: string
+  hint?: string
+  on: boolean
+  /** Radio semantics — picking one replaces the other, as with Posted. */
+  single?: boolean
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role={single ? 'radio' : 'checkbox'}
+      aria-checked={on}
+      onClick={onToggle}
+      className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F4EE] ${FOCUS} ${
+        on ? 'bg-[#F4F4EE]' : ''
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`grid h-[18px] w-[18px] shrink-0 place-items-center border transition-colors ${
+          single ? 'rounded-full' : 'rounded-[5px]'
+        } ${on ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white' : 'border-[#D8D8D0] bg-white'}`}
+      >
+        {on &&
+          (single ? (
+            <span className="h-1.5 w-1.5 rounded-full bg-white" />
+          ) : (
+            <Check className="h-3 w-3" strokeWidth={3} />
+          ))}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span
+          className={`block truncate text-[13.5px] ${on ? 'font-medium text-[#161613]' : 'text-[#3F3F3A]'}`}
+        >
+          {label}
+        </span>
+        {hint && <span className="mt-0.5 block truncate text-[12px] text-[#9C9C95]">{hint}</span>}
+      </span>
+    </button>
+  )
+}
+
+function OptionList({
   options,
   selected,
   onToggle,
+  single,
 }: {
-  title: string
-  options: { key: string; label: string }[]
+  options: readonly { key: string; label: string; hint?: string }[]
   selected: string[]
   onToggle: (k: string) => void
+  single?: boolean
 }) {
   return (
+    <div role={single ? 'radiogroup' : 'group'} className="space-y-0.5">
+      {options.map(o => (
+        <OptionRow
+          key={o.key}
+          label={o.label}
+          hint={o.hint}
+          on={selected.includes(o.key)}
+          single={single}
+          onToggle={() => onToggle(o.key)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function FacetSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
     <div>
-      <h4 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
+      <h4 className="mb-1.5 px-2.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
         {title}
       </h4>
-      <div className="flex flex-wrap gap-1.5">
-        {options.map(o => {
-          const on = selected.includes(o.key)
-          return (
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Inline dropdown for one facet, so the filters people reach for most are one
+ * click from the toolbar instead of buried in a panel.
+ *
+ * The body is height-bounded and scrolls on its own, and the clear action sits
+ * in a footer pinned outside that scroll area — the combination is what keeps
+ * every option reachable no matter where the trigger sits in the viewport.
+ */
+function FacetDropdown({
+  label,
+  count,
+  onClear,
+  width = 'w-[300px]',
+  children,
+}: {
+  label: string
+  count: number
+  onClear: () => void
+  width?: string
+  children: React.ReactNode
+}) {
+  const on = count > 0
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${FOCUS} ${
+            on
+              ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
+              : 'border-[#D8D8D0] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
+          }`}
+        >
+          {label}
+          {on && (
+            <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F4D3A] px-1 text-[10.5px] font-semibold text-white">
+              {count}
+            </span>
+          )}
+          <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        sideOffset={6}
+        collisionPadding={12}
+        className={`${width} max-w-[calc(100vw-24px)] overflow-hidden rounded-[14px] border-[#ECECE6] p-0 shadow-lg`}
+      >
+        <div className="max-h-[min(62vh,380px)] overflow-y-auto overscroll-contain p-2">
+          {children}
+        </div>
+        {on && (
+          <div className="border-t border-[#ECECE6] bg-[#FAFAF6] p-2">
             <button
-              key={o.key}
               type="button"
-              aria-pressed={on}
-              onClick={() => onToggle(o.key)}
-              className={`rounded-full border px-3 py-2 text-[13px] font-medium transition-colors ${FOCUS} ${
-                on
-                  ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                  : 'border-[#ECECE6] bg-white text-[#6E6E68] hover:border-[#D8D8D0] hover:text-[#161613]'
-              }`}
+              onClick={onClear}
+              className={`w-full rounded-[10px] py-2 text-[13px] font-medium text-[#6E6E68] transition-colors hover:bg-white hover:text-[#161613] ${FOCUS}`}
             >
-              {o.label}
+              Clear {label.toLowerCase()}
             </button>
-          )
-        })}
+          </div>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * Location picker.
+ *
+ * The 22 buckets cover ~85% of open roles; the rest is a long tail of one-off
+ * towns and office names ("Weirton, WV", "One Island East"). The same box
+ * therefore does two jobs: it narrows the bucket list as you type, and offers
+ * a raw contains-search as the last row so nothing on the board is
+ * unreachable.
+ */
+function LocationPicker({
+  selected,
+  locq,
+  onToggle,
+  onSearch,
+}: {
+  selected: string[]
+  locq: string
+  onToggle: (k: string) => void
+  onSearch: (v: string | null) => void
+}) {
+  const [term, setTerm] = useState('')
+  const needle = term.trim().toLowerCase()
+
+  const matches = useMemo(
+    () => (needle ? LOCATIONS.filter(l => l.label.toLowerCase().includes(needle)) : LOCATIONS),
+    [needle],
+  )
+
+  return (
+    <div className="space-y-2">
+      <div className="relative px-0.5 pt-0.5">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9C9C95]" />
+        <Input
+          value={term}
+          onChange={e => setTerm(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && term.trim()) {
+              e.preventDefault()
+              onSearch(term.trim())
+            }
+          }}
+          placeholder="Market, city or country…"
+          aria-label="Find a location"
+          className={`h-9 rounded-[10px] border-[#ECECE6] bg-[#FAFAF6] pl-8 text-[13px] placeholder:text-[#9C9C95] ${FOCUS}`}
+        />
       </div>
+
+      {locq && (
+        <div className="px-0.5">
+          <span className="flex items-center gap-1 rounded-[10px] bg-[#E9F0EC] py-1.5 pl-2.5 pr-1 text-[12.5px] text-[#1F4D3A]">
+            <span className="min-w-0 flex-1 truncate">Location contains “{locq}”</span>
+            <button
+              type="button"
+              onClick={() => onSearch(null)}
+              aria-label="Clear location search"
+              className={`grid h-6 w-6 shrink-0 place-items-center rounded-full hover:bg-white/70 ${FOCUS}`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </span>
+        </div>
+      )}
+
+      {LOCATION_GROUPS.map(g => {
+        const inGroup = matches.filter(l => l.group === g)
+        if (!inGroup.length) return null
+        return (
+          <FacetSection key={g} title={g}>
+            <OptionList
+              options={inGroup.map(l => ({ key: l.key, label: l.label }))}
+              selected={selected}
+              onToggle={onToggle}
+            />
+          </FacetSection>
+        )
+      })}
+
+      {/* Escape hatch for the towns and office names no bucket covers. */}
+      {needle && (
+        <div className="border-t border-[#ECECE6] pt-2">
+          <button
+            type="button"
+            onClick={() => onSearch(term.trim())}
+            className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-colors hover:bg-[#F4F4EE] ${FOCUS}`}
+          >
+            <Search className="h-4 w-4 shrink-0 text-[#9C9C95]" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13.5px] text-[#161613]">
+                Search locations containing “{term.trim()}”
+              </span>
+              {!matches.length && (
+                <span className="mt-0.5 block text-[12px] text-[#9C9C95]">
+                  No market matches that name
+                </span>
+              )}
+            </span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -139,7 +383,7 @@ function FacetGroup({
 function ActiveChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F0EA] py-1 pl-3 pr-1 text-[12.5px] text-[#161613]">
-      <span className="max-w-[160px] truncate">{label}</span>
+      <span className="max-w-[180px] truncate">{label}</span>
       <button
         type="button"
         onClick={onClear}
@@ -195,7 +439,14 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[14px] font-semibold text-[#161613]">{j.title}</span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-[14px] font-semibold text-[#161613]">{j.title}</span>
+          {isPartnerRole(j.internal_deal_type) && (
+            <span className="shrink-0 rounded-full bg-[#1F4D3A] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+              Partner
+            </span>
+          )}
+        </span>
         <span className="mt-0.5 block truncate text-[12.5px] text-[#6E6E68]">
           {[company, j.location].filter(Boolean).join(' · ')}
         </span>
@@ -263,32 +514,47 @@ export function JobList({
   useEffect(() => setDraft(q), [q])
 
   const fns = list('fn')
+  const locs = list('loc')
+  const locq = params.get('locq') || ''
+  const levels = list('lvl')
   const remotes = list('remote')
   const stages = list('stage')
   const pay = list('pay')
   const statuses = list('status')
   const posted = params.get('posted') || ''
   const withCands = params.get('cands') === '1'
+  const paidOnly = params.get('paid') === '1'
+  const partnerOnly = params.get('partner') === '1'
   const view = params.get('view') === 'row' ? 'row' : 'card'
   const sort = params.get('sort') || 'newest'
 
+  const locCount = locs.length + (locq ? 1 : 0)
+  const payCount = pay.length + (paidOnly ? 1 : 0)
   const facetCount =
     fns.length +
+    locCount +
+    levels.length +
     remotes.length +
     stages.length +
-    pay.length +
+    payCount +
     statuses.length +
     (posted ? 1 : 0) +
-    (withCands ? 1 : 0)
+    (withCands ? 1 : 0) +
+    (partnerOnly ? 1 : 0)
   const hasAny = facetCount > 0 || q.length > 0
 
   const clearAll = () =>
     set({
       q: null,
       fn: null,
+      loc: null,
+      locq: null,
+      lvl: null,
       remote: null,
       stage: null,
       pay: null,
+      paid: null,
+      partner: null,
       status: null,
       posted: null,
       cands: null,
@@ -298,81 +564,85 @@ export function JobList({
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1
   const to = Math.min(page * pageSize, total)
 
-  const facets = (
-    <div className="space-y-5">
-      <FacetGroup
-        title="Function"
-        options={FUNCTIONS.map(f => ({ key: f.key, label: f.label }))}
-        selected={fns}
-        onToggle={k => toggle('fn', k)}
-      />
-      <FacetGroup
-        title="Work setup"
-        options={Object.entries(REMOTE_LABELS).map(([key, label]) => ({ key, label }))}
-        selected={remotes}
-        onToggle={k => toggle('remote', k)}
-      />
-      <FacetGroup
-        title="Salary"
-        options={SALARY_BANDS.map(b => ({ key: b.key, label: b.label }))}
-        selected={pay}
-        onToggle={k => toggle('pay', k)}
-      />
-      <FacetGroup
-        title="Company stage"
-        options={STAGE_ORDER.map(s => ({ key: s, label: stageLabel(s)! }))}
-        selected={stages}
-        onToggle={k => toggle('stage', k)}
-      />
-      <div>
-        <h4 className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
-          Posted
-        </h4>
-        <div className="flex flex-wrap gap-1.5">
-          {POSTED_BANDS.map(b => {
-            const on = posted === b.key
-            return (
-              <button
-                key={b.key}
-                type="button"
-                aria-pressed={on}
-                onClick={() => set({ posted: on ? null : b.key })}
-                className={`rounded-full border px-3 py-2 text-[13px] font-medium transition-colors ${FOCUS} ${
-                  on
-                    ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                    : 'border-[#ECECE6] bg-white text-[#6E6E68] hover:border-[#D8D8D0] hover:text-[#161613]'
-                }`}
-              >
-                {b.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      {isAdmin && (
-        <FacetGroup
-          title="Status"
-          options={JOB_STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))}
-          selected={statuses}
-          onToggle={k => toggle('status', k)}
+  // ── facet bodies, shared by the inline dropdowns and the full panel ──────
+  const locationBody = (
+    <LocationPicker
+      selected={locs}
+      locq={locq}
+      onToggle={k => toggle('loc', k)}
+      onSearch={v => set({ locq: v })}
+    />
+  )
+  const seniorityBody = (
+    <OptionList options={SENIORITY_LEVELS} selected={levels} onToggle={k => toggle('lvl', k)} />
+  )
+  const functionBody = (
+    <OptionList options={FUNCTIONS} selected={fns} onToggle={k => toggle('fn', k)} />
+  )
+  const payBody = (
+    <div className="space-y-2">
+      <OptionList options={SALARY_BANDS} selected={pay} onToggle={k => toggle('pay', k)} />
+      {/* Bands match on salary_max, which 87% of roles leave null — so any
+          band silently hides them. Saying so beats letting people guess. */}
+      <div className="border-t border-[#ECECE6] pt-2">
+        <OptionRow
+          label="Only roles with pay posted"
+          hint="Most roles do not publish a range"
+          on={paidOnly}
+          onToggle={() => set({ paid: paidOnly ? null : '1' })}
         />
-      )}
-      <FacetGroup
-        title="Pipeline"
-        options={[
-          { key: 'cands', label: canViewAllPipeline ? 'Has candidates' : 'Where I have candidates' },
-        ]}
-        selected={withCands ? ['cands'] : []}
-        onToggle={() => set({ cands: withCands ? null : '1' })}
-      />
+      </div>
     </div>
+  )
+  const postedBody = (
+    <OptionList
+      options={POSTED_BANDS}
+      selected={posted ? [posted] : []}
+      single
+      onToggle={k => set({ posted: posted === k ? null : k })}
+    />
+  )
+  const workSetupBody = (
+    <OptionList
+      options={Object.entries(REMOTE_LABELS).map(([key, label]) => ({ key, label }))}
+      selected={remotes}
+      onToggle={k => toggle('remote', k)}
+    />
+  )
+  const stageBody = (
+    <OptionList
+      options={STAGE_ORDER.map(s => ({ key: s, label: stageLabel(s)! }))}
+      selected={stages}
+      onToggle={k => toggle('stage', k)}
+    />
+  )
+  const relationshipBody = (
+    <OptionList
+      options={[
+        {
+          key: 'partner',
+          label: 'Partner roles only',
+          hint: 'Signed or in conversation — the rest is our watchlist',
+        },
+        {
+          key: 'cands',
+          label: canViewAllPipeline ? 'Has candidates' : 'Where I have candidates',
+        },
+      ]}
+      selected={[partnerOnly ? 'partner' : '', withCands ? 'cands' : ''].filter(Boolean)}
+      onToggle={k =>
+        k === 'partner'
+          ? set({ partner: partnerOnly ? null : '1' })
+          : set({ cands: withCands ? null : '1' })
+      }
+    />
   )
 
   return (
     <div className="space-y-4">
       {/* ── insight strip: each number is also a filter ─────────────────── */}
       {stats && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
           {(
             [
               {
@@ -381,6 +651,15 @@ export function JobList({
                 patch: isAdmin ? { status: 'open' } : {},
               },
               { label: 'New this week', value: stats.newThisWeek, patch: { posted: '7d' } },
+              // The distinction the board note explains, made actionable. The
+              // count is of open roles, so admins — who see drafts and closed
+              // roles by default — get the status pinned too, or the tile
+              // would not agree with the board it opens.
+              {
+                label: 'Partner roles',
+                value: stats.partner,
+                patch: isAdmin ? { partner: '1', status: 'open' } : { partner: '1' },
+              },
               {
                 // Board-wide for the super admin, this viewer's own otherwise.
                 label: canViewAllPipeline ? 'With candidates' : 'Your candidates',
@@ -429,35 +708,8 @@ export function JobList({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="hidden sm:block">
-            <Popover>
-              <PopoverTrigger asChild>
-                <button
-                  type="button"
-                  className={`flex h-10 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
-                    facetCount > 0
-                      ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                      : 'border-[#D8D8D0] bg-white text-[#161613] hover:border-[#9C9C95]'
-                  }`}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  Filters
-                  {facetCount > 0 && (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F4D3A] px-1 text-[11px] font-semibold text-white">
-                      {facetCount}
-                    </span>
-                  )}
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="end"
-                className="max-h-[70vh] w-[360px] overflow-y-auto rounded-[14px] border-[#ECECE6] p-4"
-              >
-                {facets}
-              </PopoverContent>
-            </Popover>
-          </div>
-
+          {/* One button on small screens; the full panel below carries every
+              facet, so nothing is desktop-only. */}
           <Sheet>
             <SheetTrigger asChild>
               <button
@@ -477,23 +729,25 @@ export function JobList({
                 )}
               </button>
             </SheetTrigger>
-            <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-[20px]">
-              <SheetHeader className="px-4 text-left">
-                <SheetTitle className="font-serif text-[20px] tracking-[-0.01em]">Filters</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-5 px-4 pb-8 pt-2">
-                {facets}
-                {hasAny && (
-                  <button
-                    type="button"
-                    onClick={clearAll}
-                    className={`h-11 w-full rounded-full border border-[#D8D8D0] text-[14px] font-medium text-[#161613] ${FOCUS}`}
-                  >
-                    Clear all filters
-                  </button>
-                )}
-              </div>
-            </SheetContent>
+            <AllFiltersSheet
+              total={total}
+              facetCount={facetCount}
+              hasAny={hasAny}
+              onClearAll={clearAll}
+              isAdmin={isAdmin}
+              statuses={statuses}
+              onToggleStatus={k => toggle('status', k)}
+              sections={{
+                locationBody,
+                seniorityBody,
+                functionBody,
+                payBody,
+                postedBody,
+                workSetupBody,
+                stageBody,
+                relationshipBody,
+              }}
+            />
           </Sheet>
 
           <Popover>
@@ -507,7 +761,11 @@ export function JobList({
                 <span className="hidden lg:inline">{JOB_SORTS.find(s => s.key === sort)?.label}</span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[200px] rounded-[14px] border-[#ECECE6] p-1.5">
+            <PopoverContent
+              align="end"
+              collisionPadding={12}
+              className="w-[200px] rounded-[14px] border-[#ECECE6] p-1.5"
+            >
               {/* Sorting by pipeline size would rank roles by other partners'
                   activity, so it is offered only to the super admin. */}
               {JOB_SORTS.filter(s => s.key !== 'pipeline' || canViewAllPipeline).map(s => (
@@ -549,6 +807,80 @@ export function JobList({
         </div>
       </div>
 
+      {/* ── filter bar: the facets people actually reach for, one click deep.
+             Hidden below sm, where the single Filters button covers it. ──── */}
+      <div className="hidden flex-wrap items-center gap-2 sm:flex">
+        <FacetDropdown
+          label="Location"
+          count={locCount}
+          onClear={() => set({ loc: null, locq: null })}
+          width="w-[320px]"
+        >
+          {locationBody}
+        </FacetDropdown>
+        <FacetDropdown label="Level" count={levels.length} onClear={() => set({ lvl: null })}>
+          {seniorityBody}
+        </FacetDropdown>
+        <FacetDropdown label="Function" count={fns.length} onClear={() => set({ fn: null })}>
+          {functionBody}
+        </FacetDropdown>
+        <FacetDropdown
+          label="Pay"
+          count={payCount}
+          onClear={() => set({ pay: null, paid: null })}
+        >
+          {payBody}
+        </FacetDropdown>
+        <FacetDropdown
+          label="Posted"
+          count={posted ? 1 : 0}
+          onClear={() => set({ posted: null })}
+          width="w-[240px]"
+        >
+          {postedBody}
+        </FacetDropdown>
+
+        <Sheet>
+          <SheetTrigger asChild>
+            <button
+              type="button"
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${FOCUS} ${
+                facetCount > 0
+                  ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
+                  : 'border-[#D8D8D0] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              All filters
+              {facetCount > 0 && (
+                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F4D3A] px-1 text-[10.5px] font-semibold text-white">
+                  {facetCount}
+                </span>
+              )}
+            </button>
+          </SheetTrigger>
+          <AllFiltersSheet
+            total={total}
+            facetCount={facetCount}
+            hasAny={hasAny}
+            onClearAll={clearAll}
+            isAdmin={isAdmin}
+            statuses={statuses}
+            onToggleStatus={k => toggle('status', k)}
+            sections={{
+              locationBody,
+              seniorityBody,
+              functionBody,
+              payBody,
+              postedBody,
+              workSetupBody,
+              stageBody,
+              relationshipBody,
+            }}
+          />
+        </Sheet>
+      </div>
+
       {/* ── count + active filters ──────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <p className={`text-[13px] text-[#6E6E68] ${pending ? 'opacity-40' : ''}`}>
@@ -562,6 +894,15 @@ export function JobList({
           )}
         </p>
 
+        {locs.map(l => (
+          <ActiveChip key={l} label={locationLabel(l)} onClear={() => toggle('loc', l)} />
+        ))}
+        {locq && (
+          <ActiveChip label={`Location: “${locq}”`} onClear={() => set({ locq: null })} />
+        )}
+        {levels.map(l => (
+          <ActiveChip key={l} label={seniorityLabel(l)} onClear={() => toggle('lvl', l)} />
+        ))}
         {fns.map(f => (
           <ActiveChip
             key={f}
@@ -579,6 +920,7 @@ export function JobList({
             onClear={() => toggle('pay', p)}
           />
         ))}
+        {paidOnly && <ActiveChip label="Pay posted" onClear={() => set({ paid: null })} />}
         {stages.map(s => (
           <ActiveChip key={s} label={stageLabel(s)!} onClear={() => toggle('stage', s)} />
         ))}
@@ -590,6 +932,9 @@ export function JobList({
             label={POSTED_BANDS.find(b => b.key === posted)?.label ?? posted}
             onClear={() => set({ posted: null })}
           />
+        )}
+        {partnerOnly && (
+          <ActiveChip label="Partner roles" onClear={() => set({ partner: null })} />
         )}
         {withCands && (
           <ActiveChip
@@ -682,5 +1027,99 @@ export function JobList({
         </nav>
       )}
     </div>
+  )
+}
+
+/**
+ * Every facet in one panel.
+ *
+ * A bottom sheet at both breakpoints rather than a popover: the panel is now
+ * taller than any popover could safely be, and a sheet is the one container
+ * whose header and footer stay pinned while the middle scrolls. That is the
+ * fix for options that used to render past the bottom of the viewport with no
+ * way to reach them. Width is capped on desktop so the rows do not stretch.
+ */
+function AllFiltersSheet({
+  total,
+  facetCount,
+  hasAny,
+  onClearAll,
+  isAdmin,
+  statuses,
+  onToggleStatus,
+  sections,
+}: {
+  total: number
+  facetCount: number
+  hasAny: boolean
+  onClearAll: () => void
+  isAdmin: boolean
+  statuses: string[]
+  onToggleStatus: (k: string) => void
+  sections: {
+    locationBody: React.ReactNode
+    seniorityBody: React.ReactNode
+    functionBody: React.ReactNode
+    payBody: React.ReactNode
+    postedBody: React.ReactNode
+    workSetupBody: React.ReactNode
+    stageBody: React.ReactNode
+    relationshipBody: React.ReactNode
+  }
+}) {
+  return (
+    <SheetContent
+      side="bottom"
+      className="mx-auto h-[86vh] max-w-[620px] gap-0 rounded-t-[20px] p-0"
+    >
+      <SheetHeader className="shrink-0 border-b border-[#ECECE6] px-4 py-3.5 text-left">
+        <SheetTitle className="font-serif text-[20px] font-normal tracking-[-0.01em] text-[#161613]">
+          Filters
+          {facetCount > 0 && (
+            <span className="ml-2 text-[13px] font-sans text-[#6E6E68]">{facetCount} active</span>
+          )}
+        </SheetTitle>
+      </SheetHeader>
+
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain px-2 py-4">
+        <FacetSection title="Location">{sections.locationBody}</FacetSection>
+        <FacetSection title="Level">{sections.seniorityBody}</FacetSection>
+        <FacetSection title="Function">{sections.functionBody}</FacetSection>
+        <FacetSection title="Work setup">{sections.workSetupBody}</FacetSection>
+        <FacetSection title="Pay">{sections.payBody}</FacetSection>
+        <FacetSection title="Company stage">{sections.stageBody}</FacetSection>
+        <FacetSection title="Posted">{sections.postedBody}</FacetSection>
+        <FacetSection title="Our relationship">{sections.relationshipBody}</FacetSection>
+        {isAdmin && (
+          <FacetSection title="Status">
+            <OptionList
+              options={JOB_STATUSES.map(s => ({ key: s, label: STATUS_META[s].label }))}
+              selected={statuses}
+              onToggle={onToggleStatus}
+            />
+          </FacetSection>
+        )}
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-[#ECECE6] bg-white px-4 py-3">
+        {hasAny && (
+          <button
+            type="button"
+            onClick={onClearAll}
+            className={`h-11 shrink-0 rounded-full border border-[#D8D8D0] px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+          >
+            Clear all
+          </button>
+        )}
+        <SheetClose asChild>
+          <button
+            type="button"
+            className={`h-11 flex-1 rounded-full bg-[#1F4D3A] text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+          >
+            Show {total.toLocaleString()} {total === 1 ? 'role' : 'roles'}
+          </button>
+        </SheetClose>
+      </div>
+    </SheetContent>
   )
 }
