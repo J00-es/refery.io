@@ -9,9 +9,9 @@ import { BulkResumeUploader } from '@/components/bulk-resume-uploader'
 
 export default function BulkUploadPage() {
   const router = useRouter()
-  const [results, setResults] = useState<{ successful: number; failed: number } | null>(null)
+  const [results, setResults] = useState<{ successful: number; failed: number; duplicates: number } | null>(null)
 
-  const handleAllComplete = (data: { successful: number; failed: number }) => {
+  const handleAllComplete = (data: { successful: number; failed: number; duplicates: number }) => {
     setResults(data)
   }
 
@@ -46,11 +46,14 @@ export default function BulkUploadPage() {
               </div>
               <div>
                 <p className="font-medium text-foreground">
-                  {results.successful} resume{results.successful !== 1 ? 's' : ''} processed successfully
+                  {results.successful} profile{results.successful !== 1 ? 's' : ''} created
+                  {results.duplicates > 0 && `, ${results.duplicates} already on file`}
                   {results.failed > 0 && `, ${results.failed} failed`}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Candidates have been created and matched with open jobs
+                  {results.failed > 0
+                    ? 'Each failure shows its reason below — use Retry once you have addressed it.'
+                    : 'Every résumé was read in full and each profile is ready to match against open roles.'}
                 </p>
               </div>
             </div>

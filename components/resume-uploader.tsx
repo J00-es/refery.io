@@ -53,7 +53,7 @@ export function ResumeUploader({ onUploadComplete, onError }: ResumeUploaderProp
       
       setIsUploading(false)
       setIsAnalyzing(true)
-      setUploadProgress('Analyzing resume with AI...')
+      setUploadProgress('Reading the résumé end to end...')
 
       // Analyze with AI
       const analyzeRes = await fetch('/api/analyze-resume', {
@@ -109,7 +109,7 @@ export function ResumeUploader({ onUploadComplete, onError }: ResumeUploaderProp
             <Spinner className="h-10 w-10 text-primary" />
             <p className="text-sm font-medium text-foreground">{uploadProgress}</p>
             <p className="text-xs text-muted-foreground">
-              {isAnalyzing ? 'This may take a moment...' : 'Please wait...'}
+              {isAnalyzing ? 'Every role, bullet and section — this takes a few seconds.' : 'Please wait...'}
             </p>
           </div>
         ) : (

@@ -6,30 +6,53 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { cn } from '@/lib/utils'
+import { resumeCompleteness } from '@/lib/resume'
 import type { ParsedResumeData } from '@/lib/types'
+
+type FileStatus = 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'duplicate' | 'error'
 
 interface FileUploadState {
   file: File
-  status: 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'error'
+  status: FileStatus
   error?: string
   candidateId?: string
+  candidateName?: string
   parsedData?: ParsedResumeData
+  completeness?: number
 }
 
 interface BulkResumeUploaderProps {
-  onAllComplete?: (results: { successful: number; failed: number }) => void
+  onAllComplete?: (results: { successful: number; failed: number; duplicates: number }) => void
 }
+
+/**
+ * How many resumes to read at once.
+ *
+ * Reading a resume end to end takes several seconds, so a strictly sequential
+ * run turned a twenty-file batch into a coffee break. Three at a time is close
+ * to a three-fold speed-up while staying well inside the AI gateway's rate
+ * limits — going wider mostly buys 429s, which surface to the user as failures.
+ */
+const CONCURRENCY = 3
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
   const [files, setFiles] = useState<FileUploadState[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const pdfFiles = acceptedFiles.filter(f => f.type === 'application/pdf')
-    const newFiles: FileUploadState[] = pdfFiles.map(file => ({
-      file,
-      status: 'pending',
-    }))
+    const newFiles: FileUploadState[] = acceptedFiles.map(file => {
+      // Reject locally rather than spending an upload round-trip to be told.
+      if (file.type !== 'application/pdf') {
+        return { file, status: 'error' as const, error: 'Only PDF files can be read' }
+      }
+      if (file.size > MAX_FILE_BYTES) {
+        return { file, status: 'error' as const, error: 'Larger than 10MB' }
+      }
+      return { file, status: 'pending' as const }
+    })
+
     setFiles(prev => [...prev, ...newFiles])
   }, [])
 
@@ -47,24 +70,23 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
     setFiles(prev => prev.map((f, i) => i === index ? { ...f, ...updates } : f))
   }
 
-  const processFile = async (fileState: FileUploadState, index: number): Promise<boolean> => {
+  type Outcome = 'created' | 'duplicate' | 'failed'
+
+  const processFile = async (file: File, index: number): Promise<Outcome> => {
     try {
       // Upload
-      updateFileStatus(index, { status: 'uploading' })
+      updateFileStatus(index, { status: 'uploading', error: undefined })
       const formData = new FormData()
-      formData.append('file', fileState.file)
+      formData.append('file', file)
 
-      const uploadRes = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      })
+      const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
+      const uploadData = await uploadRes.json()
 
       if (!uploadRes.ok) {
-        const error = await uploadRes.json()
-        throw new Error(error.error || 'Upload failed')
+        throw new Error(uploadData.error || 'Upload failed')
       }
 
-      const { pathname, filename } = await uploadRes.json()
+      const { pathname, filename } = uploadData
 
       // Analyze
       updateFileStatus(index, { status: 'analyzing' })
@@ -73,104 +95,135 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pathname }),
       })
+      const analyzeData = await analyzeRes.json()
 
       if (!analyzeRes.ok) {
-        const errorData = await analyzeRes.json()
-        if (errorData.code === 'VERIFICATION_REQUIRED') {
+        if (analyzeData.code === 'VERIFICATION_REQUIRED') {
           throw new Error('Add a credit card to Vercel to unlock AI features')
         }
-        throw new Error(errorData.error || 'Analysis failed')
+        throw new Error(analyzeData.error || 'Analysis failed')
       }
 
-      const { parsed_data } = await analyzeRes.json()
-      updateFileStatus(index, { parsedData: parsed_data })
+      const parsed = analyzeData.parsed_data as ParsedResumeData
+      updateFileStatus(index, {
+        parsedData: parsed,
+        candidateName: parsed.name,
+        completeness: resumeCompleteness(parsed).score,
+      })
 
-      // Create candidate
+      // Create the candidate. Post the whole parse — the server derives every
+      // column from it, so a bulk-uploaded profile ends up exactly as complete
+      // as one created through the single-resume flow.
       updateFileStatus(index, { status: 'creating' })
-      const candidateData = {
-        name: parsed_data.name,
-        email: parsed_data.email,
-        phone: parsed_data.phone,
-        resume_blob_pathname: pathname,
-        resume_filename: filename,
-        parsed_data: parsed_data,
-        skills: parsed_data.skills,
-        experience_years: parsed_data.experience_years,
-        location: parsed_data.location,
-        remote_preference: parsed_data.remote_preference,
-        salary_expectation_min: parsed_data.salary_expectation_min,
-        salary_expectation_max: parsed_data.salary_expectation_max,
-        status: 'new',
-      }
-
       const createRes = await fetch('/api/candidates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(candidateData),
+        body: JSON.stringify({
+          parsed_data: parsed,
+          resume_blob_pathname: pathname,
+          resume_filename: filename,
+          status: 'new',
+        }),
       })
+      const createData = await createRes.json()
 
       if (!createRes.ok) {
-        const error = await createRes.json()
-        throw new Error(error.error || 'Failed to create candidate')
+        // Already on file is not a failure — it is the correct outcome, and
+        // counting it as an error made re-running a batch look catastrophic.
+        if (createData.code === 'DUPLICATE' && createData.candidate) {
+          updateFileStatus(index, {
+            status: 'duplicate',
+            candidateId: createData.candidate.id,
+            candidateName: createData.candidate.name,
+          })
+          return 'duplicate'
+        }
+        throw new Error(createData.error || 'Failed to create candidate')
       }
 
-      const { candidate } = await createRes.json()
-
-      updateFileStatus(index, { status: 'done', candidateId: candidate.id })
-      return true
-    } catch (error) {
-      updateFileStatus(index, { 
-        status: 'error', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      updateFileStatus(index, {
+        status: 'done',
+        candidateId: createData.candidate.id,
+        candidateName: createData.candidate.name,
       })
-      return false
+      return 'created'
+    } catch (error) {
+      updateFileStatus(index, {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      })
+      return 'failed'
     }
   }
 
-  const processAllFiles = async () => {
-    setIsProcessing(true)
-    let successful = 0
-    let failed = 0
+  /** Push `indices` through processFile, CONCURRENCY files in flight at a time. */
+  const runQueue = async (indices: number[], snapshot: FileUploadState[]) => {
+    if (indices.length === 0) return
 
-    // Process files sequentially to avoid overwhelming the server
-    for (let i = 0; i < files.length; i++) {
-      if (files[i].status === 'pending') {
-        const success = await processFile(files[i], i)
-        if (success) {
-          successful++
-        } else {
-          failed++
-        }
+    setIsProcessing(true)
+    const tally = { created: 0, duplicate: 0, failed: 0 }
+
+    let cursor = 0
+    const worker = async () => {
+      while (cursor < indices.length) {
+        const index = indices[cursor++]
+        tally[await processFile(snapshot[index].file, index)] += 1
       }
     }
 
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, indices.length) }, worker))
+
     setIsProcessing(false)
-    onAllComplete?.({ successful, failed })
+    onAllComplete?.({
+      successful: tally.created,
+      failed: tally.failed,
+      duplicates: tally.duplicate,
+    })
+  }
+
+  const indicesWithStatus = (snapshot: FileUploadState[], status: FileStatus) =>
+    snapshot.map((f, i) => (f.status === status ? i : -1)).filter(i => i >= 0)
+
+  const processAllFiles = async () => {
+    const snapshot = files
+    await runQueue(indicesWithStatus(snapshot, 'pending'), snapshot)
+  }
+
+  // A batch failure is usually transient — a rate limit, a cold model, one bad
+  // PDF in twenty. Re-picking those files by hand was the alternative.
+  const retryFailed = async () => {
+    const snapshot = files
+    await runQueue(indicesWithStatus(snapshot, 'error'), snapshot)
   }
 
   const pendingCount = files.filter(f => f.status === 'pending').length
   const completedCount = files.filter(f => f.status === 'done').length
+  const duplicateCount = files.filter(f => f.status === 'duplicate').length
   const errorCount = files.filter(f => f.status === 'error').length
   const processingCount = files.filter(f => ['uploading', 'analyzing', 'creating'].includes(f.status)).length
 
-  const getStatusLabel = (status: FileUploadState['status']) => {
-    switch (status) {
-      case 'pending': return 'Pending'
+  const getStatusLabel = (state: FileUploadState) => {
+    switch (state.status) {
+      case 'pending': return 'Ready'
       case 'uploading': return 'Uploading...'
-      case 'analyzing': return 'Analyzing...'
-      case 'creating': return 'Creating candidate...'
-      case 'done': return 'Complete'
-      case 'error': return 'Failed'
+      case 'analyzing': return 'Reading résumé...'
+      case 'creating': return 'Creating profile...'
+      case 'done': return state.completeness
+        ? `Created · ${state.completeness}% of fields captured`
+        : 'Created'
+      case 'duplicate': return 'Already in your candidates'
+      case 'error': return state.error || 'Failed'
     }
   }
 
-  const getStatusColor = (status: FileUploadState['status']) => {
+  const getStatusColor = (status: FileStatus) => {
     switch (status) {
       case 'pending': return 'text-muted-foreground'
       case 'uploading':
       case 'analyzing':
       case 'creating': return 'text-amber-600'
       case 'done': return 'text-emerald-600'
+      case 'duplicate': return 'text-blue-600'
       case 'error': return 'text-red-600'
     }
   }
@@ -188,7 +241,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       >
         <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
           <input {...getInputProps()} />
-          
+
           <div className="mb-4 rounded-full bg-primary/10 p-4">
             <svg
               className="h-8 w-8 text-primary"
@@ -208,7 +261,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
             {isDragActive ? 'Drop the resumes here' : 'Drag and drop multiple resumes'}
           </p>
           <p className="mb-4 text-xs text-muted-foreground">
-            or click to browse (PDF files only, max 10MB each)
+            or click to browse (PDF files only, max 10MB each) · {CONCURRENCY} read at a time
           </p>
           <Button type="button" variant="outline" size="sm" disabled={isProcessing}>
             Select Files
@@ -218,11 +271,12 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
 
       {files.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="text-sm text-muted-foreground">
-              {pendingCount > 0 && <span>{pendingCount} pending</span>}
-              {processingCount > 0 && <span className="ml-2">{processingCount} processing</span>}
-              {completedCount > 0 && <span className="ml-2 text-emerald-600">{completedCount} complete</span>}
+              {pendingCount > 0 && <span>{pendingCount} ready</span>}
+              {processingCount > 0 && <span className="ml-2 text-amber-600">{processingCount} processing</span>}
+              {completedCount > 0 && <span className="ml-2 text-emerald-600">{completedCount} created</span>}
+              {duplicateCount > 0 && <span className="ml-2 text-blue-600">{duplicateCount} already on file</span>}
               {errorCount > 0 && <span className="ml-2 text-red-600">{errorCount} failed</span>}
             </div>
             <div className="flex gap-2">
@@ -236,6 +290,11 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
                   ) : (
                     `Process ${pendingCount} Resume${pendingCount > 1 ? 's' : ''}`
                   )}
+                </Button>
+              )}
+              {errorCount > 0 && !isProcessing && (
+                <Button onClick={retryFailed} variant="outline" size="sm">
+                  Retry {errorCount} failed
                 </Button>
               )}
               {!isProcessing && files.length > 0 && (
@@ -253,6 +312,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
                 className={cn(
                   'flex items-center justify-between rounded-lg border p-3',
                   fileState.status === 'done' && 'border-emerald-500/30 bg-emerald-500/5',
+                  fileState.status === 'duplicate' && 'border-blue-500/30 bg-blue-500/5',
                   fileState.status === 'error' && 'border-red-500/30 bg-red-500/5'
                 )}
               >
@@ -262,6 +322,12 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
                       <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
                         <svg className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    ) : fileState.status === 'duplicate' ? (
+                      <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+                        <svg className="h-4 w-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                         </svg>
                       </div>
                     ) : fileState.status === 'error' ? (
@@ -281,14 +347,19 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground truncate">{fileState.file.name}</p>
-                    <p className={cn('text-sm', getStatusColor(fileState.status))}>
-                      {fileState.error || getStatusLabel(fileState.status)}
+                    <p className="font-medium text-foreground truncate">
+                      {fileState.candidateName || fileState.file.name}
                     </p>
+                    <p className={cn('text-sm', getStatusColor(fileState.status))}>
+                      {getStatusLabel(fileState)}
+                    </p>
+                    {fileState.candidateName && (
+                      <p className="text-xs text-muted-foreground truncate">{fileState.file.name}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
-                  {fileState.status === 'done' && fileState.candidateId && (
+                  {(fileState.status === 'done' || fileState.status === 'duplicate') && fileState.candidateId && (
                     <a href={`/candidates/${fileState.candidateId}`}>
                       <Button variant="ghost" size="sm">View</Button>
                     </a>

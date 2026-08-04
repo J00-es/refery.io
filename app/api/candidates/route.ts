@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/server'
 import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { candidateRowFromParsed, sanitizeCandidateInput, toText } from '@/lib/resume'
+import { embedCandidate } from '@/lib/embeddings'
+import type { ParsedResumeData } from '@/lib/types'
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,17 +47,98 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Create a candidate from a parsed resume.
+ *
+ * The body used to be spread straight into the insert. That made the endpoint a
+ * thin pipe from a language model's output into Postgres, and the model only had
+ * to answer "1.5" for years of experience — which it does for anyone under two
+ * years in — for the `integer` column to reject the row and both upload paths to
+ * report the same opaque "Failed to create candidate". Everything the model
+ * produces is now coerced to what the column accepts before it gets near the
+ * database, and anything that still fails comes back with the real reason.
+ */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const adminClient = createAdminClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
+    const appUser = await getAppUser()
+
+    if (!appUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    if (!appUser.isActive) {
+      return NextResponse.json({ error: 'Your account is not active yet, so profiles cannot be created.' }, { status: 403 })
+    }
 
-    const body = await request.json()
+    const adminClient = createAdminClient()
+    const body = (await request.json()) as Record<string, unknown>
+
+    const parsed = (body.parsed_data ?? null) as Partial<ParsedResumeData> | null
+
+    // Derive the columns from the parsed resume first, then let anything the
+    // caller passed explicitly win — that is how a corrected name or a
+    // hand-picked owner from the review screen takes effect.
+    const derived = parsed
+      ? candidateRowFromParsed({
+          parsed,
+          resume_blob_pathname: toText(body.resume_blob_pathname),
+          resume_filename: toText(body.resume_filename),
+        })
+      : {}
+
+    const explicit = sanitizeCandidateInput(body)
+    const row: Record<string, unknown> = { ...derived, ...explicit }
+
+    if (parsed) {
+      row.parsed_data = parsed
+    }
+
+    // Both columns are NOT NULL. Catching it here turns a 500 with a Postgres
+    // error string into something the uploader can actually tell the user.
+    const name = toText(row.name)
+    if (!name) {
+      return NextResponse.json(
+        { error: 'No name could be read from this resume. Add one before creating the profile.' },
+        { status: 400 },
+      )
+    }
+    row.name = name
+
+    if (!toText(row.resume_blob_pathname)) {
+      return NextResponse.json(
+        { error: 'The resume file is missing. Upload it again before creating the profile.' },
+        { status: 400 },
+      )
+    }
+
+    // Uploading the same person twice is the most common way this dataset gets
+    // messy, and it happens most often in bulk. Report it as a distinct outcome
+    // with the existing profile attached, so the uploader can link to it rather
+    // than treating it as a failure.
+    const email = toText(row.email)
+    if (email) {
+      let duplicateQuery = adminClient
+        .from('candidates')
+        .select('id, name, email')
+        .ilike('email', email)
+        .limit(1)
+
+      if (!appUser.canViewAllCandidates) {
+        duplicateQuery = duplicateQuery.or(candidateOwnershipFilter(appUser.id))
+      }
+
+      const { data: existing } = await duplicateQuery.maybeSingle()
+
+      if (existing) {
+        return NextResponse.json(
+          {
+            error: `${existing.name} is already in your candidates with this email address.`,
+            code: 'DUPLICATE',
+            candidate: existing,
+          },
+          { status: 409 },
+        )
+      }
+    }
 
     // Whoever creates the profile owns it by default. Both creation paths —
     // the single upload form and the bulk uploader — post here, so this is the
@@ -63,21 +147,29 @@ export async function POST(request: NextRequest) {
     const { data: candidate, error } = await adminClient
       .from('candidates')
       .insert({
-        ...body,
-        user_id: user.id,
-        uploaded_by_user_id: user.id,
-        owner_user_id: body.owner_user_id ?? user.id,
+        ...row,
+        user_id: appUser.id,
+        uploaded_by_user_id: appUser.id,
+        owner_user_id: row.owner_user_id ?? appUser.id,
       })
       .select()
       .single()
 
     if (error) {
-      throw error
+      console.error('Error creating candidate:', error)
+      return NextResponse.json(
+        { error: `Could not save this candidate: ${error.message}`, code: error.code },
+        { status: 400 },
+      )
     }
 
-    return NextResponse.json({ candidate })
+    // Non-fatal by design — see embedCandidate.
+    const embedded = parsed ? await embedCandidate(candidate.id, parsed, name) : false
+
+    return NextResponse.json({ candidate, embedded })
   } catch (error) {
     console.error('Error creating candidate:', error)
-    return NextResponse.json({ error: 'Failed to create candidate' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: `Failed to create candidate: ${message}` }, { status: 500 })
   }
 }

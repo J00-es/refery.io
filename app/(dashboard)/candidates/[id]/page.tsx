@@ -13,8 +13,11 @@ import { RecruiterNotes } from '@/components/recruiter-notes'
 import { CandidateActivityLog } from '@/components/candidate-activity-log'
 import { SuggestedJobs } from '@/components/candidates/suggested-jobs'
 import { CandidateOwnerAssignment } from '@/components/candidate-owner-assignment'
-import { Linkedin, Clock, Calendar, Briefcase, ArrowRight, User, Sparkles, Brain } from 'lucide-react'
+import { Linkedin, Clock, Calendar, Briefcase, ArrowRight, User, Sparkles, Brain, Github, Globe, ShieldCheck } from 'lucide-react'
 import { CandidateVerdict } from '@/components/candidate-verdict'
+import { ResumeBodySections, LanguagesSection } from '@/components/candidates/parsed-resume'
+import { ReanalyzeResume } from '@/components/candidates/reanalyze-resume'
+import { PARSER_VERSION } from '@/lib/resume-parser'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -115,6 +118,10 @@ export default async function CandidateDetailPage({ params }: PageProps) {
   const typedCandidate = candidate as Candidate
   const parsedData = typedCandidate.parsed_data as ParsedResumeData | null
 
+  // Profiles parsed before the extractor learned to read bullet points,
+  // education detail, links and the document text are worth re-reading.
+  const isStaleParse = (parsedData?.parser_version ?? 0) < PARSER_VERSION
+
   const statusColors = {
     new: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
     reviewing: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
@@ -151,9 +158,17 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               currentStatus={typedCandidate.availability_status || 'not_yet_talked'} 
             />
           </div>
+          {(parsedData?.current_title || parsedData?.headline) && (
+            <p className="text-sm sm:text-base font-medium text-foreground">
+              {parsedData.current_title
+                ? [parsedData.current_title, parsedData.current_company].filter(Boolean).join(' at ')
+                : parsedData.headline}
+            </p>
+          )}
           <p className="text-sm sm:text-base text-muted-foreground">
             {typedCandidate.experience_years && `${typedCandidate.experience_years} years experience • `}
             {typedCandidate.location ?? 'Unknown location'}
+            {parsedData?.seniority_level && ` • ${parsedData.seniority_level}`}
           </p>
           <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
@@ -323,44 +338,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </Card>
           )}
 
-          {parsedData?.work_history && parsedData.work_history.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Work History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {parsedData.work_history.map((work, i) => (
-                    <div key={i} className="border-l-2 border-border pl-4">
-                      <p className="font-medium text-foreground">{work.title}</p>
-                      <p className="text-sm text-muted-foreground">{work.company} - {work.duration}</p>
-                      {work.description && (
-                        <p className="mt-2 text-sm text-foreground">{work.description}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {parsedData?.education && parsedData.education.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Education</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {parsedData.education.map((edu, i) => (
-                    <div key={i}>
-                      <p className="font-medium text-foreground">{edu.degree} in {edu.field}</p>
-                      <p className="text-sm text-muted-foreground">{edu.institution} - {edu.year}</p>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {parsedData && <ResumeBodySections parsed={parsedData} />}
         </div>
 
         <div className="space-y-6">
@@ -431,10 +409,51 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                   </a>
                 </div>
               )}
+              {parsedData?.github_url && (
+                <div>
+                  <p className="text-sm text-muted-foreground">GitHub</p>
+                  <a href={parsedData.github_url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-1">
+                    <Github className="h-4 w-4" />
+                    View Profile
+                  </a>
+                </div>
+              )}
+              {parsedData?.portfolio_url && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Portfolio</p>
+                  <a href={parsedData.portfolio_url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-1">
+                    <Globe className="h-4 w-4" />
+                    Visit Site
+                  </a>
+                </div>
+              )}
               {typedCandidate.remote_preference && (
                 <div>
                   <p className="text-sm text-muted-foreground">Remote Preference</p>
                   <p className="font-medium text-foreground capitalize">{typedCandidate.remote_preference}</p>
+                </div>
+              )}
+              {typedCandidate.visa_status && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Work Authorization</p>
+                  <p className="font-medium text-foreground flex items-center gap-1">
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                    {typedCandidate.visa_status}
+                  </p>
+                </div>
+              )}
+              {parsedData?.willing_to_relocate != null && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Relocation</p>
+                  <p className="font-medium text-foreground">
+                    {parsedData.willing_to_relocate ? 'Open to relocating' : 'Not open to relocating'}
+                  </p>
+                </div>
+              )}
+              {parsedData?.notice_period && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Notice Period</p>
+                  <p className="font-medium text-foreground">{parsedData.notice_period}</p>
                 </div>
               )}
             </CardContent>
@@ -470,6 +489,8 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </Card>
           )}
 
+          {parsedData && <LanguagesSection parsed={parsedData} />}
+
           {parsedData?.certifications && parsedData.certifications.length > 0 && (
             <Card>
               <CardHeader>
@@ -488,17 +509,23 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           <Card>
             <CardHeader>
               <CardTitle>Resume</CardTitle>
+              <CardDescription className="text-xs">
+                {isStaleParse
+                  ? 'Parsed by an earlier extractor — re-read to pull in bullet points, education, links and the full text.'
+                  : 'Read in full by the current extractor.'}
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-2">{typedCandidate.resume_filename}</p>
-              <a 
-                href={`/api/file?pathname=${encodeURIComponent(typedCandidate.resume_blob_pathname)}`} 
-                target="_blank" 
+            <CardContent className="space-y-3">
+              <p className="text-sm text-muted-foreground">{typedCandidate.resume_filename}</p>
+              <a
+                href={`/api/file?pathname=${encodeURIComponent(typedCandidate.resume_blob_pathname)}`}
+                target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-primary hover:underline"
+                className="block text-sm text-primary hover:underline"
               >
                 Download PDF
               </a>
+              <ReanalyzeResume candidateId={id} isStale={isStaleParse} />
             </CardContent>
           </Card>
         </div>

@@ -64,6 +64,8 @@ export interface Candidate {
   last_contacted: string | null
   owner_user_id: string | null
   uploaded_by_user_id: string | null
+  /** Work authorization as stated on the resume, e.g. "US citizen", "H-1B". */
+  visa_status: string | null
   // Verdict fields
   recruiter_verdict: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null
   lily_verdict: 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null
@@ -303,6 +305,14 @@ export const ROLE_PERMISSIONS = {
   },
 } as const
 
+/**
+ * Everything we extract from a resume.
+ *
+ * Fields added after the first version are optional so that the hundreds of
+ * profiles parsed by the original, much thinner extractor still typecheck and
+ * still render — the detail page treats every one of them as "show it if we
+ * have it". Re-running the analysis on an old candidate backfills them.
+ */
 export interface ParsedResumeData {
   name: string
   email: string | null
@@ -317,6 +327,49 @@ export interface ParsedResumeData {
   work_history: WorkExperience[]
   education: Education[]
   certifications: string[]
+
+  // --- Identity and positioning ---
+  /** One-line self-description, usually the line under the name. */
+  headline?: string | null
+  current_title?: string | null
+  current_company?: string | null
+  seniority_level?: string | null
+
+  // --- Links ---
+  linkedin_url?: string | null
+  github_url?: string | null
+  portfolio_url?: string | null
+  other_links?: string[]
+
+  // --- Availability and eligibility ---
+  work_authorization?: string | null
+  willing_to_relocate?: boolean | null
+  salary_currency?: string | null
+  notice_period?: string | null
+
+  // --- Context for matching ---
+  industries?: string[]
+  languages?: ResumeLanguage[]
+
+  // --- Long tail of the document ---
+  projects?: ResumeProject[]
+  awards?: ResumeAward[]
+  publications?: ResumePublication[]
+  volunteer?: ResumeVolunteer[]
+
+  /**
+   * The resume transcribed in full, in reading order.
+   *
+   * The structured fields are a summary by construction; this is the guarantee
+   * that nothing on the page was silently dropped, and it is what the profile
+   * shows under "Full résumé text".
+   */
+  raw_text?: string | null
+  /** Anything the model saw but could not confidently place in a field. */
+  extraction_notes?: string | null
+  parser_version?: number
+  parsed_at?: string
+  parser_model?: string
 }
 
 export interface WorkExperience {
@@ -324,6 +377,15 @@ export interface WorkExperience {
   title: string
   duration: string
   description: string
+  // Added by the richer extractor; absent on older profiles.
+  location?: string | null
+  employment_type?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  is_current?: boolean | null
+  /** Bullet points as written, so quantified wins survive the summary. */
+  highlights?: string[]
+  technologies?: string[]
 }
 
 export interface Education {
@@ -331,6 +393,46 @@ export interface Education {
   degree: string
   field: string
   year: string
+  // Added by the richer extractor; absent on older profiles.
+  start_year?: string | null
+  end_year?: string | null
+  gpa?: string | null
+  honors?: string | null
+  activities?: string | null
+  location?: string | null
+}
+
+export interface ResumeLanguage {
+  language: string
+  proficiency: string | null
+}
+
+export interface ResumeProject {
+  name: string
+  description: string | null
+  url: string | null
+  technologies?: string[]
+}
+
+export interface ResumeAward {
+  name: string
+  issuer: string | null
+  year: string | null
+  description: string | null
+}
+
+export interface ResumePublication {
+  title: string
+  venue: string | null
+  year: string | null
+  url: string | null
+}
+
+export interface ResumeVolunteer {
+  organization: string
+  role: string | null
+  duration: string | null
+  description: string | null
 }
 
 export interface MatchScores {
