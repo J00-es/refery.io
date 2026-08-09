@@ -1,3 +1,5 @@
+import type { JourneyStage, PanelGrade } from './journey'
+
 export interface Job {
   id: string
   title: string
@@ -54,7 +56,23 @@ export interface Candidate {
   remote_preference: string | null
   salary_expectation_min: number | null
   salary_expectation_max: number | null
+  /**
+   * @deprecated Superseded by `journey_stage`. Kept because the external nightly
+   * automation still writes it; 99% of rows are 'new' or 'reviewing' and neither
+   * means anything. Read `journey_stage` instead — see lib/journey.ts.
+   */
   status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
+  /** Where we are with the person. See lib/journey.ts. */
+  journey_stage: JourneyStage
+  journey_stage_at: string | null
+  journey_stage_source: 'rule' | 'human' | 'automation' | 'backfill' | null
+  /**
+   * The panel verdict as a comparable grade. NULL where `recruiter_verdict` holds
+   * prose rather than one of the five enum values — those need re-panelling, and
+   * no rule should guess at them.
+   */
+  panel_grade: PanelGrade | null
+  /** Whether they can take a job right now — independent of `journey_stage`. */
   availability_status: 'active' | 'off_market' | 'not_yet_talked' | 'not_qualified' | null
   created_at: string
   updated_at: string
