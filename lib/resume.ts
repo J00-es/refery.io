@@ -67,6 +67,61 @@ function toObjectArray(value: unknown, limit = 100): Record<string, unknown>[] {
     .slice(0, limit)
 }
 
+/**
+ * Strip the characters Postgres will not accept inside `jsonb`.
+ *
+ * A PDF text layer can contain a NUL byte, and some fonts leave lone surrogate
+ * halves behind. Postgres rejects both with
+ * `unsupported Unicode escape sequence` and refuses the entire write — so one
+ * stray byte in a résumé took the whole profile down with it.
+ *
+ * Applied to the parse as a whole rather than to raw_text alone: the model
+ * quotes the document, so anything unwriteable in the text can resurface in a
+ * bullet point or a job title.
+ */
+export function stripUnwritableChars<T>(value: T): T {
+  if (typeof value === 'string') {
+    // Filtered by code point rather than by regex: the characters being removed
+    // are exactly the ones that cannot safely appear in source either.
+    let out = ''
+    for (let i = 0; i < value.length; i++) {
+      const code = value.charCodeAt(i)
+
+      // C0 controls, except tab (9), newline (10) and carriage return (13).
+      if (code < 0x20 && code !== 9 && code !== 10 && code !== 13) continue
+      if (code === 0x7f) continue
+
+      // A surrogate is only meaningful as a matched pair; a lone half is not
+      // valid UTF-8 and Postgres will reject the whole document over it.
+      if (code >= 0xd800 && code <= 0xdbff) {
+        const next = value.charCodeAt(i + 1)
+        if (!(next >= 0xdc00 && next <= 0xdfff)) continue
+        out += value[i] + value[i + 1]
+        i++
+        continue
+      }
+      if (code >= 0xdc00 && code <= 0xdfff) continue
+
+      out += value[i]
+    }
+    return out as unknown as T
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(item => stripUnwritableChars(item)) as unknown as T
+  }
+
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = stripUnwritableChars(item)
+    }
+    return out as unknown as T
+  }
+
+  return value
+}
+
 /** Postgres CHECK constraint on `candidates.status`. */
 export const CANDIDATE_STATUSES = ['new', 'reviewing', 'shortlisted', 'rejected', 'hired'] as const
 

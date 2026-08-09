@@ -2,6 +2,7 @@ import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { get } from '@vercel/blob'
 import { extractPdfText } from '@/lib/pdf-text'
+import { stripUnwritableChars } from '@/lib/resume'
 import type { ParsedResumeData } from '@/lib/types'
 
 /**
@@ -457,14 +458,16 @@ export async function analyzeResumeFromBlob(
   if (pdfText.usable) {
     const structured = await analyzeWithFallback({ kind: 'text', text: pdfText.text }, deadline)
 
-    return {
+    // Sanitised here, at the one point every parse passes through, rather than
+    // at each of the places that later writes one.
+    return stripUnwritableChars({
       ...structured.parsed,
       raw_text: pdfText.text,
       parser_version: PARSER_VERSION,
       parser_model: structured.model,
       parsed_at: new Date().toISOString(),
       source: 'text-layer',
-    } as ParsedResumeData
+    }) as ParsedResumeData
   }
 
   // A scan, or a design-led CV whose text is all outlines. The model has to
@@ -477,14 +480,14 @@ export async function analyzeResumeFromBlob(
     transcribeResume(base64, deadline),
   ])
 
-  return {
+  return stripUnwritableChars({
     ...structured.parsed,
     raw_text: rawText,
     parser_version: PARSER_VERSION,
     parser_model: structured.model,
     parsed_at: new Date().toISOString(),
     source: 'vision',
-  } as ParsedResumeData
+  }) as ParsedResumeData
 }
 
 export class ResumeNotFoundError extends Error {
