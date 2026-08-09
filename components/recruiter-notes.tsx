@@ -1,60 +1,45 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { useState, useEffect, useCallback } from 'react'
 import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Spinner } from '@/components/ui/spinner'
 import type { RecruiterNote } from '@/lib/types'
-import { MessageSquare, Phone, DollarSign, MapPin, Clock, Star, Trash2, Plus, Lock } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
+import { CARD, FOCUS } from '@/lib/candidate-ui'
 
-const noteTypeIcons = {
-  general: MessageSquare,
-  call: Phone,
-  salary: DollarSign,
-  location: MapPin,
-  availability: Clock,
-  feedback: Star,
-}
+const NOTE_TYPES = [
+  { key: 'general', label: 'General' },
+  { key: 'call', label: 'Call' },
+  { key: 'feedback', label: 'Feedback' },
+  { key: 'salary', label: 'Salary' },
+  { key: 'location', label: 'Location' },
+  { key: 'availability', label: 'Availability' },
+] as const
 
-const noteTypeLabels = {
-  general: 'General Note',
-  call: 'Call Notes',
-  salary: 'Salary Discussion',
-  location: 'Location/Relocation',
-  availability: 'Availability',
-  feedback: 'Feedback',
-}
-
-const noteTypeColors = {
-  general: 'bg-gray-100 text-gray-700',
-  call: 'bg-blue-100 text-blue-700',
-  salary: 'bg-green-100 text-green-700',
-  location: 'bg-purple-100 text-purple-700',
-  availability: 'bg-orange-100 text-orange-700',
-  feedback: 'bg-yellow-100 text-yellow-700',
-}
+const TYPE_LABELS: Record<string, string> = Object.fromEntries(
+  NOTE_TYPES.map(t => [t.key, t.label])
+)
 
 interface RecruiterNotesProps {
   candidateId: string
 }
 
+/**
+ * Notes are the richest thing on a candidate: 886 of them across the roster,
+ * and the panel's write-ups run to full paragraphs. So the list is built for
+ * reading — long notes clamp to four lines with an expander rather than pushing
+ * everything else off the page, and the six types are quiet chips rather than
+ * six badge colours competing down the column.
+ */
 export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
   const [notes, setNotes] = useState<RecruiterNote[]>([])
   const [loading, setLoading] = useState(true)
   const [isAdding, setIsAdding] = useState(false)
   const [showForm, setShowForm] = useState(false)
-  
-  // Form state
   const [noteType, setNoteType] = useState<string>('general')
   const [content, setContent] = useState('')
 
-  useEffect(() => {
-    fetchNotes()
-  }, [candidateId])
-
-  async function fetchNotes() {
+  const fetchNotes = useCallback(async () => {
     try {
       const res = await fetch(`/api/candidates/${candidateId}/notes`)
       if (res.ok) {
@@ -66,7 +51,11 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [candidateId])
+
+  useEffect(() => {
+    fetchNotes()
+  }, [fetchNotes])
 
   async function handleAddNote(e: React.FormEvent) {
     e.preventDefault()
@@ -79,7 +68,6 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note_type: noteType, content }),
       })
-
       if (res.ok) {
         await fetchNotes()
         setContent('')
@@ -95,133 +83,147 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
 
   async function handleDeleteNote(noteId: string) {
     if (!confirm('Delete this note?')) return
-
     try {
       const res = await fetch(`/api/candidates/${candidateId}/notes/${noteId}`, {
         method: 'DELETE',
       })
-
-      if (res.ok) {
-        setNotes(notes.filter(n => n.id !== noteId))
-      }
+      if (res.ok) setNotes(notes.filter(n => n.id !== noteId))
     } catch (error) {
       console.error('Error deleting note:', error)
     }
   }
 
-  function formatDate(dateString: string) {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    
-    if (diffDays === 0) {
-      return `Today at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    } else if (diffDays === 1) {
-      return `Yesterday at ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    } else if (diffDays < 7) {
-      return `${diffDays} days ago`
-    } else {
-      return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
-    }
-  }
+  return (
+    <section className={`${CARD} p-5`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[15px] font-semibold text-[#161613]">Notes</h2>
+          <p className="text-[12px] text-[#9C9C95]">Private to the team</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowForm(v => !v)}
+          className={`shrink-0 rounded-full border border-[#D8D8D0] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+        >
+          {showForm ? 'Cancel' : 'Add'}
+        </button>
+      </div>
+
+      {showForm && (
+        <form
+          onSubmit={handleAddNote}
+          className="mt-3 space-y-2.5 rounded-xl border border-[#ECECE6] bg-[#FAFAF6] p-3"
+        >
+          <div className="flex flex-wrap gap-1.5">
+            {NOTE_TYPES.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setNoteType(t.key)}
+                className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
+                  noteType === t.key
+                    ? 'bg-[#1F4D3A] text-white'
+                    : 'border border-[#D8D8D0] text-[#6E6E68] hover:border-[#9C9C95]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <Textarea
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            placeholder="What did you learn?"
+            rows={3}
+            className="resize-y border-[#D8D8D0] bg-white text-[13.5px]"
+          />
+          <button
+            type="submit"
+            disabled={isAdding || !content.trim()}
+            className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`}
+          >
+            {isAdding && <Spinner className="h-3.5 w-3.5" />}
+            Save
+          </button>
+        </form>
+      )}
+
+      {loading ? (
+        <p className="py-6 text-center text-[13px] text-[#9C9C95]">Loading…</p>
+      ) : notes.length === 0 ? (
+        <p className="py-6 text-center text-[13px] text-[#9C9C95]">
+          No notes yet. The first one usually comes out of a call.
+        </p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {notes.map(note => (
+            <NoteItem key={note.id} note={note} onDelete={handleDeleteNote} />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function NoteItem({
+  note,
+  onDelete,
+}: {
+  note: RecruiterNote
+  onDelete: (id: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const long = note.content.length > 260
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <div>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Lock className="h-4 w-4 text-muted-foreground" />
-            Recruiter Notes
-          </CardTitle>
-          <CardDescription>
-            Private notes visible only to recruiters
-          </CardDescription>
+    <li className="rounded-xl border border-[#ECECE6] p-3">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[11px] font-medium text-[#6E6E68]">
+            {TYPE_LABELS[note.note_type] || 'Note'}
+          </span>
+          <span className="truncate text-[11.5px] text-[#9C9C95]">
+            {formatDate(note.created_at)}
+          </span>
         </div>
-        {!showForm && (
-          <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Add Note
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {showForm && (
-          <form onSubmit={handleAddNote} className="space-y-3 rounded-lg border p-4 bg-muted/30">
-            <Select value={noteType} onValueChange={setNoteType}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General Note</SelectItem>
-                <SelectItem value="call">Call Notes</SelectItem>
-                <SelectItem value="salary">Salary Discussion</SelectItem>
-                <SelectItem value="location">Location/Relocation</SelectItem>
-                <SelectItem value="availability">Availability</SelectItem>
-                <SelectItem value="feedback">Feedback</SelectItem>
-              </SelectContent>
-            </Select>
-            <Textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="Add your note here..."
-              rows={3}
-            />
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={isAdding || !content.trim()}>
-                {isAdding && <Spinner className="mr-2 h-4 w-4" />}
-                Save Note
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                Cancel
-              </Button>
-            </div>
-          </form>
-        )}
+        {/* Was hover-only, which meant it did not exist on a phone. Always
+            present, quiet until you reach for it. */}
+        <button
+          type="button"
+          onClick={() => onDelete(note.id)}
+          aria-label="Delete note"
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[#C9C9C1] transition-colors hover:bg-[#F7EDEC] hover:text-[#9C4038] ${FOCUS}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <Spinner className="h-6 w-6" />
-          </div>
-        ) : notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-4">
-            No notes yet. Add the first note to track conversations and details.
-          </p>
-        ) : (
-          <div className="space-y-3">
-            {notes.map((note) => {
-              const Icon = noteTypeIcons[note.note_type as keyof typeof noteTypeIcons] || MessageSquare
-              const color = noteTypeColors[note.note_type as keyof typeof noteTypeColors] || 'bg-gray-100 text-gray-700'
-              const label = noteTypeLabels[note.note_type as keyof typeof noteTypeLabels] || 'Note'
+      <p
+        className={`mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-[#161613] ${
+          long && !expanded ? 'line-clamp-4' : ''
+        }`}
+      >
+        {note.content}
+      </p>
 
-              return (
-                <div key={note.id} className="rounded-lg border p-3 group">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
-                        <Icon className="h-3 w-3" />
-                        {label}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(note.created_at)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleDeleteNote(note.id)}
-                    >
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                  <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">{note.content}</p>
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      {long && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className={`mt-1.5 text-[12.5px] font-medium text-[#1F4D3A] hover:underline ${FOCUS}`}
+        >
+          {expanded ? 'Show less' : 'Show more'}
+        </button>
+      )}
+    </li>
   )
+}
+
+function formatDate(dateString: string) {
+  const date = new Date(dateString)
+  const diffDays = Math.floor((Date.now() - date.getTime()) / 86_400_000)
+  if (diffDays === 0) return `Today, ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+  if (diffDays === 1) return 'Yesterday'
+  if (diffDays < 7) return `${diffDays} days ago`
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
 }

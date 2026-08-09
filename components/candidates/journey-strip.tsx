@@ -169,8 +169,11 @@ export function JourneyStrip({
                     done ? 'bg-[#1F4D3A]' : here ? 'bg-[#1F4D3A]' : 'bg-[#ECECE6]'
                   } ${here ? 'opacity-100' : done ? 'opacity-45' : ''}`}
                 />
+                {/* Six labels across a 360px screen leaves ~55px each, which
+                    turns "Ready for intro" into "Read…". The bars still carry
+                    the progress, and the current step is named in full above. */}
                 <span
-                  className={`truncate text-[10.5px] leading-none ${
+                  className={`hidden truncate text-[10.5px] leading-none sm:block ${
                     here ? 'font-semibold text-[#1F4D3A]' : 'text-[#9C9C95]'
                   }`}
                 >

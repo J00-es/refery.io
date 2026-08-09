@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { FileText, GraduationCap, Briefcase, Award, BookOpen, Heart, Lightbulb, Languages } from 'lucide-react'
 import { formatEducationYears, formatRoleDates } from '@/lib/resume'
 import type { ParsedResumeData } from '@/lib/types'
+import { CARD } from '@/lib/candidate-ui'
 
 /**
  * Everything a resume said, rendered.
@@ -27,7 +28,7 @@ export function WorkHistorySection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.work_history)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Briefcase className="h-5 w-5" />
@@ -89,7 +90,7 @@ export function EducationSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.education)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <GraduationCap className="h-5 w-5" />
@@ -128,7 +129,7 @@ export function ProjectsSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.projects)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="h-5 w-5" />
@@ -170,7 +171,7 @@ export function AwardsSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.awards)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Award className="h-5 w-5" />
@@ -198,7 +199,7 @@ export function PublicationsSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.publications)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <BookOpen className="h-5 w-5" />
@@ -233,7 +234,7 @@ export function VolunteerSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.volunteer)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Heart className="h-5 w-5" />
@@ -299,7 +300,7 @@ export function LanguagesSection({ parsed }: { parsed: ParsedResumeData }) {
   if (!hasItems(parsed.languages)) return null
 
   return (
-    <Card>
+    <Card className={CARD}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Languages className="h-5 w-5" />

@@ -1,31 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { formatDistanceToNow } from 'date-fns'
-import { 
-  Activity, Eye, Briefcase, Send, UserCheck, FileText, Mail, 
-  Calendar, Gift, CheckCircle, XCircle, LogOut, Upload, Phone, Plus
-} from 'lucide-react'
+import { CARD, FOCUS } from '@/lib/candidate-ui'
 
 interface ActivityLog {
   id: string
-  candidate_id: string
   activity_type: string
   description: string
-  metadata: Record<string, unknown>
-  performed_by: string | null
+  source: string | null
+  from_state: string | null
+  to_state: string | null
   created_at: string
 }
 
@@ -33,165 +20,186 @@ interface CandidateActivityLogProps {
   candidateId: string
 }
 
-const ACTIVITY_TYPES = {
-  profile_viewed: { label: 'Profile Viewed', icon: Eye, color: 'bg-gray-100 text-gray-700' },
-  job_matched: { label: 'Job Matched', icon: Briefcase, color: 'bg-blue-100 text-blue-700' },
-  opportunity_sent: { label: 'Opportunity Sent', icon: Send, color: 'bg-indigo-100 text-indigo-700' },
-  status_changed: { label: 'Status Changed', icon: UserCheck, color: 'bg-purple-100 text-purple-700' },
-  note_added: { label: 'Note Added', icon: FileText, color: 'bg-slate-100 text-slate-700' },
-  stage_changed: { label: 'Stage Changed', icon: Activity, color: 'bg-cyan-100 text-cyan-700' },
-  email_sent: { label: 'Email Sent', icon: Mail, color: 'bg-sky-100 text-sky-700' },
-  interview_scheduled: { label: 'Interview Scheduled', icon: Calendar, color: 'bg-amber-100 text-amber-700' },
-  offer_made: { label: 'Offer Made', icon: Gift, color: 'bg-orange-100 text-orange-700' },
-  hired: { label: 'Hired', icon: CheckCircle, color: 'bg-emerald-100 text-emerald-700' },
-  rejected: { label: 'Rejected', icon: XCircle, color: 'bg-red-100 text-red-700' },
-  withdrawn: { label: 'Withdrawn', icon: LogOut, color: 'bg-gray-100 text-gray-500' },
-  document_uploaded: { label: 'Document Uploaded', icon: Upload, color: 'bg-teal-100 text-teal-700' },
-  contact_made: { label: 'Contact Made', icon: Phone, color: 'bg-green-100 text-green-700' },
+/**
+ * Only the types a person would sit down and record. The table permits
+ * seventeen, but the rest are written by automation — offering "Job Matched" or
+ * "Stage Changed" in a human's dropdown invites someone to hand-write a fact the
+ * system is already asserting, and then the two disagree.
+ */
+const LOGGABLE = [
+  { key: 'call_transcript', label: 'Call' },
+  { key: 'email_sent', label: 'Email' },
+  { key: 'contact_made', label: 'Contact' },
+  { key: 'note_added', label: 'Note' },
+] as const
+
+/** Human-readable names for what the timeline shows. */
+const TYPE_LABELS: Record<string, string> = {
+  journey_stage_changed: 'Stage',
+  internal_stage_changed: 'Internal stage',
+  stage_changed: 'Pipeline',
+  status_changed: 'Status',
+  call_transcript: 'Call',
+  email_sent: 'Email',
+  contact_made: 'Contact',
+  note_added: 'Note',
+  job_matched: 'Matched',
+  opportunity_sent: 'Opportunity sent',
+  profile_viewed: 'Viewed',
+  document_uploaded: 'Document',
+  interview_scheduled: 'Interview',
+  offer_made: 'Offer',
+  hired: 'Hired',
+  rejected: 'Rejected',
+  withdrawn: 'Withdrawn',
 }
+
+/** Sources that mean "nobody typed this". */
+const AUTOMATED = new Set(['rule', 'automation', 'gmail', 'calendar', 'granola', 'panel', 'backfill'])
 
 export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps) {
   const [activities, setActivities] = useState<ActivityLog[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newActivityType, setNewActivityType] = useState('')
-  const [newDescription, setNewDescription] = useState('')
+  const [open, setOpen] = useState(false)
+  const [type, setType] = useState<string>(LOGGABLE[0].key)
+  const [description, setDescription] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
-    fetchActivities()
-  }, [candidateId])
-
-  async function fetchActivities() {
+  const fetchActivities = useCallback(async () => {
     setLoading(true)
     const { data } = await supabase
       .from('candidate_activity_log')
-      .select('*')
+      .select('id, activity_type, description, source, from_state, to_state, created_at')
       .eq('candidate_id', candidateId)
       .order('created_at', { ascending: false })
       .limit(50)
-
     setActivities(data || [])
     setLoading(false)
-  }
+  }, [candidateId, supabase])
 
-  async function addActivity() {
-    if (!newActivityType || !newDescription.trim()) return
+  useEffect(() => {
+    fetchActivities()
+  }, [fetchActivities])
+
+  async function add() {
+    if (!description.trim()) return
     setSubmitting(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     await supabase.from('candidate_activity_log').insert({
       candidate_id: candidateId,
-      activity_type: newActivityType,
-      description: newDescription.trim(),
+      activity_type: type,
+      description: description.trim(),
+      source: 'human',
       performed_by: user?.id,
     })
 
-    setNewActivityType('')
-    setNewDescription('')
-    setShowAddForm(false)
+    setDescription('')
+    setOpen(false)
     setSubmitting(false)
     fetchActivities()
   }
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Activity className="h-4 w-4" />
-          Activity Log
-        </CardTitle>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setShowAddForm(!showAddForm)}
+    <section className={`${CARD} p-5`}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-[15px] font-semibold text-[#161613]">Activity</h2>
+        <button
+          type="button"
+          onClick={() => setOpen(v => !v)}
+          className={`rounded-full border border-[#D8D8D0] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
         >
-          <Plus className="h-4 w-4 mr-1.5" />
-          Log Activity
-        </Button>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Add Activity Form */}
-        {showAddForm && (
-          <div className="p-4 bg-muted/50 rounded-lg space-y-3 border">
-            <Select value={newActivityType} onValueChange={setNewActivityType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select activity type..." />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(ACTIVITY_TYPES).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Textarea
-              placeholder="Describe the activity..."
-              value={newDescription}
-              onChange={(e) => setNewDescription(e.target.value)}
-              className="min-h-[80px]"
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" size="sm" onClick={() => setShowAddForm(false)}>
-                Cancel
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={addActivity}
-                disabled={!newActivityType || !newDescription.trim() || submitting}
+          {open ? 'Cancel' : 'Log'}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 space-y-2.5 rounded-xl border border-[#ECECE6] bg-[#FAFAF6] p-3">
+          <div className="flex flex-wrap gap-1.5">
+            {LOGGABLE.map(t => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setType(t.key)}
+                className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
+                  type === t.key
+                    ? 'bg-[#1F4D3A] text-white'
+                    : 'border border-[#D8D8D0] text-[#6E6E68] hover:border-[#9C9C95]'
+                }`}
               >
-                {submitting ? 'Adding...' : 'Add Activity'}
-              </Button>
-            </div>
+                {t.label}
+              </button>
+            ))}
           </div>
-        )}
+          <Textarea
+            placeholder="What happened?"
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            className="min-h-[70px] resize-y border-[#D8D8D0] bg-white text-[13.5px]"
+          />
+          <button
+            type="button"
+            onClick={add}
+            disabled={!description.trim() || submitting}
+            className={`w-full rounded-full bg-[#1F4D3A] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`}
+          >
+            {submitting ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      )}
 
-        {/* Activity List */}
-        {loading ? (
-          <div className="text-center py-8 text-muted-foreground">Loading activities...</div>
-        ) : activities.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            <Activity className="h-8 w-8 mx-auto mb-2 opacity-50" />
-            <p>No activity logged yet</p>
-          </div>
-        ) : (
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-4 top-2 bottom-2 w-px bg-border" />
-            
-            <div className="space-y-4">
-              {activities.map((activity) => {
-                const typeConfig = ACTIVITY_TYPES[activity.activity_type as keyof typeof ACTIVITY_TYPES] || {
-                  label: activity.activity_type,
-                  icon: Activity,
-                  color: 'bg-gray-100 text-gray-700'
-                }
-                const Icon = typeConfig.icon
-
-                return (
-                  <div key={activity.id} className="flex items-start gap-3 relative pl-2">
-                    <div className={`h-8 w-8 rounded-full ${typeConfig.color} flex items-center justify-center z-10 shrink-0`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1 min-w-0 pt-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="secondary" className={`text-xs ${typeConfig.color}`}>
-                          {typeConfig.label}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
-                        </span>
-                      </div>
-                      <p className="text-sm mt-1 text-foreground">{activity.description}</p>
-                    </div>
+      {loading ? (
+        <p className="py-6 text-center text-[13px] text-[#9C9C95]">Loading…</p>
+      ) : activities.length === 0 ? (
+        <p className="py-6 text-center text-[13px] text-[#9C9C95]">Nothing logged yet.</p>
+      ) : (
+        <ol className="mt-4 space-y-3.5">
+          {activities.map(a => {
+            const automated = AUTOMATED.has(a.source ?? '')
+            return (
+              <li key={a.id} className="flex gap-3">
+                {/* One neutral dot rather than a coloured icon per type. With
+                    seventeen types the palette became decoration — the reader
+                    scans the sentence, not the badge. */}
+                <span
+                  aria-hidden
+                  className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${
+                    automated ? 'bg-[#C9C9C1]' : 'bg-[#1F4D3A]'
+                  }`}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-[13px] font-medium text-[#161613]">
+                      {TYPE_LABELS[a.activity_type] ?? a.activity_type.replace(/_/g, ' ')}
+                    </span>
+                    {a.to_state && (
+                      <span className="text-[12.5px] text-[#6E6E68]">
+                        → {a.to_state.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                    <span className="text-[11.5px] text-[#9C9C95]">
+                      {formatDistanceToNow(new Date(a.created_at), { addSuffix: true })}
+                    </span>
+                    {/* Whether a person or the system did this. It is the first
+                        thing you want to know before trusting or undoing it. */}
+                    {automated && (
+                      <span className="rounded bg-[#F0F0EA] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
+                        auto
+                      </span>
+                    )}
                   </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                  {a.description && (
+                    <p className="mt-0.5 text-[13px] leading-snug text-[#6E6E68]">{a.description}</p>
+                  )}
+                </div>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </section>
   )
 }

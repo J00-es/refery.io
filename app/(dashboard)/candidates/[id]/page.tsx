@@ -70,10 +70,25 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     notFound()
   }
 
+  /**
+   * Only roles where something actually happened.
+   *
+   * The unfiltered list was the most misleading thing on this page. The matcher
+   * writes a pipeline row for every plausible role, so the median candidate has
+   * 18 of them and the 90th percentile has 165 — 96% of all rows sit at
+   * auto_matched or job_matched, meaning a machine noticed a fit and nothing
+   * more. Rendering those as "jobs this candidate is being considered for" told
+   * a scout their candidate was in play with 165 companies. None of it was true.
+   *
+   * From job_shared onward a human did something: the role was put in front of
+   * the candidate. Across the whole database that is 10 candidates — so for
+   * nearly everyone this section now correctly disappears.
+   */
   const { data: pipelineData } = await adminClient
     .from('job_candidate_pipeline')
     .select('*, job:jobs(id, title, company_name)')
     .eq('candidate_id', id)
+    .in('stage', ['job_shared', 'interest_confirmed', 'hm_shared'])
     .order('created_at', { ascending: false })
 
   let ownerInfo = null
@@ -242,8 +257,19 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         canRecordCommitteeDecision={isAdmin}
       />
 
+      {/*
+        Explicit grid placement rather than two columns, because the mobile
+        order and the desktop order are genuinely different.
+
+        Stacked on a phone the natural order buries contact details and notes
+        under the full résumé — work history, education, projects, awards,
+        publications, the document text. That is the wrong way round for the
+        person reading this in a café before a call. So the résumé body is its
+        own block, placed last on mobile and beneath the assessment on desktop,
+        which puts "at a glance" and the notes within thumb reach.
+      */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
+        <div className="space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {/* ── assessment ───────────────────────────────────────────────
               Previously three stacked cards: recruiter verdict, Lily's
               verdict, and an AI analysis panel that rendered an empty state
@@ -314,7 +340,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           {pipelineData && pipelineData.length > 0 && (
             <section className={`${CARD} overflow-hidden`}>
               <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
-                Roles in play
+                In play with companies
                 <span className="ml-2 font-normal text-[#9C9C95]">{pipelineData.length}</span>
               </h2>
               <div className="mt-3">
@@ -359,14 +385,13 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </section>
           )}
 
-          {parsedData && <ResumeBodySections parsed={parsedData} />}
         </div>
 
         {/* ── rail ───────────────────────────────────────────────────────
             Was eight stacked cards — contact, ownership, salary, skills,
             certifications, languages, resume — several of them a heading over
             a single line. Everything that is one fact now sits in one list. */}
-        <div className="space-y-6">
+        <div className="space-y-6 lg:col-start-3 lg:row-start-1 lg:row-span-2">
           <section className={`${CARD} p-5`}>
             <h2 className="text-[15px] font-semibold text-[#161613]">At a glance</h2>
             <dl className="mt-1 divide-y divide-[#ECECE6]">
@@ -471,8 +496,12 @@ export default async function CandidateDetailPage({ params }: PageProps) {
 
           {parsedData && <LanguagesSection parsed={parsedData} />}
 
-          {/* Open roles ranked against this candidate's embedding. */}
-          <SuggestedJobs candidateId={id} />
+          {/* Open roles ranked against this candidate's embedding — the same
+              engine that produces the auto-matches, shown a second way. For a
+              scout it is a list they cannot act on next to a pipeline they can,
+              which reads as though both mean the same thing. It is a matching
+              tool, so it stays with the people who do the matching. */}
+          {isAdmin && <SuggestedJobs candidateId={id} />}
 
           <RecruiterNotes candidateId={id} />
 
@@ -493,6 +522,13 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </div>
           </section>
         </div>
+
+        {/* Last on a phone, second row of the left column on a desktop. */}
+        {parsedData && (
+          <div className="space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-2">
+            <ResumeBodySections parsed={parsedData} />
+          </div>
+        )}
       </div>
     </div>
   )
