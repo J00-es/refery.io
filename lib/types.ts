@@ -74,6 +74,12 @@ export interface Candidate {
   panel_grade: PanelGrade | null
   /** Whether they can take a job right now — independent of `journey_stage`. */
   availability_status: 'active' | 'off_market' | 'not_yet_talked' | 'not_qualified' | null
+  /**
+   * How they got here. A partner's referral carries a fee at the end of it; a
+   * `calibration` profile was sourced to benchmark a search and should never
+   * appear in an intro queue. Both used to be indistinguishable rows.
+   */
+  intake_source: 'referred' | 'sourced' | 'calibration' | 'inbound' | 'unknown' | null
   created_at: string
   updated_at: string
   user_id: string

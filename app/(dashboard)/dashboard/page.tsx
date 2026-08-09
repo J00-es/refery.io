@@ -219,7 +219,7 @@ export default async function DashboardPage() {
   // including suppressing the prompt entirely for anyone off the market.
   let needsQuery = adminClient
     .from('candidates')
-    .select('id, name, journey_stage, journey_stage_at, availability_status, panel_grade')
+    .select('id, name, journey_stage, journey_stage_at, availability_status, panel_grade, intake_source')
     .in('journey_stage', ['ready_for_intro', 'intro_sent', 'dormant'])
     .order('journey_stage_at', { ascending: true, nullsFirst: false })
   if (!canViewAll) needsQuery = needsQuery.or(candidateOwnershipFilter(me))
@@ -232,6 +232,7 @@ export default async function DashboardPage() {
     journey_stage_at: string | null
     availability_status: string | null
     panel_grade: PanelGrade | null
+    intake_source: string | null
   }[])
     .map(c => ({ ...c, action: nextActionFor(c) }))
     .filter((c): c is typeof c & { action: NextAction } => c.action !== null)

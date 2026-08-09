@@ -181,7 +181,13 @@ export function nextActionFor(candidate: {
   journey_stage: JourneyStage
   journey_stage_at: string | null
   availability_status?: string | null
+  intake_source?: string | null
 }): NextAction | null {
+  // A calibration profile was sourced to benchmark a search, not to be placed.
+  // 19 of them were sitting in the intro queue before intake_source existed to
+  // say so, which is most of the reason the queue looked longer than it was.
+  if (candidate.intake_source === 'calibration') return null
+
   // Availability answers a different question from journey stage, and it wins
   // over any prompt: someone can be vouched and ready for an intro while being
   // off the market until January. Asking a scout to introduce them anyway is

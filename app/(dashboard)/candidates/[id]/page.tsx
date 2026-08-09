@@ -1,61 +1,52 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser, ownsCandidate } from '@/lib/current-user'
 import { notFound } from 'next/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import type { Candidate, ParsedResumeData } from '@/lib/types'
-import { AVAILABILITY_STATUSES } from '@/lib/types'
 import { CandidateAvailabilityStatus } from '@/components/candidate-availability-status'
 import { CandidateActions } from '@/components/candidate-actions'
 import { RecruiterNotes } from '@/components/recruiter-notes'
 import { CandidateActivityLog } from '@/components/candidate-activity-log'
 import { SuggestedJobs } from '@/components/candidates/suggested-jobs'
 import { CandidateOwnerAssignment } from '@/components/candidate-owner-assignment'
-import { Linkedin, Clock, Calendar, Briefcase, ArrowRight, User, Sparkles, Brain, Github, Globe, ShieldCheck } from 'lucide-react'
+import { Linkedin, Github, Globe, ArrowRight } from 'lucide-react'
 import { CandidateVerdict } from '@/components/candidate-verdict'
 import { ResumeBodySections, LanguagesSection } from '@/components/candidates/parsed-resume'
 import { ReanalyzeResume } from '@/components/candidates/reanalyze-resume'
 import { PARSER_VERSION } from '@/lib/resume-parser'
 import { JourneyStrip } from '@/components/candidates/journey-strip'
+import { getStageLabel, stageDisplayName } from '@/lib/pipeline-stages'
+import {
+  CARD,
+  CHIP,
+  FOCUS,
+  GRADE_BADGE,
+  UNGRADED,
+  VERDICT_GRADES,
+  avatarTint,
+  formatSalary,
+  initialsOf,
+} from '@/lib/candidate-ui'
+import type { PanelGrade } from '@/lib/journey'
 
 interface PageProps {
   params: Promise<{ id: string }>
 }
 
-const stageColors: Record<string, { bg: string; text: string }> = {
-  sourced: { bg: 'bg-slate-100', text: 'text-slate-700' },
-  job_matched: { bg: 'bg-slate-100', text: 'text-slate-700' },
-  job_shared: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  interest_confirmed: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
-  hm_shared: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  hm_pending: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  interview_1: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  interview_2: { bg: 'bg-purple-100', text: 'text-purple-700' },
-  offer: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  hired: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  interest_declined: { bg: 'bg-gray-100', text: 'text-gray-600' },
-  rejected: { bg: 'bg-red-100', text: 'text-red-700' },
-  rejected_no_feedback: { bg: 'bg-red-50', text: 'text-red-600' },
-  withdrawn: { bg: 'bg-gray-100', text: 'text-gray-500' },
+/** panel_grade back to the verdict key VERDICT_GRADES is keyed by. */
+const GRADE_TO_VERDICT: Record<PanelGrade, string> = {
+  'A+': 'very_strong',
+  A: 'strong',
+  'A-': 'moderate',
+  'B+': 'weak',
+  pass: 'pass',
 }
 
-const stageLabels: Record<string, string> = {
-  sourced: 'Sourced',
-  job_matched: 'Job Matched',
-  job_shared: 'Job Shared',
-  interest_confirmed: 'Interest Confirmed',
-  hm_shared: 'Shared to HM',
-  hm_pending: 'Awaiting HM Feedback',
-  interview_1: 'Interview – Round 1',
-  interview_2: 'Interview – Round 2',
-  offer: 'Offer',
-  hired: 'Hired',
-  interest_declined: 'Not Interested',
-  rejected: 'Rejected',
-  rejected_no_feedback: 'Rejected (No Response)',
-  withdrawn: 'Withdrawn',
+const INTAKE_LABELS: Record<string, string> = {
+  referred: 'Referred by a partner',
+  sourced: 'Sourced by us',
+  calibration: 'Calibration sample — not a real candidate',
+  inbound: 'Came to us directly',
 }
 
 export default async function CandidateDetailPage({ params }: PageProps) {
@@ -79,17 +70,12 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  // Fetch pipeline data for this candidate
   const { data: pipelineData } = await adminClient
     .from('job_candidate_pipeline')
-    .select(`
-      *,
-      job:jobs(id, title, company_name)
-    `)
+    .select('*, job:jobs(id, title, company_name)')
     .eq('candidate_id', id)
     .order('created_at', { ascending: false })
 
-  // Fetch owner info
   let ownerInfo = null
   if (candidate.owner_user_id) {
     const { data: owner } = await adminClient
@@ -100,7 +86,6 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     ownerInfo = owner
   }
 
-  // Fetch created by info
   let createdByInfo = null
   if (candidate.uploaded_by_user_id) {
     const { data: createdBy } = await adminClient
@@ -125,83 +110,130 @@ export default async function CandidateDetailPage({ params }: PageProps) {
 
   const displayedExperience = parsedData?.experience_years ?? typedCandidate.experience_years
 
+  // Same rule as the list: Lily's grade wins for admins, partners see the
+  // recruiter one, and panel_grade covers the rows whose verdict is prose.
+  const verdict = (isAdmin && typedCandidate.lily_verdict) || typedCandidate.recruiter_verdict
+  const grade =
+    (verdict && VERDICT_GRADES[verdict]) ||
+    (typedCandidate.panel_grade && VERDICT_GRADES[GRADE_TO_VERDICT[typedCandidate.panel_grade]]) ||
+    UNGRADED
+
+  const salary = formatSalary(
+    typedCandidate.salary_expectation_min,
+    typedCandidate.salary_expectation_max
+  )
+
+  const role = parsedData?.current_title
+    ? [parsedData.current_title, parsedData.current_company].filter(Boolean).join(' at ')
+    : parsedData?.headline
+
   function formatRelativeTime(dateString: string | null) {
     if (!dateString) return null
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-    
-    if (diffDays === 0) return 'Today'
-    if (diffDays === 1) return 'Yesterday'
+    const diffDays = Math.floor((Date.now() - new Date(dateString).getTime()) / 86_400_000)
+    if (diffDays === 0) return 'today'
+    if (diffDays === 1) return 'yesterday'
     if (diffDays < 7) return `${diffDays} days ago`
     if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`
+    return new Date(dateString).toLocaleDateString()
   }
 
+  /**
+   * One row of the at-a-glance rail. Renders nothing when there is no value, so
+   * the card is exactly as long as what is actually known about the person
+   * rather than a form with blanks in it.
+   */
+  function Fact({ label, children }: { label: string; children: React.ReactNode }) {
+    if (children == null || children === false) return null
+    return (
+      <div className="flex items-baseline justify-between gap-4 py-2">
+        <dt className="shrink-0 text-[12.5px] text-[#9C9C95]">{label}</dt>
+        <dd className="min-w-0 text-right text-[13.5px] font-medium text-[#161613]">{children}</dd>
+      </div>
+    )
+  }
+
+  const linkCls = `text-[#1F4D3A] hover:underline ${FOCUS}`
+  const btnCls = `rounded-full border border-[#D8D8D0] px-4 py-2 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`
+
   return (
-    <div className="space-y-4 sm:space-y-8 px-4 sm:px-0">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
-            <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">{typedCandidate.name}</h1>
-            {/* The old `status` pill lived here and read "reviewing" for 195 of
-                270 candidates. Journey stage now carries that meaning, in the
-                strip below, where it has room to say what happens next. */}
-            <CandidateAvailabilityStatus
-              candidateId={id}
-              currentStatus={typedCandidate.availability_status || 'not_yet_talked'}
-            />
-          </div>
-          {(parsedData?.current_title || parsedData?.headline) && (
-            <p className="text-sm sm:text-base font-medium text-foreground">
-              {parsedData.current_title
-                ? [parsedData.current_title, parsedData.current_company].filter(Boolean).join(' at ')
-                : parsedData.headline}
-            </p>
-          )}
-          <p className="text-sm sm:text-base text-muted-foreground">
-            {/* The column is an integer, so 1.5 years is stored as 2. The parse
-                kept the exact figure — prefer it where we have it. */}
-            {displayedExperience != null && `${displayedExperience} years experience • `}
-            {typedCandidate.location ?? 'Unknown location'}
-            {parsedData?.seniority_level && ` • ${parsedData.seniority_level}`}
-          </p>
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              Added {formatRelativeTime(typedCandidate.created_at)}
-            </span>
-            {typedCandidate.last_contacted && (
-              <span className="flex items-center gap-1">
-                <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                Last contacted {formatRelativeTime(typedCandidate.last_contacted)}
+    <div className="mx-auto max-w-[1060px] space-y-6 px-4 pb-16 sm:px-6">
+      {/* ── identity ─────────────────────────────────────────────────────── */}
+      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 gap-4">
+          <span
+            aria-hidden
+            className={`hidden h-14 w-14 shrink-0 place-items-center rounded-full text-[17px] font-semibold sm:grid ${avatarTint(typedCandidate.name)}`}
+          >
+            {initialsOf(typedCandidate.name)}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="font-serif text-[28px] leading-tight tracking-[-0.02em] text-[#161613] sm:text-[34px]">
+                {typedCandidate.name}
+              </h1>
+              <span className={`${GRADE_BADGE} ${grade.className}`} title={grade.label}>
+                {grade.grade}
               </span>
+            </div>
+            {role && <p className="mt-1 text-[15px] text-[#161613]">{role}</p>}
+            <p className="mt-1 text-[13.5px] text-[#6E6E68]">
+              {[
+                displayedExperience != null ? `${displayedExperience} years` : null,
+                typedCandidate.location,
+                parsedData?.seniority_level,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'No background on file'}
+            </p>
+            {/* Where they came from. A partner referral has a fee attached to it
+                and a calibration sample is a benchmark — worth saying plainly
+                rather than leaving it buried in a note. */}
+            {typedCandidate.intake_source && INTAKE_LABELS[typedCandidate.intake_source] && (
+              <p
+                className={`mt-2 text-[12.5px] ${
+                  typedCandidate.intake_source === 'calibration'
+                    ? 'font-medium text-[#8A6A1F]'
+                    : 'text-[#9C9C95]'
+                }`}
+              >
+                {INTAKE_LABELS[typedCandidate.intake_source]}
+                {createdByInfo && typedCandidate.intake_source !== 'calibration'
+                  ? ` · added by ${createdByInfo.full_name || createdByInfo.email}`
+                  : ''}
+              </p>
             )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3">
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           {typedCandidate.linkedin_url && (
-            <a href={typedCandidate.linkedin_url} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm">
-                <Linkedin className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">LinkedIn</span>
-              </Button>
+            <a
+              href={typedCandidate.linkedin_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={btnCls}
+              aria-label="LinkedIn profile"
+            >
+              <Linkedin className="h-4 w-4" />
             </a>
           )}
-          <a href={`/api/file?pathname=${encodeURIComponent(typedCandidate.resume_blob_pathname)}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm">View Resume</Button>
+          <a
+            href={`/api/file?pathname=${encodeURIComponent(typedCandidate.resume_blob_pathname)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={btnCls}
+          >
+            Résumé
           </a>
-          <Link href={`/candidates/${id}/edit`}>
-            <Button variant="outline" size="sm">Edit</Button>
+          <Link href={`/candidates/${id}/edit`} className={btnCls}>
+            Edit
           </Link>
           <CandidateActions candidate={typedCandidate} />
         </div>
-      </div>
+      </header>
 
-      {/* Where we are with this person, and the only control that changes it.
-          Above the fold and above the assessments, because it is the question
-          anyone opening this page is actually holding. */}
+      {/* Where we are with this person, and the only control that changes it. */}
       <JourneyStrip
         candidateId={id}
         stage={typedCandidate.journey_stage}
@@ -210,332 +242,256 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         canRecordCommitteeDecision={isAdmin}
       />
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
-          {/* Verdict Sections */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {/* Recruiter Verdict */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  <User className="h-4 w-4 text-green-600" />
-                  Recruiter Assessment
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Overall verdict from recruiting team
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* ── assessment ───────────────────────────────────────────────
+              Previously three stacked cards: recruiter verdict, Lily's
+              verdict, and an AI analysis panel that rendered an empty state
+              for most candidates. One subject, one card — and the AI section
+              only exists when there is something in it. */}
+          <section className={`${CARD} p-5`}>
+            <h2 className="text-[15px] font-semibold text-[#161613]">Assessment</h2>
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <div>
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
+                  Recruiting team
+                </p>
                 <CandidateVerdict
                   candidateId={id}
                   type="recruiter"
-                  currentVerdict={typedCandidate.recruiter_verdict as 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null}
+                  currentVerdict={
+                    typedCandidate.recruiter_verdict as
+                      | 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null
+                  }
                   canEdit={canSetRecruiterVerdict}
                 />
-              </CardContent>
-            </Card>
-
-            {/* Lily's Verdict - Only visible to super admin and admin */}
-            {isAdmin && (
-              <Card className="border-purple-200 bg-purple-50/30">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-purple-600" />
-                    Lily&apos;s Assessment
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Super admin evaluation (visible to admins only)
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
+              </div>
+              {isAdmin && (
+                <div>
+                  <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
+                    Lily · admins only
+                  </p>
                   <CandidateVerdict
                     candidateId={id}
                     type="lily"
-                    currentVerdict={typedCandidate.lily_verdict as 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null}
+                    currentVerdict={
+                      typedCandidate.lily_verdict as
+                        | 'very_strong' | 'strong' | 'moderate' | 'weak' | 'pass' | null
+                    }
                     canEdit={isSuperAdmin}
                   />
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* AI Analysis Section */}
-          <Card className="border-blue-200 bg-blue-50/30">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Brain className="h-4 w-4 text-blue-600" />
-                AI Candidate Analysis
-              </CardTitle>
-              <CardDescription className="text-xs">
-                AI-powered assessment and insights
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {typedCandidate.ai_analysis ? (
-                <div className="prose prose-sm max-w-none text-sm text-foreground whitespace-pre-wrap">
-                  {typedCandidate.ai_analysis}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">
-                  No AI analysis available yet. Analysis will be added when external evaluation is complete.
-                </p>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {parsedData?.summary && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Summary</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-foreground">{parsedData.summary}</p>
-              </CardContent>
-            </Card>
-          )}
+            {typedCandidate.ai_analysis && (
+              <div className="mt-5 border-t border-[#ECECE6] pt-4">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
+                  Panel reasoning
+                </p>
+                <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#161613]">
+                  {typedCandidate.ai_analysis}
+                </p>
+              </div>
+            )}
 
-          {/* Pipeline Status - Jobs this candidate is in */}
+            {parsedData?.summary && (
+              <div className="mt-5 border-t border-[#ECECE6] pt-4">
+                <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
+                  Summary
+                </p>
+                <p className="text-[13.5px] leading-relaxed text-[#161613]">{parsedData.summary}</p>
+              </div>
+            )}
+          </section>
+
+          {/* ── roles ────────────────────────────────────────────────────
+              Stage names follow the same rule as the job board: the team sees
+              real stages, partners see the four steps they track. The old
+              hardcoded label map here listed nine stages that do not exist in
+              the schema (interview_1, offer, hired…) and would have rendered
+              raw enum values for the ones that do. */}
           {pipelineData && pipelineData.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Briefcase className="h-5 w-5" />
-                      Active Pipeline
-                    </CardTitle>
-                    <CardDescription>
-                      Jobs this candidate is being considered for
-                    </CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pipelineData.map((pipeline: { id: string; stage: string; created_at: string; job: { id: string; title: string; company_name: string } | null }) => {
-                    const stage = stageColors[pipeline.stage] || stageColors.sourced
-                    const daysInStage = Math.floor((Date.now() - new Date(pipeline.created_at).getTime()) / (1000 * 60 * 60 * 24))
-                    
+            <section className={`${CARD} overflow-hidden`}>
+              <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
+                Roles in play
+                <span className="ml-2 font-normal text-[#9C9C95]">{pipelineData.length}</span>
+              </h2>
+              <div className="mt-3">
+                {pipelineData.map(
+                  (p: {
+                    id: string
+                    stage: string
+                    created_at: string
+                    job: { id: string; title: string; company_name: string } | null
+                  }) => {
+                    const days = Math.floor(
+                      (Date.now() - new Date(p.created_at).getTime()) / 86_400_000
+                    )
                     return (
-                      <Link key={pipeline.id} href={`/jobs/${pipeline.job?.id}`}>
-                        <div className="flex items-center justify-between p-4 border rounded-lg hover:border-primary/50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className={`w-2 h-10 rounded-full ${stage.bg}`}></div>
-                            <div>
-                              <p className="font-medium text-foreground">{pipeline.job?.title || 'Unknown Job'}</p>
-                              <p className="text-sm text-muted-foreground">{pipeline.job?.company_name || 'Unknown Company'}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="text-right">
-                              <Badge className={`${stage.bg} ${stage.text} border-0`}>
-                                {stageLabels[pipeline.stage] || pipeline.stage}
-                              </Badge>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {daysInStage === 0 ? 'Today' : `${daysInStage}d in stage`}
-                              </p>
-                            </div>
-                            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                          </div>
+                      <Link
+                        key={p.id}
+                        href={`/jobs/${p.job?.id}`}
+                        className={`flex items-center gap-4 border-t border-[#ECECE6] px-5 py-3.5 transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-medium text-[#161613]">
+                            {p.job?.title || 'Unknown role'}
+                          </p>
+                          <p className="truncate text-[12.5px] text-[#6E6E68]">
+                            {p.job?.company_name || 'Unknown company'}
+                          </p>
                         </div>
+                        <div className="shrink-0 text-right">
+                          <p className="text-[12.5px] font-medium text-[#1F4D3A]">
+                            {isAdmin ? getStageLabel(p.stage) : stageDisplayName(p.stage)}
+                          </p>
+                          <p className="text-[11.5px] text-[#9C9C95]">
+                            {days === 0 ? 'today' : `${days}d`}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 shrink-0 text-[#C9C9C1]" />
                       </Link>
                     )
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                  }
+                )}
+              </div>
+            </section>
           )}
 
           {parsedData && <ResumeBodySections parsed={parsedData} />}
         </div>
 
+        {/* ── rail ───────────────────────────────────────────────────────
+            Was eight stacked cards — contact, ownership, salary, skills,
+            certifications, languages, resume — several of them a heading over
+            a single line. Everything that is one fact now sits in one list. */}
         <div className="space-y-6">
-          {/* Owner Assignment */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Ownership
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Profile Owner</p>
-                <CandidateOwnerAssignment 
-                  candidateId={id} 
+          <section className={`${CARD} p-5`}>
+            <h2 className="text-[15px] font-semibold text-[#161613]">At a glance</h2>
+            <dl className="mt-1 divide-y divide-[#ECECE6]">
+              <Fact label="Email">
+                {typedCandidate.email && (
+                  <a href={`mailto:${typedCandidate.email}`} className={`break-all ${linkCls}`}>
+                    {typedCandidate.email}
+                  </a>
+                )}
+              </Fact>
+              <Fact label="Phone">
+                {typedCandidate.phone && (
+                  <a href={`tel:${typedCandidate.phone}`} className={linkCls}>
+                    {typedCandidate.phone}
+                  </a>
+                )}
+              </Fact>
+              <Fact label="GitHub">
+                {parsedData?.github_url && (
+                  <a
+                    href={parsedData.github_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1 ${linkCls}`}
+                  >
+                    <Github className="h-3.5 w-3.5" /> Profile
+                  </a>
+                )}
+              </Fact>
+              <Fact label="Portfolio">
+                {parsedData?.portfolio_url && (
+                  <a
+                    href={parsedData.portfolio_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1 ${linkCls}`}
+                  >
+                    <Globe className="h-3.5 w-3.5" /> Site
+                  </a>
+                )}
+              </Fact>
+              <Fact label="Salary">{salary}</Fact>
+              <Fact label="Remote">
+                {typedCandidate.remote_preference && (
+                  <span className="capitalize">{typedCandidate.remote_preference}</span>
+                )}
+              </Fact>
+              <Fact label="Work authorisation">{typedCandidate.visa_status}</Fact>
+              <Fact label="Relocation">
+                {parsedData?.willing_to_relocate != null &&
+                  (parsedData.willing_to_relocate ? 'Open to it' : 'Not open to it')}
+              </Fact>
+              <Fact label="Notice">{parsedData?.notice_period}</Fact>
+              <Fact label="Added">{formatRelativeTime(typedCandidate.created_at)}</Fact>
+              <Fact label="Last contacted">
+                {formatRelativeTime(typedCandidate.last_contacted)}
+              </Fact>
+            </dl>
+
+            <div className="mt-4 space-y-3 border-t border-[#ECECE6] pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12.5px] text-[#9C9C95]">Availability</span>
+                <CandidateAvailabilityStatus
+                  candidateId={id}
+                  currentStatus={typedCandidate.availability_status || 'not_yet_talked'}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[12.5px] text-[#9C9C95]">Owner</span>
+                <CandidateOwnerAssignment
+                  candidateId={id}
                   currentOwner={ownerInfo}
                   currentOwnerId={typedCandidate.owner_user_id}
                 />
               </div>
-              {createdByInfo && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Created By</p>
-                  <p className="text-sm font-medium text-foreground">
-                    {createdByInfo.full_name || createdByInfo.email}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Open roles ranked against this candidate's embedding. */}
-          <SuggestedJobs candidateId={id} />
-
-          {/* Recruiter Notes - Private */}
-          <RecruiterNotes candidateId={id} />
-
-          {/* Activity Log */}
-          <CandidateActivityLog candidateId={id} />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Contact</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {typedCandidate.email && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Email</p>
-                  <a href={`mailto:${typedCandidate.email}`} className="font-medium text-primary hover:underline">
-                    {typedCandidate.email}
-                  </a>
-                </div>
-              )}
-              {typedCandidate.phone && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Phone</p>
-                  <a href={`tel:${typedCandidate.phone}`} className="font-medium text-primary hover:underline">
-                    {typedCandidate.phone}
-                  </a>
-                </div>
-              )}
-              {typedCandidate.linkedin_url && (
-                <div>
-                  <p className="text-sm text-muted-foreground">LinkedIn</p>
-                  <a href={typedCandidate.linkedin_url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-1">
-                    <Linkedin className="h-4 w-4" />
-                    View Profile
-                  </a>
-                </div>
-              )}
-              {parsedData?.github_url && (
-                <div>
-                  <p className="text-sm text-muted-foreground">GitHub</p>
-                  <a href={parsedData.github_url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-1">
-                    <Github className="h-4 w-4" />
-                    View Profile
-                  </a>
-                </div>
-              )}
-              {parsedData?.portfolio_url && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Portfolio</p>
-                  <a href={parsedData.portfolio_url} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline flex items-center gap-1">
-                    <Globe className="h-4 w-4" />
-                    Visit Site
-                  </a>
-                </div>
-              )}
-              {typedCandidate.remote_preference && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Remote Preference</p>
-                  <p className="font-medium text-foreground capitalize">{typedCandidate.remote_preference}</p>
-                </div>
-              )}
-              {typedCandidate.visa_status && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Work Authorization</p>
-                  <p className="font-medium text-foreground flex items-center gap-1">
-                    <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-                    {typedCandidate.visa_status}
-                  </p>
-                </div>
-              )}
-              {parsedData?.willing_to_relocate != null && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Relocation</p>
-                  <p className="font-medium text-foreground">
-                    {parsedData.willing_to_relocate ? 'Open to relocating' : 'Not open to relocating'}
-                  </p>
-                </div>
-              )}
-              {parsedData?.notice_period && (
-                <div>
-                  <p className="text-sm text-muted-foreground">Notice Period</p>
-                  <p className="font-medium text-foreground">{parsedData.notice_period}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {(typedCandidate.salary_expectation_min || typedCandidate.salary_expectation_max) && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Salary Expectations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-foreground">
-                  ${typedCandidate.salary_expectation_min?.toLocaleString() ?? '?'} - ${typedCandidate.salary_expectation_max?.toLocaleString() ?? '?'}
-                </p>
-              </CardContent>
-            </Card>
-          )}
+            </div>
+          </section>
 
           {typedCandidate.skills && typedCandidate.skills.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Skills</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {typedCandidate.skills.map((skill) => (
-                    <span key={skill} className="rounded-md bg-primary/10 px-3 py-1 text-sm text-primary font-medium">
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <section className={`${CARD} p-5`}>
+              <h2 className="mb-3 text-[15px] font-semibold text-[#161613]">Skills</h2>
+              <div className="flex flex-wrap gap-1.5">
+                {typedCandidate.skills.map(s => (
+                  <span key={s} className={CHIP} title={s}>
+                    <span className="truncate">{s}</span>
+                  </span>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {parsedData?.certifications && parsedData.certifications.length > 0 && (
+            <section className={`${CARD} p-5`}>
+              <h2 className="mb-2 text-[15px] font-semibold text-[#161613]">Certifications</h2>
+              <ul className="space-y-1 text-[13.5px] text-[#161613]">
+                {parsedData.certifications.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </section>
           )}
 
           {parsedData && <LanguagesSection parsed={parsedData} />}
 
-          {parsedData?.certifications && parsedData.certifications.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Certifications</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2">
-                  {parsedData.certifications.map((cert, i) => (
-                    <li key={i} className="text-foreground">{cert}</li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
+          {/* Open roles ranked against this candidate's embedding. */}
+          <SuggestedJobs candidateId={id} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Resume</CardTitle>
-              <CardDescription className="text-xs">
-                {isStaleParse
-                  ? 'Parsed by an earlier extractor — re-read to pull in bullet points, education, links and the full text.'
-                  : 'Read in full by the current extractor.'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground">{typedCandidate.resume_filename}</p>
-              <a
-                href={`/api/file?pathname=${encodeURIComponent(typedCandidate.resume_blob_pathname)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block text-sm text-primary hover:underline"
-              >
-                Download PDF
-              </a>
+          <RecruiterNotes candidateId={id} />
+
+          <CandidateActivityLog candidateId={id} />
+
+          <section className={`${CARD} p-5`}>
+            <h2 className="text-[15px] font-semibold text-[#161613]">Résumé file</h2>
+            <p className="mt-1 break-all text-[12.5px] text-[#6E6E68]">
+              {typedCandidate.resume_filename}
+            </p>
+            <p className="mt-2 text-[12.5px] text-[#9C9C95]">
+              {isStaleParse
+                ? 'Read by an earlier extractor — re-read to pull in bullet points, education, links and the full text.'
+                : 'Read in full by the current extractor.'}
+            </p>
+            <div className="mt-3">
               <ReanalyzeResume candidateId={id} isStale={isStaleParse} />
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </div>
       </div>
     </div>
