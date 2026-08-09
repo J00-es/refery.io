@@ -13,6 +13,7 @@ import {
   CARD,
   FOCUS,
   GRADE_BADGE,
+  GRADE_TO_VERDICT,
   UNGRADED,
   VERDICT_GRADES,
   availabilityOf,
@@ -171,7 +172,15 @@ function CandidateRow({
   // Same rule as the card: Lily's grade wins for super admins, and partners
   // never see it — it is admin-only on the detail page.
   const verdict = (canViewAll && candidate.lily_verdict) || candidate.recruiter_verdict
-  const grade = (verdict && VERDICT_GRADES[verdict]) || UNGRADED
+  // Fall back to the panel's own grade, as the card and detail page already do.
+  // recruiter_verdict is a human field now — the panel writes panel_grade — so
+  // without this fallback every machine-graded candidate reads "not yet
+  // calibrated" here until a scout gets to them, which is backwards: the
+  // calibration is done, it just wasn't done by a person.
+  const grade =
+    (verdict && VERDICT_GRADES[verdict]) ||
+    (candidate.panel_grade && VERDICT_GRADES[GRADE_TO_VERDICT[candidate.panel_grade]]) ||
+    UNGRADED
   const rowAction = nextActionFor(candidate)
 
   return (

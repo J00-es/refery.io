@@ -16,6 +16,7 @@ import {
   stageLabel,
   GRADE_BADGE,
   UNGRADED,
+  GRADE_TO_VERDICT,
   VERDICT_GRADES,
 } from '@/lib/candidate-ui'
 import { journeyConfig, nextActionFor, type PanelGrade } from '@/lib/journey'
@@ -25,15 +26,6 @@ export interface EnrichedCandidate extends Candidate {
   owner?: { email: string; full_name: string | null } | null
   last_activity?: string
   latest_note_date?: string | null
-}
-
-/** panel_grade back to the verdict key VERDICT_GRADES is keyed by. */
-const GRADE_TO_VERDICT: Record<PanelGrade, string> = {
-  'A+': 'very_strong',
-  A: 'strong',
-  'A-': 'moderate',
-  'B+': 'weak',
-  pass: 'pass',
 }
 
 interface CandidateCardProps {

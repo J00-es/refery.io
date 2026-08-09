@@ -83,6 +83,20 @@ export function stageLabel(stage: string): string {
  * Spelling it out ("Very strong") costs a chip's width and reads as prose in a
  * grid, so the card shows the grade and the detail page keeps the full wording.
  */
+/**
+ * panel_grade back to the verdict key VERDICT_GRADES is keyed by. Lifted out of
+ * candidate-card so the list can share it rather than keep a second copy — two
+ * copies of a mapping like this drift, and the list is where a missing entry
+ * silently reads as "not yet calibrated".
+ */
+export const GRADE_TO_VERDICT: Record<string, string> = {
+  'A+': 'very_strong',
+  A: 'strong',
+  'A-': 'moderate',
+  'B+': 'weak',
+  pass: 'pass',
+}
+
 export const VERDICT_GRADES: Record<string, { grade: string; label: string; className: string }> = {
   very_strong: {
     grade: 'A+',
