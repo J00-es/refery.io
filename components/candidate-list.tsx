@@ -58,14 +58,29 @@ const STATUS_TABS = [
     blurb: 'Waiting on a warm introduction from you. Longest wait first.',
   },
   {
-    key: 'in_progress',
-    label: 'In progress',
-    blurb: "We're working on these. Nothing needed from you right now.",
+    key: 'in_review',
+    label: 'In review',
+    blurb: "We're reading them and grading them against the bar.",
+  },
+  {
+    key: 'intro_sent',
+    label: 'Intro sent',
+    blurb: 'The introduction has gone out. Waiting to hear back from them.',
+  },
+  {
+    key: 'committee_call',
+    label: 'Call booked',
+    blurb: 'A call with our talent committee is on the calendar.',
   },
   {
     key: 'warm',
     label: 'Warm',
     blurb: "We've met them and vouch for them. We're matching them to open roles.",
+  },
+  {
+    key: 'on_hold',
+    label: 'On hold',
+    blurb: "Off the market right now, so there's nothing to do until that changes.",
   },
   {
     key: 'not_fit',
@@ -91,18 +106,26 @@ function bucketOf(c: EnrichedCandidate): Exclude<StatusKey, 'all'> {
   if (c.intake_source === 'calibration') return 'benchmark'
   if (nextActionFor(c) !== null) return 'needs_you'
 
-  switch (c.journey_stage) {
+  const s = c.journey_stage
+
+  // A closed outcome is the whole story, so it wins over availability — someone
+  // who is off the market *and* not a fit is simply not a fit.
+  if (s === 'not_fit' || s === 'post_committee_not_fit' || s === 'dormant') return 'not_fit'
+
+  // Otherwise being off the market is why nothing is happening, and saying so
+  // beats filing them under a stage they are not really progressing through.
+  if (c.availability_status === 'off_market') return 'on_hold'
+
+  switch (s) {
     case 'warm':
     case 'placed':
       return 'warm'
-    case 'not_fit':
-    case 'post_committee_not_fit':
-    case 'dormant':
-      return 'not_fit'
+    case 'committee_call':
+      return 'committee_call'
+    case 'intro_sent':
+      return 'intro_sent'
     default:
-      // uploaded, calibrating, and anyone at a stage that would normally ask
-      // something of you but currently cannot — off the market, most often.
-      return 'in_progress'
+      return 'in_review'
   }
 }
 
@@ -324,14 +347,7 @@ export function CandidateList({
   // Status counts come off the full set so the tab numbers do not move as you
   // filter — they are a stable map of the whole pipeline.
   const statusCounts = useMemo(() => {
-    const c = {
-      all: 0,
-      needs_you: 0,
-      in_progress: 0,
-      warm: 0,
-      not_fit: 0,
-      benchmark: 0,
-    } as Record<StatusKey, number>
+    const c = Object.fromEntries(STATUS_TABS.map(t => [t.key, 0])) as Record<StatusKey, number>
     for (const cand of candidates) {
       const bucket = bucketOf(cand)
       c[bucket]++
@@ -491,7 +507,18 @@ export function CandidateList({
           aria-label="Filter by status"
           className="flex w-max min-w-full items-center gap-1 border-b border-[#ECECE6]"
         >
-          {STATUS_TABS.filter(t => t.key !== 'benchmark' || statusCounts.benchmark > 0).map(t => {
+          {/* A stage nobody is at is not a useful tab, so empty ones stay out
+              of the way and appear the moment someone reaches them. "Everyone"
+              and "Needs you" are always shown so the row does not shift under
+              the reader, and the selected tab is never hidden from underneath
+              them. */}
+          {STATUS_TABS.filter(
+            t =>
+              t.key === 'all' ||
+              t.key === 'needs_you' ||
+              status === t.key ||
+              statusCounts[t.key] > 0,
+          ).map(t => {
             const on = status === t.key
             return (
               <button
