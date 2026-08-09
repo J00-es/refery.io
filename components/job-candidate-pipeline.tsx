@@ -15,7 +15,7 @@ import {
   Sparkles, Mail, MapPin, Linkedin
 } from 'lucide-react'
 import type { JobCandidatePipeline, JobCandidateNote, Candidate, PipelineStage } from '@/lib/types'
-import { PIPELINE_STAGES, getStageConfig, ACTIVE_STAGE_VALUES, TERMINAL_NEGATIVE_STAGE_VALUES } from '@/lib/pipeline-stages'
+import { PIPELINE_STAGES, getStageConfig, ACTIVE_STAGE_VALUES, TERMINAL_NEGATIVE_STAGE_VALUES, type StageConfig } from '@/lib/pipeline-stages'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
 
@@ -34,6 +34,24 @@ const QUICK_NOTES = [
   'Need to follow up',
 ]
 
+/**
+ * The partner-facing fold. Each column names a step a scout recognises and
+ * gathers the internal stages that make it up. `representative` only picks up
+ * the column's colours from the existing stage config, so the board keeps one
+ * palette rather than growing a second.
+ */
+const PARTNER_COLUMNS: {
+  key: string
+  label: string
+  stages: PipelineStage[]
+  representative: PipelineStage
+}[] = [
+  { key: 'in_review', label: 'In review', stages: ['auto_matched', 'screening'], representative: 'screening' },
+  { key: 'matched', label: 'Matched to roles', stages: ['job_matched', 'job_shared'], representative: 'job_matched' },
+  { key: 'in_play', label: 'In play with companies', stages: ['interest_confirmed', 'hm_shared'], representative: 'hm_shared' },
+  { key: 'closed', label: 'Closed', stages: ['auto_passed', 'rejected'], representative: 'rejected' },
+]
+
 interface JobCandidatePipelineProps {
   jobId: string
   userRole?: string
@@ -43,6 +61,8 @@ interface JobCandidatePipelineProps {
 }
 
 export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAgreement = true }: JobCandidatePipelineProps) {
+  // Who runs the board on real stages, and who sees the folded view.
+  const canSeeInternal = userRole === 'super_admin' || userRole === 'admin'
   const [pipeline, setPipeline] = useState<JobCandidatePipeline[]>([])
   const [allCandidates, setAllCandidates] = useState<Candidate[]>([])
   const [loading, setLoading] = useState(true)
@@ -178,13 +198,33 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
     )
   }, [allCandidates, pipeline, searchTerm])
 
-  // Group pipeline by stage for kanban view - all real pipeline stages
+  /**
+   * Columns are role-dependent.
+   *
+   * The team runs the board on the real stages. Partners get the same rows
+   * folded into the four steps they actually track, which is the same language
+   * their dashboard uses -- eight columns of internal vocabulary asks a scout to
+   * learn our process in order to read their own candidate's progress.
+   *
+   * This is presentation only. The deep internal ladder (hm_interested through
+   * offer) lives in `pipeline_internal_state` behind admin-only RLS, so it
+   * cannot leak through this component either way.
+   */
   const pipelineByStage = useMemo(() => {
-    return PIPELINE_STAGES.map(stage => ({
-      ...stage,
-      candidates: pipeline.filter(p => p.stage === stage.value),
+    if (canSeeInternal) {
+      return PIPELINE_STAGES.map(stage => ({
+        ...stage,
+        candidates: pipeline.filter(p => p.stage === stage.value),
+      }))
+    }
+    return PARTNER_COLUMNS.map(col => ({
+      ...getStageConfig(col.representative),
+      value: col.key as PipelineStage,
+      label: col.label,
+      category: (col.key === 'closed' ? 'terminal_negative' : 'active') as StageConfig['category'],
+      candidates: pipeline.filter(p => col.stages.includes(p.stage as PipelineStage)),
     }))
-  }, [pipeline])
+  }, [pipeline, canSeeInternal])
 
   // Stats - Active = in-flight stages, Shared to HM = furthest positive, Rejected = terminal negative
   const stats = useMemo(() => ({

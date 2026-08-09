@@ -18,6 +18,7 @@ import { CandidateVerdict } from '@/components/candidate-verdict'
 import { ResumeBodySections, LanguagesSection } from '@/components/candidates/parsed-resume'
 import { ReanalyzeResume } from '@/components/candidates/reanalyze-resume'
 import { PARSER_VERSION } from '@/lib/resume-parser'
+import { JourneyStrip } from '@/components/candidates/journey-strip'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -124,14 +125,6 @@ export default async function CandidateDetailPage({ params }: PageProps) {
 
   const displayedExperience = parsedData?.experience_years ?? typedCandidate.experience_years
 
-  const statusColors = {
-    new: 'bg-blue-500/10 text-blue-600 border-blue-500/30',
-    reviewing: 'bg-amber-500/10 text-amber-600 border-amber-500/30',
-    shortlisted: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/30',
-    rejected: 'bg-red-500/10 text-red-600 border-red-500/30',
-    hired: 'bg-primary/10 text-primary border-primary/30',
-  }
-
   function formatRelativeTime(dateString: string | null) {
     if (!dateString) return null
     const date = new Date(dateString)
@@ -152,12 +145,12 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         <div>
           <div className="flex items-center gap-2 sm:gap-3 mb-2 flex-wrap">
             <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">{typedCandidate.name}</h1>
-            <span className={`rounded-full border px-2 sm:px-3 py-0.5 sm:py-1 text-xs sm:text-sm font-medium capitalize ${statusColors[typedCandidate.status]}`}>
-              {typedCandidate.status}
-            </span>
-            <CandidateAvailabilityStatus 
-              candidateId={id} 
-              currentStatus={typedCandidate.availability_status || 'not_yet_talked'} 
+            {/* The old `status` pill lived here and read "reviewing" for 195 of
+                270 candidates. Journey stage now carries that meaning, in the
+                strip below, where it has room to say what happens next. */}
+            <CandidateAvailabilityStatus
+              candidateId={id}
+              currentStatus={typedCandidate.availability_status || 'not_yet_talked'}
             />
           </div>
           {(parsedData?.current_title || parsedData?.headline) && (
@@ -205,6 +198,17 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           <CandidateActions candidate={typedCandidate} />
         </div>
       </div>
+
+      {/* Where we are with this person, and the only control that changes it.
+          Above the fold and above the assessments, because it is the question
+          anyone opening this page is actually holding. */}
+      <JourneyStrip
+        candidateId={id}
+        stage={typedCandidate.journey_stage}
+        offMarket={typedCandidate.availability_status === 'off_market'}
+        canEdit={canSetRecruiterVerdict}
+        canRecordCommitteeDecision={isAdmin}
+      />
 
       <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4 sm:space-y-6">
