@@ -23,7 +23,7 @@ import {
   relativeTime,
   type AvailabilityKey,
 } from '@/lib/candidate-ui'
-import { nextActionFor, type JourneyStage } from '@/lib/journey'
+import { JOURNEY_BUCKETS, journeyBucket, nextActionFor, type JourneyBucket } from '@/lib/journey'
 
 interface CandidateListProps {
   candidates: EnrichedCandidate[]
@@ -50,50 +50,11 @@ type ViewMode = 'card' | 'row'
  * construction, and each carries a sentence saying what is in it. If the counts
  * do not sum to the total, something is being hidden and the design is wrong.
  */
-const STATUS_TABS = [
+const STATUS_TABS: { key: StatusKey; label: string; blurb: string }[] = [
   { key: 'all', label: 'Everyone', blurb: '' },
-  {
-    key: 'needs_you',
-    label: 'Needs you',
-    blurb: 'Waiting on a warm introduction from you. Longest wait first.',
-  },
-  {
-    key: 'in_review',
-    label: 'In review',
-    blurb: "We're reading them and grading them against the bar.",
-  },
-  {
-    key: 'intro_sent',
-    label: 'Intro sent',
-    blurb: 'The introduction has gone out. Waiting to hear back from them.',
-  },
-  {
-    key: 'committee_call',
-    label: 'Call booked',
-    blurb: 'A call with our talent committee is on the calendar.',
-  },
-  {
-    key: 'warm',
-    label: 'Warm',
-    blurb: "We've met them and vouch for them. We're matching them to open roles.",
-  },
-  {
-    key: 'on_hold',
-    label: 'On hold',
-    blurb: "Off the market right now, so there's nothing to do until that changes.",
-  },
-  {
-    key: 'not_fit',
-    label: 'Not a fit',
-    blurb: 'Not a match for the kinds of roles we work on.',
-  },
-  {
-    key: 'benchmark',
-    label: 'Benchmarks',
-    blurb: 'Profiles sourced to calibrate a search. Not people we are placing.',
-  },
-] as const
-type StatusKey = (typeof STATUS_TABS)[number]['key']
+  ...JOURNEY_BUCKETS.map(b => ({ key: b.key as StatusKey, label: b.label, blurb: b.blurb })),
+]
+type StatusKey = 'all' | JourneyBucket
 
 /**
  * Benchmarks are kept out of every other tab, including Everyone. They were
@@ -102,35 +63,8 @@ type StatusKey = (typeof STATUS_TABS)[number]['key']
  * their own tab so they are excluded rather than lost, and that tab hides itself
  * for anyone who has none.
  */
-function bucketOf(c: EnrichedCandidate): Exclude<StatusKey, 'all'> {
-  if (c.intake_source === 'calibration') return 'benchmark'
-  if (nextActionFor(c) !== null) return 'needs_you'
-
-  const s = c.journey_stage
-
-  // A closed outcome is the whole story, so it wins over availability — someone
-  // who is off the market *and* not a fit is simply not a fit.
-  if (s === 'not_fit' || s === 'post_committee_not_fit' || s === 'dormant') return 'not_fit'
-
-  // Otherwise being off the market is why nothing is happening, and saying so
-  // beats filing them under a stage they are not really progressing through.
-  if (c.availability_status === 'off_market') return 'on_hold'
-
-  switch (s) {
-    case 'warm':
-    case 'placed':
-      return 'warm'
-    case 'committee_call':
-      return 'committee_call'
-    case 'intro_sent':
-      return 'intro_sent'
-    default:
-      return 'in_review'
-  }
-}
-
 function matchesTab(c: EnrichedCandidate, tab: StatusKey): boolean {
-  const bucket = bucketOf(c)
+  const bucket = journeyBucket(c)
   if (tab === 'all') return bucket !== 'benchmark'
   return bucket === tab
 }
@@ -349,7 +283,7 @@ export function CandidateList({
   const statusCounts = useMemo(() => {
     const c = Object.fromEntries(STATUS_TABS.map(t => [t.key, 0])) as Record<StatusKey, number>
     for (const cand of candidates) {
-      const bucket = bucketOf(cand)
+      const bucket = journeyBucket(cand)
       c[bucket]++
       if (bucket !== 'benchmark') c.all++
     }

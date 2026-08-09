@@ -6,6 +6,12 @@ import { UNASSIGNED, type OwnerOption } from '@/components/candidates/owner-filt
 import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { FOCUS, ownerName } from '@/lib/candidate-ui'
 import { cookies } from 'next/headers'
+import { JOURNEY_BUCKETS, type JourneyBucket } from '@/lib/journey'
+
+/** Every bucket on the dashboard links here, so any of them is a valid entry. */
+function isJourneyBucket(v: string | undefined): v is JourneyBucket {
+  return !!v && JOURNEY_BUCKETS.some(b => b.key === v)
+}
 
 export default async function CandidatesPage({
   searchParams,
@@ -200,7 +206,7 @@ export default async function CandidatesPage({
         candidates={enrichedCandidates}
         owners={ownerOptions}
         canViewAll={canViewAll}
-        initialTab={filter === 'needs_you' ? 'needs_you' : 'all'}
+        initialTab={isJourneyBucket(filter) ? filter : 'all'}
       />
     </div>
   )

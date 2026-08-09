@@ -2,18 +2,17 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { startOfWeek, subDays } from 'date-fns'
 import {
-  DISPLAY_STAGES,
-  NON_CLOSED_STAGE_VALUES,
-  CLOSED_STAGE_VALUES,
-  stageDisplayName,
-  type DisplayStageKey,
-} from '@/lib/pipeline-stages'
-import type { PipelineStage } from '@/lib/types'
-import { nextActionFor, type JourneyStage, type NextAction, type PanelGrade } from '@/lib/journey'
+  JOURNEY_BUCKETS,
+  journeyBucket,
+  nextActionFor,
+  type JourneyBucket,
+  type JourneyStage,
+  type NextAction,
+  type PanelGrade,
+} from '@/lib/journey'
 
-// Pipeline data is refreshed continuously by the matching automation.
+// Candidate state is changed by the nightly automation as well as by people.
 export const dynamic = 'force-dynamic'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -48,40 +47,62 @@ function waitingSince(dateStr: string | null): string {
   return `Waiting ${Math.floor(days / 30)} months`
 }
 
-function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr)
-  const diffMin = Math.floor((Date.now() - date.getTime()) / 60000)
+function relativeTime(dateStr: string): string {
+  const diffMin = Math.floor((Date.now() - new Date(dateStr).getTime()) / 60000)
   if (diffMin < 1) return 'Just now'
   if (diffMin < 60) return `${diffMin}m ago`
-  const diffHour = Math.floor(diffMin / 60)
-  if (diffHour < 24) return `${diffHour}h ago`
-  const diffDay = Math.floor(diffHour / 24)
-  if (diffDay === 1) return 'Yesterday'
-  if (diffDay < 7) return `${diffDay}d ago`
-  const diffWeek = Math.floor(diffDay / 7)
-  if (diffWeek < 5) return `${diffWeek}w ago`
-  return date.toLocaleDateString()
+  const h = Math.floor(diffMin / 60)
+  if (h < 24) return `${h}h ago`
+  const d = Math.floor(h / 24)
+  if (d === 1) return 'Yesterday'
+  if (d < 7) return `${d}d ago`
+  const w = Math.floor(d / 7)
+  if (w < 5) return `${w}w ago`
+  return new Date(dateStr).toLocaleDateString()
 }
 
-interface JoinedCandidate {
+interface ScopedCandidate {
   id: string
   name: string | null
-  status: string | null
+  journey_stage: JourneyStage
+  journey_stage_at: string | null
+  availability_status: string | null
+  intake_source: string | null
+  panel_grade: PanelGrade | null
   resume_blob_pathname: string | null
+  owner_user_id: string | null
 }
 
-interface PipeRow {
-  stage: PipelineStage
-  candidate_id: string
-  created_at: string
-  updated_at: string
-  candidates: JoinedCandidate | null
-}
+/**
+ * Activity worth reading. `pipeline_stage_history` was the old source and it is
+ * 89% "moved to Job Matched" — 1,715 events in thirty days, almost all of them
+ * the matcher noticing a fit. Ten rows of that is ten rows of nothing. These are
+ * the types a person would recognise as something having happened.
+ */
+const MEANINGFUL_ACTIVITY = [
+  'journey_stage_changed',
+  'call_transcript',
+  'contact_made',
+  'email_sent',
+  'note_added',
+  'interview_scheduled',
+  'offer_made',
+  'hired',
+]
+
+const AUTOMATED_SOURCES = new Set([
+  'rule',
+  'automation',
+  'gmail',
+  'calendar',
+  'granola',
+  'panel',
+  'backfill',
+])
 
 export default async function DashboardPage() {
   const adminClient = createAdminClient()
 
-  // ── auth + role (server-side, from the authenticated session only) ──────────
   const appUser = await getAppUser()
   if (!appUser) {
     redirect('/auth/login')
@@ -90,189 +111,118 @@ export default async function DashboardPage() {
   // Candidate visibility follows canViewAllCandidates (super admin only), not
   // the broader admin-console capability. See lib/current-user.ts.
   const canViewAll = appUser.canViewAllCandidates
+  const isAdmin = appUser.isAdmin
   const firstName = appUser.fullName?.split(' ')[0] || 'there'
   const me = appUser.id
-
   const now = new Date()
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 })
-  const fourteenDaysAgo = subDays(now, 14)
 
-  // ── ownership scoping (server-side) ─────────────────────────────────────────
-  // A candidate is "yours" if you own/uploaded/created it. A pipeline row is
-  // "yours" if the row is owned by you OR its candidate is yours. Admins see all.
-  let ownedCandidateIds: string[] = []
-  let placedCount = 0
-
-  if (!canViewAll) {
-    const { data: ownedCands } = await adminClient
-      .from('candidates')
-      .select('id, status')
-      .or(candidateOwnershipFilter(me))
-    ownedCandidateIds = (ownedCands || []).map(c => c.id)
-    placedCount = (ownedCands || []).filter(c => c.status === 'hired').length
-  } else {
-    const { count } = await adminClient
-      .from('candidates')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'hired')
-    placedCount = count || 0
-  }
-
-  // Scoped pipeline fetch: a single query bounded to this user's rows (not the
-  // whole table), aggregated server-side below.
-  let pipeQuery = adminClient
-    .from('job_candidate_pipeline')
-    .select(
-      'stage, candidate_id, created_at, updated_at, owner_user_id, candidates(id, name, status, resume_blob_pathname)',
-    )
-
-  if (!canViewAll) {
-    const orParts = [`owner_user_id.eq.${me}`]
-    if (ownedCandidateIds.length > 0) {
-      orParts.push(`candidate_id.in.(${ownedCandidateIds.join(',')})`)
-    }
-    pipeQuery = pipeQuery.or(orParts.join(','))
-  }
-
-  const { data: pipeDataRaw } = await pipeQuery
-  const pipeRows = (pipeDataRaw || []) as unknown as PipeRow[]
-
-  // ── aggregate into display-stage buckets (distinct candidates per bucket) ────
-  const bucketSets: Record<DisplayStageKey, Set<string>> = {
-    in_review: new Set(),
-    matched: new Set(),
-    in_play: new Set(),
-    placed: new Set(),
-  }
-  const newThisWeek = new Set<string>()
-  const staleCandidates = new Set<string>()
-  const missingResume = new Set<string>()
-  const closedCandidates = new Set<string>()
-  const nonClosedSet = new Set<PipelineStage>(NON_CLOSED_STAGE_VALUES)
-  const closedSet = new Set<PipelineStage>(CLOSED_STAGE_VALUES)
-
-  for (const p of pipeRows) {
-    if (closedSet.has(p.stage)) {
-      closedCandidates.add(p.candidate_id)
-      continue
-    }
-    const ds = DISPLAY_STAGES.find(d => d.stages.includes(p.stage))
-    if (ds) bucketSets[ds.key].add(p.candidate_id)
-
-    if (nonClosedSet.has(p.stage)) {
-      if (new Date(p.created_at) >= weekStart) newThisWeek.add(p.candidate_id)
-      if (new Date(p.updated_at) < fourteenDaysAgo) staleCandidates.add(p.candidate_id)
-      if (!p.candidates?.resume_blob_pathname) missingResume.add(p.candidate_id)
-    }
-  }
-
-  const counts: Record<DisplayStageKey, number> = {
-    in_review: bucketSets.in_review.size,
-    matched: bucketSets.matched.size,
-    in_play: bucketSets.in_play.size,
-    placed: placedCount,
-  }
-
-  const yourCandidates = new Set<string>([
-    ...bucketSets.in_review,
-    ...bucketSets.matched,
-    ...bucketSets.in_play,
-  ]).size + placedCount
-
-  const journeyTotal = counts.in_review + counts.matched + counts.in_play + counts.placed
-  const closedCount = closedCandidates.size
-
-  // ── recent activity: last 10 stage transitions on this user's candidates ────
-  let activity: {
-    id: string
-    previous_stage: string | null
-    new_stage: string
-    changed_at: string
-    candidate_name: string
-  }[] = []
-
-  const runActivity = canViewAll || ownedCandidateIds.length > 0
-  if (runActivity) {
-    let histQuery = adminClient
-      .from('pipeline_stage_history')
-      .select('id, previous_stage, new_stage, changed_at, candidate_id, candidates(name)')
-      .order('changed_at', { ascending: false })
-      .limit(10)
-    if (!canViewAll) histQuery = histQuery.in('candidate_id', ownedCandidateIds)
-    const { data: hist } = await histQuery
-    activity = (hist || []).map(h => {
-      const candRaw = h.candidates as unknown
-      const cand = (Array.isArray(candRaw) ? candRaw[0] : candRaw) as { name: string | null } | null
-      return {
-        id: h.id as string,
-        previous_stage: h.previous_stage as string | null,
-        new_stage: h.new_stage as string,
-        changed_at: h.changed_at as string,
-        candidate_name: cand?.name || 'A candidate',
-      }
-    })
-  }
-
-  // ── "Needs you": named people whose next move belongs to this user ──────────
-  // Ordered oldest-first, because the whole point is that somebody has been
-  // waiting. nextActionFor owns the decision of what (if anything) is owed --
-  // including suppressing the prompt entirely for anyone off the market.
-  let needsQuery = adminClient
+  // ── one scoped read, and everything on the page comes off it ────────────────
+  // The dashboard used to aggregate job_candidate_pipeline, which for a single
+  // recruiter is thousands of rows and 96% of them machine matches nothing
+  // happened to. The journey lives on the candidate, so this is both the honest
+  // source and much the cheaper one.
+  let candQuery = adminClient
     .from('candidates')
-    .select('id, name, journey_stage, journey_stage_at, availability_status, panel_grade, intake_source')
-    .in('journey_stage', ['ready_for_intro', 'intro_sent', 'dormant'])
-    .order('journey_stage_at', { ascending: true, nullsFirst: false })
-  if (!canViewAll) needsQuery = needsQuery.or(candidateOwnershipFilter(me))
+    .select(
+      'id, name, journey_stage, journey_stage_at, availability_status, intake_source, panel_grade, resume_blob_pathname, owner_user_id',
+    )
+  if (!canViewAll) candQuery = candQuery.or(candidateOwnershipFilter(me))
 
-  const { data: needsRaw } = await needsQuery
-  const needsYou = ((needsRaw || []) as {
-    id: string
-    name: string | null
-    journey_stage: JourneyStage
-    journey_stage_at: string | null
-    availability_status: string | null
-    panel_grade: PanelGrade | null
-    intake_source: string | null
-  }[])
+  const { data: candData } = await candQuery
+  const candidates = (candData || []) as ScopedCandidate[]
+
+  // ── buckets ────────────────────────────────────────────────────────────────
+  const counts = Object.fromEntries(JOURNEY_BUCKETS.map(b => [b.key, 0])) as Record<
+    JourneyBucket,
+    number
+  >
+  for (const c of candidates) counts[journeyBucket(c)]++
+
+  // Benchmarks are not people we are placing, so they are not part of the roster.
+  const rosterTotal = candidates.length - counts.benchmark
+  // Everything except the closed outcomes, for the proportional bar.
+  const liveBuckets = JOURNEY_BUCKETS.filter(b => b.key !== 'benchmark')
+  const liveTotal = liveBuckets.reduce((n, b) => n + counts[b.key], 0)
+
+  // ── needs you ──────────────────────────────────────────────────────────────
+  const needsYou = candidates
     .map(c => ({ ...c, action: nextActionFor(c) }))
-    .filter((c): c is typeof c & { action: NextAction } => c.action !== null)
-
+    .filter((c): c is ScopedCandidate & { action: NextAction } => c.action !== null)
+    .sort(
+      (a, b) =>
+        new Date(a.journey_stage_at ?? 0).getTime() - new Date(b.journey_stage_at ?? 0).getTime(),
+    )
   const NEEDS_SHOWN = 5
 
-  // ── secondary housekeeping tasks (aggregate, no names) ──────────────────────
-  const tasks: { key: string; count: number; tone: 'g' | 'a'; title: string; body: string; href: string; cta: string }[] = []
-  if (missingResume.size > 0) {
-    const n = missingResume.size
-    tasks.push({
-      key: 'resume',
-      count: n,
-      tone: 'a',
-      title: n === 1 ? 'One candidate is missing a resume' : `${n} candidates are missing a resume`,
-      body: "We can't match them to roles without one. Nudge them or upload it yourself.",
-      href: '/candidates',
-      cta: 'Fix',
-    })
-  }
-  if (staleCandidates.size > 0) {
-    const n = staleCandidates.size
-    tasks.push({
-      key: 'stale',
-      count: n,
-      tone: 'a',
-      title: n === 1 ? 'One candidate has been quiet for two weeks' : `${n} candidates have been quiet for two weeks`,
-      body: 'No movement in 14 days or more. A nudge can restart the conversation.',
-      href: '/candidates',
-      cta: 'Open',
-    })
+  // ── one real housekeeping task ─────────────────────────────────────────────
+  // A candidate with no résumé cannot be graded or matched, which makes it the
+  // only piece of data hygiene that actually blocks the pipeline.
+  const missingResume = candidates.filter(
+    c => !c.resume_blob_pathname && journeyBucket(c) !== 'benchmark',
+  ).length
+
+  // ── activity ───────────────────────────────────────────────────────────────
+  const nameById = new Map(candidates.map(c => [c.id, c.name || 'A candidate']))
+  let activity: {
+    id: string
+    description: string | null
+    to_state: string | null
+    source: string | null
+    created_at: string
+    candidate_id: string
+  }[] = []
+
+  if (candidates.length > 0) {
+    // `backfill` is excluded deliberately. Those rows record a schema migration
+    // touching many candidates at once, not anything that happened to a person
+    // — 45 of them landed in a single afternoon and would be the entire feed.
+    // They stay in the candidate's own history, which is where an audit trail
+    // belongs.
+    let actQuery = adminClient
+      .from('candidate_activity_log')
+      .select('id, description, to_state, source, created_at, candidate_id')
+      .in('activity_type', MEANINGFUL_ACTIVITY)
+      .or('source.is.null,source.neq.backfill')
+      .order('created_at', { ascending: false })
+      .limit(8)
+    if (!canViewAll) actQuery = actQuery.in('candidate_id', candidates.map(c => c.id))
+    const { data } = await actQuery
+    activity = data || []
   }
 
-  // Greeting summary. Leads with what is owed rather than what exists -- a count
-  // of candidates is weather, a count of things waiting on you is a to-do list.
+  // ── team backlog (super admin only) ────────────────────────────────────────
+  // Where the unmade introductions are sitting, and with whom. Nothing else in
+  // the product answers that, and it is the one number that says who needs help.
+  let teamBacklog: { name: string; waiting: number; warm: number }[] = []
+  if (canViewAll) {
+    const { data: owners } = await adminClient.from('users_admin').select('user_id, full_name, email')
+    const ownerName = new Map(
+      (owners || []).map(o => [o.user_id as string, (o.full_name as string) || (o.email as string)]),
+    )
+    const byOwner = new Map<string, { waiting: number; warm: number }>()
+    for (const c of candidates) {
+      if (!c.owner_user_id) continue
+      const bucket = journeyBucket(c)
+      if (bucket !== 'needs_you' && bucket !== 'warm') continue
+      const row = byOwner.get(c.owner_user_id) ?? { waiting: 0, warm: 0 }
+      if (bucket === 'needs_you') row.waiting++
+      else row.warm++
+      byOwner.set(c.owner_user_id, row)
+    }
+    teamBacklog = [...byOwner.entries()]
+      .map(([id, v]) => ({ name: ownerName.get(id) || 'Unassigned', ...v }))
+      .filter(r => r.waiting > 0)
+      .sort((a, b) => b.waiting - a.waiting)
+      .slice(0, 6)
+  }
+
+  // Leads with what is owed rather than what exists: a count of candidates is
+  // weather, a count of people waiting on you is a to-do list.
   const summary =
-    yourCandidates === 0 && needsYou.length === 0
+    rosterTotal === 0
       ? canViewAll
-        ? 'No candidates in the pipeline yet.'
-        : "You have no candidates in your pipeline yet. Refer someone to get started."
+        ? 'No candidates yet.'
+        : 'No candidates yet. Refer someone to get started.'
       : needsYou.length > 0
         ? `${needsYou.length} ${needsYou.length === 1 ? 'candidate is' : 'candidates are'} waiting on you.`
         : "Nothing needs you right now — we'll keep things moving."
@@ -281,46 +231,53 @@ export default async function DashboardPage() {
   const focusCls = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F4D3A]/40'
 
   return (
-    <div className="max-w-[1060px] mx-auto px-4 sm:px-6 pb-16">
-      {/* Greeting */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-5 mb-10 sm:mb-11">
+    <div className="mx-auto max-w-[1060px] px-4 pb-16 sm:px-6">
+      {/* ── greeting ───────────────────────────────────────────────────────── */}
+      <div className="mb-10 flex flex-col gap-5 sm:mb-11 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="font-serif font-normal text-[30px] sm:text-[38px] tracking-[-0.02em] leading-[1.15] text-[#161613]">
+            <h1 className="font-serif text-[30px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[38px]">
               {timeGreeting(now)}, {firstName}
             </h1>
             {canViewAll && (
-              <span className="shrink-0 rounded-full bg-[#E9F0EC] text-[#1F4D3A] text-[11px] font-semibold px-2.5 py-1">
-                Viewing all candidates
+              <span className="shrink-0 rounded-full bg-[#E9F0EC] px-2.5 py-1 text-[11px] font-semibold text-[#1F4D3A]">
+                Everyone&apos;s candidates
               </span>
             )}
           </div>
-          <p className="text-[15px] sm:text-base text-[#6E6E68] mt-2.5">{summary}</p>
+          <p className="mt-2.5 text-[15px] text-[#6E6E68] sm:text-base">{summary}</p>
         </div>
-        <div className="flex gap-2.5 shrink-0">
-          <Link
-            href="/jobs/new"
-            className={`rounded-full border border-[#D8D8D0] text-[#161613] text-sm font-semibold px-5 py-2.5 motion-safe:transition-colors hover:border-[#9C9C95] ${focusCls}`}
-          >
-            Add a role
-          </Link>
+        {/* Only "Refer a candidate": partners cannot create roles, so a button
+            that leads to a page they are not allowed to use is an invitation to
+            a dead end. */}
+        <div className="flex shrink-0 gap-2.5">
+          {isAdmin && (
+            <Link
+              href="/jobs/new"
+              className={`rounded-full border border-[#D8D8D0] px-5 py-2.5 text-sm font-semibold text-[#161613] motion-safe:transition-colors hover:border-[#9C9C95] ${focusCls}`}
+            >
+              Add a role
+            </Link>
+          )}
           <Link
             href="/candidates/new"
-            className={`rounded-full bg-[#1F4D3A] text-white text-sm font-semibold px-5 py-2.5 motion-safe:transition-colors hover:bg-[#173D2E] ${focusCls}`}
+            className={`rounded-full bg-[#1F4D3A] px-5 py-2.5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-[#173D2E] ${focusCls}`}
           >
             Refer a candidate
           </Link>
         </div>
       </div>
 
-      {/* Needs you -- first thing on the page, because it is the only thing on
-          the page that asks for anything. Absent entirely when nothing is owed. */}
+      {/* ── needs you ──────────────────────────────────────────────────────── */}
       {needsYou.length > 0 && (
         <div className="mb-14 sm:mb-16">
-          <div className="flex items-baseline justify-between mb-5">
+          <div className="mb-5 flex items-baseline justify-between">
             <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Needs you</h2>
             {needsYou.length > NEEDS_SHOWN && (
-              <Link href="/candidates?filter=needs_you" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
+              <Link
+                href="/candidates?filter=needs_you"
+                className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}
+              >
                 See all {needsYou.length}
               </Link>
             )}
@@ -330,24 +287,28 @@ export default async function DashboardPage() {
               <Link
                 key={c.id}
                 href={`/candidates/${c.id}`}
-                className={`flex items-center gap-4 px-6 py-4 border-b border-[#ECECE6] last:border-b-0 motion-safe:transition-colors hover:bg-[#FAFAF6] ${focusCls}`}
+                className={`flex items-center gap-4 border-b border-[#ECECE6] px-4 py-4 last:border-b-0 motion-safe:transition-colors hover:bg-[#FAFAF6] sm:px-6 ${focusCls}`}
               >
-                <div className="shrink-0 w-9 h-9 rounded-full bg-[#EFEFE9] text-[#6E6E68] flex items-center justify-center text-[12.5px] font-semibold">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[12.5px] font-semibold text-[#6E6E68]">
                   {initials(c.name || '?')}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold text-[#161613] truncate">{c.name || 'Unnamed candidate'}</span>
+                    <span className="truncate text-sm font-semibold text-[#161613]">
+                      {c.name || 'Unnamed candidate'}
+                    </span>
                     {c.panel_grade && (
-                      <span className="shrink-0 rounded-md bg-[#E9F0EC] text-[#1F4D3A] text-[11px] font-semibold px-1.5 py-0.5 tabular-nums">
+                      <span className="shrink-0 rounded-md bg-[#E9F0EC] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#1F4D3A]">
                         {c.panel_grade === 'A-' ? 'A−' : c.panel_grade}
                       </span>
                     )}
                   </div>
-                  <div className="text-[12.5px] text-[#9C9C95] mt-0.5">{waitingSince(c.journey_stage_at)}</div>
+                  <div className="mt-0.5 text-[12.5px] text-[#9C9C95]">
+                    {waitingSince(c.journey_stage_at)}
+                  </div>
                 </div>
                 <span
-                  className={`text-sm font-semibold whitespace-nowrap shrink-0 ${
+                  className={`shrink-0 whitespace-nowrap text-sm font-semibold ${
                     c.action.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
                   }`}
                 >
@@ -359,145 +320,201 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-14 sm:mb-16">
-        <div className={`${cardCls} px-6 py-6`}>
-          <div className="text-[13px] text-[#6E6E68] mb-3.5">Your candidates</div>
-          <div className="font-serif text-[40px] leading-none tracking-[-0.02em] text-[#161613]">{yourCandidates}</div>
-          <div className={`mt-3 text-[13px] ${newThisWeek.size > 0 ? 'text-[#1F4D3A] font-semibold' : 'text-[#9C9C95]'}`}>
-            {newThisWeek.size > 0 ? `+${newThisWeek.size} this week` : 'No new candidates this week'}
+      {/* ── where everyone is ──────────────────────────────────────────────── */}
+      {rosterTotal > 0 && (
+        <div className="mb-14 sm:mb-16">
+          <div className="mb-5 flex items-baseline justify-between">
+            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+              Where your candidates are
+            </h2>
+            <Link
+              href="/candidates"
+              className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}
+            >
+              See all {rosterTotal}
+            </Link>
           </div>
-        </div>
-        <div className={`${cardCls} px-6 py-6`}>
-          <div className="text-[13px] text-[#6E6E68] mb-3.5">Matched to open roles</div>
-          <div className="font-serif text-[40px] leading-none tracking-[-0.02em] text-[#161613]">{counts.matched}</div>
-          <div className="mt-3 text-[13px]">
-            {counts.matched > 0 ? (
-              <Link href="/dashboard/pipeline/job_matched" className={`text-[#6E6E68] border-b border-[#D8D8D0] pb-px hover:border-[#161613] hover:text-[#161613] ${focusCls}`}>
-                Review matches
-              </Link>
-            ) : (
-              <span className="text-[#9C9C95]">Nothing to review yet</span>
+          <div className={`${cardCls} p-5 sm:p-[26px]`}>
+            <div
+              className="mb-6 flex h-3.5 overflow-hidden rounded-full bg-[#F0F0EA]"
+              role="img"
+              aria-label={liveBuckets
+                .filter(b => counts[b.key] > 0)
+                .map(b => `${counts[b.key]} ${b.label.toLowerCase()}`)
+                .join(', ')}
+            >
+              {liveBuckets.map(b =>
+                counts[b.key] > 0 && liveTotal > 0 ? (
+                  <div
+                    key={b.key}
+                    style={{
+                      width: `${(counts[b.key] / liveTotal) * 100}%`,
+                      backgroundColor: b.dot,
+                    }}
+                    className="h-full"
+                  />
+                ) : null,
+              )}
+            </div>
+            {/* Only the buckets that hold somebody. A row of zeroes is a list of
+                things that have not happened, which is not a status report. */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {liveBuckets
+                .filter(b => counts[b.key] > 0)
+                .map(b => (
+                  <Link
+                    key={b.key}
+                    href={`/candidates?filter=${b.key}`}
+                    className={`rounded-xl px-3 py-3 motion-safe:transition-colors hover:bg-[#FAFAF6] ${focusCls}`}
+                  >
+                    <div className="flex items-center text-[13px] font-semibold text-[#161613]">
+                      <span
+                        className="mr-2 inline-block h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: b.dot }}
+                      />
+                      {b.label}
+                    </div>
+                    <div className="my-1 font-serif text-[24px] tracking-[-0.01em] text-[#161613]">
+                      {counts[b.key]}
+                    </div>
+                    <div className="text-[12px] leading-[1.4] text-[#6E6E68]">{b.blurb}</div>
+                  </Link>
+                ))}
+            </div>
+            {counts.benchmark > 0 && (
+              <div className="mt-5 border-t border-[#ECECE6] pt-4 text-[13px] text-[#9C9C95]">
+                <Link
+                  href="/candidates?filter=benchmark"
+                  className={`border-b border-[#E0E0D8] pb-px hover:border-[#6E6E68] hover:text-[#6E6E68] ${focusCls}`}
+                >
+                  {counts.benchmark} benchmark {counts.benchmark === 1 ? 'profile' : 'profiles'}, kept
+                  out of the count
+                </Link>
+              </div>
             )}
           </div>
         </div>
-        <div className={`${cardCls} px-6 py-6`}>
-          <div className="text-[13px] text-[#6E6E68] mb-3.5">Placed</div>
-          <div className="font-serif text-[40px] leading-none tracking-[-0.02em] text-[#161613]">{counts.placed}</div>
-          <div className="mt-3 text-[13px] text-[#9C9C95]">
-            {counts.placed > 0 ? (counts.placed === 1 ? 'Candidate hired' : 'Candidates hired') : 'No placements yet'}
-          </div>
-        </div>
-      </div>
+      )}
 
-      {/* Journey */}
-      <div className="flex items-baseline justify-between mb-5">
-        <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Where your candidates are</h2>
-        {yourCandidates > 0 && (
-          <Link href="/candidates" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
-            See all {yourCandidates}
-          </Link>
-        )}
-      </div>
-      <div className={`${cardCls} p-6 sm:p-[30px] mb-14 sm:mb-16`}>
-        <div className="flex h-3.5 rounded-full overflow-hidden bg-[#F0F0EA] mb-6" role="img" aria-label={`${counts.in_review} in review, ${counts.matched} matched to roles, ${counts.in_play} in play, ${counts.placed} placed`}>
-          {DISPLAY_STAGES.map(ds =>
-            counts[ds.key] > 0 && journeyTotal > 0 ? (
-              <div key={ds.key} style={{ width: `${(counts[ds.key] / journeyTotal) * 100}%`, backgroundColor: ds.dotColor }} className="h-full" />
-            ) : null,
-          )}
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          {DISPLAY_STAGES.map(ds => {
-            const dim = counts[ds.key] === 0
-            return (
-              <div key={ds.key} className="px-4 py-3.5 rounded-xl motion-safe:transition-colors hover:bg-[#FAFAF6]">
-                <div className="text-sm font-semibold flex items-center">
-                  <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ backgroundColor: dim ? '#E4E4DC' : ds.dotColor }} />
-                  <span className={dim ? 'text-[#9C9C95]' : 'text-[#161613]'}>{ds.name}</span>
-                </div>
-                <div className={`font-serif text-[26px] tracking-[-0.01em] my-1.5 ${dim ? 'text-[#9C9C95]' : 'text-[#161613]'}`}>{counts[ds.key]}</div>
-                <div className="text-[12.5px] text-[#6E6E68] leading-[1.45]">{ds.description}</div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="mt-5 pt-4 border-t border-[#ECECE6] flex justify-between text-[13px] text-[#9C9C95]">
-          <span>Updated just now</span>
-          {closedCount > 0 && (
-            <Link href="/dashboard/pipeline/rejected" className={`border-b border-[#E0E0D8] pb-px hover:text-[#6E6E68] hover:border-[#6E6E68] ${focusCls}`}>
-              {closedCount} closed {closedCount === 1 ? 'referral' : 'referrals'} in your archive
-            </Link>
-          )}
-        </div>
-      </div>
-
-      {/* Next up */}
-      {tasks.length > 0 && (
+      {/* ── team backlog, super admin only ─────────────────────────────────── */}
+      {canViewAll && teamBacklog.length > 0 && (
         <div className="mb-14 sm:mb-16">
-          <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613] mb-5">Also worth a look</h2>
-          <div className="space-y-3">
-            {tasks.map(t => (
-              <Link
-                key={t.key}
-                href={t.href}
-                className={`${cardCls} px-6 py-5 flex items-center justify-between gap-5 motion-safe:transition-colors hover:border-[#D8D8D0] ${focusCls}`}
+          <div className="mb-5 flex items-baseline justify-between">
+            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+              Who the work is sitting with
+            </h2>
+          </div>
+          <div className={`${cardCls} overflow-hidden`}>
+            {teamBacklog.map(r => (
+              <div
+                key={r.name}
+                className="flex items-center gap-4 border-b border-[#ECECE6] px-4 py-3.5 last:border-b-0 sm:px-6"
               >
-                <div className="flex gap-4 items-start min-w-0">
-                  <div className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center font-serif text-[17px] ${t.tone === 'g' ? 'bg-[#E9F0EC] text-[#1F4D3A]' : 'bg-[#F5EEDD] text-[#8A6A1F]'}`}>
-                    {t.count}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-[15px] font-semibold text-[#161613] mb-0.5">{t.title}</h3>
-                    <p className="text-[13.5px] text-[#6E6E68] max-w-[520px]">{t.body}</p>
-                  </div>
+                <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[11.5px] font-semibold text-[#6E6E68]">
+                  {initials(r.name)}
                 </div>
-                <span className="text-sm font-semibold text-[#1F4D3A] whitespace-nowrap shrink-0">{t.cta} →</span>
-              </Link>
+                <span className="min-w-0 flex-1 truncate text-sm text-[#161613]">{r.name}</span>
+                <span className="shrink-0 text-[12.5px] text-[#9C9C95]">{r.warm} warm</span>
+                <span className="w-[104px] shrink-0 text-right text-sm font-semibold tabular-nums text-[#1F4D3A]">
+                  {r.waiting} waiting
+                </span>
+              </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Recent activity */}
-      <div className="flex items-baseline justify-between mb-5">
-        <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Recent activity</h2>
-        {activity.length > 0 && (
-          <Link href="/candidates" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
-            View all
+      {/* ── one thing to fix ───────────────────────────────────────────────── */}
+      {missingResume > 0 && (
+        <div className="mb-14 sm:mb-16">
+          <Link
+            href="/candidates"
+            className={`${cardCls} flex items-center justify-between gap-5 px-4 py-5 motion-safe:transition-colors hover:border-[#D8D8D0] sm:px-6 ${focusCls}`}
+          >
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F5EEDD] font-serif text-[17px] text-[#8A6A1F]">
+                {missingResume}
+              </div>
+              <div className="min-w-0">
+                <h3 className="mb-0.5 text-[15px] font-semibold text-[#161613]">
+                  {missingResume === 1
+                    ? 'One candidate has no résumé'
+                    : `${missingResume} candidates have no résumé`}
+                </h3>
+                <p className="max-w-[520px] text-[13.5px] text-[#6E6E68]">
+                  We can&apos;t grade or match them without one.
+                </p>
+              </div>
+            </div>
+            <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-[#1F4D3A]">
+              Fix →
+            </span>
           </Link>
-        )}
+        </div>
+      )}
+
+      {/* ── what's happened ────────────────────────────────────────────────── */}
+      <div className="mb-5 flex items-baseline justify-between">
+        <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+          What&apos;s happened lately
+        </h2>
       </div>
       {activity.length > 0 ? (
         <div className={`${cardCls} overflow-hidden`}>
           {activity.map(a => {
-            const isNew = a.previous_stage === null
+            const automated = AUTOMATED_SOURCES.has(a.source ?? '')
             return (
-              <div key={a.id} className="flex items-center gap-4 px-6 py-4 border-b border-[#ECECE6] last:border-b-0 motion-safe:transition-colors hover:bg-[#FAFAF6]">
-                <div className="shrink-0 w-9 h-9 rounded-full bg-[#EFEFE9] text-[#6E6E68] flex items-center justify-center text-[12.5px] font-semibold">
-                  {initials(a.candidate_name)}
+              <div
+                key={a.id}
+                className="flex items-start gap-4 border-b border-[#ECECE6] px-4 py-4 last:border-b-0 sm:px-6"
+              >
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[12.5px] font-semibold text-[#6E6E68]">
+                  {initials(nameById.get(a.candidate_id) || '?')}
                 </div>
-                <div className="flex-1 text-sm text-[#161613] min-w-0">
-                  <span className="font-semibold">{a.candidate_name}</span>{' '}
-                  {isNew ? (
-                    <>joined your pipeline and is <span className="font-semibold">in review</span></>
-                  ) : (
-                    <>moved to <span className="text-[#1F4D3A] font-semibold">{stageDisplayName(a.new_stage)}</span></>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <Link
+                      href={`/candidates/${a.candidate_id}`}
+                      className={`text-sm font-semibold text-[#161613] hover:underline ${focusCls}`}
+                    >
+                      {nameById.get(a.candidate_id) || 'A candidate'}
+                    </Link>
+                    {a.to_state && (
+                      <span className="text-[13px] text-[#6E6E68]">
+                        moved to{' '}
+                        <span className="font-medium text-[#1F4D3A]">
+                          {a.to_state.replace(/_/g, ' ')}
+                        </span>
+                      </span>
+                    )}
+                    <span className="text-[12px] text-[#9C9C95]">{relativeTime(a.created_at)}</span>
+                    {automated && (
+                      <span className="rounded bg-[#F0F0EA] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
+                        auto
+                      </span>
+                    )}
+                  </div>
+                  {a.description && (
+                    <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-[#6E6E68]">
+                      {a.description}
+                    </p>
                   )}
                 </div>
-                <div className="text-[12.5px] text-[#9C9C95] whitespace-nowrap shrink-0">{formatRelativeTime(a.changed_at)}</div>
               </div>
             )
           })}
         </div>
       ) : (
         <div className={`${cardCls} px-6 py-10 text-center`}>
-          <p className="text-sm text-[#6E6E68] mb-4">
-            {yourCandidates > 0
-              ? 'No stage changes yet. Activity shows up here as your candidates move through the pipeline.'
+          <p className="mb-4 text-sm text-[#6E6E68]">
+            {rosterTotal > 0
+              ? 'Nothing yet. Calls, notes and stage changes show up here.'
               : 'Refer your first candidate and their progress will show up here.'}
           </p>
-          <Link href="/candidates/new" className={`inline-block rounded-full bg-[#1F4D3A] text-white text-sm font-semibold px-5 py-2.5 hover:bg-[#173D2E] ${focusCls}`}>
+          <Link
+            href="/candidates/new"
+            className={`inline-block rounded-full bg-[#1F4D3A] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#173D2E] ${focusCls}`}
+          >
             Refer a candidate
           </Link>
         </div>

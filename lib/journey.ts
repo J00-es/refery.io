@@ -213,6 +213,132 @@ function daysSince(iso: string | null): number {
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
 
+// ── buckets ──────────────────────────────────────────────────────────────────
+
+/**
+ * The coarse groups the product speaks in: the candidate list tabs, and the
+ * dashboard's "where everyone is". Defined once here so the two cannot drift
+ * into describing the same people differently.
+ */
+export type JourneyBucket =
+  | 'needs_you'
+  | 'in_review'
+  | 'intro_sent'
+  | 'committee_call'
+  | 'warm'
+  | 'on_hold'
+  | 'not_fit'
+  | 'benchmark'
+
+export interface BucketConfig {
+  key: JourneyBucket
+  label: string
+  blurb: string
+  /** Legend / progress-bar colour. */
+  dot: string
+  order: number
+}
+
+export const JOURNEY_BUCKETS: BucketConfig[] = [
+  {
+    key: 'needs_you',
+    label: 'Needs you',
+    blurb: 'Waiting on a warm introduction from you. Longest wait first.',
+    dot: '#1F4D3A',
+    order: 1,
+  },
+  {
+    key: 'in_review',
+    label: 'In review',
+    blurb: "We're reading them and grading them against the bar.",
+    dot: '#C9D9CF',
+    order: 2,
+  },
+  {
+    key: 'intro_sent',
+    label: 'Intro sent',
+    blurb: 'The introduction has gone out. Waiting to hear back from them.',
+    dot: '#7C93A8',
+    order: 3,
+  },
+  {
+    key: 'committee_call',
+    label: 'Call booked',
+    blurb: 'A call with our talent committee is on the calendar.',
+    dot: '#5E8571',
+    order: 4,
+  },
+  {
+    key: 'warm',
+    label: 'Warm',
+    blurb: "We've met them and vouch for them. We're matching them to open roles.",
+    dot: '#2E9E6B',
+    order: 5,
+  },
+  {
+    key: 'on_hold',
+    label: 'On hold',
+    blurb: "Off the market right now, so there's nothing to do until that changes.",
+    dot: '#C79A2E',
+    order: 6,
+  },
+  {
+    key: 'not_fit',
+    label: 'Not a fit',
+    blurb: 'Not a match for the kinds of roles we work on.',
+    dot: '#C2544B',
+    order: 7,
+  },
+  {
+    key: 'benchmark',
+    label: 'Benchmarks',
+    blurb: 'Profiles sourced to calibrate a search. Not people we are placing.',
+    dot: '#B8B8B0',
+    order: 8,
+  },
+]
+
+export function bucketConfig(key: JourneyBucket): BucketConfig {
+  return JOURNEY_BUCKETS.find(b => b.key === key) ?? JOURNEY_BUCKETS[0]
+}
+
+/**
+ * Assign a candidate to exactly one bucket. First match wins, which is what
+ * makes the buckets disjoint and their counts add up to the roster — if they
+ * ever stop adding up, something is being hidden.
+ */
+export function journeyBucket(c: {
+  journey_stage: JourneyStage
+  journey_stage_at: string | null
+  availability_status?: string | null
+  intake_source?: string | null
+}): JourneyBucket {
+  if (c.intake_source === 'calibration') return 'benchmark'
+  if (nextActionFor(c) !== null) return 'needs_you'
+
+  const s = c.journey_stage
+
+  // A closed outcome is the whole story, so it wins over availability: someone
+  // off the market *and* not a fit is simply not a fit.
+  if (s === 'not_fit' || s === 'post_committee_not_fit' || s === 'dormant') return 'not_fit'
+
+  // Otherwise being off the market is the reason nothing is happening, and
+  // saying so beats filing them under a stage they are not progressing through.
+  if (c.availability_status === 'off_market') return 'on_hold'
+
+  switch (s) {
+    case 'warm':
+    case 'placed':
+      return 'warm'
+    case 'committee_call':
+      return 'committee_call'
+    case 'intro_sent':
+      return 'intro_sent'
+    default:
+      return 'in_review'
+  }
+}
+
 // ── Journey B: the internal ladder ───────────────────────────────────────────
 
 /**
