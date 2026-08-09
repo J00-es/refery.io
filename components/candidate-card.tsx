@@ -18,12 +18,22 @@ import {
   UNGRADED,
   VERDICT_GRADES,
 } from '@/lib/candidate-ui'
+import { journeyConfig, nextActionFor, type PanelGrade } from '@/lib/journey'
 
 export interface EnrichedCandidate extends Candidate {
   pipeline_jobs?: { job_title: string; stage: string; company: string }[]
   owner?: { email: string; full_name: string | null } | null
   last_activity?: string
   latest_note_date?: string | null
+}
+
+/** panel_grade back to the verdict key VERDICT_GRADES is keyed by. */
+const GRADE_TO_VERDICT: Record<PanelGrade, string> = {
+  'A+': 'very_strong',
+  A: 'strong',
+  'A-': 'moderate',
+  'B+': 'weak',
+  pass: 'pass',
 }
 
 interface CandidateCardProps {
@@ -37,6 +47,11 @@ interface CandidateCardProps {
 
 function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCardProps) {
   const availability = availabilityOf(candidate.availability_status)
+  const journey = journeyConfig(candidate.journey_stage)
+  // The one thing the reader might owe this person. Null for most cards, which
+  // is the point — if every card asks for something, none of them do.
+  const action = nextActionFor(candidate)
+  const offMarket = candidate.availability_status === 'off_market'
   const salary = formatSalary(candidate.salary_expectation_min, candidate.salary_expectation_max)
   const currentRole = candidate.parsed_data?.work_history?.[0]
   const owner = ownerName(candidate.owner)
@@ -51,10 +66,18 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
   // see the recruiter grade here, and the two surfaces agree.
   const gradedBy = canViewAll && candidate.lily_verdict ? 'lily' : 'recruiter'
   const verdict = gradedBy === 'lily' ? candidate.lily_verdict : candidate.recruiter_verdict
-  const grade = (verdict && VERDICT_GRADES[verdict]) || UNGRADED
-  const gradeTitle = verdict
-    ? `${gradedBy === 'lily' ? 'Lily' : 'Recruiter'} verdict: ${grade.label}`
-    : UNGRADED.label
+  // Some verdicts were written as prose rather than one of the five values, so
+  // the lookup misses and the card would read "not yet calibrated" for a
+  // candidate the panel graded. panel_grade holds the grade recovered from that
+  // prose, so fall back to it before giving up.
+  const grade =
+    (verdict && VERDICT_GRADES[verdict]) ||
+    (candidate.panel_grade && VERDICT_GRADES[GRADE_TO_VERDICT[candidate.panel_grade]]) ||
+    UNGRADED
+  const gradeTitle =
+    grade === UNGRADED
+      ? UNGRADED.label
+      : `${gradedBy === 'lily' ? 'Lily' : 'Recruiter'} verdict: ${grade.label}`
 
   return (
     <Link
@@ -128,11 +151,16 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
               </p>
             )}
 
-            {/* Availability reads as a dot + words, not a filled pill — it is a
-                state, not a call to action. */}
+            {/* Where we are with the person, as a dot + words rather than a
+                filled pill — it is a state, not a call to action. Off-market is
+                appended rather than replacing it, because the two answer
+                different questions: someone can be warm *and* unavailable. */}
             <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[#6E6E68]">
               <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${availability.dot}`} />
-              {availability.label}
+              <span className="truncate">
+                {journey.label}
+                {offMarket && <span className="text-[#9C9C95]"> · Off market</span>}
+              </span>
             </p>
           </div>
 
@@ -241,9 +269,22 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
           ) : (
             <span />
           )}
-          <span className="shrink-0 text-[#9C9C95]">
-            {relativeTime(candidate.last_activity ?? candidate.updated_at)}
-          </span>
+          {/* The action takes the timestamp's slot rather than adding a row. A
+              card that needs something says so; every other card stays quiet
+              and keeps showing recency. */}
+          {action ? (
+            <span
+              className={`shrink-0 font-semibold ${
+                action.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
+              }`}
+            >
+              {action.label} →
+            </span>
+          ) : (
+            <span className="shrink-0 text-[#9C9C95]">
+              {relativeTime(candidate.last_activity ?? candidate.updated_at)}
+            </span>
+          )}
         </footer>
       </article>
     </Link>

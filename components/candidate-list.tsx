@@ -23,24 +23,52 @@ import {
   relativeTime,
   type AvailabilityKey,
 } from '@/lib/candidate-ui'
+import { nextActionFor, type JourneyStage } from '@/lib/journey'
 
 interface CandidateListProps {
   candidates: EnrichedCandidate[]
   owners: OwnerOption[]
   /** True only for super admins — gates the owner column and owner filter. */
   canViewAll: boolean
+  /** Tab to open on, so /candidates?filter=needs_me lands on the to-do list. */
+  initialTab?: StatusKey
 }
 
 type ViewMode = 'card' | 'row'
 
+/**
+ * Tabs follow the journey, plus one cross-cutting tab for work that is owed.
+ *
+ * The previous tabs sliced `candidates.status` into New / Reviewing /
+ * Shortlisted / Archived — 99% of the roster sat on "reviewing" and "new", and
+ * nobody had ever been shortlisted, so four of the five tabs were noise.
+ *
+ * `needs_me` deliberately overlaps the journey tabs: it is the to-do list, and
+ * a to-do list that hid items because they were also "in progress" somewhere
+ * else would be worse than useless.
+ */
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
-  { key: 'new', label: 'New' },
-  { key: 'reviewing', label: 'Reviewing' },
-  { key: 'shortlisted', label: 'Shortlisted' },
-  { key: 'archived', label: 'Archived' },
+  { key: 'needs_me', label: 'Needs me' },
+  { key: 'in_review', label: 'In review' },
+  { key: 'ready', label: 'Ready' },
+  { key: 'warm', label: 'Warm' },
+  { key: 'closed', label: 'Closed' },
 ] as const
 type StatusKey = (typeof STATUS_TABS)[number]['key']
+
+const TAB_STAGES: Record<Exclude<StatusKey, 'all' | 'needs_me'>, JourneyStage[]> = {
+  in_review: ['uploaded', 'calibrating'],
+  ready: ['ready_for_intro', 'intro_sent', 'committee_call'],
+  warm: ['warm', 'placed'],
+  closed: ['not_fit', 'post_committee_not_fit', 'dormant'],
+}
+
+function matchesTab(c: EnrichedCandidate, tab: StatusKey): boolean {
+  if (tab === 'all') return true
+  if (tab === 'needs_me') return nextActionFor(c) !== null
+  return TAB_STAGES[tab].includes(c.journey_stage)
+}
 
 const EXPERIENCE_BANDS = [
   { key: 'junior', label: '0–2 yrs', test: (y: number) => y < 3 },
@@ -145,6 +173,7 @@ function CandidateRow({
   // never see it — it is admin-only on the detail page.
   const verdict = (canViewAll && candidate.lily_verdict) || candidate.recruiter_verdict
   const grade = (verdict && VERDICT_GRADES[verdict]) || UNGRADED
+  const rowAction = nextActionFor(candidate)
 
   return (
     <Link
@@ -203,18 +232,35 @@ function CandidateRow({
           )}
         </span>
       )}
-      <span className="hidden w-20 shrink-0 text-right text-[12px] text-[#9C9C95] sm:block">
-        {relativeTime(candidate.last_activity ?? candidate.updated_at)}
-      </span>
+      {/* Same slot, same rule as the card: a row that owes something says so,
+          everything else keeps showing recency. */}
+      {rowAction ? (
+        <span
+          className={`hidden w-28 shrink-0 text-right text-[12px] font-semibold sm:block ${
+            rowAction.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
+          }`}
+        >
+          {rowAction.label} →
+        </span>
+      ) : (
+        <span className="hidden w-28 shrink-0 text-right text-[12px] text-[#9C9C95] sm:block">
+          {relativeTime(candidate.last_activity ?? candidate.updated_at)}
+        </span>
+      )}
     </Link>
   )
 }
 
 // ── main ────────────────────────────────────────────────────────────────────
 
-export function CandidateList({ candidates, owners, canViewAll }: CandidateListProps) {
+export function CandidateList({
+  candidates,
+  owners,
+  canViewAll,
+  initialTab = 'all',
+}: CandidateListProps) {
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState<StatusKey>('all')
+  const [status, setStatus] = useState<StatusKey>(initialTab)
   const [availability, setAvailability] = useState<string[]>([])
   const [experience, setExperience] = useState<string[]>([])
   const [remote, setRemote] = useState<string[]>([])
@@ -236,13 +282,12 @@ export function CandidateList({ candidates, owners, canViewAll }: CandidateListP
   // Status counts come off the full set so the tab numbers do not move as you
   // filter — they are a stable map of the whole pipeline.
   const statusCounts = useMemo(() => {
-    const c: Record<StatusKey, number> = { all: 0, new: 0, reviewing: 0, shortlisted: 0, archived: 0 }
+    const c = { all: 0, needs_me: 0, in_review: 0, ready: 0, warm: 0, closed: 0 } as Record<
+      StatusKey,
+      number
+    >
     for (const cand of candidates) {
-      c.all++
-      if (cand.status === 'new') c.new++
-      else if (cand.status === 'reviewing') c.reviewing++
-      else if (cand.status === 'shortlisted') c.shortlisted++
-      else c.archived++
+      for (const t of STATUS_TABS) if (matchesTab(cand, t.key)) c[t.key]++
     }
     return c
   }, [candidates])
@@ -251,13 +296,7 @@ export function CandidateList({ candidates, owners, canViewAll }: CandidateListP
     const q = deferredSearch.trim().toLowerCase()
 
     return candidates.filter(c => {
-      if (status !== 'all') {
-        const bucket =
-          c.status === 'new' || c.status === 'reviewing' || c.status === 'shortlisted'
-            ? c.status
-            : 'archived'
-        if (bucket !== status) return false
-      }
+      if (!matchesTab(c, status)) return false
 
       if (availability.length && !availability.includes(c.availability_status || 'not_yet_talked'))
         return false

@@ -7,8 +7,16 @@ import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { FOCUS, ownerName } from '@/lib/candidate-ui'
 import { cookies } from 'next/headers'
 
-export default async function CandidatesPage() {
+export default async function CandidatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ filter?: string }>
+}) {
   await cookies()
+  // Read on the server and handed down as a prop rather than pulled from
+  // useSearchParams in the list: the list is a client component, and reading the
+  // URL there would drag it behind a Suspense boundary for no benefit.
+  const { filter } = await searchParams
   const adminClient = createAdminClient()
 
   const appUser = await getAppUser()
@@ -188,7 +196,12 @@ export default async function CandidatesPage() {
         </div>
       </header>
 
-      <CandidateList candidates={enrichedCandidates} owners={ownerOptions} canViewAll={canViewAll} />
+      <CandidateList
+        candidates={enrichedCandidates}
+        owners={ownerOptions}
+        canViewAll={canViewAll}
+        initialTab={filter === 'needs_me' ? 'needs_me' : 'all'}
+      />
     </div>
   )
 }

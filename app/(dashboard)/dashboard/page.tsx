@@ -11,6 +11,7 @@ import {
   type DisplayStageKey,
 } from '@/lib/pipeline-stages'
 import type { PipelineStage } from '@/lib/types'
+import { nextActionFor, type JourneyStage, type NextAction, type PanelGrade } from '@/lib/journey'
 
 // Pipeline data is refreshed continuously by the matching automation.
 export const dynamic = 'force-dynamic'
@@ -33,6 +34,18 @@ function initials(name: string): string {
       .join('')
       .toUpperCase() || '?'
   )
+}
+
+/** How long somebody has been waiting. Reads as a gentle prod, not a metric. */
+function waitingSince(dateStr: string | null): string {
+  if (!dateStr) return 'Waiting'
+  const days = Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
+  if (days < 1) return 'Since today'
+  if (days === 1) return 'Waiting a day'
+  if (days < 7) return `Waiting ${days} days`
+  if (days < 14) return 'Waiting a week'
+  if (days < 60) return `Waiting ${Math.floor(days / 7)} weeks`
+  return `Waiting ${Math.floor(days / 30)} months`
 }
 
 function formatRelativeTime(dateStr: string): string {
@@ -200,19 +213,33 @@ export default async function DashboardPage() {
     })
   }
 
-  // ── "Next up" tasks (only real, actionable ones) ────────────────────────────
+  // ── "Needs you": named people whose next move belongs to this user ──────────
+  // Ordered oldest-first, because the whole point is that somebody has been
+  // waiting. nextActionFor owns the decision of what (if anything) is owed --
+  // including suppressing the prompt entirely for anyone off the market.
+  let needsQuery = adminClient
+    .from('candidates')
+    .select('id, name, journey_stage, journey_stage_at, availability_status, panel_grade')
+    .in('journey_stage', ['ready_for_intro', 'intro_sent', 'dormant'])
+    .order('journey_stage_at', { ascending: true, nullsFirst: false })
+  if (!canViewAll) needsQuery = needsQuery.or(candidateOwnershipFilter(me))
+
+  const { data: needsRaw } = await needsQuery
+  const needsYou = ((needsRaw || []) as {
+    id: string
+    name: string | null
+    journey_stage: JourneyStage
+    journey_stage_at: string | null
+    availability_status: string | null
+    panel_grade: PanelGrade | null
+  }[])
+    .map(c => ({ ...c, action: nextActionFor(c) }))
+    .filter((c): c is typeof c & { action: NextAction } => c.action !== null)
+
+  const NEEDS_SHOWN = 5
+
+  // ── secondary housekeeping tasks (aggregate, no names) ──────────────────────
   const tasks: { key: string; count: number; tone: 'g' | 'a'; title: string; body: string; href: string; cta: string }[] = []
-  if (counts.matched > 0) {
-    tasks.push({
-      key: 'review',
-      count: counts.matched,
-      tone: 'g',
-      title: 'Review your new matches',
-      body: `${counts.matched} ${counts.matched === 1 ? 'candidate is' : 'candidates are'} matched to open roles. A quick look from you keeps them moving toward an intro.`,
-      href: '/dashboard/pipeline/job_matched',
-      cta: 'Review',
-    })
-  }
   if (missingResume.size > 0) {
     const n = missingResume.size
     tasks.push({
@@ -238,13 +265,16 @@ export default async function DashboardPage() {
     })
   }
 
-  // Greeting summary sentence
+  // Greeting summary. Leads with what is owed rather than what exists -- a count
+  // of candidates is weather, a count of things waiting on you is a to-do list.
   const summary =
-    yourCandidates === 0
+    yourCandidates === 0 && needsYou.length === 0
       ? canViewAll
         ? 'No candidates in the pipeline yet.'
         : "You have no candidates in your pipeline yet. Refer someone to get started."
-      : `${newThisWeek.size > 0 ? `${newThisWeek.size} ${newThisWeek.size === 1 ? 'candidate' : 'candidates'} joined your pipeline this week. ` : ''}${counts.matched} ${counts.matched === 1 ? 'is' : 'are'} matched to open roles.`
+      : needsYou.length > 0
+        ? `${needsYou.length} ${needsYou.length === 1 ? 'candidate is' : 'candidates are'} waiting on you.`
+        : "Nothing needs you right now — we'll keep things moving."
 
   const cardCls = 'bg-white border border-[#ECECE6] rounded-[18px]'
   const focusCls = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F4D3A]/40'
@@ -281,6 +311,52 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Needs you -- first thing on the page, because it is the only thing on
+          the page that asks for anything. Absent entirely when nothing is owed. */}
+      {needsYou.length > 0 && (
+        <div className="mb-14 sm:mb-16">
+          <div className="flex items-baseline justify-between mb-5">
+            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Needs you</h2>
+            {needsYou.length > NEEDS_SHOWN && (
+              <Link href="/candidates?filter=needs_me" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
+                See all {needsYou.length}
+              </Link>
+            )}
+          </div>
+          <div className={`${cardCls} overflow-hidden`}>
+            {needsYou.slice(0, NEEDS_SHOWN).map(c => (
+              <Link
+                key={c.id}
+                href={`/candidates/${c.id}`}
+                className={`flex items-center gap-4 px-6 py-4 border-b border-[#ECECE6] last:border-b-0 motion-safe:transition-colors hover:bg-[#FAFAF6] ${focusCls}`}
+              >
+                <div className="shrink-0 w-9 h-9 rounded-full bg-[#EFEFE9] text-[#6E6E68] flex items-center justify-center text-[12.5px] font-semibold">
+                  {initials(c.name || '?')}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-[#161613] truncate">{c.name || 'Unnamed candidate'}</span>
+                    {c.panel_grade && (
+                      <span className="shrink-0 rounded-md bg-[#E9F0EC] text-[#1F4D3A] text-[11px] font-semibold px-1.5 py-0.5 tabular-nums">
+                        {c.panel_grade === 'A-' ? 'A−' : c.panel_grade}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[12.5px] text-[#9C9C95] mt-0.5">{waitingSince(c.journey_stage_at)}</div>
+                </div>
+                <span
+                  className={`text-sm font-semibold whitespace-nowrap shrink-0 ${
+                    c.action.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
+                  }`}
+                >
+                  {c.action.label} →
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-14 sm:mb-16">
@@ -358,7 +434,7 @@ export default async function DashboardPage() {
       {/* Next up */}
       {tasks.length > 0 && (
         <div className="mb-14 sm:mb-16">
-          <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613] mb-5">Next up</h2>
+          <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613] mb-5">Also worth a look</h2>
           <div className="space-y-3">
             {tasks.map(t => (
               <Link
