@@ -320,7 +320,7 @@ export default async function DashboardPage() {
           <div className="flex items-baseline justify-between mb-5">
             <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Needs you</h2>
             {needsYou.length > NEEDS_SHOWN && (
-              <Link href="/candidates?filter=needs_me" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
+              <Link href="/candidates?filter=needs_you" className={`text-[13.5px] text-[#6E6E68] hover:text-[#161613] ${focusCls}`}>
                 See all {needsYou.length}
               </Link>
             )}

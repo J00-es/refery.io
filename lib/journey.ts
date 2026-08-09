@@ -65,7 +65,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
   {
     value: 'ready_for_intro',
     label: 'Ready for intro',
-    blurb: 'They cleared the bar and need a warm intro.',
+    blurb: 'They cleared the bar and are waiting on a warm introduction.',
     category: 'in_progress',
     order: 3,
   },
@@ -100,7 +100,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
   {
     value: 'not_fit',
     label: 'Not a fit',
-    blurb: 'Not a fit for the roles we work on.',
+    blurb: 'Not a match for the kinds of roles we work on.',
     category: 'closed',
     order: 90,
   },

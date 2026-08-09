@@ -30,44 +30,86 @@ interface CandidateListProps {
   owners: OwnerOption[]
   /** True only for super admins — gates the owner column and owner filter. */
   canViewAll: boolean
-  /** Tab to open on, so /candidates?filter=needs_me lands on the to-do list. */
+  /** Tab to open on, so /candidates?filter=needs_you lands on the to-do list. */
   initialTab?: StatusKey
 }
 
 type ViewMode = 'card' | 'row'
 
 /**
- * Tabs follow the journey, plus one cross-cutting tab for work that is owed.
+ * Every candidate sits in exactly one tab, and the tabs add up to the total.
  *
- * The previous tabs sliced `candidates.status` into New / Reviewing /
- * Shortlisted / Archived — 99% of the roster sat on "reviewing" and "new", and
- * nobody had ever been shortlisted, so four of the five tabs were noise.
+ * The first attempt at this failed in a way worth recording. It had both a
+ * "Ready" tab (115) and a "Needs me" tab (94) — nearly the same people, with an
+ * unexplained 21-person gap that turned out to be benchmarks and off-market
+ * candidates. Two overlapping tabs, one of them a superset of the other, and no
+ * way for the reader to work out the difference. It also gave a whole tab to
+ * "In review", which held one person.
  *
- * `needs_me` deliberately overlaps the journey tabs: it is the to-do list, and
- * a to-do list that hid items because they were also "in progress" somewhere
- * else would be worse than useless.
+ * So: buckets are assigned first-match, which makes them disjoint by
+ * construction, and each carries a sentence saying what is in it. If the counts
+ * do not sum to the total, something is being hidden and the design is wrong.
  */
 const STATUS_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'needs_me', label: 'Needs me' },
-  { key: 'in_review', label: 'In review' },
-  { key: 'ready', label: 'Ready' },
-  { key: 'warm', label: 'Warm' },
-  { key: 'closed', label: 'Closed' },
+  { key: 'all', label: 'Everyone', blurb: '' },
+  {
+    key: 'needs_you',
+    label: 'Needs you',
+    blurb: 'Waiting on a warm introduction from you. Longest wait first.',
+  },
+  {
+    key: 'in_progress',
+    label: 'In progress',
+    blurb: "We're working on these. Nothing needed from you right now.",
+  },
+  {
+    key: 'warm',
+    label: 'Warm',
+    blurb: "We've met them and vouch for them. We're matching them to open roles.",
+  },
+  {
+    key: 'not_fit',
+    label: 'Not a fit',
+    blurb: 'Not a match for the kinds of roles we work on.',
+  },
+  {
+    key: 'benchmark',
+    label: 'Benchmarks',
+    blurb: 'Profiles sourced to calibrate a search. Not people we are placing.',
+  },
 ] as const
 type StatusKey = (typeof STATUS_TABS)[number]['key']
 
-const TAB_STAGES: Record<Exclude<StatusKey, 'all' | 'needs_me'>, JourneyStage[]> = {
-  in_review: ['uploaded', 'calibrating'],
-  ready: ['ready_for_intro', 'intro_sent', 'committee_call'],
-  warm: ['warm', 'placed'],
-  closed: ['not_fit', 'post_committee_not_fit', 'dormant'],
+/**
+ * Benchmarks are kept out of every other tab, including Everyone. They were
+ * sourced to set a bar for a search, not to be placed — 19 of them were sitting
+ * in the intro queue before `intake_source` existed to say otherwise. They keep
+ * their own tab so they are excluded rather than lost, and that tab hides itself
+ * for anyone who has none.
+ */
+function bucketOf(c: EnrichedCandidate): Exclude<StatusKey, 'all'> {
+  if (c.intake_source === 'calibration') return 'benchmark'
+  if (nextActionFor(c) !== null) return 'needs_you'
+
+  switch (c.journey_stage) {
+    case 'warm':
+    case 'placed':
+      return 'warm'
+    case 'not_fit':
+    case 'post_committee_not_fit':
+    case 'dormant':
+      return 'not_fit'
+    default:
+      // uploaded, calibrating, and anyone at a stage that would normally ask
+      // something of you but currently cannot — off the market, most often.
+      return 'in_progress'
+  }
 }
 
 function matchesTab(c: EnrichedCandidate, tab: StatusKey): boolean {
-  if (tab === 'all') return true
-  if (tab === 'needs_me') return nextActionFor(c) !== null
-  return TAB_STAGES[tab].includes(c.journey_stage)
+  const bucket = bucketOf(c)
+  if (tab === 'all') return bucket !== 'benchmark'
+  return bucket === tab
 }
 
 const EXPERIENCE_BANDS = [
@@ -282,15 +324,23 @@ export function CandidateList({
   // Status counts come off the full set so the tab numbers do not move as you
   // filter — they are a stable map of the whole pipeline.
   const statusCounts = useMemo(() => {
-    const c = { all: 0, needs_me: 0, in_review: 0, ready: 0, warm: 0, closed: 0 } as Record<
-      StatusKey,
-      number
-    >
+    const c = {
+      all: 0,
+      needs_you: 0,
+      in_progress: 0,
+      warm: 0,
+      not_fit: 0,
+      benchmark: 0,
+    } as Record<StatusKey, number>
     for (const cand of candidates) {
-      for (const t of STATUS_TABS) if (matchesTab(cand, t.key)) c[t.key]++
+      const bucket = bucketOf(cand)
+      c[bucket]++
+      if (bucket !== 'benchmark') c.all++
     }
     return c
   }, [candidates])
+
+  const activeTabBlurb = STATUS_TABS.find(t => t.key === status)?.blurb
 
   const filtered = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase()
@@ -441,7 +491,7 @@ export function CandidateList({
           aria-label="Filter by status"
           className="flex w-max min-w-full items-center gap-1 border-b border-[#ECECE6]"
         >
-          {STATUS_TABS.map(t => {
+          {STATUS_TABS.filter(t => t.key !== 'benchmark' || statusCounts.benchmark > 0).map(t => {
             const on = status === t.key
             return (
               <button
@@ -465,6 +515,13 @@ export function CandidateList({
           })}
         </div>
       </div>
+
+      {/* One sentence, only for the tab you are on. A permanent legend for six
+          tabs would be six lines of chrome nobody reads after the first week;
+          this answers "what am I looking at" exactly when the question arises. */}
+      {activeTabBlurb && (
+        <p className="-mt-1 text-[13px] leading-snug text-[#6E6E68]">{activeTabBlurb}</p>
+      )}
 
       {/* ── toolbar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">

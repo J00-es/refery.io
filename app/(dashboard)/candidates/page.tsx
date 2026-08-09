@@ -200,7 +200,7 @@ export default async function CandidatesPage({
         candidates={enrichedCandidates}
         owners={ownerOptions}
         canViewAll={canViewAll}
-        initialTab={filter === 'needs_me' ? 'needs_me' : 'all'}
+        initialTab={filter === 'needs_you' ? 'needs_you' : 'all'}
       />
     </div>
   )
