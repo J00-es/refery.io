@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { CARD, FOCUS, GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { BODY, CARD, FOCUS, H3, LEDE, META, MUTED, detailLine } from '@/lib/desk-ui'
 import { shortAge } from '@/lib/job-ui'
 import {
   SUBMISSION_TRACK,
@@ -33,9 +34,7 @@ export function SubmissionList({
 }) {
   if (!submissions.length) {
     return (
-      <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-8 text-center text-[14px] leading-relaxed text-[#6E6E68]">
-        Nothing has been put forward for this search yet.
-      </p>
+      <p className={`py-6 ${LEDE}`}>Nothing has been put forward for this search yet.</p>
     )
   }
 
@@ -55,12 +54,12 @@ export function SubmissionList({
                   {mine || canManage ? (
                     <Link
                       href={`/candidates/${submission.candidate_id}`}
-                      className={`truncate font-serif text-[18px] text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}
+                      className={`truncate ${H3} underline-offset-4 hover:underline ${FOCUS}`}
                     >
                       {submission.candidate_name || 'Unnamed candidate'}
                     </Link>
                   ) : (
-                    <span className="truncate font-serif text-[18px] text-[#161613]">
+                    <span className={`truncate ${H3}`}>
                       {submission.candidate_name || 'Unnamed candidate'}
                     </span>
                   )}
@@ -73,8 +72,8 @@ export function SubmissionList({
                     </span>
                   )}
                 </div>
-                <p className="mt-1 text-[12.5px] text-[#9C9C95]">
-                  {[
+                <p className={`mt-1 ${META}`}>
+                  {detailLine(
                     submission.candidate_location,
                     submission.candidate_experience_years
                       ? `${submission.candidate_experience_years} yrs`
@@ -85,9 +84,7 @@ export function SubmissionList({
                         ? 'yours'
                         : null,
                     `submitted ${shortAge(submission.created_at)}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  )}
                 </p>
               </div>
 
@@ -108,14 +105,12 @@ export function SubmissionList({
 
             <Track status={submission.status} />
 
-            <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-[#3C403C]">
-              {submission.pitch}
-            </p>
+            <p className={`mt-3 whitespace-pre-line ${BODY}`}>{submission.pitch}</p>
 
             {!!submission.highlights?.length && (
               <ul className="mt-3 space-y-1">
                 {submission.highlights.map((h, i) => (
-                  <li key={i} className="relative pl-4 text-[13.5px] leading-relaxed text-[#6E6E68]">
+                  <li key={i} className={`relative pl-4 ${LEDE}`}>
                     <span
                       aria-hidden
                       className="absolute left-0 top-[9px] h-1.5 w-1.5 rounded-full bg-[#C9D9CF]"
@@ -183,9 +178,7 @@ function Track({ status }: { status: SubmissionStatus }) {
   const meta = submissionStatus(status)
   if (meta.category === 'closed') {
     return (
-      <p className="mt-3 text-[12.5px] text-[#9C9C95]">
-        {meta.blurb} No further steps.
-      </p>
+      <p className={`mt-3 ${META}`}>{meta.blurb} No further steps.</p>
     )
   }
 
@@ -203,7 +196,7 @@ function Track({ status }: { status: SubmissionStatus }) {
           />
         ))}
       </div>
-      <p className="mt-1.5 text-[12.5px] text-[#6E6E68]">{meta.blurb}</p>
+      <p className={`mt-1.5 ${META}`}>{meta.blurb}</p>
     </div>
   )
 }

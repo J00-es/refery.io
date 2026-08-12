@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Settings2 } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FIELD_LABEL, FOCUS } from '@/lib/desk-ui'
 import { PRIORITY_META, type RolePriority } from '@/lib/partners'
 
 /**
@@ -21,7 +21,7 @@ import { PRIORITY_META, type RolePriority } from '@/lib/partners'
  * the scarcity signal a lie.
  */
 
-const label = 'block text-[12px] font-semibold uppercase tracking-[0.07em] text-[#6E6E68]'
+const label = FIELD_LABEL
 const input = `mt-1.5 w-full rounded-[12px] border border-[#ECECE6] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
 
 export function ManageRole({

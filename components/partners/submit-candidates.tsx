@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, Plus, Search, UserPlus } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { FOCUS, GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 import { Footer, PitchComposer, PRIMARY, type PitchTarget } from './pitch-composer'
 
 /**
@@ -174,7 +175,7 @@ export function SubmitCandidates({
                   Loading your candidates…
                 </p>
               ) : candidates.length === 0 ? (
-                <p className="rounded-[14px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-4 py-8 text-center text-[13.5px] leading-relaxed text-[#6E6E68]">
+                <p className="py-8 text-[13.5px] leading-relaxed text-[#5F5F58]">
                   {query
                     ? `No candidate of yours matches “${query}”.`
                     : 'You have no candidates yet. Add one from the Candidates page and they will show up here.'}

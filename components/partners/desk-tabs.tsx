@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 
 export type DeskView = 'all' | 'mine' | 'setup'
 

@@ -1,8 +1,28 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, ExternalLink, FileText, Lock } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ExternalLink, FileText } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
-import { CARD, CHIP, FOCUS } from '@/lib/candidate-ui'
+import {
+  BODY,
+  BTN_TEXT,
+  CARD,
+  CARD_LINK,
+  CHIP,
+  CHIP_BAD,
+  CHIP_VALUE,
+  CHIP_WARN,
+  FIGURE,
+  FOCUS,
+  FOREST,
+  H1,
+  H2,
+  LABEL,
+  LEDE,
+  META,
+  MUTED,
+  RULE,
+  detailLine,
+} from '@/lib/desk-ui'
 import { REMOTE_LABELS, formatExperience, formatSalary, seniorityLabel, shortAge, visaSignal } from '@/lib/job-ui'
 import { findBlurb, normalizeBrief, type BriefContent } from '@/lib/brief'
 import { CLOSED_STAGE_VALUES } from '@/lib/pipeline-stages'
@@ -11,7 +31,6 @@ import {
   PRIORITY_META,
   isUnlocked,
   payoutLine,
-  relationshipMeta,
   slotsLeft,
   submissionStatus,
   toCompanyView,
@@ -19,7 +38,6 @@ import {
   type PartnerRoleRow,
   type SubmissionRow,
 } from '@/lib/partners'
-import { BriefDocument } from '@/components/partners/brief-document'
 import { CopyButton } from '@/components/partners/copy-button'
 import { MatchedCandidates, type MatchRow } from '@/components/partners/matched-candidates'
 import { ManageRole } from '@/components/partners/manage-role'
@@ -207,58 +225,60 @@ export default async function PartnerRolePage({
       })
     : null
 
-  const chips = [
-    role.location,
-    role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null,
+  /*
+    The header used to carry seven identical grey chips — location, remote policy,
+    seniority, salary, experience, visa, department — which is a list pretending
+    to be a hierarchy. Two of those facts change whether a scout opens the role at
+    all, so they stay as chips; the rest becomes one line of plain text.
+  */
+  const headline = [role.location, role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null]
+    .filter(Boolean) as string[]
+  const rest = detailLine(
     role.seniority ? seniorityLabel(role.seniority) : null,
     formatSalary(role.salary_min, role.salary_max),
     formatExperience(role.experience_years_min, role.experience_years_max),
     visaSignal(role.visa_requirement),
     role.department,
-  ].filter(Boolean) as string[]
+  )
 
   return (
-    <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
+    <div className="mx-auto max-w-[1120px] px-1 pb-16 sm:px-0">
       <Link
         href={`/partners/${companyId}`}
-        className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
+        className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium ${MUTED} transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         {company.name}
       </Link>
 
-      <header className="space-y-3">
+      {/*
+        Above the fold: what the search is, what it pays, and how much room is
+        left. Nothing else — the brief, the intake context and the candidate blurb
+        are each one click or one disclosure away. That ordering is the point of
+        the redesign: the page opens on the decision, not on everything we know.
+      */}
+      <header className="mt-4">
         <div className="flex flex-wrap items-center gap-2">
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] ${priority.chip}`}
-          >
-            {priority.label}
-          </span>
-          {role.exclusivity === 'exclusive' && (
-            <span className="rounded-full bg-[#1F4D3A] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-white">
-              Exclusive to Refery
+          {role.priority !== 'normal' && (
+            <span className={role.priority === 'urgent' ? CHIP_BAD : CHIP_WARN}>
+              {priority.label}
             </span>
           )}
-          <span
-            className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] ${relationshipMeta(company.relationship).chip}`}
-          >
-            {company.name}
-          </span>
-          {closed && (
-            <span className="rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[#6E6E68]">
-              Closed
-            </span>
-          )}
+          {role.exclusivity === 'exclusive' && <span className={CHIP_VALUE}>Exclusive to Refery</span>}
+          {closed && <span className={CHIP}>Closed</span>}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mt-2.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h1 className="font-serif text-[28px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[34px]">
-              {role.headline || role.title}
-            </h1>
-            {role.headline && role.headline !== role.title && (
-              <p className="mt-1 text-[14px] text-[#9C9C95]">Posted as “{role.title}”</p>
-            )}
+            <h1 className={H1}>{role.headline || role.title}</h1>
+            <p className={`mt-1.5 ${META}`}>
+              {detailLine(
+                company.name,
+                role.headline && role.headline !== role.title
+                  ? `posted as “${role.title}”`
+                  : null,
+              )}
+            </p>
           </div>
           {access.canManage && (
             <div className="shrink-0">
@@ -283,132 +303,157 @@ export default async function PartnerRolePage({
           )}
         </div>
 
-        {!!chips.length && (
-          <div className="flex flex-wrap gap-1.5">
-            {chips.map((chip, i) => (
-              <span key={i} className={CHIP}>
-                <span className="truncate">{chip}</span>
+        {!!headline.length && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {headline.map(fact => (
+              <span key={fact} className={CHIP}>
+                {fact}
               </span>
             ))}
           </div>
         )}
+        {rest && <p className={`mt-2 ${META}`}>{rest}</p>}
       </header>
 
-      {/* The three facts a scout decides on, given the weight they deserve. */}
-      <section className={`grid gap-4 p-5 sm:grid-cols-3 ${CARD}`}>
+      {/* Three figures, each read before its label. No boxes — space groups them. */}
+      <dl className={`mt-7 grid grid-cols-2 gap-x-6 gap-y-5 border-y py-5 sm:grid-cols-3 ${RULE}`}>
         <div>
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-            What you earn
-          </p>
-          <p className="mt-1.5 font-serif text-[21px] leading-tight text-[#1F4D3A]">
-            {payout ?? 'Not set yet'}
-          </p>
-          {role.payout_note && payout && (
-            <p className="mt-1 text-[12.5px] leading-relaxed text-[#9C9C95]">{role.payout_note}</p>
-          )}
+          <dt className={`${FIGURE} ${payout ? FOREST : ''}`}>{payout ?? 'Not set'}</dt>
+          <dd className={`mt-1.5 ${LABEL}`}>
+            {payout ? 'to you on placement' : 'payout not recorded yet'}
+          </dd>
         </div>
         <div>
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-            Room left
-          </p>
-          <p className="mt-1.5 font-serif text-[21px] leading-tight text-[#161613]">
-            {slots === null ? `${inPlay} in play` : slots === 0 ? 'Full' : `${slots} of ${role.submission_cap}`}
-          </p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#9C9C95]">
+          <dt className={FIGURE}>{slots === null ? inPlay : slots === 0 ? 'Full' : slots}</dt>
+          <dd className={`mt-1.5 ${LABEL}`}>
             {slots === null
-              ? 'No cap on this search'
+              ? 'in play · no cap'
               : slots === 0
-                ? 'Nothing more can be submitted until a slot frees up'
-                : 'Submission slots open'}
-          </p>
+                ? 'no slots until one frees up'
+                : `of ${role.submission_cap} slots open`}
+          </dd>
         </div>
         <div>
-          <p className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-            On the desk
-          </p>
-          <p className="mt-1.5 font-serif text-[21px] leading-tight text-[#161613]">
-            {shortAge(role.added_at)}
-          </p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-[#9C9C95]">
-            {targetStart ? `Wants someone starting ${targetStart}` : 'No target start date'}
-          </p>
+          <dt className={FIGURE}>{shortAge(role.added_at)}</dt>
+          <dd className={`mt-1.5 ${LABEL}`}>
+            {targetStart ? `on the desk · starts ${targetStart}` : 'on the desk'}
+          </dd>
         </div>
-      </section>
+      </dl>
 
       {!unlocked ? (
-        <section className={`space-y-3 p-5 ${CARD}`}>
-          <div className="flex items-start gap-2.5">
-            <Lock className="mt-0.5 h-4 w-4 shrink-0 text-[#9C9C95]" aria-hidden />
-            <div>
-              <h2 className="text-[15px] font-semibold text-[#161613]">
-                Ask to be put on this client
-              </h2>
-              <p className="mt-1.5 max-w-xl text-[13.5px] leading-relaxed text-[#6E6E68]">
-                Everything above is real. The company’s name, the scout brief — what they actually
-                want, what will not clear, what to say to a candidate — and submitting all open up
-                once you are assigned.
-              </p>
-            </div>
+        <section className="mt-7 max-w-xl">
+          <h2 className={H2}>Ask to be put on this client</h2>
+          <p className={`mt-2 ${LEDE}`}>
+            Everything above is real. The company’s name, the scout brief — what they actually want,
+            what will not clear, what to say to a candidate — and submitting all open up once you are
+            assigned.
+          </p>
+          <div className="mt-3.5">
+            <RequestAccess
+              companyId={companyId}
+              companyLabel={company.name}
+              pending={company.requestPending}
+            />
           </div>
-          <RequestAccess
-            companyId={companyId}
-            companyLabel={company.name}
-            pending={company.requestPending}
-          />
         </section>
       ) : (
         <>
-          {role.context && (
-            <section className={`p-5 ${CARD}`}>
-              <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-                What we know about this search
-              </h2>
-              <p className="mt-2 whitespace-pre-line text-[14.5px] leading-relaxed text-[#161613]">
-                {role.context}
+          {/*
+            The brief and the blurb are one row of two entry points, not two full
+            sections. The brief used to be rendered inline below everything else —
+            a nine-section document embedded under a page that already had seven
+            sections. A scout who has read it does not need it re-rendered under
+            every search; one who has not needs one obvious way in.
+          */}
+          <div className="mt-7 grid gap-3 sm:grid-cols-2">
+            {brief ? (
+              <Link
+                href={`/partners/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
+                className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
+              >
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F4D3A]" aria-hidden />
+                <span className="min-w-0">
+                  <span className="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-[#161613]">
+                    {brief.job_id ? 'Brief for this search' : 'Scout brief'}
+                    {brief.status !== 'published' && <span className={CHIP_WARN}>Draft</span>}
+                  </span>
+                  <span className={`mt-0.5 block ${META}`}>
+                    The bar, the logistics, the screening questions, what to say to a candidate
+                  </span>
+                </span>
+              </Link>
+            ) : (
+              <p className={`p-4 ${CARD} ${LEDE}`}>
+                {access.canManage ? (
+                  <>
+                    No brief imported yet.{' '}
+                    <Link
+                      href={`/partners/${companyId}`}
+                      className={`font-semibold text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
+                    >
+                      Import one from the client setup panel
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  'No scout brief published yet. Ask Refery for the detail before you approach anyone.'
+                )}
               </p>
-            </section>
-          )}
+            )}
 
-          {blurb && (
-            <section className={`p-5 ${CARD}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
+            {blurb ? (
+              <div className={`p-4 ${CARD}`}>
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-[14.5px] font-semibold text-[#161613]">
                     What to say to a candidate
-                  </h2>
-                  {blurb.note && (
-                    <p className="mt-1 text-[12.5px] leading-relaxed text-[#9C9C95]">{blurb.note}</p>
-                  )}
+                  </p>
+                  <CopyButton text={blurb.paragraphs.join('\n\n')} label="Copy" />
                 </div>
-                <CopyButton text={blurb.paragraphs.join('\n\n')} label="Copy blurb" />
+                <p className={`mt-2 line-clamp-2 ${META}`}>{blurb.paragraphs[0]}</p>
               </div>
-              <p className="mt-3 line-clamp-3 font-serif text-[15px] leading-relaxed text-[#3C403C]">
-                {blurb.paragraphs[0]}
-              </p>
-              {brief && (
-                <Link
-                  href={`/partners/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
-                  className={`mt-2 inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#1F4D3A] hover:text-[#173D2E] ${FOCUS}`}
-                >
-                  Read it in the brief
-                  <ExternalLink className="h-3 w-3" />
-                </Link>
-              )}
-            </section>
+            ) : role.job_post_url ? (
+              <a
+                href={role.job_post_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
+              >
+                <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-[#8A8A82]" aria-hidden />
+                <span>
+                  <span className="block text-[14.5px] font-semibold text-[#161613]">
+                    The company’s own posting
+                  </span>
+                  <span className={`mt-0.5 block ${META}`}>How the role is advertised publicly</span>
+                </span>
+              </a>
+            ) : null}
+          </div>
+
+          {/* Intake detail behind a disclosure: read once, not on every visit. */}
+          {role.context && (
+            <details className="group mt-4">
+              <summary
+                className={`inline-flex cursor-pointer list-none items-center gap-1.5 ${BTN_TEXT}`}
+              >
+                What we know about this search
+                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <p className={`mt-2.5 max-w-2xl whitespace-pre-line ${BODY}`}>{role.context}</p>
+            </details>
           )}
 
-          {/* Matched first, submissions second: the queue you can act on comes
-              before the record of what you already did. */}
-          <section className="space-y-3">
+          {/* The queue you can act on, then the record of what you already did. */}
+          <section className="mt-9">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <div>
-                <h2 className="font-serif text-[22px] font-normal text-[#161613]">
+                <h2 className={H2}>
                   {access.seesAllCandidates ? 'Matched candidates' : 'Your matched candidates'}
-                  <span className="ml-2 text-[15px] text-[#9C9C95]">{matches.length}</span>
+                  <span className={`ml-2 text-[15px] ${MUTED}`}>{matches.length}</span>
                 </h2>
-                <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[#6E6E68]">
-                  Paired with this search but not yet put forward. A match is a suggestion — tick the
-                  ones you would stand behind and say why.
+                <p className={`mt-1 max-w-xl ${LEDE}`}>
+                  Paired with this search but not put forward. A match is a suggestion — tick the ones
+                  you would stand behind and say why.
                 </p>
               </div>
               {!closed && slots !== 0 && (
@@ -420,91 +465,39 @@ export default async function PartnerRolePage({
                 />
               )}
             </div>
-            <MatchedCandidates
-              jobId={jobId}
-              roleTitle={`${role.title} · ${company.name}`}
-              matches={matches}
-              disabled={closed || slots === 0}
-              disabledReason={
-                closed
-                  ? 'This search is closed, so nothing more can be submitted.'
-                  : 'This search is full. Nothing more can be submitted until a slot frees up.'
-              }
-            />
-          </section>
-
-          <section className="space-y-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-3">
-              <h2 className="font-serif text-[22px] font-normal text-[#161613]">
-                {access.seesAllSubmissions ? 'Submissions' : 'Your submissions'}
-                <span className="ml-2 text-[15px] text-[#9C9C95]">{submissions.length}</span>
-              </h2>
-              {closed && <p className="text-[13px] text-[#9C9C95]">This search is closed.</p>}
+            <div className="mt-4">
+              <MatchedCandidates
+                jobId={jobId}
+                roleTitle={`${role.title} · ${company.name}`}
+                matches={matches}
+                disabled={closed || slots === 0}
+                disabledReason={
+                  closed
+                    ? 'This search is closed, so nothing more can be submitted.'
+                    : 'This search is full. Nothing more can be submitted until a slot frees up.'
+                }
+              />
             </div>
-            <SubmissionList
-              submissions={submissions}
-              viewerId={access.appUser.id}
-              canManage={access.canManage}
-              showsSubmitter={access.seesAllSubmissions}
-              events={events}
-            />
           </section>
 
-          {role.job_post_url && (
-            <a
-              href={role.job_post_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#1F4D3A] ${FOCUS}`}
-            >
-              The company’s own posting
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-
-          {brief ? (
-            <section className={`overflow-hidden p-5 sm:p-7 ${CARD}`}>
-              <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#ECECE6] pb-4">
-                <h2 className="font-serif text-[22px] font-normal text-[#161613]">
-                  {brief.job_id ? 'Brief for this role' : 'Scout brief'}
-                </h2>
-                <div className="flex items-center gap-3">
-                  {brief.status !== 'published' && (
-                    <span className="rounded-full bg-[#F5EEDD] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#8A6A1F]">
-                      Draft
-                    </span>
-                  )}
-                  <Link
-                    href={`/partners/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
-                    className={`inline-flex items-center gap-1.5 text-[13px] font-semibold text-[#1F4D3A] hover:text-[#173D2E] ${FOCUS}`}
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    Full page
-                  </Link>
-                </div>
-              </div>
-              <BriefDocument content={brief.content} variant="embedded" />
-            </section>
-          ) : (
-            <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-6 text-center text-[13.5px] leading-relaxed text-[#6E6E68]">
-              {access.canManage ? (
-                <>
-                  No brief has been imported for this client yet.{' '}
-                  <Link
-                    href={`/partners/${companyId}`}
-                    className={`font-semibold text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
-                  >
-                    Import one from the client setup panel
-                  </Link>
-                  .
-                </>
-              ) : (
-                'No scout brief has been published for this client yet. Ask Refery for the detail before you approach anyone.'
-              )}
-            </p>
-          )}
+          <section className="mt-9">
+            <h2 className={H2}>
+              {access.seesAllSubmissions ? 'Submissions' : 'Your submissions'}
+              <span className={`ml-2 text-[15px] ${MUTED}`}>{submissions.length}</span>
+            </h2>
+            <div className="mt-4">
+              <SubmissionList
+                submissions={submissions}
+                viewerId={access.appUser.id}
+                canManage={access.canManage}
+                showsSubmitter={access.seesAllSubmissions}
+                events={events}
+              />
+            </div>
+          </section>
         </>
       )}
     </div>
   )
 }
+

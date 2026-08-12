@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, Printer } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 import { normalizeBrief } from '@/lib/brief'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { isUnlocked } from '@/lib/partners'
@@ -62,7 +62,7 @@ export default async function CompanyBriefPage({
         </Link>
         <div className="flex items-center gap-3">
           {brief.status !== 'published' && (
-            <span className="rounded-full bg-[#F5EEDD] px-2.5 py-1 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#8A6A1F]">
+            <span className="rounded-full bg-[#F7F0DE] px-2.5 py-1 text-[12px] font-semibold text-[#7E621C]">
               Draft
             </span>
           )}

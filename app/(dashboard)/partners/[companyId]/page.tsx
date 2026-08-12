@@ -2,8 +2,21 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, ExternalLink, FileText, Lock } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
-import { CARD, CHIP, FOCUS } from '@/lib/candidate-ui'
-import { formatFundingDate, formatMoney, stageLabel, stageTint, investorList } from '@/lib/company-ui'
+import {
+  BODY,
+  CARD,
+  CARD_LINK,
+  FOCUS,
+  FOREST,
+  H1,
+  H2,
+  LEDE,
+  META,
+  MUTED,
+  RULE,
+  detailLine,
+} from '@/lib/desk-ui'
+import { formatFundingDate, formatMoney, stageLabel, investorList } from '@/lib/company-ui'
 import { normalizeBrief } from '@/lib/brief'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
@@ -13,7 +26,6 @@ import {
   type PartnerCompanyRow,
   type PartnerRoleRow,
 } from '@/lib/partners'
-import { BriefDocument } from '@/components/partners/brief-document'
 import { CompanyLogo } from '@/components/partners/company-logo'
 import { ManageCompany } from '@/components/partners/manage-company'
 import { RequestAccess } from '@/components/partners/request-access'
@@ -94,13 +106,14 @@ export default async function PartnerCompanyPage({
   const funding = formatMoney(company.lastFundingAmountUsd)
   const investors = investorList(company.topInvestors, 3)
 
-  const signals = [
+  const signals = detailLine(
     company.location,
     company.employeeCount,
     funding ? `${funding} ${company.lastFundingType ?? 'raised'}` : null,
     formatFundingDate(company.lastFundingDate),
     company.industry,
-  ].filter(Boolean) as string[]
+    ...investors.shown,
+  )
 
   return (
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
@@ -112,7 +125,7 @@ export default async function PartnerCompanyPage({
         Partners
       </Link>
 
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+      <header>
         <div className="flex min-w-0 items-start gap-4">
           <CompanyLogo
             name={company.name}
@@ -121,28 +134,17 @@ export default async function PartnerCompanyPage({
             size="lg"
           />
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] ${relationship.chip}`}
-              >
-                {relationship.label}
-              </span>
-              {stageLabel(company.stage) && (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] ${stageTint(company.stage)}`}
-                >
-                  {stageLabel(company.stage)}
-                </span>
+            <h1 className={H1}>{company.name}</h1>
+            {/* Relationship, stage and publish state as one grey line. They were
+                three tinted pills above the title, which put decoration where the
+                name belongs and spent three colours on categories. */}
+            <p className={`mt-1.5 ${META}`}>
+              {detailLine(
+                relationship.label,
+                stageLabel(company.stage),
+                access.canManage && !company.admin?.isPublished ? 'unpublished' : null,
               )}
-              {access.canManage && !company.admin?.isPublished && (
-                <span className="rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[#6E6E68]">
-                  Unpublished
-                </span>
-              )}
-            </div>
-            <h1 className="mt-2 font-serif text-[28px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[34px]">
-              {company.name}
-            </h1>
+            </p>
             {company.website && (
               <a
                 href={company.website}
@@ -156,7 +158,6 @@ export default async function PartnerCompanyPage({
             )}
           </div>
         </div>
-
       </header>
 
       {company.longBlurb && (
@@ -185,20 +186,10 @@ export default async function PartnerCompanyPage({
         />
       )}
 
-      {!!signals.length && (
-        <div className="flex flex-wrap gap-1.5">
-          {signals.map(signal => (
-            <span key={signal} className={CHIP}>
-              <span className="truncate">{signal}</span>
-            </span>
-          ))}
-          {investors.shown.map(name => (
-            <span key={name} className={CHIP}>
-              <span className="truncate">{name}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {/* Location, size, funding, industry and investors were eight identical
+          pills. None of them is a status and none is actionable, so they read as
+          one line of facts. */}
+      {signals && <p className={META}>{signals}</p>}
 
       {!company.unlocked && (
         <section className={`flex flex-col gap-3 p-5 ${CARD}`}>
@@ -224,46 +215,45 @@ export default async function PartnerCompanyPage({
       )}
 
       {company.unlocked && company.admin && (company.admin.convoStage || company.admin.nextStep) && (
-        <section className={`p-5 ${CARD}`}>
-          <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-            Where we are with them
-          </h2>
+        <section className={`border-l-2 pl-4 ${RULE}`}>
+          <h2 className="text-[14px] font-semibold text-[#161613]">Where we are with them</h2>
           {company.admin.convoStage && (
-            <p className="mt-2 text-[14px] leading-relaxed text-[#161613]">
-              {company.admin.convoStage}
-            </p>
+            <p className={`mt-1.5 ${BODY}`}>{company.admin.convoStage}</p>
           )}
           {company.admin.nextStep && (
-            <p className="mt-2.5 text-[13.5px] leading-relaxed text-[#6E6E68]">
-              <span className="font-semibold text-[#1F4D3A]">Next: </span>
+            <p className={`mt-2 ${LEDE}`}>
+              <span className={`font-semibold ${FOREST}`}>Next: </span>
               {company.admin.nextStep}
             </p>
           )}
-          {company.admin.channel && (
-            <p className="mt-2 text-[12.5px] text-[#9C9C95]">{company.admin.channel}</p>
-          )}
+          {company.admin.channel && <p className={`mt-1.5 ${META}`}>{company.admin.channel}</p>}
         </section>
       )}
 
+      {brief && (
+        <Link href={`/partners/${company.companyId}/brief`} className={`flex items-start gap-3 p-4 ${CARD_LINK}`}>
+          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F4D3A]" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="block text-[14.5px] font-semibold text-[#161613]">Scout brief</span>
+            <span className={`mt-0.5 block ${META}`}>
+              {detailLine(
+                brief.status === 'published' ? 'Published' : 'Draft — admins only',
+                `v${brief.version}`,
+                'the bar, the logistics, the screening questions, what to say to a candidate',
+              )}
+            </span>
+          </span>
+        </Link>
+      )}
+
       <section className="space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-serif text-[22px] font-normal text-[#161613]">
-            Live searches
-            <span className="ml-2 text-[15px] text-[#9C9C95]">{liveRoles.length}</span>
-          </h2>
-          {brief && (
-            <Link
-              href={`/partners/${company.companyId}/brief`}
-              className={`inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-[#1F4D3A] transition-colors hover:text-[#173D2E] ${FOCUS}`}
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Read the full brief
-            </Link>
-          )}
-        </div>
+        <h2 className={H2}>
+          Live searches
+          <span className={`ml-2 text-[15px] ${MUTED}`}>{liveRoles.length}</span>
+        </h2>
 
         {liveRoles.length === 0 ? (
-          <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-8 text-center text-[14px] text-[#6E6E68]">
+          <p className={`px-5 py-8 text-center ${LEDE}`}>
             {access.canManage
               ? 'No roles are on the desk for this client yet. Use “Pick roles” in the setup panel above and tick the ones we have a mandate on.'
               : 'Nothing is live for this client at the moment.'}
@@ -294,13 +284,11 @@ export default async function PartnerCompanyPage({
                 hide
               </span>
             </summary>
-            <ul className="mt-3 divide-y divide-[#ECECE6] rounded-[14px] border border-[#ECECE6] bg-white">
+            <ul className={`mt-3 divide-y border-t ${RULE}`}>
               {closedRoles.map(role => (
-                <li key={role.job_id} className="flex items-center gap-3 px-4 py-3">
-                  <span className="min-w-0 flex-1 truncate text-[14px] text-[#6E6E68]">
-                    {role.title}
-                  </span>
-                  <span className="shrink-0 text-[12.5px] text-[#9C9C95]">
+                <li key={role.job_id} className="flex items-center gap-3 py-3">
+                  <span className={`min-w-0 flex-1 truncate text-[14px] ${MUTED}`}>{role.title}</span>
+                  <span className={`shrink-0 ${META}`}>
                     {role.submission_count > 0 && `${role.submission_count} submitted · `}
                     {!role.is_live ? 'off the desk' : role.job_status}
                   </span>
@@ -311,18 +299,6 @@ export default async function PartnerCompanyPage({
         )}
       </section>
 
-      {brief && (
-        <section className={`overflow-hidden p-5 sm:p-7 ${CARD}`}>
-          <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2 border-b border-[#ECECE6] pb-4">
-            <h2 className="font-serif text-[22px] font-normal text-[#161613]">Scout brief</h2>
-            <p className="text-[12.5px] text-[#9C9C95]">
-              {brief.status === 'published' ? 'Published' : 'Draft — visible to admins only'} · v
-              {brief.version}
-            </p>
-          </div>
-          <BriefDocument content={brief.content} variant="embedded" />
-        </section>
-      )}
     </div>
   )
 }

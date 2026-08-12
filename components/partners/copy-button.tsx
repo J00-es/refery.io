@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 
 /**
  * Copies a block of text and says so. Used for the candidate blurb, which is

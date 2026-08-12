@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Lock } from 'lucide-react'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 
 /**
  * The way out of a locked card.

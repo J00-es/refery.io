@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Sparkles } from 'lucide-react'
-import { FOCUS, GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 
 /**
  * The "why them" step, shared by both routes into a submission — confirming a
@@ -159,7 +160,7 @@ export function PitchComposer({
 
               {person.hint && (
                 <div className="mt-2.5 rounded-[10px] bg-[#FAFAF6] px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#9C9C95]">
+                  <p className="text-[12.5px] font-medium text-[#8A8A82]">
                     Why the matcher picked them
                   </p>
                   <p className="mt-1 text-[13px] leading-relaxed text-[#6E6E68]">{person.hint}</p>
@@ -175,9 +176,7 @@ export function PitchComposer({
               )}
 
               <label className="mt-3 block">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.07em] text-[#6E6E68]">
-                  Why they fit
-                </span>
+                <span className="text-[13px] font-medium text-[#3F3F3A]">Why they fit</span>
                 <textarea
                   rows={4}
                   value={value}
@@ -197,9 +196,8 @@ export function PitchComposer({
               </label>
 
               <label className="mt-2 block">
-                <span className="text-[12px] font-semibold uppercase tracking-[0.07em] text-[#6E6E68]">
-                  Highlights{' '}
-                  <span className="font-normal normal-case">— optional, one per line</span>
+                <span className="text-[13px] font-medium text-[#3F3F3A]">
+                  Highlights <span className="font-normal text-[#8A8A82]">— optional, one per line</span>
                 </span>
                 <textarea
                   rows={2}

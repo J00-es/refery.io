@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AlertCircle, Check, ChevronRight, Loader2, Settings2, Upload } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FIELD_LABEL, FOCUS } from '@/lib/desk-ui'
 import { formatSalary } from '@/lib/job-ui'
 
 /**
@@ -47,7 +47,7 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'visibility', label: 'Visibility' },
 ]
 
-const label = 'block text-[12px] font-semibold uppercase tracking-[0.07em] text-[#6E6E68]'
+const label = FIELD_LABEL
 const input = `mt-1.5 w-full rounded-[12px] border border-[#ECECE6] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
 const primary = `inline-flex min-h-[42px] items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`
 
@@ -230,9 +230,7 @@ export function ManageCompany({
       <section className="rounded-[18px] border border-[#ECECE6] bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECECE6] px-5 py-3.5">
           <div>
-            <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
-              Client setup
-            </h2>
+            <h2 className="text-[14.5px] font-semibold text-[#161613]">Client setup</h2>
             <p className="mt-0.5 text-[13px] text-[#9C9C95]">
               {outstanding === 0
                 ? 'All four steps done — scouts can work this client.'
@@ -603,7 +601,7 @@ function Loading() {
 
 function Empty({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-[14px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-4 py-6 text-center text-[13.5px] text-[#6E6E68]">
+    <p className="py-6 text-[13.5px] leading-relaxed text-[#5F5F58]">
       {children}
     </p>
   )
@@ -625,7 +623,7 @@ function JobGroup({
   if (!jobs.length) return null
   return (
     <div>
-      <p className="mb-2 text-[11.5px] font-semibold uppercase tracking-[0.07em] text-[#9C9C95]">
+      <p className="mb-2 text-[13px] font-medium text-[#8A8A82]">
         {heading}
       </p>
       <ul className="divide-y divide-[#ECECE6] rounded-[14px] border border-[#ECECE6]">

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Loader2 } from 'lucide-react'
-import { FOCUS } from '@/lib/candidate-ui'
+import { FOCUS } from '@/lib/desk-ui'
 import { SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
 
 /**

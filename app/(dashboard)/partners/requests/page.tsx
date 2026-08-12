@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
-import { CARD, FOCUS } from '@/lib/candidate-ui'
+import { CARD, FOCUS, H1, LEDE, META, MUTED } from '@/lib/desk-ui'
 import { shortAge } from '@/lib/job-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { anonLabel } from '@/lib/partners'
@@ -63,17 +63,15 @@ export default async function AccessRequestsPage() {
       </Link>
 
       <header>
-        <h1 className="font-serif text-[28px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[32px]">
-          Access requests
-        </h1>
-        <p className="mt-2 max-w-xl text-[14px] text-[#6E6E68]">
+        <h1 className={H1}>Access requests</h1>
+        <p className={`mt-2 max-w-xl ${LEDE}`}>
           Approving one puts that scout on the client: they see the name, read the brief, and can
           submit to every live search under it.
         </p>
       </header>
 
       {rows.length === 0 ? (
-        <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-10 text-center text-[14px] text-[#6E6E68]">
+        <p className={`py-10 ${LEDE}`}>
           Nothing waiting.
         </p>
       ) : (
@@ -92,7 +90,7 @@ export default async function AccessRequestsPage() {
                     <p className="text-[15px] font-semibold text-[#161613]">
                       {user?.full_name || user?.email || 'Unknown user'}
                     </p>
-                    <p className="mt-0.5 text-[13px] text-[#6E6E68]">
+                    <p className={`mt-0.5 text-[13px] ${MUTED}`}>
                       wants access to{' '}
                       <Link
                         href={`/partners/${request.company_id}`}
@@ -102,7 +100,7 @@ export default async function AccessRequestsPage() {
                       </Link>
                       {company?.live_roles ? ` · ${company.live_roles} live` : ''}
                     </p>
-                    <p className="mt-0.5 text-[12.5px] text-[#9C9C95]">
+                    <p className={`mt-0.5 ${META}`}>
                       {[user?.role?.replace(/_/g, ' '), user?.email, shortAge(request.created_at as string)]
                         .filter(Boolean)
                         .join(' · ')}

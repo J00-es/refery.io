@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Send, Sparkles } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import { CARD, FOCUS, GRADE_TO_VERDICT, VERDICT_GRADES, stageDot, stageLabel } from '@/lib/candidate-ui'
+import { GRADE_TO_VERDICT, VERDICT_GRADES, stageDot, stageLabel } from '@/lib/candidate-ui'
+import { CARD, FOCUS, H3, LEDE, META, detailLine } from '@/lib/desk-ui'
 import { PitchComposer, type PitchTarget } from './pitch-composer'
 
 /**
@@ -51,9 +52,9 @@ export function MatchedCandidates({
 
   if (!matches.length) {
     return (
-      <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-6 text-center text-[13.5px] leading-relaxed text-[#6E6E68]">
-        Nothing has been matched to this search yet. Add someone from your own candidates instead —
-        a match is only a suggestion, and your own read is worth more.
+      <p className={`py-6 ${LEDE}`}>
+        Nothing has been matched to this search yet. Add someone from your own candidates instead — a
+        match is only a suggestion, and your own read is worth more.
       </p>
     )
   }
@@ -91,9 +92,7 @@ export function MatchedCandidates({
                 )}
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-2">
-                    <span className="truncate font-serif text-[17px] text-[#161613]">
-                      {match.name || 'Unnamed candidate'}
-                    </span>
+                    <span className={`truncate ${H3}`}>{match.name || 'Unnamed candidate'}</span>
                     {verdict && (
                       <span
                         className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[10.5px] font-bold ${verdict.className}`}
@@ -111,20 +110,18 @@ export function MatchedCandidates({
                     )}
                   </span>
 
-                  <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#9C9C95]">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${stageDot(match.stage)}`} />
-                      {stageLabel(match.stage)}
-                    </span>
-                    {match.location && <span>· {match.location}</span>}
-                    {match.experienceYears ? <span>· {match.experienceYears} yrs</span> : null}
-                    {match.ownerName && <span>· {match.ownerName}</span>}
+                  <span className={`mt-1 flex items-center gap-1.5 ${META}`}>
+                    <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${stageDot(match.stage)}`} />
+                    {detailLine(
+                      stageLabel(match.stage),
+                      match.location,
+                      match.experienceYears ? `${match.experienceYears} yrs` : null,
+                      match.ownerName,
+                    )}
                   </span>
 
                   {match.matchReason && (
-                    <span className="mt-2 block text-[13.5px] leading-relaxed text-[#6E6E68]">
-                      {match.matchReason}
-                    </span>
+                    <span className={`mt-2 block ${LEDE}`}>{match.matchReason}</span>
                   )}
                 </span>
               </label>
@@ -134,7 +131,7 @@ export function MatchedCandidates({
       </ul>
 
       {disabled ? (
-        <p className="mt-3 text-[13px] text-[#9C9C95]">{disabledReason}</p>
+        <p className={`mt-3 ${META}`}>{disabledReason}</p>
       ) : (
         /* Sticky so the action stays reachable on a phone with eight matches on
            screen. Only appears once something is selected, so it never covers
