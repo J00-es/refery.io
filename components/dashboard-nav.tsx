@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,8 +23,12 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
+// Partners sits directly after Dashboard, ahead of Jobs: it is the handful of
+// searches we are actually retained on, and Jobs is the 29k-role sourced
+// watchlist. Ordering them the other way sends every scout to the noise first.
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
+  { href: '/partners', label: 'Partners', icon: Handshake },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2 },
