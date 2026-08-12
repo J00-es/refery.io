@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Activity log for client agreement signing links — the audit trail an admin
+ * Activity log for client agreement signing links. This is the audit trail an admin
  * sees ("viewed 3 times, first on Aug 12 from an iPhone in..."), and the
  * trigger for the real-time notification email.
  *
@@ -36,7 +36,7 @@ export interface AgreementEvent {
 const VIEW_DEDUPE_MINUTES = 30
 
 /**
- * Human-readable device string from a user-agent. Deliberately coarse — this
+ * Human-readable device string from a user-agent. Deliberately coarse, since this
  * is for "opened on an iPhone", not fingerprinting.
  */
 export function describeDevice(userAgent: string | null): string | null {

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   clientPaymentTimingForVersion,
@@ -13,7 +13,7 @@ import { isLikelyBot, logAgreementEvent } from '@/lib/agreement-events'
 import { sendAgreementActivityEmail } from '@/lib/send-agreement-activity-email'
 
 export const dynamic = 'force-dynamic'
-// PDF rendering + email send takes a few seconds — bump Vercel function ceiling.
+// PDF rendering and email send take a few seconds, so raise the Vercel ceiling.
 export const maxDuration = 60
 
 const STORAGE_BUCKET = 'signed-agreements'
@@ -40,7 +40,7 @@ function getIp(request: NextRequest): string | null {
 /**
  * Rewrite an unsigned link onto the newest document for its line, so a client
  * opening a months-old link sees today's terms. Negotiated versions are left
- * alone — see clientUpgradeTarget().
+ * alone. See clientUpgradeTarget().
  */
 async function upgradeIfStale(
   admin: ReturnType<typeof createAdminClient>,
@@ -86,7 +86,7 @@ async function upgradeIfStale(
   return { content, version: target, hash }
 }
 
-// GET — load agreement for the public sign page. Token IS the auth.
+// GET: load agreement for the public sign page. Token IS the auth.
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -137,48 +137,55 @@ export async function GET(
     const ip = getIp(request)
     const userAgent = request.headers.get('user-agent')
 
-    // Log the open and alert the admin. Mail scanners and link previewers fetch
-    // this URL too, so they are filtered out rather than reported as opens.
+    // Log the open and alert the admin, after the document is already on its
+    // way to the reader. Mail scanners and link previewers fetch this URL too,
+    // so they are filtered out rather than reported as opens.
     if (!isLikelyBot(userAgent)) {
-      const nowIso = new Date().toISOString()
+      const origin = request.nextUrl.origin
+      after(async () => {
+        try {
+          const nowIso = new Date().toISOString()
 
-      if (link.status === 'sent') {
-        await adminClient
-          .from('client_agreement_links')
-          .update({ status: 'viewed', viewed_at: nowIso, updated_at: nowIso })
-          .eq('id', link.id)
-      }
+          if (link.status === 'sent') {
+            await adminClient
+              .from('client_agreement_links')
+              .update({ status: 'viewed', viewed_at: nowIso, updated_at: nowIso })
+              .eq('id', link.id)
+          }
 
-      const logged = await logAgreementEvent(adminClient, {
-        linkId: link.id,
-        companyId: link.company_id,
-        eventType: 'viewed',
-        ipAddress: ip,
-        userAgent,
-        metadata: { version },
-      })
+          const logged = await logAgreementEvent(adminClient, {
+            linkId: link.id,
+            companyId: link.company_id,
+            eventType: 'viewed',
+            ipAddress: ip,
+            userAgent,
+            metadata: { version },
+          })
 
-      if (logged.logged) {
-        const origin = request.nextUrl.origin
-        const result = await sendAgreementActivityEmail({
-          companyName: link.company_name,
-          recipientLabel: link.recipient_name
-            ? `${link.recipient_name}${link.recipient_email ? ` (${link.recipient_email})` : ''}`
-            : null,
-          eventType: 'viewed',
-          seq: logged.seq,
-          device: logged.device,
-          ipAddress: ip,
-          occurredAtHuman: new Date().toUTCString().replace(' GMT', ' UTC'),
-          version,
-          feePercent: formatFeePercent(feePercent),
-          companyUrl: `${origin}/companies/${link.company_id}`,
-          signUrl: `${origin}/sign/client-agreement/${token}`,
-        })
-        if (!result.sent) {
-          console.error('[agreements/client GET] activity email failed:', result.error)
+          if (!logged.logged) return
+
+          const result = await sendAgreementActivityEmail({
+            companyName: link.company_name,
+            recipientLabel: link.recipient_name
+              ? `${link.recipient_name}${link.recipient_email ? ` (${link.recipient_email})` : ''}`
+              : null,
+            eventType: 'viewed',
+            seq: logged.seq,
+            device: logged.device,
+            ipAddress: ip,
+            occurredAtHuman: new Date().toUTCString().replace(' GMT', ' UTC'),
+            version,
+            feePercent: formatFeePercent(feePercent),
+            companyUrl: `${origin}/companies/${link.company_id}`,
+            signUrl: `${origin}/sign/client-agreement/${token}`,
+          })
+          if (!result.sent) {
+            console.error('[agreements/client GET] activity email failed:', result.error)
+          }
+        } catch (err) {
+          console.error('[agreements/client GET] view logging failed:', err)
         }
-      }
+      })
     }
 
     return NextResponse.json({
@@ -200,7 +207,7 @@ export async function GET(
   }
 }
 
-// POST — sign the agreement.
+// POST: sign the agreement.
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
@@ -312,83 +319,80 @@ export async function POST(
       })
       .eq('id', link.id)
 
-    // Audit trail + instant alert. Best-effort: the signature is already saved.
-    const signedEvent = await logAgreementEvent(adminClient, {
-      linkId: link.id,
-      companyId: link.company_id,
-      eventType: 'signed',
-      ipAddress: ip,
-      userAgent,
-      metadata: {
-        signer_name: signerName,
-        signer_email: signerEmail,
-        signer_title: signerTitle,
-        version: storedVersion,
-      },
-    })
-    if (signedEvent.logged) {
-      const origin = request.nextUrl.origin
-      const activity = await sendAgreementActivityEmail({
-        companyName: link.company_name,
-        recipientLabel: `${signerName}${signerTitle ? `, ${signerTitle}` : ''} (${signerEmail})`,
-        eventType: 'signed',
-        seq: signedEvent.seq,
-        device: signedEvent.device,
-        ipAddress: ip,
-        occurredAtHuman: signedAt.toUTCString().replace(' GMT', ' UTC'),
-        version: storedVersion,
-        feePercent: formatFeePercent(feePercent),
-        companyUrl: `${origin}/companies/${link.company_id}`,
-        signUrl: `${origin}/sign/client-agreement/${token}`,
-      })
-      if (!activity.sent) {
-        console.error('[agreements/client POST] activity email failed:', activity.error)
-      }
-    }
+    // The signature is now durable, so the signer gets their answer here.
+    // Rendering the PDF and sending three emails used to run before this
+    // response, which meant a slow render or a slow mail API surfaced to the
+    // signer as "Failed to sign agreement" even though the signature had been
+    // recorded. All of it now runs in after(), once the response is sent.
+    const origin = request.nextUrl.origin
+    const signedAtHuman = signedAt.toUTCString().replace(' GMT', ' UTC')
 
-    // Generate PDF + upload + signed URL. Failures here are logged but don't
-    // fail the signing — the signature is already recorded.
-    let pdfBuffer: Buffer | null = null
-    let pdfPath: string | null = null
-    try {
-      pdfBuffer = await generateAgreementPdf({
-        kind: 'client',
-        content: storedContent,
-        companyName: link.company_name,
-        signerName,
-        signerTitle,
-        signerEmail,
-        signedAt: signedAtIso,
-        version: storedVersion,
-        termsHash: storedHash,
-        agreementLinkId: link.id,
-        ipAddress: ip,
-      })
-
-      pdfPath = `${slugify(link.company_name)}/${link.id}.pdf`
-      const { error: uploadError } = await adminClient.storage
-        .from(STORAGE_BUCKET)
-        .upload(pdfPath, pdfBuffer, {
-          contentType: 'application/pdf',
-          upsert: true,
+    after(async () => {
+      try {
+        const signedEvent = await logAgreementEvent(adminClient, {
+          linkId: link.id,
+          companyId: link.company_id,
+          eventType: 'signed',
+          ipAddress: ip,
+          userAgent,
+          metadata: {
+            signer_name: signerName,
+            signer_email: signerEmail,
+            signer_title: signerTitle,
+            version: storedVersion,
+          },
         })
 
-      if (uploadError) {
-        console.error('[agreements/client POST] pdf upload failed:', uploadError)
-      } else {
-        await adminClient
-          .from('client_agreement_signatures')
-          .update({ pdf_url: pdfPath })
-          .eq('id', signature.id)
-      }
-    } catch (pdfErr) {
-      console.error('[agreements/client POST] pdf generation failed:', pdfErr)
-    }
+        if (signedEvent.logged) {
+          const activity = await sendAgreementActivityEmail({
+            companyName: link.company_name,
+            recipientLabel: `${signerName}${signerTitle ? `, ${signerTitle}` : ''} (${signerEmail})`,
+            eventType: 'signed',
+            seq: signedEvent.seq,
+            device: signedEvent.device,
+            ipAddress: ip,
+            occurredAtHuman: signedAtHuman,
+            version: storedVersion,
+            feePercent: formatFeePercent(feePercent),
+            companyUrl: `${origin}/companies/${link.company_id}`,
+            signUrl: `${origin}/sign/client-agreement/${token}`,
+          })
+          if (!activity.sent) {
+            console.error('[agreements/client POST] activity email failed:', activity.error)
+          }
+        }
 
-    // Send emails. Also fire-and-best-effort.
-    try {
-      if (pdfBuffer) {
-        const signedAtHuman = signedAt.toUTCString().replace(' GMT', ' UTC')
+        const pdfBuffer = await generateAgreementPdf({
+          kind: 'client',
+          content: storedContent,
+          companyName: link.company_name,
+          signerName,
+          signerTitle,
+          signerEmail,
+          signedAt: signedAtIso,
+          version: storedVersion,
+          termsHash: storedHash,
+          agreementLinkId: link.id,
+          ipAddress: ip,
+        })
+
+        const pdfPath = `${slugify(link.company_name)}/${link.id}.pdf`
+        const { error: uploadError } = await adminClient.storage
+          .from(STORAGE_BUCKET)
+          .upload(pdfPath, pdfBuffer, {
+            contentType: 'application/pdf',
+            upsert: true,
+          })
+
+        if (uploadError) {
+          console.error('[agreements/client POST] pdf upload failed:', uploadError)
+        } else {
+          await adminClient
+            .from('client_agreement_signatures')
+            .update({ pdf_url: pdfPath })
+            .eq('id', signature.id)
+        }
+
         const result = await sendAgreementEmails({
           signerName,
           signerTitle,
@@ -401,26 +405,23 @@ export async function POST(
           ipAddress: ip,
           termsHash: storedHash,
           agreementLinkId: link.id,
-          adminUrl: `${request.nextUrl.origin}/companies/${link.company_id}`,
+          adminUrl: `${origin}/companies/${link.company_id}`,
           pdfBuffer,
           pdfFilename: `Refery-Services-Agreement-${slugify(link.company_name)}.pdf`,
         })
         if (result.errors.length) {
           console.error('[agreements/client POST] email errors:', result.errors)
         }
-      } else {
-        console.error('[agreements/client POST] skipped emails — no PDF buffer')
+      } catch (err) {
+        console.error('[agreements/client POST] post-signature work failed:', err)
       }
-    } catch (emailErr) {
-      console.error('[agreements/client POST] email send threw:', emailErr)
-    }
+    })
 
     return NextResponse.json({
       success: true,
       signature_id: signature.id,
       signed_at: signedAtIso,
       agreement_hash: storedHash,
-      pdf_path: pdfPath,
     })
   } catch (err) {
     console.error('[agreements/client POST] error:', err)

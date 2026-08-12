@@ -6,23 +6,23 @@ export const AGREEMENT_VERSIONS = {
   // v2.6 is the current standard offer: pay 10 business days after the hire's
   // 90th day, full-refund guarantee, prior-contact carve-out, cancel anytime.
   client: '2.6',
-  // v2.5 — negotiated deferred variant (Ergo, Aug 2026). Same shape as v2.6 but
+  // v2.5: negotiated deferred variant (Ergo, Aug 2026). Same shape as v2.6 but
   // a 14-business-day payment window. Kept as its own line so it is never
   // rewritten by a standard bump.
   clientDeferred: '2.5',
-  // v2.4 — the previous standard (pay 30 days after start, replacement-search
+  // v2.4: the previous standard (pay 30 days after start, replacement-search
   // guarantee). No new links are issued on it; unsigned ones upgrade to v2.6.
   clientLegacy: '2.4',
 } as const
 
 // Which payment/guarantee model a client agreement uses.
-//   'start' — v2.4: fee due 30 days after the start date, replacement-search guarantee.
-//   'day90' — v2.5: fee due 14 business days after day 90, full-refund guarantee.
-//   'net10' — v2.6: fee due 10 business days after day 90, full-refund guarantee.
+//   'start' is v2.4: fee due 30 days after the start date, replacement-search guarantee.
+//   'day90' is v2.5: fee due 14 business days after day 90, full-refund guarantee.
+//   'net10' is v2.6: fee due 10 business days after day 90, full-refund guarantee.
 //
 // 10 business days is not arbitrary. The signed partner agreements owe partners
 // their payout "within 14 business days after the candidate completes 90 days,
-// once Refery has collected" — and recruiter §13 makes partner payment timing
+// once Refery has collected", and recruiter §13 makes partner payment timing
 // consent-protected. Collecting on day ~104 keeps that promise intact without
 // renegotiating it.
 export type ClientPaymentTiming = 'start' | 'day90' | 'net10'
@@ -50,7 +50,7 @@ export function clientPaymentTimingForVersion(version: string): ClientPaymentTim
 }
 
 // Versions that were individually negotiated. An unsigned link on one of these
-// must never be auto-rewritten to the standard offer — that would silently undo
+// must never be auto-rewritten to the standard offer, since that would silently undo
 // the negotiation. Everything else sits on the standard line.
 const NEGOTIATED_CLIENT_VERSIONS = new Set<string>([AGREEMENT_VERSIONS.clientDeferred])
 
@@ -64,7 +64,7 @@ export function clientUpgradeTarget(version: string): string | null {
 }
 
 // One-line payment/guarantee summaries for the post-signature email and PDF.
-// Keep these in step with the "short version" table in each document — a signer
+// Keep these in step with the "short version" table in each document, because a signer
 // must never be told terms that differ from what they signed.
 export function clientTermsSummary(version: string): { payment: string; guarantee: string } {
   switch (clientPaymentTimingForVersion(version)) {
@@ -598,13 +598,13 @@ export function generateClientAgreementText(
 }
 
 /**
- * v2.6 — the current standard offer.
+ * v2.6 is the current standard offer.
  *
  * Written to be signed by the one operator in the room rather than routed to
  * counsel: plain words, short sentences, the whole commercial deal visible in
  * the table before any prose. Refery's three real protections are all still
- * here — attribution (§1, §4), collectability (§1 reporting duty, §4
- * re-engagement), and confidentiality (§5) — they are just no longer buried.
+ * here: attribution (§1, §4), collectability (§1 reporting duty, §4
+ * re-engagement), and confidentiality (§5). They are just no longer buried.
  */
 function generateStandardClientAgreement(companyName: string, feePercent: number): string {
   const fee = formatFeePercent(feePercent)
@@ -623,17 +623,17 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 | **The fee** | ${fee}% of their first-year base salary |
 | **When you pay** | 10 business days after their 90th day with you |
 | **If it doesn't work out** | Gone within 90 days? You owe nothing, and anything paid comes back |
-| **Commitment** | None — no exclusivity, no minimums, cancel anytime |
+| **Commitment** | None. No exclusivity, no minimums, cancel anytime |
 
 ## The details
 
-**1. You only pay for a hire who stays.** Hire someone we introduced — any role, within 12 months of the introduction — and the fee is ${fee}% of their first-year base salary, from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, with their start date and salary. Late invoices add 1.5% a month.
+**1. You only pay for a hire who stays.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.
 
-**2. If they leave within 90 days, you owe nothing.** Any reason — they resign, wrong fit, the role changed, you had to restructure. No exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.
+**2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.
 
-**3. If you already knew them, there's no fee.** Send us something dated — an application, an ATS record, an email — within 10 business days of the introduction, and we'll close it out.
+**3. If you already knew them, there's no fee.** Send us something dated, like an application, an ATS record, or an email thread, within 10 business days of the introduction, and we'll close it out.
 
-**4. Please don't route around us.** The fee still applies if you hire someone we introduced through another agency, as a contractor, or via a sister company — or if someone leaves early and you rehire them within 12 months. Our introduction records are the reference.
+**4. Please don't route around us.** The fee still applies if you hire someone we introduced through another agency, as a contractor, or via a sister company. The same goes if someone leaves early and you rehire them within 12 months. Our introduction records are the reference.
 
 **5. We keep your details private.** Your name, roles, team, pay, and plans stay confidential, and we never post your roles publicly. Candidates learn who you are only after vetting and signing our confidentiality terms. Please do the same with candidate information. This continues after the agreement ends.
 
@@ -645,12 +645,12 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 
 ## Sign
 
-Add your name and email below and click Accept — a legally binding signature under the E-SIGN Act and UETA. Questions any time: **legal@refery.io**.
+Add your name and email below, then click Accept. That's a legally binding signature under the E-SIGN Act and UETA. Questions any time: **legal@refery.io**.
 
 We're glad you're here.`
 }
 
-/** v2.4 / v2.5 — previous standard and the negotiated deferred variant. */
+/** v2.4 and v2.5: previous standard and the negotiated deferred variant. */
 function generateLegacyClientAgreement(
   companyName: string,
   feePercent: number,

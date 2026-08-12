@@ -124,7 +124,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
       const data = await res.json()
       setEvents(data.events ?? [])
     } catch {
-      /* activity is supplementary — never block the page on it */
+      /* activity is supplementary, so never block the page on it */
     }
   }
 
@@ -156,7 +156,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
     setError(null)
 
     const feeNum = Number(feePercent)
-    // Both blank is valid — that issues an open link the signer completes.
+    // Both blank is valid. That issues an open link the signer completes.
     if (recipientEmail.trim() && !/\S+@\S+\.\S+/.test(recipientEmail.trim())) {
       setError('Enter a valid recipient email')
       return
@@ -188,7 +188,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
       await refresh()
       await refreshActivity()
     } catch {
-      setError('Network error — please try again')
+      setError('Network error. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -275,7 +275,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
                         {link.recipient_email ??
-                          (isOpenLink ? 'Signer adds their own name and email' : '—')}
+                          (isOpenLink ? 'Signer adds their own name and email' : 'Not set')}
                       </div>
                       <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
                         <span>
@@ -392,7 +392,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                 </div>
                 <p className="text-xs text-emerald-700/80">
                   Send this URL to the hiring manager. They can sign with a single
-                  click — no login required.
+                  click, no login required.
                 </p>
               </div>
               <div>
@@ -431,7 +431,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
               <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
                 <p className="text-xs text-muted-foreground">
                   Leave both fields blank to send an{' '}
-                  <span className="font-medium text-foreground">open link</span> —
+                  <span className="font-medium text-foreground">open link</span>.
                   whoever has signing authority fills in their own name and email.
                   No need to reissue when the signer changes.
                 </p>

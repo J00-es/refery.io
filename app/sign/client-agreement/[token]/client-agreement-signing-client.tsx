@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { AgreementContent } from '@/components/agreement-content'
 
 /* ----------------------------------------------------------------------------
- * Refery brand tokens — kept identical to the partner sign page so this looks
+ * Refery brand tokens, kept identical to the partner sign page so this looks
  * like a sibling document, not a different product.
  * -------------------------------------------------------------------------- */
 const C = {
@@ -125,7 +125,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         return
       }
 
-      // Redirect to the confirmation page — server component renders the
+      // Redirect to the confirmation page. The server component renders the
       // full success state with a fresh signed PDF URL.
       router.push(`/sign/client-agreement/${token}/confirmed`)
     } catch {
@@ -497,7 +497,7 @@ function Hero({ version }: { version: string }) {
 function RecipientCard({ agreement }: { agreement: AgreementData }) {
   const expires = agreement.expires_at
     ? format(new Date(agreement.expires_at), 'MMM d, yyyy')
-    : '—'
+    : 'No expiry'
   return (
     <div
       className="refery-card"
@@ -513,15 +513,11 @@ function RecipientCard({ agreement }: { agreement: AgreementData }) {
         className="refery-recipient-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
+          gridTemplateColumns: '1fr 1fr',
           gap: 20,
         }}
       >
         <Field label="Company" value={agreement.company_name} />
-        <Field
-          label="Prepared for"
-          value={agreement.recipient_name || 'Anyone authorized to sign'}
-        />
         <Field label="Expires" value={expires} />
       </div>
     </div>
@@ -899,7 +895,7 @@ function ShellError({ message }: { message: string }) {
 }
 
 function ShellAlreadySigned({ token }: { token: string }) {
-  // Already signed before the user landed — bounce to the confirmation page
+  // Already signed before the user landed, so bounce to the confirmation page
   // for a consistent success view.
   return (
     <PageShell>

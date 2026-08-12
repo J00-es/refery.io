@@ -2,7 +2,7 @@
  * Real-time activity alerts for client agreement links.
  *
  * Fires on every logged event up to (and including) signature, so an admin
- * knows the moment a prospect opens the agreement — the highest-signal moment
+ * knows the moment a prospect opens the agreement, the highest-signal moment
  * in the whole funnel, and the right time to follow up.
  *
  * Views are deduped upstream in logAgreementEvent(), so a refresh or a second
@@ -49,7 +49,7 @@ function hint(d: ActivityEmailData): string | null {
     return 'They just opened it for the first time. This is the warmest the lead will be all week.'
   }
   if (d.eventType === 'viewed' && d.seq >= 3) {
-    return `Opened ${ordinal(d.seq)} time without signing — usually means someone else needs to approve it, or a specific term is sticking.`
+    return `Opened ${ordinal(d.seq)} time without signing. Usually that means someone else needs to approve it, or a specific term is sticking.`
   }
   if (d.eventType === 'viewed') {
     return 'Back for another read. Worth a short, low-pressure check-in.'
@@ -95,7 +95,7 @@ function html(d: ActivityEmailData): string {
   <tr><td style="padding:26px 28px 0 28px;">
     <div style="font-size:11px; letter-spacing:1px; text-transform:uppercase; font-weight:600; color:${GREEN};">Agreement activity</div>
     <div style="margin-top:10px; font-size:21px; line-height:1.3; color:${INK}; font-weight:600;">
-      ${escapeHtml(d.companyName)} — ${escapeHtml(describeEvent({ event_type: d.eventType, seq: d.seq, device: d.device }).toLowerCase())}
+      ${escapeHtml(d.companyName)}: ${escapeHtml(describeEvent({ event_type: d.eventType, seq: d.seq, device: d.device }).toLowerCase())}
     </div>
   </td></tr>
 
@@ -112,7 +112,7 @@ function html(d: ActivityEmailData): string {
   <tr><td style="padding:18px 28px 0 28px;">
     <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
       ${row('When', d.occurredAtHuman)}
-      ${d.recipientLabel ? row('Sent to', d.recipientLabel) : row('Sent to', 'Open link — signer fills in their own details')}
+      ${d.recipientLabel ? row('Sent to', d.recipientLabel) : row('Sent to', 'Open link. Signer fills in their own details.')}
       ${d.device ? row('Device', d.device) : ''}
       ${d.ipAddress ? row('IP', d.ipAddress) : ''}
       ${row('Terms', `v${d.version} · ${d.feePercent}% fee`)}
@@ -133,11 +133,11 @@ function html(d: ActivityEmailData): string {
 function text(d: ActivityEmailData): string {
   const tip = hint(d)
   return [
-    `${d.companyName} — ${describeEvent({ event_type: d.eventType, seq: d.seq, device: d.device }).toLowerCase()}`,
+    `${d.companyName}: ${describeEvent({ event_type: d.eventType, seq: d.seq, device: d.device }).toLowerCase()}`,
     '',
     ...(tip ? [tip, ''] : []),
     `When: ${d.occurredAtHuman}`,
-    `Sent to: ${d.recipientLabel ?? 'Open link — signer fills in their own details'}`,
+    `Sent to: ${d.recipientLabel ?? 'Open link. Signer fills in their own details.'}`,
     ...(d.device ? [`Device: ${d.device}`] : []),
     ...(d.ipAddress ? [`IP: ${d.ipAddress}`] : []),
     `Terms: v${d.version} · ${d.feePercent}% fee`,

@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       agreement_content: content,
       fee_percentage: feePercent,
       // On the deferred models this counts business days from day 90, not
-      // calendar days from the start date — the agreement text is the authority.
+      // calendar days from the start date. The agreement text is the authority.
       payment_window_days:
         paymentTiming === 'day90' ? 14 : paymentTiming === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,

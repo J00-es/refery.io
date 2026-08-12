@@ -223,7 +223,7 @@ function adminEmailHtml(d: AgreementEmailData): string {
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Email</td><td style="padding:2px 0;">${escapeHtml(d.signerEmail)}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Fee</td><td style="padding:2px 0;">${escapeHtml(d.feePercent)}%</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Signed at</td><td style="padding:2px 0;">${escapeHtml(d.signedAtIso)}</td></tr>
-  <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || '—')}</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || 'Not recorded')}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Hash</td><td style="padding:2px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;">${escapeHtml(d.termsHash)}</td></tr>
 </table>
 <p style="margin:0;"><a href="${escapeHtml(d.adminUrl)}" style="color:#1f3a2f;">Admin view</a></p>
@@ -238,7 +238,7 @@ function adminEmailText(d: AgreementEmailData): string {
     `Email: ${d.signerEmail}`,
     `Fee: ${d.feePercent}%`,
     `Signed at: ${d.signedAtIso}`,
-    `IP: ${d.ipAddress ?? '—'}`,
+    `IP: ${d.ipAddress ?? 'Not recorded'}`,
     `Hash: ${d.termsHash}`,
     '',
     `Admin view: ${d.adminUrl}`,
@@ -282,7 +282,7 @@ function escapeHtml(s: string): string {
  * Partner (scout/recruiter) agreement emails
  *
  * Same brand template family as the client services email, but intentionally
- * simpler — no "At a glance" card, shorter body. Spec wording matched verbatim.
+ * simpler: no "At a glance" card, shorter body. Spec wording matched verbatim.
  * -------------------------------------------------------------------------- */
 
 export type PartnerType = 'scout' | 'recruiter' | null
@@ -426,9 +426,9 @@ function partnerSignerEmailText(d: PartnerAgreementEmailData): string {
   return [
     `Welcome to Refery, ${firstName(d.signerName)}.`,
     '',
-    `You're officially a Refery ${label} partner — we're genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.`,
+    `You're officially a Refery ${label} partner, and we're genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.`,
     '',
-    'From here, we handle the business side — clients, contracts, invoicing, and the guarantee — so you can focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.',
+    'From here, we handle the business side: clients, contracts, invoicing, and the guarantee. That leaves you free to focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.',
     '',
     `Signed by: ${d.signerName}`,
     `Signed on: ${d.signedAtHuman}`,
@@ -451,7 +451,7 @@ function partnerAdminEmailHtml(d: PartnerAgreementEmailData): string {
 <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0; font-size:14px;">
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Email</td><td style="padding:2px 0;">${escapeHtml(d.signerEmail)}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Signed at</td><td style="padding:2px 0;">${escapeHtml(d.signedAtIso)}</td></tr>
-  <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || '—')}</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || 'Not recorded')}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Hash</td><td style="padding:2px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;">${escapeHtml(d.termsHash)}</td></tr>
 </table>
 <p style="margin:0;"><a href="${escapeHtml(d.adminUrl)}" style="color:#1f3a2f;">Admin view</a></p>
@@ -465,7 +465,7 @@ function partnerAdminEmailText(d: PartnerAgreementEmailData): string {
     '',
     `Email: ${d.signerEmail}`,
     `Signed at: ${d.signedAtIso}`,
-    `IP: ${d.ipAddress ?? '—'}`,
+    `IP: ${d.ipAddress ?? 'Not recorded'}`,
     `Hash: ${d.termsHash}`,
     '',
     `Admin view: ${d.adminUrl}`,
@@ -495,7 +495,7 @@ export async function sendPartnerAgreementEmails(
       from: PARTNER_FROM,
       to: data.signerEmail,
       replyTo: PARTNER_REPLY_TO,
-      subject: 'Welcome to Refery — your partner agreement is signed',
+      subject: 'Welcome to Refery, your partner agreement is signed',
       html: partnerSignerEmailHtml(data),
       text: partnerSignerEmailText(data),
       attachments: [attachment],

@@ -148,9 +148,18 @@ export default async function ConfirmedPage({
             Download signed PDF &rarr;
           </a>
         ) : (
-          <p style={{ fontSize: 13, color: C.ink3, fontFamily: SANS }}>
-            Your PDF is being generated. Check your email in a moment.
-          </p>
+          <>
+            {/* The PDF is rendered just after the signature is saved, so it is
+                usually a second or two behind this page. Refresh briefly so the
+                download appears on its own instead of asking them to reload. */}
+            {Date.now() - new Date(signature.signed_at).getTime() < 120_000 && (
+              <meta httpEquiv="refresh" content="4" />
+            )}
+            <p style={{ fontSize: 13, color: C.ink3, fontFamily: SANS }}>
+              Preparing your signed PDF. It will appear here in a moment, and a
+              copy is on its way to your inbox.
+            </p>
+          </>
         )}
 
         <div
