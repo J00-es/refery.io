@@ -42,16 +42,23 @@ const navItems = [
  */
 const superAdminNavItems = [{ href: '/partners', label: 'Partners', icon: Handshake }]
 
-const adminNavItems = [
+/**
+ * Admin destinations live in the Admin menu rather than the top row.
+ *
+ * Outreach, Recruiters and Talents used to sit inline, which gave a super admin
+ * ten top-level links plus a name, an email and a Sign Out button. That does not
+ * fit: measured on the live site, the header ran to 1,377px inside a 1,051px
+ * viewport, so every page in the app scrolled sideways on any laptop narrower
+ * than about 1,400px.
+ *
+ * They are prospecting and admin tools rather than daily surfaces, so the menu is
+ * where they belong anyway — the row is now the five things everyone uses, plus
+ * Partners for the super admin.
+ */
+const adminMenuItems = [
   { href: '/outreach', label: 'Outreach', icon: Send },
-]
-
-const adminOnlyNavItems = [
   { href: '/recruiters', label: 'Recruiters', icon: UserPlus },
   { href: '/talents', label: 'Talents', icon: Star },
-]
-
-const adminMenuItems = [
   { href: '/admin', label: 'Users', icon: Users },
 ]
 
@@ -134,34 +141,6 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
             ))}
             {isAdmin && (
               <>
-                {adminNavItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                      isActiveRoute(item.href)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                {adminOnlyNavItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                      isActiveRoute(item.href)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -202,14 +181,9 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
             href="/profile"
             className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-accent/50 transition-colors"
           >
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground truncate max-w-[150px] lg:max-w-none">
-                {fullName || user.email}
-              </p>
-              {fullName && (
-                <p className="text-xs text-muted-foreground truncate max-w-[150px] lg:max-w-none">{user.email}</p>
-              )}
-            </div>
+            <p className="max-w-[160px] truncate text-sm font-medium text-foreground">
+              {fullName || user.email}
+            </p>
             {roleLabels[userRole] && (
               <span className={`text-xs font-medium px-2 py-0.5 rounded-md whitespace-nowrap ${roleLabels[userRole].color}`}>
                 {roleLabels[userRole].label}
@@ -299,44 +273,6 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
               })}
               {isAdmin && (
                 <>
-                  {adminNavItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                          isActiveRoute(item.href)
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-foreground hover:bg-accent/50'
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                        {item.label}
-                        <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
-                      </Link>
-                    )
-                  })}
-                  {adminOnlyNavItems.map((item) => {
-                    const Icon = item.icon
-                    return (
-                      <Link
-                        key={item.href}
-                        href={item.href}
-                        className={cn(
-                          'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                          isActiveRoute(item.href)
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-foreground hover:bg-accent/50'
-                        )}
-                      >
-                        <Icon className="h-5 w-5" />
-                        {item.label}
-                        <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
-                      </Link>
-                    )
-                  })}
                   {adminMenuItems.map((item) => {
                     const Icon = item.icon
                     return (
