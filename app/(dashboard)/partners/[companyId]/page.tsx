@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, ExternalLink, FileText, Lock } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { CARD, CHIP, FOCUS } from '@/lib/candidate-ui'
-import { formatFundingDate, formatMoney, stageLabel, stageTint, usableLogo, investorList } from '@/lib/company-ui'
+import { formatFundingDate, formatMoney, stageLabel, stageTint, investorList } from '@/lib/company-ui'
 import { normalizeBrief } from '@/lib/brief'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
@@ -14,6 +14,7 @@ import {
   type PartnerRoleRow,
 } from '@/lib/partners'
 import { BriefDocument } from '@/components/partners/brief-document'
+import { CompanyLogo } from '@/components/partners/company-logo'
 import { ManageCompany } from '@/components/partners/manage-company'
 import { RequestAccess } from '@/components/partners/request-access'
 import { RoleCard } from '@/components/partners/role-card'
@@ -87,7 +88,6 @@ export default async function PartnerCompanyPage({
       ? { ...briefRow, content: normalizeBrief(briefRow.content) }
       : null
 
-  const logo = company.unlocked ? usableLogo(company.logoUrl) : null
   const relationship = relationshipMeta(company.relationship)
   const funding = formatMoney(company.lastFundingAmountUsd)
   const investors = investorList(company.topInvestors, 3)
@@ -112,14 +112,12 @@ export default async function PartnerCompanyPage({
 
       <header className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-4">
-          {logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={logo}
-              alt=""
-              className="h-14 w-14 shrink-0 rounded-[14px] border border-[#ECECE6] object-contain p-1.5"
-            />
-          ) : null}
+          <CompanyLogo
+            name={company.name}
+            url={company.logoUrl}
+            locked={!company.unlocked}
+            size="lg"
+          />
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <span
@@ -177,8 +175,8 @@ export default async function PartnerCompanyPage({
         )}
       </header>
 
-      {company.blurb && (
-        <p className="max-w-3xl text-[15px] leading-relaxed text-[#6E6E68]">{company.blurb}</p>
+      {company.longBlurb && (
+        <p className="max-w-3xl text-[15px] leading-relaxed text-[#6E6E68]">{company.longBlurb}</p>
       )}
 
       {!!signals.length && (

@@ -6,10 +6,14 @@ export type DeskView = 'all' | 'mine' | 'setup'
 /**
  * Disjoint, exhaustive, and named after what is in them.
  *
- * "Mine" is the clients you can actually act on today; "All" adds the ones you
- * would have to ask about first. The setup tab is admin-only and is a to-do
- * list, not a filter — it holds relationships a scout cannot yet do anything
- * with, so it says so in the label.
+ * The second tab means different things to the two audiences, so it is labelled
+ * differently. A scout's is "Open to me" — the clients they are assigned to and
+ * can act on today. An admin is assigned to nothing and sees everything, so the
+ * same tab would read "Assigned to me: 12" and mean nothing; theirs filters to
+ * the clients that actually have a live search on them.
+ *
+ * The setup tab is admin-only and is a to-do list rather than a filter: it holds
+ * relationships a scout cannot yet do anything with.
  */
 export function DeskTabs({
   view,
@@ -22,8 +26,8 @@ export function DeskTabs({
 }) {
   const tabs: { key: DeskView; label: string }[] = [
     { key: 'all', label: 'All clients' },
-    { key: 'mine', label: canManage ? 'Assigned to me' : 'Open to me' },
-    ...(canManage ? ([{ key: 'setup' as DeskView, label: 'Needs setup' }]) : []),
+    { key: 'mine', label: canManage ? 'With live searches' : 'Open to me' },
+    ...(canManage ? [{ key: 'setup' as DeskView, label: 'Needs setup' }] : []),
   ]
 
   return (

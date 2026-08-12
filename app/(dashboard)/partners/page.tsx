@@ -113,22 +113,27 @@ export default async function PartnersPage({ searchParams }: PageProps) {
   const views = companies.map(row => toCompanyView(row, access))
   const pendingRequests = (requestRows ?? []).length
 
+  // An admin is assigned to nothing and sees everything, so "unlocked" is not a
+  // filter that means anything to them; theirs narrows to the clients with a
+  // live search. A scout's narrows to the clients they can act on today.
+  const inSecondTab = (company: (typeof views)[number]) =>
+    access.canManage ? company.liveRoles > 0 : company.unlocked
+
+  // The setup tab is the admin's to-do list: relationships that cannot yet do
+  // anything for a scout.
+  const needsSetup = (company: (typeof views)[number]) =>
+    !company.admin?.isPublished || company.liveRoles === 0 || !company.briefPublished
+
   const visible = views.filter(company => {
-    if (view === 'mine') return company.unlocked
-    if (view === 'setup') {
-      // The setup tab is the admin's to-do list: relationships that cannot yet
-      // do anything for a scout.
-      return !company.admin?.isPublished || company.liveRoles === 0 || !company.briefPublished
-    }
+    if (view === 'mine') return inSecondTab(company)
+    if (view === 'setup') return needsSetup(company)
     return true
   })
 
   const counts = {
     all: views.length,
-    mine: views.filter(c => c.unlocked).length,
-    setup: views.filter(
-      c => !c.admin?.isPublished || c.liveRoles === 0 || !c.briefPublished,
-    ).length,
+    mine: views.filter(inSecondTab).length,
+    setup: views.filter(needsSetup).length,
   }
 
   return (

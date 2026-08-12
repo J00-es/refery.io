@@ -1,8 +1,9 @@
 import Link from 'next/link'
-import { ArrowUpRight, EyeOff, FileText, Lock } from 'lucide-react'
-import { CARD, CHIP, FOCUS, avatarTint, initialsOf } from '@/lib/candidate-ui'
-import { formatMoney, formatFundingDate, stageLabel, stageTint, usableLogo } from '@/lib/company-ui'
+import { ArrowUpRight, FileText, Lock } from 'lucide-react'
+import { CARD, CHIP, FOCUS } from '@/lib/candidate-ui'
+import { formatMoney, formatFundingDate, stageLabel, stageTint } from '@/lib/company-ui'
 import { formatPayout, relationshipMeta, type PartnerCompanyView } from '@/lib/partners'
+import { CompanyLogo } from './company-logo'
 
 export interface CompanyCardRole {
   jobId: string
@@ -37,7 +38,6 @@ export function PartnerCompanyCard({
   /** Rendered in the locked footer. Passed in so this stays a server component. */
   requestAccess?: React.ReactNode
 }) {
-  const logo = usableLogo(company.logoUrl)
   const relationship = relationshipMeta(company.relationship)
   const shown = roles.slice(0, 4)
   const extra = roles.length - shown.length
@@ -59,28 +59,7 @@ export function PartnerCompanyCard({
   const body = (
     <>
       <div className="flex items-start gap-3">
-        {company.unlocked && logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={logo}
-            alt=""
-            className="h-11 w-11 shrink-0 rounded-[12px] border border-[#ECECE6] object-contain p-1"
-          />
-        ) : company.unlocked ? (
-          <span
-            aria-hidden
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-[12px] text-[14px] font-semibold ${avatarTint(company.name)}`}
-          >
-            {initialsOf(company.name)}
-          </span>
-        ) : (
-          <span
-            aria-hidden
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-[12px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] text-[#9C9C95]"
-          >
-            <EyeOff className="h-4 w-4" />
-          </span>
-        )}
+        <CompanyLogo name={company.name} url={company.logoUrl} locked={!company.unlocked} />
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -92,6 +71,14 @@ export function PartnerCompanyCard({
             >
               {relationship.label}
             </span>
+            {/* Admins see unpublished relationships in this list, and there is
+                no other way to tell one apart from a client the network can
+                already see. */}
+            {company.admin && !company.admin.isPublished && (
+              <span className="shrink-0 rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-[0.06em] text-[#6E6E68]">
+                Unpublished
+              </span>
+            )}
           </div>
           <p className="mt-1 text-[13px] text-[#6E6E68]">
             {company.liveRoles === 0
@@ -161,24 +148,31 @@ export function PartnerCompanyCard({
     </>
   )
 
-  const footer = (
-    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECECE6] pt-3.5">
-      <div className="flex flex-wrap items-center gap-2.5 text-[12.5px]">
-        {bestPayout != null && (
-          <span className="font-semibold text-[#1F4D3A]">
-            up to {formatPayout(bestPayout)} per placement
-          </span>
-        )}
-        {company.unlocked && company.hasBrief && company.briefPublished && (
-          <span className="inline-flex items-center gap-1 text-[#6E6E68]">
-            <FileText className="h-3.5 w-3.5" />
-            Scout brief
-          </span>
-        )}
+  const showsBrief = company.unlocked && company.briefPublished
+  const showsRequest = !company.unlocked
+  // A client with no live searches, no payout set and no brief has nothing for
+  // the footer to say. Rendering the rule and its padding anyway leaves a stray
+  // line and a gap under half the cards, which reads as something failing to
+  // load.
+  const footer =
+    bestPayout != null || showsBrief || showsRequest ? (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#ECECE6] pt-3.5">
+        <div className="flex flex-wrap items-center gap-2.5 text-[12.5px]">
+          {bestPayout != null && (
+            <span className="font-semibold text-[#1F4D3A]">
+              up to {formatPayout(bestPayout)} per placement
+            </span>
+          )}
+          {showsBrief && (
+            <span className="inline-flex items-center gap-1 text-[#6E6E68]">
+              <FileText className="h-3.5 w-3.5" />
+              Scout brief
+            </span>
+          )}
+        </div>
+        {showsRequest && requestAccess}
       </div>
-      {!company.unlocked && requestAccess}
-    </div>
-  )
+    ) : null
 
   if (company.unlocked) {
     return (

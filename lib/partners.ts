@@ -329,15 +329,57 @@ export function anonLabel(company: {
   industry?: string | null
 }): string {
   if (company.anon_alias?.trim()) return company.anon_alias.trim()
-  // `industry` arrives in two shapes, both of them piles: a Crunchbase comma
-  // list ("Artificial Intelligence (AI), Banking, Blockchain, Cloud Computing,
-  // Cryptocurrency, Financial Services, FinTech, Payments, Software") and a
-  // taxonomy path ("B2B Software and Services -> Sales"). The first segment is
-  // the only part that reads as a label.
-  const industry = company.industry?.split(/,|->/)[0]?.trim()
-  const parts = [stageLabel(company.stage), industry].filter(Boolean)
+  const parts = [stageLabel(company.stage), shortIndustry(company.industry)].filter(Boolean)
   if (parts.length) return `${parts.join(' · ')} company`
   return 'Confidential client'
+}
+
+/**
+ * The one industry label worth putting on a chip.
+ *
+ * `companies.industry` arrives in two shapes, both of them piles: a Crunchbase
+ * comma list ("Artificial Intelligence (AI), Banking, Blockchain, Cloud
+ * Computing, Cryptocurrency, Financial Services, FinTech, Payments, Software")
+ * and a taxonomy path ("B2B Software and Services -> Engineering, Product and
+ * Design"). Rendered whole, either one sets the card's min-content width and
+ * reads as a database dump. The first segment is the only part that is a label.
+ */
+export function shortIndustry(industry?: string | null): string | null {
+  const first = industry?.split(/,|->|\//)[0]?.trim()
+  return first || null
+}
+
+/**
+ * A company description reduced to something that reads as a sentence.
+ *
+ * `companies.description` is scraped and frequently arrives as markdown —
+ * "**Voice AI for developers.** ### Why Join ### Founders **Jordan Dearsley**
+ * — Founder, CEO @ Vapi LinkedIn:…" — so rendering it raw puts asterisks and
+ * hash marks on the card. This is not a markdown renderer: the blurb slot is
+ * two lines of prose, so the markers are stripped and the rest is cut at a
+ * sentence boundary rather than mid-word.
+ */
+export function plainBlurb(text?: string | null, maxLength = 180): string | null {
+  if (!text) return null
+  const flat = text
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*#{1,6}\s*/gm, ' ')
+    .replace(/#{2,6}\s+/g, ' ')
+    .replace(/[*_`>|]/g, '')
+    .replace(/^\s*[-•]\s*/gm, ' ')
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  if (!flat) return null
+  if (flat.length <= maxLength) return flat
+
+  const cut = flat.slice(0, maxLength)
+  const sentenceEnd = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '))
+  if (sentenceEnd > maxLength * 0.4) return cut.slice(0, sentenceEnd + 1)
+  const wordEnd = cut.lastIndexOf(' ')
+  return `${cut.slice(0, wordEnd > 0 ? wordEnd : maxLength)}…`
 }
 
 /**
@@ -355,7 +397,10 @@ export interface PartnerCompanyView {
   name: string
   logoUrl: string | null
   website: string | null
+  /** Two lines, for a card in a grid. */
   blurb: string | null
+  /** A paragraph, for the client's own page. Same source, cut less hard. */
+  longBlurb: string | null
   stage: string | null
   industry: string | null
   location: string | null
@@ -400,9 +445,17 @@ export function toCompanyView(
     name: unlocked ? displayName : anonLabel(row),
     logoUrl: unlocked ? row.logo_url : null,
     website: unlocked ? row.website : null,
-    blurb: unlocked ? row.public_blurb || row.description : row.public_blurb,
+    // A locked card falls back to nothing rather than to `description`: the
+    // scraped description names the company in its first clause about half the
+    // time, which would defeat the alias entirely.
+    blurb: unlocked
+      ? plainBlurb(row.public_blurb) || plainBlurb(row.description)
+      : plainBlurb(row.public_blurb),
+    longBlurb: unlocked
+      ? plainBlurb(row.public_blurb, 520) || plainBlurb(row.description, 520)
+      : plainBlurb(row.public_blurb, 520),
     stage: row.stage,
-    industry: row.industry,
+    industry: shortIndustry(row.industry),
     location: row.location,
     employeeCount: row.employee_count,
     lastFundingAmountUsd: row.last_funding_amount_usd,
