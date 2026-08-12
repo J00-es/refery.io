@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { Inbox } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { FOCUS } from '@/lib/candidate-ui'
@@ -25,6 +25,8 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 export default async function PartnersPage({ searchParams }: PageProps) {
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
+  // The desk is super-admin-only while it is being built — see DESK_SUPER_ADMIN_ONLY.
+  if (!access.canUseDesk) notFound()
 
   const sp = await searchParams
   const requested = one(sp.view) as DeskView

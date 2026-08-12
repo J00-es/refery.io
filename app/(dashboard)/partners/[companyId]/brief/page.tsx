@@ -26,6 +26,8 @@ export default async function CompanyBriefPage({
 }) {
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
+  // The desk is super-admin-only while it is being built — see DESK_SUPER_ADMIN_ONLY.
+  if (!access.canUseDesk) notFound()
 
   const { companyId } = await params
   const sp = await searchParams

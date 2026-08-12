@@ -29,6 +29,17 @@
 import type { AppUser } from '@/lib/current-user'
 import { stageLabel } from '@/lib/company-ui'
 
+/**
+ * While the desk is still being built, only the super admin can reach it.
+ *
+ * Everything underneath is already written for the full audience — the
+ * anonymised card, the assignment model, the per-viewer submission scoping — so
+ * opening it up is flipping this one flag, not unpicking a special case. It is
+ * here rather than inlined at each call site so there is exactly one thing to
+ * change and nothing to miss.
+ */
+export const DESK_SUPER_ADMIN_ONLY = true
+
 // ── priority ────────────────────────────────────────────────────────────────
 
 export type RolePriority = 'urgent' | 'high' | 'normal'
@@ -291,6 +302,11 @@ export interface SubmissionRow {
 
 export interface PartnerAccess {
   appUser: AppUser
+  /**
+   * Whether this user may reach the desk at all. Gated by
+   * `DESK_SUPER_ADMIN_ONLY` while it is still being built.
+   */
+  canUseDesk: boolean
   /** Manage mandates, briefs, assignments and submission status. */
   canManage: boolean
   /** See every partner company in full, whether assigned or not. */

@@ -10,7 +10,7 @@
 import 'server-only'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
-import type { PartnerAccess } from '@/lib/partners'
+import { DESK_SUPER_ADMIN_ONLY, type PartnerAccess } from '@/lib/partners'
 
 /**
  * Resolves what this viewer may see on the partner desk.
@@ -46,6 +46,7 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
 
   return {
     appUser,
+    canUseDesk: DESK_SUPER_ADMIN_ONLY ? appUser.isSuperAdmin : true,
     canManage: appUser.isAdmin,
     seesEverything: appUser.isAdmin,
     seesAllSubmissions: appUser.isAdmin,

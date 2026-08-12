@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, Loader2, Settings2, Upload } from 'lucide-react'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { AlertCircle, Check, ChevronRight, Loader2, Settings2, Upload } from 'lucide-react'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { FOCUS } from '@/lib/candidate-ui'
 import { formatSalary } from '@/lib/job-ui'
 
@@ -41,8 +41,8 @@ interface UserOption {
 }
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'roles', label: 'Roles' },
-  { key: 'access', label: 'Who’s briefed' },
+  { key: 'roles', label: 'Mandate roles' },
+  { key: 'access', label: 'Assign scouts' },
   { key: 'brief', label: 'Scout brief' },
   { key: 'visibility', label: 'Visibility' },
 ]
@@ -59,6 +59,7 @@ export function ManageCompany({
   hasBrief,
   briefId,
   briefStatus,
+  liveRoles,
 }: {
   companyId: string
   companyName: string
@@ -72,6 +73,7 @@ export function ManageCompany({
   hasBrief: boolean
   briefId: string | null
   briefStatus: string | null
+  liveRoles: number
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
@@ -172,19 +174,122 @@ export function ManageCompany({
   const openJobs = (jobs ?? []).filter(j => j.status === 'open')
   const otherJobs = (jobs ?? []).filter(j => j.status !== 'open')
 
-  return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <button
-          type="button"
-          className={`inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[#D8D8D0] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`}
-        >
-          <Settings2 className="h-4 w-4" />
-          Manage
-        </button>
-      </SheetTrigger>
+  /*
+    The four steps that decide whether this client can do anything for a scout,
+    with the state of each one and a way straight into it.
 
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
+    This exists because the controls used to live only behind a "Manage" button:
+    everything worked and nobody could find it. A client with two mandates, no
+    assignees and no brief looks finished from the outside, so the panel says
+    plainly which of the four are still missing and what each one is for.
+  */
+  const steps: { key: Tab; title: string; state: string; done: boolean; action: string }[] = [
+    {
+      key: 'roles',
+      title: 'Mandate roles',
+      state: liveRoles
+        ? `${liveRoles} role${liveRoles === 1 ? '' : 's'} on the desk`
+        : 'No roles picked yet',
+      done: liveRoles > 0,
+      action: liveRoles ? 'Change' : 'Pick roles',
+    },
+    {
+      key: 'access',
+      title: 'Assigned scouts',
+      state: assignees.size
+        ? `${assignees.size} ${assignees.size === 1 ? 'person' : 'people'} briefed`
+        : 'Nobody assigned — every scout sees this client anonymised',
+      done: assignees.size > 0,
+      action: assignees.size ? 'Change' : 'Assign',
+    },
+    {
+      key: 'brief',
+      title: 'Scout brief',
+      state:
+        briefStatus === 'published'
+          ? 'Published'
+          : hasBrief
+            ? 'Draft — not visible to scouts'
+            : 'No brief imported',
+      done: briefStatus === 'published',
+      action: hasBrief ? 'Replace' : 'Import HTML',
+    },
+    {
+      key: 'visibility',
+      title: 'On the desk',
+      state: isPublished ? 'Published to the network' : 'Unpublished — admins only',
+      done: isPublished,
+      action: 'Edit',
+    },
+  ]
+
+  const outstanding = steps.filter(s => !s.done).length
+
+  return (
+    <>
+      <section className="rounded-[18px] border border-[#ECECE6] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECECE6] px-5 py-3.5">
+          <div>
+            <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.08em] text-[#6E6E68]">
+              Client setup
+            </h2>
+            <p className="mt-0.5 text-[13px] text-[#9C9C95]">
+              {outstanding === 0
+                ? 'All four steps done — scouts can work this client.'
+                : `${outstanding} of 4 still to do.`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setTab('roles')
+              setOpen(true)
+            }}
+            className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border border-[#D8D8D0] px-4 text-[13.5px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`}
+          >
+            <Settings2 className="h-4 w-4" />
+            Manage
+          </button>
+        </div>
+
+        <ul className="divide-y divide-[#ECECE6]">
+          {steps.map(step => (
+            <li key={step.key}>
+              <button
+                type="button"
+                onClick={() => {
+                  setTab(step.key)
+                  setOpen(true)
+                }}
+                className={`flex w-full min-h-[58px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
+              >
+                <span aria-hidden className="shrink-0">
+                  {step.done ? (
+                    <Check className="h-4 w-4 text-[#1F4D3A]" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 text-[#C79A2E]" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-medium text-[#161613]">{step.title}</span>
+                  <span
+                    className={`block text-[12.5px] ${step.done ? 'text-[#9C9C95]' : 'text-[#8A6A1F]'}`}
+                  >
+                    {step.state}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[13px] font-semibold text-[#1F4D3A]">
+                  {step.action}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-[#B8B8B0]" aria-hidden />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b border-[#ECECE6] px-5 py-4">
           <SheetTitle className="text-left font-serif text-[19px] font-normal text-[#161613]">
             {companyName}
@@ -474,8 +579,9 @@ export function ManageCompany({
             </div>
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
 

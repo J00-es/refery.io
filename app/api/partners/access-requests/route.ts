@@ -13,6 +13,7 @@ import { resolvePartnerAccess } from '@/lib/partners-access'
 export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json().catch(() => null)
   const companyId = typeof body?.company_id === 'string' ? body.company_id : null

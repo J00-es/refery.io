@@ -28,6 +28,8 @@ export default async function PartnerCompanyPage({
 }) {
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
+  // The desk is super-admin-only while it is being built — see DESK_SUPER_ADMIN_ONLY.
+  if (!access.canUseDesk) notFound()
 
   const { companyId } = await params
   const adminClient = createAdminClient()
@@ -155,28 +157,32 @@ export default async function PartnerCompanyPage({
           </div>
         </div>
 
-        {access.canManage && company.admin && (
-          <div className="shrink-0">
-            <ManageCompany
-              companyId={company.companyId}
-              companyName={company.name}
-              initial={{
-                isPublished: company.admin.isPublished,
-                isActive: company.admin.isActive,
-                anonAlias: company.admin.anonAlias,
-                publicBlurb: company.admin.publicBlurb,
-              }}
-              assignedUserIds={company.assignedUserIds}
-              hasBrief={company.hasBrief}
-              briefId={companyRow.company_brief_id}
-              briefStatus={companyRow.company_brief_status}
-            />
-          </div>
-        )}
       </header>
 
       {company.longBlurb && (
         <p className="max-w-3xl text-[15px] leading-relaxed text-[#6E6E68]">{company.longBlurb}</p>
+      )}
+
+      {/* The setup panel sits here rather than as a button in the header. Every
+          control worked when it was tucked behind "Manage" and none of it was
+          findable, so the four decisions and their current state are on the page
+          itself. */}
+      {access.canManage && company.admin && (
+        <ManageCompany
+          companyId={company.companyId}
+          companyName={company.name}
+          initial={{
+            isPublished: company.admin.isPublished,
+            isActive: company.admin.isActive,
+            anonAlias: company.admin.anonAlias,
+            publicBlurb: company.admin.publicBlurb,
+          }}
+          assignedUserIds={company.assignedUserIds}
+          hasBrief={company.hasBrief}
+          briefId={companyRow.company_brief_id}
+          briefStatus={companyRow.company_brief_status}
+          liveRoles={liveRoles.length}
+        />
       )}
 
       {!!signals.length && (

@@ -58,6 +58,7 @@ function readDrafts(raw: unknown): Draft[] {
 export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const body = await req.json().catch(() => null)
   const jobId = typeof body?.job_id === 'string' ? body.job_id : null

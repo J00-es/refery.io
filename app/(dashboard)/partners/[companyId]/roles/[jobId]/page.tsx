@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { CARD, CHIP, FOCUS } from '@/lib/candidate-ui'
 import { REMOTE_LABELS, formatExperience, formatSalary, seniorityLabel, shortAge, visaSignal } from '@/lib/job-ui'
 import { findBlurb, normalizeBrief, type BriefContent } from '@/lib/brief'
+import { CLOSED_STAGE_VALUES } from '@/lib/pipeline-stages'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
   PRIORITY_META,
@@ -20,6 +21,7 @@ import {
 } from '@/lib/partners'
 import { BriefDocument } from '@/components/partners/brief-document'
 import { CopyButton } from '@/components/partners/copy-button'
+import { MatchedCandidates, type MatchRow } from '@/components/partners/matched-candidates'
 import { ManageRole } from '@/components/partners/manage-role'
 import { RequestAccess } from '@/components/partners/request-access'
 import { SubmissionList } from '@/components/partners/submission-list'
@@ -34,6 +36,8 @@ export default async function PartnerRolePage({
 }) {
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
+  // The desk is super-admin-only while it is being built — see DESK_SUPER_ADMIN_ONLY.
+  if (!access.canUseDesk) notFound()
 
   const { companyId, jobId } = await params
   const adminClient = createAdminClient()
@@ -89,6 +93,82 @@ export default async function PartnerRolePage({
           .or(`job_id.eq.${jobId},job_id.is.null`)
       : Promise.resolve({ data: null }),
   ])
+
+  /*
+    The candidates already paired with this role.
+
+    `job_candidate_pipeline` is where the nightly matcher writes its suggestions —
+    8,170 rows sit at `auto_matched` across the board — and a match is not a
+    submission: nobody has read it and nobody has vouched for it. This section is
+    where the person who owns the candidate turns one into the other.
+
+    Scoped to rows this viewer owns or added, which is the same ownership test
+    `ownsCandidate` applies everywhere else. Anything already submitted drops out;
+    it belongs under Submissions, not back in the queue.
+  */
+  const submittedCandidateIds = new Set(allSubmissions.map(s => s.candidate_id))
+  let matches: MatchRow[] = []
+
+  if (unlocked) {
+    const { data: pipelineRows } = await adminClient
+      .from('job_candidate_pipeline')
+      .select('candidate_id, stage, match_score, match_tier, match_reason, owner_user_id, added_by_user_id')
+      .eq('job_id', jobId)
+      .not('stage', 'in', `(${CLOSED_STAGE_VALUES.join(',')})`)
+
+    const mine = (pipelineRows ?? []).filter(
+      row =>
+        access.seesAllCandidates ||
+        row.owner_user_id === access.appUser.id ||
+        row.added_by_user_id === access.appUser.id,
+    )
+    const candidateIds = mine
+      .map(row => row.candidate_id as string)
+      .filter(id => !submittedCandidateIds.has(id))
+
+    if (candidateIds.length) {
+      const { data: people } = await adminClient
+        .from('candidates')
+        .select('id, name, panel_grade, location, experience_years, owner_user_id')
+        .in('id', candidateIds)
+      const byId = new Map((people ?? []).map(p => [p.id as string, p]))
+
+      // Owner names only for the viewer who is allowed to see across books.
+      const ownerIds = access.seesAllCandidates
+        ? [...new Set(mine.map(r => r.owner_user_id).filter(Boolean) as string[])]
+        : []
+      const { data: owners } = ownerIds.length
+        ? await adminClient.from('users_admin').select('user_id, full_name, email').in('user_id', ownerIds)
+        : { data: [] }
+      const ownerById = new Map(
+        (owners ?? []).map(o => [o.user_id as string, (o.full_name as string) || (o.email as string)]),
+      )
+
+      matches = mine
+        .filter(row => !submittedCandidateIds.has(row.candidate_id as string))
+        .flatMap(row => {
+          const person = byId.get(row.candidate_id as string)
+          if (!person) return []
+          const isMine = row.owner_user_id === access.appUser.id
+          return [
+            {
+              candidateId: row.candidate_id as string,
+              name: person.name as string | null,
+              grade: person.panel_grade as string | null,
+              location: person.location as string | null,
+              experienceYears: person.experience_years as number | null,
+              stage: row.stage as string,
+              matchScore: row.match_score as number | null,
+              matchTier: row.match_tier as string | null,
+              matchReason: row.match_reason as string | null,
+              ownerName: isMine ? null : (ownerById.get(row.owner_user_id as string) ?? null),
+            },
+          ]
+        })
+        // Strongest match first — that is the order anyone reviewing a queue wants.
+        .sort((a, b) => Number(b.matchScore ?? 0) - Number(a.matchScore ?? 0))
+    }
+  }
 
   const events = new Map<string, { to_status: string; note: string | null; created_at: string }[]>()
   for (const event of eventRows ?? []) {
@@ -317,23 +397,49 @@ export default async function PartnerRolePage({
             </section>
           )}
 
+          {/* Matched first, submissions second: the queue you can act on comes
+              before the record of what you already did. */}
+          <section className="space-y-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <div>
+                <h2 className="font-serif text-[22px] font-normal text-[#161613]">
+                  {access.seesAllCandidates ? 'Matched candidates' : 'Your matched candidates'}
+                  <span className="ml-2 text-[15px] text-[#9C9C95]">{matches.length}</span>
+                </h2>
+                <p className="mt-1 max-w-xl text-[13px] leading-relaxed text-[#6E6E68]">
+                  Paired with this search but not yet put forward. A match is a suggestion — tick the
+                  ones you would stand behind and say why.
+                </p>
+              </div>
+              {!closed && slots !== 0 && (
+                <SubmitCandidates
+                  jobId={jobId}
+                  roleTitle={`${role.title} · ${company.name}`}
+                  slotsLeft={slots}
+                  label="Add someone else"
+                />
+              )}
+            </div>
+            <MatchedCandidates
+              jobId={jobId}
+              roleTitle={`${role.title} · ${company.name}`}
+              matches={matches}
+              disabled={closed || slots === 0}
+              disabledReason={
+                closed
+                  ? 'This search is closed, so nothing more can be submitted.'
+                  : 'This search is full. Nothing more can be submitted until a slot frees up.'
+              }
+            />
+          </section>
+
           <section className="space-y-3">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="font-serif text-[22px] font-normal text-[#161613]">
                 {access.seesAllSubmissions ? 'Submissions' : 'Your submissions'}
                 <span className="ml-2 text-[15px] text-[#9C9C95]">{submissions.length}</span>
               </h2>
-              {closed ? (
-                <p className="text-[13px] text-[#9C9C95]">This search is closed.</p>
-              ) : (
-                <SubmitCandidates
-                  jobId={jobId}
-                  roleTitle={`${role.title} · ${company.name}`}
-                  slotsLeft={slots}
-                  disabled={slots === 0}
-                  disabledReason="This search is full. Nothing more can be submitted until a slot frees up."
-                />
-              )}
+              {closed && <p className="text-[13px] text-[#9C9C95]">This search is closed.</p>}
             </div>
             <SubmissionList
               submissions={submissions}

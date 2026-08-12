@@ -23,17 +23,24 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
-// Partners sits directly after Dashboard, ahead of Jobs: it is the handful of
-// searches we are actually retained on, and Jobs is the 29k-role sourced
-// watchlist. Ordering them the other way sends every scout to the noise first.
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/partners', label: 'Partners', icon: Handshake },
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2 },
   { href: '/briefs', label: 'Briefs', icon: Mail },
 ]
+
+/**
+ * Partners is super-admin-only while the desk is still being built, and it sits
+ * first: it is the handful of searches we are actually retained on, where Jobs
+ * is the 29k-role sourced watchlist. Ordering them the other way sends everyone
+ * to the noise first.
+ *
+ * Kept in step with DESK_SUPER_ADMIN_ONLY in lib/partners.ts, which is what the
+ * pages themselves enforce — this only hides the link.
+ */
+const superAdminNavItems = [{ href: '/partners', label: 'Partners', icon: Handshake }]
 
 const adminNavItems = [
   { href: '/outreach', label: 'Outreach', icon: Send },
@@ -67,6 +74,7 @@ const roleLabels: Record<string, { label: string; color: string }> = {
 export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullName }: DashboardNavProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const isSuperAdmin = userRole === 'super_admin'
   const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -96,6 +104,20 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
+            {isSuperAdmin && superAdminNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                  isActiveRoute(item.href)
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -237,6 +259,25 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
 
             {/* Mobile Navigation */}
             <nav className="p-2">
+              {isSuperAdmin && superAdminNavItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                      isActiveRoute(item.href)
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/50'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                    <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                  </Link>
+                )
+              })}
               {navItems.map((item) => {
                 const Icon = item.icon
                 return (

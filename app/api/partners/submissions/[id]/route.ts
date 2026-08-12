@@ -24,6 +24,7 @@ const VALID = new Set(SUBMISSION_STATUSES.map(s => s.value))
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { id } = await params
   const body = await req.json().catch(() => null)

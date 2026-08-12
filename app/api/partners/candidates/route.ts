@@ -19,6 +19,7 @@ import { submissionStatus } from '@/lib/partners'
 export async function GET(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const url = new URL(req.url)
   const jobId = url.searchParams.get('job_id')
