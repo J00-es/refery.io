@@ -47,8 +47,11 @@ export function PartnerCompanyCard({
   )
   const funding = formatMoney(company.lastFundingAmountUsd)
 
+  // The stage chip is rendered separately because it carries its own tint, so
+  // it is kept out of this list rather than sliced off the front of it —
+  // slicing dropped the location on every company with no stage recorded.
+  const stage = stageLabel(company.stage)
   const signals = [
-    stageLabel(company.stage),
     company.location,
     company.industry,
     funding
@@ -99,16 +102,16 @@ export function PartnerCompanyCard({
         </p>
       )}
 
-      {!!signals.length && (
+      {(stage || signals.length > 0) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {stageLabel(company.stage) && (
+          {stage && (
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11.5px] font-medium leading-none ${stageTint(company.stage)}`}
             >
-              {stageLabel(company.stage)}
+              {stage}
             </span>
           )}
-          {signals.slice(1).map(signal => (
+          {signals.map(signal => (
             <span key={signal} className={CHIP}>
               <span className="truncate">{signal}</span>
             </span>
