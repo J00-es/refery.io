@@ -99,7 +99,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
           </tr>
           <tr>
             <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
-              Thanks for signing the Refery recruitment services agreement on behalf of <strong style="color:${M.body}; font-weight:600;">${escapeHtml(d.companyName)}</strong>. You&rsquo;re all set. We&rsquo;ll start working on your roles right away.
+              Thanks for signing the Refery recruitment services agreement on behalf of <strong style="color:${M.body}; font-weight:600;">${escapeHtml(d.companyName)}</strong>. You&rsquo;re all set, and we&rsquo;re looking forward to getting started on your roles.
             </td>
           </tr>
 
@@ -249,7 +249,7 @@ function signerEmailText(d: AgreementEmailData): string {
   return [
     `Hi ${firstName(d.signerName)},`,
     '',
-    `Thanks for signing the Refery recruitment services agreement on behalf of ${d.companyName}. You're all set. We'll start working on your roles right away.`,
+    `Thanks for signing the Refery recruitment services agreement on behalf of ${d.companyName}. You're all set, and we're looking forward to getting started on your roles.`,
     '',
     'At a glance',
     `  Fee: ${d.feePercent}% of first-year base salary`,

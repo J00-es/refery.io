@@ -3,9 +3,12 @@
 export const AGREEMENT_VERSIONS = {
   scout: '1.2.0',
   recruiter: '1.2.0',
-  // v2.6 is the current standard offer: pay 10 business days after the hire's
-  // 90th day, full-refund guarantee, prior-contact carve-out, cancel anytime.
-  client: '2.6',
+  // v2.7 is the current standard offer: pay 10 business days after the hire's
+  // 90th day, full-refund guarantee, cancel anytime, and no fee when someone
+  // reached the candidate before us (v2.7 widened that carve-out from the
+  // client's own pipeline to any earlier introduction, including a rival
+  // agency's, after Alcor Labs asked for first-in-time attribution).
+  client: '2.7',
   // v2.5: negotiated deferred variant (Ergo, Aug 2026). Same shape as v2.6 but
   // a 14-business-day payment window. Kept as its own line so it is never
   // rewritten by a standard bump.
@@ -43,6 +46,7 @@ const CLIENT_VERSION_TIMING: Record<string, ClientPaymentTiming> = {
   '2.4': 'start',
   '2.5': 'day90',
   '2.6': 'net10',
+  '2.7': 'net10',
 }
 
 export function clientPaymentTimingForVersion(version: string): ClientPaymentTiming | null {
@@ -631,7 +635,7 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 
 **2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.
 
-**3. If you already knew them, there's no fee.** Send us something dated, like an application, an ATS record, or an email thread, within 10 business days of the introduction, and we'll close it out.
+**3. If someone reached them before us, there's no fee.** You pay only where our written introduction came first. That means no fee if you already knew a candidate, and no fee if another recruiter introduced them to you first. Send us something dated from before our introduction, like an ATS record, an email, or a LinkedIn message, within 10 business days, and we'll close it out.
 
 **4. Please don't route around us.** The fee still applies if you hire someone we introduced through another agency, as a contractor, or via a sister company. The same goes if someone leaves early and you rehire them within 12 months. Our introduction records are the reference.
 
