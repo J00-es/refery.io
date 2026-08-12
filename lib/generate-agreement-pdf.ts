@@ -1,7 +1,7 @@
 /**
  * PDF rendering for signed Recruitment Services Agreements.
  *
- * Server-only — @react-pdf/renderer pulls in node-only modules. Import only
+ * Server-only. @react-pdf/renderer pulls in node-only modules, so import only
  * inside API routes.
  */
 
@@ -353,9 +353,9 @@ function partnerLabel(t: PartnerAgreementPdfData['partnerType']): string {
 
 function documentTitle(data: AgreementPdfData): string {
   if (data.kind === 'client') {
-    return `Refery Recruitment Services Agreement — ${data.companyName}`
+    return `Refery Recruitment Services Agreement: ${data.companyName}`
   }
-  return `Refery ${partnerLabel(data.partnerType)} Agreement — ${data.signerName}`
+  return `Refery ${partnerLabel(data.partnerType)} Agreement: ${data.signerName}`
 }
 
 function footerLabel(data: AgreementPdfData): string {
@@ -494,7 +494,7 @@ function AgreementDocument(data: AgreementPdfData) {
                 React.createElement(
                   Text,
                   { style: styles.sigValue },
-                  (data as ClientAgreementPdfData).signerTitle || '—',
+                  (data as ClientAgreementPdfData).signerTitle || 'Not given',
                 ),
               )
             : React.createElement(View, { style: styles.sigField }),
@@ -523,7 +523,7 @@ function AgreementDocument(data: AgreementPdfData) {
             React.createElement(
               Text,
               { style: styles.sigValue },
-              data.ipAddress || '—',
+              data.ipAddress || 'Not recorded',
             ),
           ),
           React.createElement(
