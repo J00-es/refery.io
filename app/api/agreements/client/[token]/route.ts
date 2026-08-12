@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
+  AGREEMENT_VERSIONS,
   clientPaymentTimingForVersion,
   clientUpgradeTarget,
   formatFeePercent,
@@ -38,25 +39,35 @@ function getIp(request: NextRequest): string | null {
 }
 
 /**
- * Rewrite an unsigned link onto the newest document for its line, so a client
- * opening a months-old link sees today's terms. Negotiated versions are left
- * alone. See clientUpgradeTarget().
+ * Bring an unsigned link up to date, so a client opening a months-old link sees
+ * today's terms.
+ *
+ * This compares the stored content hash against a freshly generated one rather
+ * than comparing version numbers. Version-only comparison silently served stale
+ * text whenever a document was edited without a version bump (a wording fix, or
+ * a change to the link's fee), because the version already matched.
+ *
+ * Negotiated versions are pinned exactly as they were sent. See
+ * clientUpgradeTarget().
  */
-async function upgradeIfStale(
+async function refreshIfStale(
   admin: ReturnType<typeof createAdminClient>,
   link: { id: string; company_name: string; agreement_version: string; agreement_content: string; agreement_hash: string },
   feePercent: number,
 ): Promise<{ content: string; version: string; hash: string }> {
-  const target = clientUpgradeTarget(link.agreement_version)
-  const timing = target ? clientPaymentTimingForVersion(target) : null
-
-  if (!target || !timing) {
-    return {
-      content: link.agreement_content,
-      version: link.agreement_version,
-      hash: link.agreement_hash,
-    }
+  const stored = {
+    content: link.agreement_content,
+    version: link.agreement_version,
+    hash: link.agreement_hash,
   }
+
+  // Roll onto the current standard if this link is on an older line, otherwise
+  // re-render the version it is already on.
+  const targetVersion = clientUpgradeTarget(link.agreement_version) ?? link.agreement_version
+  const timing = clientPaymentTimingForVersion(targetVersion)
+
+  // Negotiated or unrecognised versions are left exactly as issued.
+  if (!timing || targetVersion === AGREEMENT_VERSIONS.clientDeferred) return stored
 
   const content = generateClientAgreementText(link.company_name, {
     feePercent,
@@ -64,26 +75,24 @@ async function upgradeIfStale(
   })
   const hash = await generateAgreementHash(content)
 
+  if (hash === stored.hash && targetVersion === stored.version) return stored
+
   const { error } = await admin
     .from('client_agreement_links')
     .update({
       agreement_content: content,
-      agreement_version: target,
+      agreement_version: targetVersion,
       agreement_hash: hash,
       updated_at: new Date().toISOString(),
     })
     .eq('id', link.id)
 
   if (error) {
-    console.error('[agreements/client] upgrade failed, serving stored version:', error)
-    return {
-      content: link.agreement_content,
-      version: link.agreement_version,
-      hash: link.agreement_hash,
-    }
+    console.error('[agreements/client] refresh failed, serving stored version:', error)
+    return stored
   }
 
-  return { content, version: target, hash }
+  return { content, version: targetVersion, hash }
 }
 
 // GET: load agreement for the public sign page. Token IS the auth.
@@ -132,7 +141,7 @@ export async function GET(
     }
 
     const feePercent = Number(link.fee_percentage)
-    const { content, version, hash } = await upgradeIfStale(adminClient, link, feePercent)
+    const { content, version, hash } = await refreshIfStale(adminClient, link, feePercent)
 
     const ip = getIp(request)
     const userAgent = request.headers.get('user-agent')
@@ -254,13 +263,13 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid signer_email' }, { status: 400 })
     }
 
-    // Re-upgrade defensively on POST, by the same rule as GET.
+    // Re-check on POST, by the same rule as GET.
     const feePercent = Number(link.fee_percentage)
     const {
       content: storedContent,
       version: storedVersion,
       hash: storedHash,
-    } = await upgradeIfStale(adminClient, link, feePercent)
+    } = await refreshIfStale(adminClient, link, feePercent)
 
     // Integrity check
     const computedHash = await generateAgreementHash(storedContent)
