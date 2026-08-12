@@ -265,7 +265,7 @@ export default async function PartnerCompanyPage({
         {liveRoles.length === 0 ? (
           <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-8 text-center text-[14px] text-[#6E6E68]">
             {access.canManage
-              ? 'No roles are on the desk for this client yet. Open Manage → Roles and tick the ones we have a mandate on.'
+              ? 'No roles are on the desk for this client yet. Use “Pick roles” in the setup panel above and tick the ones we have a mandate on.'
               : 'Nothing is live for this client at the moment.'}
           </p>
         ) : (

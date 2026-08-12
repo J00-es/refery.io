@@ -487,9 +487,20 @@ export default async function PartnerRolePage({
             </section>
           ) : (
             <p className="rounded-[18px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-5 py-6 text-center text-[13.5px] leading-relaxed text-[#6E6E68]">
-              {access.canManage
-                ? 'No brief has been imported for this client yet. Open Manage → Scout brief on the client page.'
-                : 'No scout brief has been published for this client yet. Ask Refery for the detail before you approach anyone.'}
+              {access.canManage ? (
+                <>
+                  No brief has been imported for this client yet.{' '}
+                  <Link
+                    href={`/partners/${companyId}`}
+                    className={`font-semibold text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
+                  >
+                    Import one from the client setup panel
+                  </Link>
+                  .
+                </>
+              ) : (
+                'No scout brief has been published for this client yet. Ask Refery for the detail before you approach anyone.'
+              )}
             </p>
           )}
         </>
