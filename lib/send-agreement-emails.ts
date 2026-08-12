@@ -11,6 +11,7 @@
  */
 
 import { Resend } from 'resend'
+import { clientTermsSummary } from '@/lib/agreements'
 
 const FROM_DEFAULT = 'Refery <agreements@refery.io>'
 const ADMIN_INBOX = 'lily@refery.io'
@@ -121,7 +122,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Payment</td>
-                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">30 days after start date</td>
+                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">${escapeHtml(clientTermsSummary(d.version).payment)}</td>
                       </tr>
                     </table>
                   </td>
@@ -131,7 +132,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Guarantee</td>
-                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">90-day free replacement search</td>
+                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">${escapeHtml(clientTermsSummary(d.version).guarantee)}</td>
                       </tr>
                     </table>
                   </td>
@@ -252,8 +253,8 @@ function signerEmailText(d: AgreementEmailData): string {
     '',
     'At a glance',
     `  Fee: ${d.feePercent}% of first-year base salary`,
-    '  Payment: 30 days after start date',
-    '  Guarantee: 90-day free replacement search',
+    `  Payment: ${clientTermsSummary(d.version).payment}`,
+    `  Guarantee: ${clientTermsSummary(d.version).guarantee}`,
     '',
     `Signed by: ${d.signerName}${d.signerTitle ? `, ${d.signerTitle}` : ''}`,
     `Signed on: ${d.signedAtHuman}`,

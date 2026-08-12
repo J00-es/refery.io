@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase/server'
 import {
-  AGREEMENT_VERSIONS,
+  ClientPaymentTiming,
   DEFAULT_CLIENT_TERMS,
+  clientAgreementVersion,
   generateAgreementHash,
   generateClientAgreementText,
   generateSigningToken,
 } from '@/lib/agreements'
+import { logAgreementEvent } from '@/lib/agreement-events'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 const LINK_TTL_DAYS = 30
@@ -18,6 +20,7 @@ interface CreateBody {
   recipient_name?: string
   recipient_email?: string
   fee_percent?: number
+  payment_timing?: ClientPaymentTiming
 }
 
 function isValidEmail(s: string): boolean {
@@ -33,20 +36,20 @@ export async function POST(request: NextRequest) {
   }
 
   const companyId = (body.company_id || '').trim()
-  const recipientName = (body.recipient_name || '').trim()
-  const recipientEmail = (body.recipient_email || '').trim()
+  // Recipient is optional. Leaving both blank issues an "open" link: whoever
+  // has signing authority fills in their own name and email at signing time,
+  // so a link never has to be reissued because the signer changed.
+  const recipientName = (body.recipient_name || '').trim() || null
+  const recipientEmail = (body.recipient_email || '').trim() || null
   const feePercent =
     body.fee_percent !== undefined && body.fee_percent !== null
       ? Number(body.fee_percent)
       : DEFAULT_CLIENT_TERMS.feePercentage
 
-  if (!companyId || !recipientName || !recipientEmail) {
-    return NextResponse.json(
-      { error: 'company_id, recipient_name, and recipient_email are required' },
-      { status: 400 },
-    )
+  if (!companyId) {
+    return NextResponse.json({ error: 'company_id is required' }, { status: 400 })
   }
-  if (!isValidEmail(recipientEmail)) {
+  if (recipientEmail && !isValidEmail(recipientEmail)) {
     return NextResponse.json({ error: 'Invalid recipient_email' }, { status: 400 })
   }
   if (
@@ -56,6 +59,14 @@ export async function POST(request: NextRequest) {
   ) {
     return NextResponse.json(
       { error: 'fee_percent must be a number between 1 and 50' },
+      { status: 400 },
+    )
+  }
+
+  const paymentTiming: ClientPaymentTiming = body.payment_timing ?? 'net10'
+  if (!['start', 'day90', 'net10'].includes(paymentTiming)) {
+    return NextResponse.json(
+      { error: "payment_timing must be 'net10', 'day90', or 'start'" },
       { status: 400 },
     )
   }
@@ -94,7 +105,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Company not found' }, { status: 404 })
   }
 
-  const content = generateClientAgreementText(company.name, { feePercent })
+  const content = generateClientAgreementText(company.name, { feePercent, paymentTiming })
   const hash = await generateAgreementHash(content)
   const token = generateSigningToken()
   const now = new Date()
@@ -108,11 +119,14 @@ export async function POST(request: NextRequest) {
       company_name: company.name,
       recipient_name: recipientName,
       recipient_email: recipientEmail,
-      agreement_version: AGREEMENT_VERSIONS.client,
+      agreement_version: clientAgreementVersion(paymentTiming),
       agreement_hash: hash,
       agreement_content: content,
       fee_percentage: feePercent,
-      payment_window_days: DEFAULT_CLIENT_TERMS.paymentWindowDays,
+      // On the deferred models this counts business days from day 90, not
+      // calendar days from the start date — the agreement text is the authority.
+      payment_window_days:
+        paymentTiming === 'day90' ? 14 : paymentTiming === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,
       guarantee_days: DEFAULT_CLIENT_TERMS.guaranteeDays,
       intro_validity_months: DEFAULT_CLIENT_TERMS.introValidityMonths,
@@ -131,6 +145,17 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     )
   }
+
+  await logAgreementEvent(adminClient, {
+    linkId: link.id,
+    companyId: company.id,
+    eventType: 'created',
+    metadata: {
+      version: clientAgreementVersion(paymentTiming),
+      fee_percent: feePercent,
+      open_link: !recipientName && !recipientEmail,
+    },
+  })
 
   const origin = request.nextUrl.origin
   return NextResponse.json({

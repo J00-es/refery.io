@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
-  AGREEMENT_VERSIONS,
+  clientPaymentTimingForVersion,
+  clientUpgradeTarget,
   formatFeePercent,
   generateAgreementHash,
   generateClientAgreementText,
 } from '@/lib/agreements'
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendAgreementEmails } from '@/lib/send-agreement-emails'
+import { isLikelyBot, logAgreementEvent } from '@/lib/agreement-events'
+import { sendAgreementActivityEmail } from '@/lib/send-agreement-activity-email'
 
 export const dynamic = 'force-dynamic'
 // PDF rendering + email send takes a few seconds — bump Vercel function ceiling.
@@ -28,25 +31,64 @@ function slugify(name: string): string {
   )
 }
 
-function isNewer(a: string, b: string): boolean {
-  const pa = a.split('.').map((n) => parseInt(n, 10) || 0)
-  const pb = b.split('.').map((n) => parseInt(n, 10) || 0)
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true
-    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false
-  }
-  return false
-}
-
 function getIp(request: NextRequest): string | null {
   const fwd = request.headers.get('x-forwarded-for')
   if (fwd) return fwd.split(',')[0].trim()
   return request.headers.get('x-real-ip')
 }
 
+/**
+ * Rewrite an unsigned link onto the newest document for its line, so a client
+ * opening a months-old link sees today's terms. Negotiated versions are left
+ * alone — see clientUpgradeTarget().
+ */
+async function upgradeIfStale(
+  admin: ReturnType<typeof createAdminClient>,
+  link: { id: string; company_name: string; agreement_version: string; agreement_content: string; agreement_hash: string },
+  feePercent: number,
+): Promise<{ content: string; version: string; hash: string }> {
+  const target = clientUpgradeTarget(link.agreement_version)
+  const timing = target ? clientPaymentTimingForVersion(target) : null
+
+  if (!target || !timing) {
+    return {
+      content: link.agreement_content,
+      version: link.agreement_version,
+      hash: link.agreement_hash,
+    }
+  }
+
+  const content = generateClientAgreementText(link.company_name, {
+    feePercent,
+    paymentTiming: timing,
+  })
+  const hash = await generateAgreementHash(content)
+
+  const { error } = await admin
+    .from('client_agreement_links')
+    .update({
+      agreement_content: content,
+      agreement_version: target,
+      agreement_hash: hash,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', link.id)
+
+  if (error) {
+    console.error('[agreements/client] upgrade failed, serving stored version:', error)
+    return {
+      content: link.agreement_content,
+      version: link.agreement_version,
+      hash: link.agreement_hash,
+    }
+  }
+
+  return { content, version: target, hash }
+}
+
 // GET — load agreement for the public sign page. Token IS the auth.
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   try {
@@ -89,46 +131,54 @@ export async function GET(
       )
     }
 
-    // Auto-upgrade unsigned links to the latest version, matching the partner
-    // flow in /api/agreements/public/[token].
-    let content: string = link.agreement_content
-    let version: string = link.agreement_version
-    let hash: string = link.agreement_hash
     const feePercent = Number(link.fee_percentage)
-    const latestVersion = AGREEMENT_VERSIONS.client
+    const { content, version, hash } = await upgradeIfStale(adminClient, link, feePercent)
 
-    if (isNewer(latestVersion, version)) {
-      const latestContent = generateClientAgreementText(link.company_name, {
-        feePercent,
-      })
-      const latestHash = await generateAgreementHash(latestContent)
+    const ip = getIp(request)
+    const userAgent = request.headers.get('user-agent')
 
-      const { error: upgradeError } = await adminClient
-        .from('client_agreement_links')
-        .update({
-          agreement_content: latestContent,
-          agreement_version: latestVersion,
-          agreement_hash: latestHash,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', link.id)
+    // Log the open and alert the admin. Mail scanners and link previewers fetch
+    // this URL too, so they are filtered out rather than reported as opens.
+    if (!isLikelyBot(userAgent)) {
+      const nowIso = new Date().toISOString()
 
-      if (!upgradeError) {
-        content = latestContent
-        version = latestVersion
-        hash = latestHash
+      if (link.status === 'sent') {
+        await adminClient
+          .from('client_agreement_links')
+          .update({ status: 'viewed', viewed_at: nowIso, updated_at: nowIso })
+          .eq('id', link.id)
       }
-    }
 
-    if (link.status === 'sent') {
-      await adminClient
-        .from('client_agreement_links')
-        .update({
-          status: 'viewed',
-          viewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+      const logged = await logAgreementEvent(adminClient, {
+        linkId: link.id,
+        companyId: link.company_id,
+        eventType: 'viewed',
+        ipAddress: ip,
+        userAgent,
+        metadata: { version },
+      })
+
+      if (logged.logged) {
+        const origin = request.nextUrl.origin
+        const result = await sendAgreementActivityEmail({
+          companyName: link.company_name,
+          recipientLabel: link.recipient_name
+            ? `${link.recipient_name}${link.recipient_email ? ` (${link.recipient_email})` : ''}`
+            : null,
+          eventType: 'viewed',
+          seq: logged.seq,
+          device: logged.device,
+          ipAddress: ip,
+          occurredAtHuman: new Date().toUTCString().replace(' GMT', ' UTC'),
+          version,
+          feePercent: formatFeePercent(feePercent),
+          companyUrl: `${origin}/companies/${link.company_id}`,
+          signUrl: `${origin}/sign/client-agreement/${token}`,
         })
-        .eq('id', link.id)
+        if (!result.sent) {
+          console.error('[agreements/client GET] activity email failed:', result.error)
+        }
+      }
     }
 
     return NextResponse.json({
@@ -197,33 +247,13 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid signer_email' }, { status: 400 })
     }
 
-    // Re-upgrade defensively on POST (mirrors partner flow).
-    let storedContent: string = link.agreement_content
-    let storedVersion: string = link.agreement_version
-    let storedHash: string = link.agreement_hash
+    // Re-upgrade defensively on POST, by the same rule as GET.
     const feePercent = Number(link.fee_percentage)
-    const latestVersion = AGREEMENT_VERSIONS.client
-
-    if (isNewer(latestVersion, storedVersion)) {
-      const latestContent = generateClientAgreementText(link.company_name, {
-        feePercent,
-      })
-      const latestHash = await generateAgreementHash(latestContent)
-      const { error: upgradeError } = await adminClient
-        .from('client_agreement_links')
-        .update({
-          agreement_content: latestContent,
-          agreement_version: latestVersion,
-          agreement_hash: latestHash,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', link.id)
-      if (!upgradeError) {
-        storedContent = latestContent
-        storedVersion = latestVersion
-        storedHash = latestHash
-      }
-    }
+    const {
+      content: storedContent,
+      version: storedVersion,
+      hash: storedHash,
+    } = await upgradeIfStale(adminClient, link, feePercent)
 
     // Integrity check
     const computedHash = await generateAgreementHash(storedContent)
@@ -281,6 +311,40 @@ export async function POST(
         updated_at: signedAtIso,
       })
       .eq('id', link.id)
+
+    // Audit trail + instant alert. Best-effort: the signature is already saved.
+    const signedEvent = await logAgreementEvent(adminClient, {
+      linkId: link.id,
+      companyId: link.company_id,
+      eventType: 'signed',
+      ipAddress: ip,
+      userAgent,
+      metadata: {
+        signer_name: signerName,
+        signer_email: signerEmail,
+        signer_title: signerTitle,
+        version: storedVersion,
+      },
+    })
+    if (signedEvent.logged) {
+      const origin = request.nextUrl.origin
+      const activity = await sendAgreementActivityEmail({
+        companyName: link.company_name,
+        recipientLabel: `${signerName}${signerTitle ? `, ${signerTitle}` : ''} (${signerEmail})`,
+        eventType: 'signed',
+        seq: signedEvent.seq,
+        device: signedEvent.device,
+        ipAddress: ip,
+        occurredAtHuman: signedAt.toUTCString().replace(' GMT', ' UTC'),
+        version: storedVersion,
+        feePercent: formatFeePercent(feePercent),
+        companyUrl: `${origin}/companies/${link.company_id}`,
+        signUrl: `${origin}/sign/client-agreement/${token}`,
+      })
+      if (!activity.sent) {
+        console.error('[agreements/client POST] activity email failed:', activity.error)
+      }
+    }
 
     // Generate PDF + upload + signed URL. Failures here are logged but don't
     // fail the signing — the signature is already recorded.

@@ -3,8 +3,88 @@
 export const AGREEMENT_VERSIONS = {
   scout: '1.2.0',
   recruiter: '1.2.0',
-  client: '2.4',
+  // v2.6 is the current standard offer: pay 10 business days after the hire's
+  // 90th day, full-refund guarantee, prior-contact carve-out, cancel anytime.
+  client: '2.6',
+  // v2.5 — negotiated deferred variant (Ergo, Aug 2026). Same shape as v2.6 but
+  // a 14-business-day payment window. Kept as its own line so it is never
+  // rewritten by a standard bump.
+  clientDeferred: '2.5',
+  // v2.4 — the previous standard (pay 30 days after start, replacement-search
+  // guarantee). No new links are issued on it; unsigned ones upgrade to v2.6.
+  clientLegacy: '2.4',
 } as const
+
+// Which payment/guarantee model a client agreement uses.
+//   'start' — v2.4: fee due 30 days after the start date, replacement-search guarantee.
+//   'day90' — v2.5: fee due 14 business days after day 90, full-refund guarantee.
+//   'net10' — v2.6: fee due 10 business days after day 90, full-refund guarantee.
+//
+// 10 business days is not arbitrary. The signed partner agreements owe partners
+// their payout "within 14 business days after the candidate completes 90 days,
+// once Refery has collected" — and recruiter §13 makes partner payment timing
+// consent-protected. Collecting on day ~104 keeps that promise intact without
+// renegotiating it.
+export type ClientPaymentTiming = 'start' | 'day90' | 'net10'
+
+const TIMING_VERSION: Record<ClientPaymentTiming, string> = {
+  start: AGREEMENT_VERSIONS.clientLegacy,
+  day90: AGREEMENT_VERSIONS.clientDeferred,
+  net10: AGREEMENT_VERSIONS.client,
+}
+
+export function clientAgreementVersion(timing: ClientPaymentTiming): string {
+  return TIMING_VERSION[timing]
+}
+
+// Which model an already-issued version belongs to, so a link always renders
+// the document it was issued under.
+const CLIENT_VERSION_TIMING: Record<string, ClientPaymentTiming> = {
+  '2.4': 'start',
+  '2.5': 'day90',
+  '2.6': 'net10',
+}
+
+export function clientPaymentTimingForVersion(version: string): ClientPaymentTiming | null {
+  return CLIENT_VERSION_TIMING[version] ?? null
+}
+
+// Versions that were individually negotiated. An unsigned link on one of these
+// must never be auto-rewritten to the standard offer — that would silently undo
+// the negotiation. Everything else sits on the standard line.
+const NEGOTIATED_CLIENT_VERSIONS = new Set<string>([AGREEMENT_VERSIONS.clientDeferred])
+
+// The version an unsigned link should be upgraded to when viewed, or null to
+// leave it alone. Standard-line links (legacy v1.x, v2.4) roll forward to the
+// current standard so a client who finally opens an old link sees today's terms.
+export function clientUpgradeTarget(version: string): string | null {
+  if (NEGOTIATED_CLIENT_VERSIONS.has(version)) return null
+  if (version === AGREEMENT_VERSIONS.client) return null
+  return AGREEMENT_VERSIONS.client
+}
+
+// One-line payment/guarantee summaries for the post-signature email and PDF.
+// Keep these in step with the "short version" table in each document — a signer
+// must never be told terms that differ from what they signed.
+export function clientTermsSummary(version: string): { payment: string; guarantee: string } {
+  switch (clientPaymentTimingForVersion(version)) {
+    case 'net10':
+      return {
+        payment: '10 business days after the 90th day',
+        guarantee: 'No fee if the hire leaves within 90 days',
+      }
+    case 'day90':
+      return {
+        payment: '14 business days after the 90th day of employment',
+        guarantee: 'No fee if the hire leaves within 90 days',
+      }
+    default:
+      return {
+        payment: '30 days after start date',
+        guarantee: '90-day free replacement search',
+      }
+  }
+}
 
 export type AgreementType = 'scout' | 'recruiter'
 export type ClientAgreementType = 'client'
@@ -68,12 +148,20 @@ export interface ClientAgreementTerms {
 }
 
 export const DEFAULT_CLIENT_TERMS: ClientAgreementTerms = {
-  feePercentage: 20,
+  // 10% is what every recent deal actually goes out at; the old 20% default
+  // meant the real number had to be passed in on every call.
+  feePercentage: 10,
   paymentWindowDays: 30,
   lateFeePct: 1.5,
   guaranteeDays: 90,
-  introValidityMonths: 24,
+  // 12, not 24: the client body text has always said "hired within 12 months
+  // of introduction". This column is a denormalized summary of that text, and
+  // read 24 by mistake on every link issued before Aug 2026.
+  introValidityMonths: 12,
 }
+
+// Business days between the hire's 90th day and the payment due date on v2.6.
+export const STANDARD_PAYMENT_BUSINESS_DAYS = 10
 
 export interface AgreementLink {
   id: string
@@ -492,21 +580,120 @@ export function formatFeePercent(pct: number): string {
   return Number.isInteger(pct) ? String(pct) : pct.toFixed(1)
 }
 
-// v2.4 Recruitment Services Agreement. Uses the same lightweight markup as the
+// Recruitment Services Agreement. Uses the same lightweight markup as the
 // scout/recruiter agreements (parsed by <AgreementContent />), plus a markdown
-// table for the "At a glance" block. The {FEE_PERCENT} placeholder is the only
-// configurable term — all other values (30-day payment, 90-day guarantee,
-// 12-month intro window) are baked into the text per v2.4.
+// table for the "At a glance" block. Two configurable terms: the fee percent,
+// and the payment/guarantee model (see ClientPaymentTiming). Everything else —
+// 90-day guarantee, 12-month intro window — is baked into the text.
 export function generateClientAgreementText(
   companyName: string,
-  options: { feePercent?: number } = {},
+  options: { feePercent?: number; paymentTiming?: ClientPaymentTiming } = {},
 ): string {
   const feePercent = options.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
+  const timing = options.paymentTiming ?? 'net10'
+  if (timing === 'net10') {
+    return generateStandardClientAgreement(companyName, feePercent)
+  }
+  return generateLegacyClientAgreement(companyName, feePercent, timing)
+}
+
+/**
+ * v2.6 — the current standard offer.
+ *
+ * Written to be signed by the one operator in the room rather than routed to
+ * counsel: plain words, short sentences, the whole commercial deal visible in
+ * the table before any prose. Refery's three real protections are all still
+ * here — attribution (§1, §4), collectability (§1 reporting duty, §4
+ * re-engagement), and confidentiality (§5) — they are just no longer buried.
+ */
+function generateStandardClientAgreement(companyName: string, feePercent: number): string {
   const fee = formatFeePercent(feePercent)
+
+  return `# Recruitment Services Agreement
+
+**v${AGREEMENT_VERSIONS.client}** · Refery & ${companyName} · The table below is the whole deal
+
+We keep this short on purpose. This is the entire agreement, and it covers every role you hire for with us.
+
+## The short version
+
+| | |
+|---|---|
+| **What it costs** | Nothing, unless you hire someone we introduce |
+| **The fee** | ${fee}% of their first-year base salary |
+| **When you pay** | 10 business days after their 90th day with you |
+| **If it doesn't work out** | Gone within 90 days? You owe nothing, and anything paid comes back |
+| **Commitment** | None — no exclusivity, no minimums, cancel anytime |
+
+## The details
+
+**1. You only pay for a hire who stays.** Hire someone we introduced — any role, within 12 months of the introduction — and the fee is ${fee}% of their first-year base salary, from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, with their start date and salary. Late invoices add 1.5% a month.
+
+**2. If they leave within 90 days, you owe nothing.** Any reason — they resign, wrong fit, the role changed, you had to restructure. No exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.
+
+**3. If you already knew them, there's no fee.** Send us something dated — an application, an ATS record, an email — within 10 business days of the introduction, and we'll close it out.
+
+**4. Please don't route around us.** The fee still applies if you hire someone we introduced through another agency, as a contractor, or via a sister company — or if someone leaves early and you rehire them within 12 months. Our introduction records are the reference.
+
+**5. We keep your details private.** Your name, roles, team, pay, and plans stay confidential, and we never post your roles publicly. Candidates learn who you are only after vetting and signing our confidentiality terms. Please do the same with candidate information. This continues after the agreement ends.
+
+**6. How we use AI.** We use AI to read resumes and match people to roles, with providers like Anthropic, OpenAI, and Google under confidentiality terms. We don't sell your data or let it train public models. **Every hiring decision is yours**, as is your hiring process and the employment law that applies to you.
+
+**7. The legal basics.** Our service is provided as-is, and we can't promise any particular hire. Each of us covers claims from our own serious mistakes or breach, capped at the greater of what you've paid us in the last 12 months or the fee on the placement in question. Delaware law. Disputes go to individual arbitration (AAA, remote, no class actions); small claims court stays open to both of us. If any part fails, the rest stands.
+
+**8. Leaving is easy.** Either of us can end this in writing at any time, effective immediately. Three things carry on: fees for anyone already hired, the 12-month window on introductions already made, and confidentiality. We may update operating details with 30 days' notice, but anything touching fees or payment needs your say-so. If Refery is acquired, this moves with us.
+
+## Sign
+
+Add your name and email below and click Accept — a legally binding signature under the E-SIGN Act and UETA. Questions any time: **legal@refery.io**.
+
+We're glad you're here.`
+}
+
+/** v2.4 / v2.5 — previous standard and the negotiated deferred variant. */
+function generateLegacyClientAgreement(
+  companyName: string,
+  feePercent: number,
+  timing: 'start' | 'day90',
+): string {
+  const fee = formatFeePercent(feePercent)
+  const version = clientAgreementVersion(timing)
+  const deferred = timing === 'day90'
+
+  // Sections 1, 2, 3 and 8 carry the whole difference between the two models.
+  // Sections 4-7 are identical, so the skeleton below is shared.
+  const glancePayment = deferred
+    ? `Due 14 business days after the candidate's 90th day`
+    : `Due 30 days after candidate's start date`
+  const glanceGuarantee = deferred
+    ? `No fee if the hire doesn't start or leaves within 90 days`
+    : `Free replacement search if hire leaves within 90 days`
+
+  const section1 = deferred
+    ? `**1. Fee and payment.** When a candidate introduced by Refery or its partners is hired by Client within 12 months of introduction, for any role in any department, Client pays Refery ${fee}% of the candidate's first-year annual base salary as stated in the executed offer letter. Signing bonuses, equity, commissions, and other variable compensation are excluded. Payment is due within 14 business days after the candidate's 90th day of employment — the same window in which Refery pays the recruiting partner who sourced them. If the candidate never starts, or leaves before day 90, no fee is owed (Section 2). Day 90 is the 90th calendar day after the start date; approved leave under Client's policies (medical, parental, or military) doesn't interrupt it. Client will notify Refery in writing of the accepted offer, start date, and base salary within 5 business days of offer acceptance. Overdue balances accrue interest at 1.5% per month, or the maximum rate permitted by law, whichever is lower.`
+    : `**1. Fee and payment.** When a candidate introduced by Refery or its partners is hired by Client within 12 months of introduction, for any role in any department, Client pays Refery ${fee}% of the candidate's first-year annual base salary. Signing bonuses, equity, commissions, and variable compensation are excluded. Payment is due within 30 calendar days of the candidate's start date. Overdue balances accrue interest at 1.5% per month, or the maximum rate permitted by law, whichever is lower.`
+
+  const section2 = deferred
+    ? `**2. 90-day guarantee.** If the placed candidate's employment ends for any reason within 90 days of starting, no fee is owed, and any fee already paid is refunded in full within 30 days. There are no exclusions — resignation, performance, restructuring, and layoff all count equally. Client will notify Refery within 10 business days of the departure. The one exception is re-engagement, covered in Section 3.`
+    : `**2. 90-day guarantee.** If the placed candidate's employment ends within 90 days of starting due to resignation, performance, or termination for cause, Refery will conduct a free replacement search to fill the same role at no additional placement fee. Notify Refery within 14 business days of departure. The guarantee doesn't apply where the role, compensation, or working conditions materially changed from the original listing, or where departure resulted from layoffs, restructuring, or reduction in force. The guarantee is conditioned on Client not being materially overdue on undisputed payment obligations.`
+
+  // The re-engagement sentence is what keeps the "no fee if they leave" promise
+  // from being a free-hire loophole (hire, part ways at day 80, rehire later).
+  const reEngagement = deferred
+    ? ` It also remains due if a candidate who never started, or who left within 90 days, is re-engaged by Client or an affiliate in any capacity within 12 months; the fee is then payable 14 business days after that engagement's 90th day.`
+    : ``
+
+  const termination = deferred
+    ? `Either party may terminate at any time on written notice, effective immediately, and Refery stops making introductions on termination.`
+    : `Either party may terminate on 30 days' written notice.`
+
+  const survival = deferred
+    ? `Termination doesn't cancel: fees owed, the 12-month introduction window for candidates introduced before the termination date, active guarantees, or the obligations in Sections 4 (Confidentiality) and 5 (AI).`
+    : `Termination doesn't cancel: fees owed, the 12-month introduction window for already-introduced candidates, active guarantees, or the obligations in Sections 4 (Confidentiality) and 5 (AI).`
 
   return `# RECRUITMENT SERVICES AGREEMENT
 
-**v${AGREEMENT_VERSIONS.client}** · Effective on electronic acceptance · ~90-second read
+**v${version}** · Effective on electronic acceptance · ~90-second read
 
 This Agreement is between **Refery** ("Platform") and ${companyName} ("Client"). It covers every role Client submits through Refery, now and in the future. One agreement, all roles.
 
@@ -515,16 +702,16 @@ This Agreement is between **Refery** ("Platform") and ${companyName} ("Client").
 | | |
 |---|---|
 | **Fee** | ${fee}% of first-year base salary |
-| **Payment** | Due 30 days after candidate's start date |
-| **Guarantee** | Free replacement search if hire leaves within 90 days |
+| **Payment** | ${glancePayment} |
+| **Guarantee** | ${glanceGuarantee} |
 
 ## Terms
 
-**1. Fee and payment.** When a candidate introduced by Refery or its partners is hired by Client within 12 months of introduction, for any role in any department, Client pays Refery ${fee}% of the candidate's first-year annual base salary. Signing bonuses, equity, commissions, and variable compensation are excluded. Payment is due within 30 calendar days of the candidate's start date. Overdue balances accrue interest at 1.5% per month, or the maximum rate permitted by law, whichever is lower.
+${section1}
 
-**2. 90-day guarantee.** If the placed candidate's employment ends within 90 days of starting due to resignation, performance, or termination for cause, Refery will conduct a free replacement search to fill the same role at no additional placement fee. Notify Refery within 14 business days of departure. The guarantee doesn't apply where the role, compensation, or working conditions materially changed from the original listing, or where departure resulted from layoffs, restructuring, or reduction in force. The guarantee is conditioned on Client not being materially overdue on undisputed payment obligations.
+${section2}
 
-**3. Anti-circumvention.** Client agrees not to hire an introduced candidate through any channel that bypasses Refery, including direct contact, other agencies, contractor arrangements, or hiring through affiliates. The full placement fee remains due in any such case. Refery's platform records, emails, and written introduction records constitute prima facie evidence of the date and fact of introduction.
+**3. Anti-circumvention.** Client agrees not to hire an introduced candidate through any channel that bypasses Refery, including direct contact, other agencies, contractor arrangements, or hiring through affiliates. The full placement fee remains due in any such case.${reEngagement} Refery's platform records, emails, and written introduction records constitute prima facie evidence of the date and fact of introduction.
 
 **4. Confidentiality.** Refery and every recruiter and scout on its platform are contractually bound to hold Client's information confidential. Company name, role details, hiring manager identities, compensation, and team information aren't shared publicly or posted on job boards, and aren't disclosed to candidates until those candidates pass Refery's Talent Committee vetting and sign Refery's Candidate Confidentiality Acknowledgment. In turn, Client treats all candidate information received from Refery as confidential and uses it only to evaluate candidates for employment. Both obligations survive termination of this Agreement.
 
@@ -534,7 +721,7 @@ This Agreement is between **Refery** ("Platform") and ${companyName} ("Client").
 
 **7. Disputes.** This Agreement is governed by Delaware law, without regard to conflicts-of-law rules. Disputes will be resolved by binding individual arbitration under the American Arbitration Association (AAA) Commercial Arbitration Rules, conducted remotely. Both parties waive any right to class actions or class-wide arbitration. Either party may bring claims in small claims court or seek injunctive relief in court without first arbitrating. Neither party is liable for delays or failures caused by events beyond reasonable control.
 
-**8. General.** Either party may terminate on 30 days' written notice. Termination doesn't cancel: fees owed, the 12-month introduction window for already-introduced candidates, active guarantees, or the obligations in Sections 4 (Confidentiality) and 5 (AI). Refery may update operational terms (such as platform features and rules) with 30 days' notice. Material changes to fees, payment terms, or core obligations require Client's affirmative consent. If Client objects to any update, Client may terminate without penalty during the notice period. Refery may assign this Agreement to a successor entity in a merger, acquisition, or restructuring. If any provision is unenforceable, the remaining provisions remain in full effect. This is the entire agreement between the parties.
+**8. General.** ${termination} ${survival} Refery may update operational terms (such as platform features and rules) with 30 days' notice. Material changes to fees, payment terms, or core obligations require Client's affirmative consent. If Client objects to any update, Client may terminate without penalty during the notice period. Refery may assign this Agreement to a successor entity in a merger, acquisition, or restructuring. If any provision is unenforceable, the remaining provisions remain in full effect. This is the entire agreement between the parties.
 
 ## Acceptance
 

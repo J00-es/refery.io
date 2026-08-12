@@ -15,20 +15,56 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { FileSignature, Copy, CheckCircle, ExternalLink, Plus, Loader2 } from 'lucide-react'
+import { FileSignature, Copy, CheckCircle, ExternalLink, Plus, Loader2, Eye } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
+
+/** Mirrors describeEvent() in lib/agreement-events (client bundle, no server import). */
+function describeEventLabel(type: string, seq: number): string {
+  const ord = (n: number) => {
+    const r = n % 100
+    if (r >= 11 && r <= 13) return `${n}th`
+    return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
+  }
+  switch (type) {
+    case 'created':
+      return 'Link created'
+    case 'viewed':
+      return seq === 1 ? 'Opened for the first time' : `Opened again (${ord(seq)} time)`
+    case 'signed':
+      return 'Signed'
+    case 'revoked':
+      return 'Link revoked'
+    case 'expired':
+      return 'Link expired'
+    case 'downloaded':
+      return 'PDF downloaded'
+    default:
+      return type
+  }
+}
 
 interface ServicesLink {
   id: string
   token: string
-  recipient_name: string
-  recipient_email: string
+  recipient_name: string | null
+  recipient_email: string | null
   fee_percentage: number
+  agreement_version: string
   status: 'sent' | 'viewed' | 'signed' | 'revoked' | 'expired'
   sent_at: string
   viewed_at: string | null
   signed_at: string | null
   expires_at: string | null
+}
+
+interface ActivityEvent {
+  id: string
+  link_id: string
+  event_type: string
+  occurred_at: string
+  ip_address: string | null
+  device: string | null
+  seq: number
 }
 
 interface Props {
@@ -54,18 +90,20 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
   // Modal form state
   const [recipientName, setRecipientName] = useState('')
   const [recipientEmail, setRecipientEmail] = useState('')
-  const [feePercent, setFeePercent] = useState<string>('20')
+  const [feePercent, setFeePercent] = useState<string>('10')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [copiedUrl, setCopiedUrl] = useState(false)
   const [copiedRowId, setCopiedRowId] = useState<string | null>(null)
+  const [events, setEvents] = useState<ActivityEvent[]>([])
+  const [expandedLinkId, setExpandedLinkId] = useState<string | null>(null)
 
   const refresh = async () => {
     const { data, error } = await supabase
       .from('client_agreement_links')
       .select(
-        'id, token, recipient_name, recipient_email, fee_percentage, status, sent_at, viewed_at, signed_at, expires_at',
+        'id, token, recipient_name, recipient_email, fee_percentage, agreement_version, status, sent_at, viewed_at, signed_at, expires_at',
       )
       .eq('company_id', companyId)
       .order('sent_at', { ascending: false })
@@ -76,9 +114,24 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
     setLoading(false)
   }
 
+  const refreshActivity = async () => {
+    try {
+      const res = await fetch(
+        `/api/agreements/client/activity?company_id=${encodeURIComponent(companyId)}`,
+        { cache: 'no-store' },
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      setEvents(data.events ?? [])
+    } catch {
+      /* activity is supplementary — never block the page on it */
+    }
+  }
+
   useEffect(() => {
     if (!isAdmin) return
     refresh()
+    refreshActivity()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, isAdmin])
 
@@ -87,7 +140,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
   const resetForm = () => {
     setRecipientName('')
     setRecipientEmail('')
-    setFeePercent('20')
+    setFeePercent('10')
     setError(null)
     setGeneratedUrl(null)
     setCopiedUrl(false)
@@ -103,11 +156,8 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
     setError(null)
 
     const feeNum = Number(feePercent)
-    if (!recipientName.trim() || !recipientEmail.trim()) {
-      setError('Recipient name and email are required')
-      return
-    }
-    if (!/\S+@\S+\.\S+/.test(recipientEmail.trim())) {
+    // Both blank is valid — that issues an open link the signer completes.
+    if (recipientEmail.trim() && !/\S+@\S+\.\S+/.test(recipientEmail.trim())) {
       setError('Enter a valid recipient email')
       return
     }
@@ -136,6 +186,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
       }
       setGeneratedUrl(data.sign_url)
       await refresh()
+      await refreshActivity()
     } catch {
       setError('Network error — please try again')
     } finally {
@@ -195,31 +246,62 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                 const meta = STATUS_STYLES[link.status]
                 const dateLabel =
                   link.signed_at ?? link.viewed_at ?? link.sent_at
+                const linkEvents = events.filter((e) => e.link_id === link.id)
+                const viewCount = linkEvents.filter((e) => e.event_type === 'viewed').length
+                const isOpenLink = !link.recipient_name && !link.recipient_email
+                const expanded = expandedLinkId === link.id
                 return (
+                  <div key={link.id} className="border rounded-lg">
                   <div
-                    key={link.id}
-                    className="flex items-center justify-between border rounded-lg p-3 gap-3"
+                    className="flex items-center justify-between p-3 gap-3"
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <Badge variant="secondary" className={`text-xs ${meta.cls}`}>
                           {meta.label}
                         </Badge>
                         <span className="text-sm font-medium truncate">
-                          {link.recipient_name}
+                          {link.recipient_name ?? 'Open link'}
                         </span>
                         <span className="text-xs text-muted-foreground">·</span>
                         <span className="text-xs text-muted-foreground">
                           {Number(link.fee_percentage)}% fee
                         </span>
+                        {link.agreement_version && (
+                          <span className="text-xs text-muted-foreground">
+                            · v{link.agreement_version}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-muted-foreground truncate">
-                        {link.recipient_email}
+                        {link.recipient_email ??
+                          (isOpenLink ? 'Signer adds their own name and email' : '—')}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {link.status === 'signed' && link.signed_at
-                          ? `Signed ${formatDistanceToNow(new Date(link.signed_at))} ago`
-                          : `Sent ${format(new Date(dateLabel), 'MMM d, yyyy')}`}
+                      <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>
+                          {link.status === 'signed' && link.signed_at
+                            ? `Signed ${formatDistanceToNow(new Date(link.signed_at))} ago`
+                            : `Sent ${format(new Date(dateLabel), 'MMM d, yyyy')}`}
+                        </span>
+                        {viewCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedLinkId(expanded ? null : link.id)}
+                            className="inline-flex items-center gap-1 text-amber-700 hover:underline"
+                          >
+                            <Eye className="h-3 w-3" />
+                            Opened {viewCount}×
+                          </button>
+                        )}
+                        {linkEvents.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setExpandedLinkId(expanded ? null : link.id)}
+                            className="hover:underline"
+                          >
+                            {expanded ? 'Hide activity' : 'Activity'}
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -252,6 +334,37 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                         </Button>
                       </a>
                     </div>
+                  </div>
+
+                  {expanded && linkEvents.length > 0 && (
+                    <div className="border-t bg-muted/30 px-3 py-3">
+                      <ol className="space-y-2.5">
+                        {linkEvents.map((event) => (
+                          <li key={event.id} className="flex gap-2.5 text-xs">
+                            <span
+                              className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
+                                event.event_type === 'signed'
+                                  ? 'bg-emerald-500'
+                                  : event.event_type === 'viewed'
+                                    ? 'bg-amber-500'
+                                    : 'bg-muted-foreground/40'
+                              }`}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium text-foreground">
+                                {describeEventLabel(event.event_type, event.seq)}
+                              </div>
+                              <div className="text-muted-foreground">
+                                {format(new Date(event.occurred_at), 'MMM d, yyyy · HH:mm')}
+                                {event.device ? ` · ${event.device}` : ''}
+                                {event.ip_address ? ` · ${event.ip_address}` : ''}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
                   </div>
                 )
               })}
@@ -315,25 +428,37 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4 py-2">
+              <div className="rounded-lg border bg-muted/40 px-3 py-2.5">
+                <p className="text-xs text-muted-foreground">
+                  Leave both fields blank to send an{' '}
+                  <span className="font-medium text-foreground">open link</span> —
+                  whoever has signing authority fills in their own name and email.
+                  No need to reissue when the signer changes.
+                </p>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="csa-name">Hiring manager full name</Label>
+                <Label htmlFor="csa-name">
+                  Hiring manager full name{' '}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
                 <Input
                   id="csa-name"
                   value={recipientName}
                   onChange={(e) => setRecipientName(e.target.value)}
-                  placeholder="Jane Doe"
-                  required
+                  placeholder="Leave blank for an open link"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="csa-email">Hiring manager email</Label>
+                <Label htmlFor="csa-email">
+                  Hiring manager email{' '}
+                  <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
                 <Input
                   id="csa-email"
                   type="email"
                   value={recipientEmail}
                   onChange={(e) => setRecipientEmail(e.target.value)}
-                  placeholder="jane@company.com"
-                  required
+                  placeholder="Leave blank for an open link"
                 />
               </div>
               <div className="space-y-2">
@@ -348,7 +473,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                   max={50}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Default is 20%. Override only for negotiated contracts.
+                  Default is 10%. Override only for negotiated contracts.
                 </p>
               </div>
 

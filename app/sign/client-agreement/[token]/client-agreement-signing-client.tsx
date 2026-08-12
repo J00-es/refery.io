@@ -36,8 +36,8 @@ const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
 interface AgreementData {
   id: string
   company_name: string
-  recipient_name: string
-  recipient_email: string
+  recipient_name: string | null
+  recipient_email: string | null
   agreement_version: string
   agreement_content: string
   agreement_hash?: string
@@ -163,6 +163,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
 
         <DocumentCard content={agreement.agreement_content} />
 
+        <div id="refery-sign-card">
         <SignCard
           companyName={agreement.company_name}
           signerName={signerName}
@@ -180,10 +181,68 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           onReadChange={setReadAgreement}
           onSign={handleSign}
         />
+        </div>
 
         <Footer />
       </main>
+
+      <JumpToSignBar />
     </PageShell>
+  )
+}
+
+/**
+ * Mobile-only bar pinned to the bottom of the viewport. The document is a
+ * scroll away from the button, so on a phone the action would otherwise be
+ * invisible until the very end. Hides itself once the sign card is on screen.
+ */
+function JumpToSignBar() {
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const target = document.getElementById('refery-sign-card')
+    if (!target) return
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(!entry.isIntersecting),
+      { rootMargin: '-20% 0px 0px 0px' },
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
+
+  return (
+    <div
+      className="refery-jumpbar"
+      style={{
+        position: 'fixed',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 60,
+        padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
+        background: 'rgba(248,248,243,0.94)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderTop: `1px solid ${C.border}`,
+        transform: visible ? 'translateY(0)' : 'translateY(120%)',
+        transition: 'transform 0.25s ease',
+        pointerEvents: visible ? 'auto' : 'none',
+      }}
+    >
+      <button
+        type="button"
+        className="refery-cta"
+        style={{ width: '100%' }}
+        onClick={() =>
+          document
+            .getElementById('refery-sign-card')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      >
+        Go to signature &darr;
+      </button>
+    </div>
   )
 }
 
@@ -268,12 +327,20 @@ function BrandStyles() {
       .refery-check:focus-visible {
         box-shadow: 0 0 0 3px rgba(42,107,69,0.18);
       }
+      .refery-jumpbar { display: none; }
       @media (max-width: 640px) {
-        .refery-main { padding: 32px 20px 64px !important; }
-        .refery-card { padding: 20px !important; }
-        .refery-doc-pad { padding: 28px 22px !important; }
-        .refery-recipient-grid { grid-template-columns: 1fr !important; }
+        .refery-main { padding: 28px 16px 92px !important; }
+        .refery-card { padding: 18px !important; }
+        .refery-doc-pad { padding: 24px 18px !important; }
+        .refery-recipient-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
         .refery-form-grid { grid-template-columns: 1fr !important; }
+        /* 16px keeps iOS Safari from zooming the page when a field is focused. */
+        .refery-input { font-size: 16px !important; padding: 13px 14px !important; }
+        .refery-cta { min-height: 52px; }
+        /* Bigger tap targets for the two confirmations. */
+        .refery-check { width: 22px !important; height: 22px !important; }
+        .refery-check:checked::after { left: 7px !important; top: 3px !important; }
+        .refery-jumpbar { display: block; }
       }
     `}</style>
   )
@@ -419,8 +486,9 @@ function Hero({ version }: { version: string }) {
           margin: '0 auto',
         }}
       >
-        Review the agreement below and add your signing details. A signed PDF
-        copy will be emailed to you the moment you accept.
+        It&rsquo;s about a minute to read, and there&rsquo;s nothing hidden in it.
+        Add your details at the bottom and a signed PDF lands in your inbox the
+        moment you accept.
       </p>
     </section>
   )
@@ -450,7 +518,10 @@ function RecipientCard({ agreement }: { agreement: AgreementData }) {
         }}
       >
         <Field label="Company" value={agreement.company_name} />
-        <Field label="Prepared for" value={agreement.recipient_name} />
+        <Field
+          label="Prepared for"
+          value={agreement.recipient_name || 'Anyone authorized to sign'}
+        />
         <Field label="Expires" value={expires} />
       </div>
     </div>
@@ -626,9 +697,7 @@ function SignCard(props: {
           onChange={props.onReadChange}
           id="cas-read-confirm"
         >
-          I have read and understood the entire agreement above — including the
-          terms on the placement fee, payment, guarantee, anti-circumvention,
-          confidentiality, and AI use.
+          I&rsquo;ve read the agreement above and understand it.
         </CheckRow>
 
         <div style={{ height: 1, background: C.borderSoft }} />
@@ -638,12 +707,11 @@ function SignCard(props: {
           onChange={props.onAuthorizedChange}
           id="cas-auth-confirm"
         >
-          I am at least 18 years old and authorized to bind{' '}
+          I&rsquo;m 18 or older and authorized to sign for{' '}
           <strong style={{ color: C.ink, fontWeight: 600 }}>
             {props.companyName}
-          </strong>{' '}
-          to this Agreement. I understand my electronic signature has the same
-          legal effect as a handwritten signature.
+          </strong>
+          . My electronic signature counts the same as signing by hand.
         </CheckRow>
       </div>
 
