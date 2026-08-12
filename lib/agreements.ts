@@ -13,6 +13,10 @@ export const AGREEMENT_VERSIONS = {
   // a 14-business-day payment window. Kept as its own line so it is never
   // rewritten by a standard bump.
   clientDeferred: '2.5',
+  // v2.7-A: negotiated for Alcor Labs (Aug 2026). The v2.7 body, but keeping the
+  // payment terms they already agreed (30 days after start) and the
+  // replacement-first guarantee with the 60-day cash backstop they proposed.
+  clientStartPay: '2.7-A',
   // v2.4: the previous standard (pay 30 days after start, replacement-search
   // guarantee). No new links are issued on it; unsigned ones upgrade to v2.6.
   clientLegacy: '2.4',
@@ -28,12 +32,19 @@ export const AGREEMENT_VERSIONS = {
 // once Refery has collected", and recruiter §13 makes partner payment timing
 // consent-protected. Collecting on day ~104 keeps that promise intact without
 // renegotiating it.
-export type ClientPaymentTiming = 'start' | 'day90' | 'net10'
+//   'start30' is v2.7-A: the v2.7 body on the older payment terms (fee due 30
+//   days after the start date) with a replacement-first guarantee backed by a
+//   60-day cash refund. Collecting on day 30 also restores, word for word, what
+//   the signed partner agreements describe: "the client pays Refery within 30
+//   days of the candidate's start date, and Refery holds these funds during the
+//   90-day guarantee period."
+export type ClientPaymentTiming = 'start' | 'day90' | 'net10' | 'start30'
 
 const TIMING_VERSION: Record<ClientPaymentTiming, string> = {
   start: AGREEMENT_VERSIONS.clientLegacy,
   day90: AGREEMENT_VERSIONS.clientDeferred,
   net10: AGREEMENT_VERSIONS.client,
+  start30: AGREEMENT_VERSIONS.clientStartPay,
 }
 
 export function clientAgreementVersion(timing: ClientPaymentTiming): string {
@@ -47,6 +58,7 @@ const CLIENT_VERSION_TIMING: Record<string, ClientPaymentTiming> = {
   '2.5': 'day90',
   '2.6': 'net10',
   '2.7': 'net10',
+  '2.7-A': 'start30',
 }
 
 export function clientPaymentTimingForVersion(version: string): ClientPaymentTiming | null {
@@ -56,7 +68,10 @@ export function clientPaymentTimingForVersion(version: string): ClientPaymentTim
 // Versions that were individually negotiated. An unsigned link on one of these
 // must never be auto-rewritten to the standard offer, since that would silently undo
 // the negotiation. Everything else sits on the standard line.
-const NEGOTIATED_CLIENT_VERSIONS = new Set<string>([AGREEMENT_VERSIONS.clientDeferred])
+const NEGOTIATED_CLIENT_VERSIONS = new Set<string>([
+  AGREEMENT_VERSIONS.clientDeferred,
+  AGREEMENT_VERSIONS.clientStartPay,
+])
 
 // The version an unsigned link should be upgraded to when viewed, or null to
 // leave it alone. Standard-line links (legacy v1.x, v2.4) roll forward to the
@@ -76,6 +91,11 @@ export function clientTermsSummary(version: string): { payment: string; guarante
       return {
         payment: '10 business days after the 90th day',
         guarantee: 'No fee if the hire leaves within 90 days',
+      }
+    case 'start30':
+      return {
+        payment: '30 days after start date',
+        guarantee: 'Replacement search, or your fee back in cash if unfilled in 60 days',
       }
     case 'day90':
       return {
@@ -595,8 +615,8 @@ export function generateClientAgreementText(
 ): string {
   const feePercent = options.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
   const timing = options.paymentTiming ?? 'net10'
-  if (timing === 'net10') {
-    return generateStandardClientAgreement(companyName, feePercent)
+  if (timing === 'net10' || timing === 'start30') {
+    return generateStandardClientAgreement(companyName, feePercent, timing)
   }
   return generateLegacyClientAgreement(companyName, feePercent, timing)
 }
@@ -610,12 +630,43 @@ export function generateClientAgreementText(
  * here: attribution (§1, §4), collectability (§1 reporting duty, §4
  * re-engagement), and confidentiality (§5). They are just no longer buried.
  */
-function generateStandardClientAgreement(companyName: string, feePercent: number): string {
+function generateStandardClientAgreement(
+  companyName: string,
+  feePercent: number,
+  timing: 'net10' | 'start30' = 'net10',
+): string {
   const fee = formatFeePercent(feePercent)
+  const onStart = timing === 'start30'
+  const version = onStart ? AGREEMENT_VERSIONS.clientStartPay : AGREEMENT_VERSIONS.client
+
+  // Alcor Labs kept the payment terms they had already agreed and proposed the
+  // replacement-first guarantee themselves, so this variant mirrors their own
+  // wording rather than handing them the standard's straight refund.
+  const glancePayment = onStart
+    ? '30 days after their start date'
+    : '10 business days after their 90th day with you'
+  const glanceGuarantee = onStart
+    ? "Gone within 90 days? We replace them, or refund your fee in cash"
+    : "Gone within 90 days? You owe nothing, and anything paid comes back"
+
+  const section1 = onStart
+    ? `**1. You pay only when you hire.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due within 30 calendar days of their start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
+    : `**1. You only pay for a hire who stays.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
+
+  const section2 = onStart
+    ? `**2. If they leave within 90 days, we replace them or refund you.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Tell us within 10 business days and we'll run a replacement search at no further fee. If we haven't produced a replacement who accepts your offer within 60 days of that notice, we refund the fee in full, in cash, within 30 days.`
+    : `**2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.`
+
+  // Alcor proposed 5 business days themselves; the standard offers 10.
+  const flagWindow = onStart ? '5 business days' : '10 business days'
+
+  const survival = onStart
+    ? `Four things carry on: fees for anyone already hired, any replacement or refund we still owe you, the 12-month window on introductions already made, and confidentiality.`
+    : `Three things carry on: fees for anyone already hired, the 12-month window on introductions already made, and confidentiality.`
 
   return `# Recruitment Services Agreement
 
-**v${AGREEMENT_VERSIONS.client}** · Refery & ${companyName} · The table below is the whole deal
+**v${version}** · Refery & ${companyName} · The table below is the whole deal
 
 We keep this short on purpose. This is the entire agreement, and it covers every role you hire for with us.
 
@@ -625,17 +676,17 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 |---|---|
 | **What it costs** | Nothing, unless you hire someone we introduce |
 | **The fee** | ${fee}% of their first-year base salary |
-| **When you pay** | 10 business days after their 90th day with you |
-| **If it doesn't work out** | Gone within 90 days? You owe nothing, and anything paid comes back |
+| **When you pay** | ${glancePayment} |
+| **If it doesn't work out** | ${glanceGuarantee} |
 | **Commitment** | None. No exclusivity, no minimums, cancel anytime |
 
 ## The details
 
-**1. You only pay for a hire who stays.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.
+${section1}
 
-**2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.
+${section2}
 
-**3. If someone reached them before us, there's no fee.** You pay only where our written introduction came first. That means no fee if you already knew a candidate, and no fee if another recruiter introduced them to you first. Send us something dated from before our introduction, like an ATS record, an email, or a LinkedIn message, within 10 business days, and we'll close it out.
+**3. If someone reached them before us, there's no fee.** You pay only where our written introduction came first. That means no fee if you already knew a candidate, and no fee if another recruiter introduced them to you first. Send us something dated from before our introduction, like an ATS record, an email, or a LinkedIn message, within ${flagWindow}, and we'll close it out.
 
 **4. Please don't route around us.** The fee still applies if you hire someone we introduced through another agency, as a contractor, or via a sister company. The same goes if someone leaves early and you rehire them within 12 months. Our introduction records are the reference.
 
@@ -645,7 +696,7 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 
 **7. The legal basics.** Our service is provided as-is, and we can't promise any particular hire. Each of us covers claims from our own serious mistakes or breach, capped at the greater of what you've paid us in the last 12 months or the fee on the placement in question. Delaware law. Disputes go to individual arbitration (AAA, remote, no class actions); small claims court stays open to both of us. If any part fails, the rest stands.
 
-**8. Leaving is easy.** Either of us can end this in writing at any time, effective immediately. Three things carry on: fees for anyone already hired, the 12-month window on introductions already made, and confidentiality. We may update operating details with 30 days' notice, but anything touching fees or payment needs your say-so. If Refery is acquired, this moves with us.
+**8. Leaving is easy.** Either of us can end this in writing at any time, effective immediately. ${survival} We may update operating details with 30 days' notice, but anything touching fees or payment needs your say-so. If Refery is acquired, this moves with us.
 
 ## Sign
 
