@@ -12,6 +12,7 @@ import { CompanyContacts } from '@/components/company-contacts'
 import { CompanyHiringInsights } from '@/components/company-hiring-insights'
 import { CompanyAgreements } from '@/components/company-agreements'
 import { CompanyServicesAgreement } from '@/components/company-services-agreement'
+import { CompanyBriefCard } from '@/components/hm/company-brief-card'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -242,6 +243,9 @@ export default async function CompanyDetailPage({ params }: PageProps) {
             insights={typedCompany.hiring_insights} 
             canEdit={canManageCompany}
           />
+
+          {/* Hiring manager brief — the public link and what has happened on it */}
+          {isAdmin && <CompanyBriefCard companyId={id} companyName={typedCompany.name} />}
 
           {/* Company Contacts - Admin only */}
           {isAdmin && <CompanyContacts companyId={id} canEdit={canManageCompany} />}

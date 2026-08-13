@@ -81,8 +81,22 @@ export interface RoleItem {
   scope?: string
   points?: string[]
   want?: string
+  /**
+   * The disqualifiers — "I will filter out …". Stated as plainly as the bar
+   * itself, because a hiring manager corrects a wrong exclusion far faster than
+   * they correct a vague requirement.
+   */
+  exclude?: string
+  /** Band and equity, e.g. "$180K to $240K base + 0.25 to 0.75% equity". */
+  comp?: string
   /** Rendered with a lighter top rule — a secondary track rather than the priority hire. */
   secondary?: boolean
+}
+export interface ChecklistItem {
+  /** The open question. One line, answerable in one line. */
+  ask: string
+  /** Why it matters, shown under the question. */
+  why?: string
 }
 export interface BarGroup {
   tone: 'must' | 'nice' | 'no'
@@ -116,6 +130,9 @@ export type BriefBlock =
   | { kind: 'questions'; items: QuestionItem[] }
   | { kind: 'blurb'; label?: string; note?: string; paragraphs: string[] }
   | { kind: 'steps'; items: string[] }
+  | { kind: 'checklist'; items: ChecklistItem[]; note?: string }
+  /** A tinted aside inside a section — the aside you'd read out loud. */
+  | { kind: 'callout'; text: string }
 
 export interface BriefSection {
   /** Anchor id, used by the in-page contents rail. */
@@ -244,6 +261,8 @@ function normalizeBlock(v: unknown): BriefBlock | null {
               scope: str(i.scope),
               points: strList(i.points),
               want: str(i.want),
+              exclude: str(i.exclude),
+              comp: str(i.comp),
               secondary: i.secondary === true,
             }
           : null
@@ -292,6 +311,17 @@ function normalizeBlock(v: unknown): BriefBlock | null {
     case 'steps': {
       const items = strList(o.items)
       return items.length ? { kind: 'steps', items } : null
+    }
+    case 'checklist': {
+      const items = objList(o.items, i => {
+        const ask = str(i.ask)
+        return ask ? { ask, why: str(i.why) } : null
+      })
+      return items.length ? { kind: 'checklist', items, note: str(o.note) } : null
+    }
+    case 'callout': {
+      const text = str(o.text)
+      return text ? { kind: 'callout', text } : null
     }
     default:
       return null

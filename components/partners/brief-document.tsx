@@ -123,7 +123,7 @@ function Roles({ items }: { items: RoleItem[] }) {
       {items.map((r, i) => (
         <article
           key={i}
-          className={`${DOC.card} border-t-[3px] px-6 py-6 ${
+          className={`${DOC.card} flex flex-col border-t-[3px] px-6 py-6 ${
             r.secondary ? 'border-t-[#CBDDD2]' : 'border-t-[#1F4D3A]'
           }`}
         >
@@ -157,6 +157,25 @@ function Roles({ items }: { items: RoleItem[] }) {
           {r.want && (
             <p className={`mt-4 border-t border-[#E6E4DC] pt-3.5 text-[13.5px] leading-relaxed ${DOC.body}`}>
               <Inline text={r.want} />
+            </p>
+          )}
+          {r.exclude && (
+            <p className="mt-2.5 flex gap-2.5 text-[13px] leading-relaxed text-[#9A4034]">
+              <span aria-hidden className="shrink-0 font-bold">
+                ✕
+              </span>
+              <span>
+                <Inline text={r.exclude} />
+              </span>
+            </p>
+          )}
+          {/*
+            `mt-auto` on a flex column pins the band to the bottom edge, so comp
+            lines up across a row of cards whatever length the bullets ran to.
+          */}
+          {r.comp && (
+            <p className={`mt-auto border-t border-[#E6E4DC] pt-3.5 text-[13.5px] font-semibold ${DOC.deep}`}>
+              <Inline text={r.comp} />
             </p>
           )}
         </article>
@@ -326,7 +345,52 @@ function Steps({ items }: { items: string[] }) {
   )
 }
 
-function Block({ block }: { block: BriefBlock }) {
+/**
+ * The open questions, one per row.
+ *
+ * `slot` is how the public hiring-manager page hangs an answer box off each
+ * question. Without it this is a plain numbered list, which is all a scout
+ * reading the same brief needs.
+ */
+function Checklist({
+  block,
+  slot,
+}: {
+  block: Extract<BriefBlock, { kind: 'checklist' }>
+  slot?: (ask: string) => React.ReactNode
+}) {
+  return (
+    <div className="my-5">
+      {block.note && (
+        <p className={`mb-4 text-[14px] leading-relaxed ${DOC.muted}`}>
+          <Inline text={block.note} />
+        </p>
+      )}
+      <ol className="space-y-3">
+        {block.items.map((item, i) => (
+          <li key={i} className={`${DOC.card} flex gap-3.5 px-5 py-4 sm:px-6`}>
+            <span aria-hidden className={`w-5 shrink-0 pt-px font-serif text-[14px] italic ${DOC.gold}`}>
+              {i + 1}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className={`text-[14.5px] leading-relaxed ${DOC.ink}`}>
+                <Inline text={item.ask} />
+              </p>
+              {item.why && (
+                <p className={`mt-1 text-[13px] leading-relaxed ${DOC.muted}`}>
+                  <Inline text={item.why} />
+                </p>
+              )}
+              {slot?.(item.ask)}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  )
+}
+
+function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (ask: string) => React.ReactNode }) {
   switch (block.kind) {
     case 'lede':
       return (
@@ -364,6 +428,16 @@ function Block({ block }: { block: BriefBlock }) {
       return <Blurb block={block} />
     case 'steps':
       return <Steps items={block.items} />
+    case 'checklist':
+      return <Checklist block={block} slot={checklistSlot} />
+    case 'callout':
+      return (
+        <aside className="my-5 rounded-r-[8px] border-l-[3px] border-l-[#1F4D3A] bg-[#EDF3EF] px-5 py-4 sm:px-6">
+          <p className={`font-serif text-[15.5px] leading-[1.65] ${DOC.body}`}>
+            <Inline text={block.text} />
+          </p>
+        </aside>
+      )
   }
 }
 
@@ -379,12 +453,33 @@ export interface BriefDocumentProps {
   variant?: 'standalone' | 'embedded'
   /** Shown on the standalone ribbon, e.g. "Refery scouts only · please don't forward". */
   ribbonNote?: string
+  /** Left of the ribbon note. "Confidential" unless the audience needs otherwise. */
+  ribbonLabel?: string
+  /**
+   * Rendered at the foot of the section whose id matches the key. The public
+   * hiring-manager page hangs its per-section comment thread here, so a
+   * correction lands against the thing it corrects rather than in one long
+   * thread at the bottom.
+   */
+  sectionSlots?: Record<string, React.ReactNode>
+  /**
+   * Rendered under each checklist question — see `Checklist`. Handed the
+   * section it sits in, so an answer can be filed against that section as well
+   * as against the question.
+   */
+  checklistSlot?: (ask: string, section: { id: string; label: string }) => React.ReactNode
+  /** Rendered after the signoff, e.g. the general comment thread. */
+  footerSlot?: React.ReactNode
 }
 
 export function BriefDocument({
   content,
   variant = 'standalone',
   ribbonNote = "Refery scouts only · please don't forward",
+  ribbonLabel = 'Confidential',
+  sectionSlots,
+  checklistSlot,
+  footerSlot,
 }: BriefDocumentProps) {
   const standalone = variant === 'standalone'
   const nav = briefNav(content)
@@ -404,7 +499,7 @@ export function BriefDocument({
         <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-[#173B2D] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-white sm:px-8 print:static">
           <span className="flex items-center gap-2">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#C8A24B]" />
-            Confidential
+            {ribbonLabel}
           </span>
           <span className="text-[12px] font-medium normal-case tracking-[0.04em] text-[#B9CDC2]">
             {ribbonNote}
@@ -501,8 +596,16 @@ export function BriefDocument({
                 </h2>
               </div>
               {section.blocks.map((block, i) => (
-                <Block key={i} block={block} />
+                <Block
+                  key={i}
+                  block={block}
+                  checklistSlot={
+                    checklistSlot &&
+                    (ask => checklistSlot(ask, { id: section.id, label: section.nav ?? section.heading }))
+                  }
+                />
               ))}
+              {sectionSlots?.[section.id]}
             </section>
           ))}
         </div>
@@ -524,6 +627,8 @@ export function BriefDocument({
             )}
           </footer>
         )}
+
+        {footerSlot}
       </div>
     </div>
   )
