@@ -6,6 +6,14 @@ import { Check, Loader2, Settings2 } from 'lucide-react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { FIELD_LABEL, FOCUS } from '@/lib/desk-ui'
 import { PRIORITY_META, type RolePriority } from '@/lib/partners'
+import {
+  DEFAULT_FEE_PERCENTAGE,
+  DEFAULT_SCOUT_SHARE,
+  clientFeeAmount,
+  feeExplanation,
+  payoutAmount,
+  resolveFee,
+} from '@/lib/fees'
 
 /**
  * The commercial terms of one mandate.
@@ -41,8 +49,12 @@ export function ManageRole({
     feeFlat: number | null
     payoutNote: string | null
     exclusivity: 'exclusive' | 'shared' | null
+    scoutShare: number | null
     submissionCap: number | null
     targetStart: string | null
+    /** The band a percentage fee is computed against, for the live preview. */
+    salaryMin: number | null
+    salaryMax: number | null
   }
 }) {
   const router = useRouter()
@@ -59,8 +71,31 @@ export function ManageRole({
   const [feeFlat, setFeeFlat] = useState(initial.feeFlat?.toString() ?? '')
   const [payoutNote, setPayoutNote] = useState(initial.payoutNote ?? '')
   const [exclusivity, setExclusivity] = useState(initial.exclusivity ?? '')
+  const [scoutShare, setScoutShare] = useState(initial.scoutShare?.toString() ?? '')
   const [cap, setCap] = useState(initial.submissionCap?.toString() ?? '')
   const [targetStart, setTargetStart] = useState(initial.targetStart ?? '')
+
+  /*
+    The outcome of the current settings, recomputed as they are typed.
+
+    Every fee field here is an override of a platform default, so on a normal
+    mandate all four are blank and it is not obvious what that produces. The
+    preview shows the exact sentence a scout will read — including the case where
+    no salary is recorded and there is honestly no figure to give.
+  */
+  const previewFee = resolveFee({
+    salary_min: initial.salaryMin,
+    salary_max: initial.salaryMax,
+    fee_percentage: feePercentage || null,
+    fee_flat: feeFlat || null,
+    scout_share: scoutShare || null,
+    scout_payout: scoutPayout || null,
+  })
+  const preview = {
+    payout: payoutAmount(previewFee),
+    explanation: feeExplanation(previewFee),
+    clientFee: clientFeeAmount(previewFee),
+  }
 
   async function save() {
     setBusy(true)
@@ -77,6 +112,7 @@ export function ManageRole({
           scout_payout: scoutPayout || null,
           fee_percentage: feePercentage || null,
           fee_flat: feeFlat || null,
+          scout_share: scoutShare || null,
           payout_note: payoutNote || null,
           exclusivity: exclusivity || null,
           submission_cap: cap || null,
@@ -161,53 +197,91 @@ export function ManageRole({
             </div>
           </div>
 
-          <label className={label}>
-            What the scout earns (USD)
-            <input
-              inputMode="numeric"
-              value={scoutPayout}
-              onChange={e => setScoutPayout(e.target.value)}
-              placeholder="4000"
-              className={input}
-            />
-            <span className="mt-1.5 block text-[12px] text-[#9C9C95]">
-              Shown on every card as “$4,000 to you on placement”. Leave blank and the card falls back
-              to the client fee below.
-            </span>
-          </label>
+          <section className="rounded-[14px] border border-[#E0E0D7] p-4">
+            <p className="text-[14px] font-semibold text-[#161613]">Fee</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-[#8A8A82]">
+              Leave everything blank for the default: {DEFAULT_FEE_PERCENTAGE}% of first-year base to
+              Refery, of which the scout keeps {DEFAULT_SCOUT_SHARE}%.
+            </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className={label}>
-              Client fee %
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <label className={label}>
+                Fee % of base
+                <input
+                  inputMode="decimal"
+                  value={feePercentage}
+                  onChange={e => setFeePercentage(e.target.value)}
+                  placeholder={String(DEFAULT_FEE_PERCENTAGE)}
+                  className={input}
+                />
+              </label>
+              <label className={label}>
+                Scout keeps %
+                <input
+                  inputMode="decimal"
+                  value={scoutShare}
+                  onChange={e => setScoutShare(e.target.value)}
+                  placeholder={String(DEFAULT_SCOUT_SHARE)}
+                  className={input}
+                />
+              </label>
+            </div>
+
+            {/* The two rarer shapes, folded away: most mandates are a percentage
+                of base, and putting four fee inputs on screen at once makes the
+                common case look complicated. */}
+            <details className="mt-3">
+              <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#1F4D3A]">
+                Not a percentage of base
+              </summary>
+              <div className="mt-2.5 space-y-3">
+                <label className={label}>
+                  Flat fee to Refery (USD)
+                  <input
+                    inputMode="numeric"
+                    value={feeFlat}
+                    onChange={e => setFeeFlat(e.target.value)}
+                    placeholder="25000"
+                    className={input}
+                  />
+                </label>
+                <label className={label}>
+                  Or a fixed scout payout (USD)
+                  <input
+                    inputMode="numeric"
+                    value={scoutPayout}
+                    onChange={e => setScoutPayout(e.target.value)}
+                    placeholder="4000"
+                    className={input}
+                  />
+                  <span className="mt-1.5 block text-[12px] text-[#8A8A82]">
+                    Overrides everything above. Use it where the number was agreed rather than
+                    calculated.
+                  </span>
+                </label>
+              </div>
+            </details>
+
+            <div className="mt-3 rounded-[10px] bg-[#F2F2EC] px-3 py-2.5">
+              <p className="text-[15px] font-semibold text-[#1F4D3A]">
+                {preview.payout ? `${preview.payout} to the scout` : 'No figure — no salary recorded'}
+              </p>
+              <p className="mt-0.5 text-[12.5px] text-[#5F5F58]">{preview.explanation}</p>
+              {preview.clientFee && (
+                <p className="mt-0.5 text-[12.5px] text-[#8A8A82]">Client pays {preview.clientFee}</p>
+              )}
+            </div>
+
+            <label className={`${label} mt-3`}>
+              Payout note
               <input
-                inputMode="decimal"
-                value={feePercentage}
-                onChange={e => setFeePercentage(e.target.value)}
-                placeholder="20"
+                value={payoutNote}
+                onChange={e => setPayoutNote(e.target.value)}
+                placeholder="Paid 30 days after start date"
                 className={input}
               />
             </label>
-            <label className={label}>
-              Or flat fee (USD)
-              <input
-                inputMode="numeric"
-                value={feeFlat}
-                onChange={e => setFeeFlat(e.target.value)}
-                placeholder="25000"
-                className={input}
-              />
-            </label>
-          </div>
-
-          <label className={label}>
-            Payout note
-            <input
-              value={payoutNote}
-              onChange={e => setPayoutNote(e.target.value)}
-              placeholder="Paid 30 days after start date"
-              className={input}
-            />
-          </label>
+          </section>
 
           <label className={label}>
             Submission cap

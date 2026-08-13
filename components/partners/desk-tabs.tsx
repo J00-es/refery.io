@@ -40,7 +40,7 @@ export function DeskTabs({
         return (
           <Link
             key={tab.key}
-            href={tab.key === 'all' ? '/partners' : `/partners?view=${tab.key}`}
+            href={`/partners?view=clients${tab.key === 'all' ? '' : `&tab=${tab.key}`}`}
             aria-current={active ? 'page' : undefined}
             className={`inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
               active

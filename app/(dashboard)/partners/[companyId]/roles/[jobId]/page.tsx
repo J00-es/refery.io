@@ -26,11 +26,11 @@ import {
 import { REMOTE_LABELS, formatExperience, formatSalary, seniorityLabel, shortAge, visaSignal } from '@/lib/job-ui'
 import { findBlurb, normalizeBrief, type BriefContent } from '@/lib/brief'
 import { CLOSED_STAGE_VALUES } from '@/lib/pipeline-stages'
+import { clientFeeAmount, feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
   PRIORITY_META,
   isUnlocked,
-  payoutLine,
   slotsLeft,
   submissionStatus,
   toCompanyView,
@@ -213,7 +213,8 @@ export default async function PartnerRolePage({
   const blurb = brief ? findBlurb(brief.content) : null
 
   const priority = PRIORITY_META[role.priority] ?? PRIORITY_META.normal
-  const payout = payoutLine(role)
+  const fee = resolveFee(role)
+  const payout = payoutAmount(fee)
   const slots = slotsLeft(role)
   const closed = !role.is_live || role.job_status !== 'open'
   const inPlay = submissions.filter(s => submissionStatus(s.status).category === 'in_progress').length
@@ -295,8 +296,11 @@ export default async function PartnerRolePage({
                   feeFlat: role.fee_flat,
                   payoutNote: role.payout_note,
                   exclusivity: role.exclusivity,
+                  scoutShare: role.scout_share,
                   submissionCap: role.submission_cap,
                   targetStart: role.target_start,
+                  salaryMin: role.salary_min,
+                  salaryMax: role.salary_max,
                 }}
               />
             </div>
@@ -318,10 +322,17 @@ export default async function PartnerRolePage({
       {/* Three figures, each read before its label. No boxes — space groups them. */}
       <dl className={`mt-7 grid grid-cols-2 gap-x-6 gap-y-5 border-y py-5 sm:grid-cols-3 ${RULE}`}>
         <div>
-          <dt className={`${FIGURE} ${payout ? FOREST : ''}`}>{payout ?? 'Not set'}</dt>
+          <dt className={`${FIGURE} ${payout ? FOREST : ''}`}>{payout ?? '—'}</dt>
           <dd className={`mt-1.5 ${LABEL}`}>
-            {payout ? 'to you on placement' : 'payout not recorded yet'}
+            {payout ? 'to you on placement' : 'depends on the offer'}
           </dd>
+          {/* Always shown, figure or not: a mandate with no salary band recorded
+              still has a fee structure, and stating it beats "not set". */}
+          <dd className={`mt-1 ${META}`}>{feeExplanation(fee)}</dd>
+          {access.canManage && clientFeeAmount(fee) && (
+            <dd className={`mt-0.5 ${META}`}>Client pays {clientFeeAmount(fee)}</dd>
+          )}
+          {role.payout_note && <dd className={`mt-0.5 ${META}`}>{role.payout_note}</dd>}
         </div>
         <div>
           <dt className={FIGURE}>{slots === null ? inPlay : slots === 0 ? 'Full' : slots}</dt>

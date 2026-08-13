@@ -14,7 +14,8 @@ import {
   detailLine,
 } from '@/lib/desk-ui'
 import { formatMoney, stageLabel } from '@/lib/company-ui'
-import { formatPayout, relationshipMeta, type PartnerCompanyView } from '@/lib/partners'
+import { relationshipMeta, type PartnerCompanyView } from '@/lib/partners'
+import { money } from '@/lib/fees'
 import { CompanyLogo } from './company-logo'
 
 export interface CompanyCardRole {
@@ -93,7 +94,7 @@ export function PartnerCompanyCard({
         </div>
 
         {bestPayout != null && (
-          <span className={`shrink-0 ${CHIP_VALUE}`}>up to {formatPayout(bestPayout)}</span>
+          <span className={`shrink-0 ${CHIP_VALUE}`}>up to {money(bestPayout)}</span>
         )}
       </div>
 

@@ -235,6 +235,7 @@ export interface PartnerRoleRow {
   fee_percentage: number | null
   fee_flat: number | null
   scout_payout: number | null
+  scout_share: number | null
   payout_note: string | null
   exclusivity: 'exclusive' | 'shared' | null
   submission_cap: number | null
@@ -260,6 +261,7 @@ export interface PartnerRoleRow {
   referral_bonus_type: string | null
   job_created_at: string | null
   seniority: string | null
+  location_buckets: string[] | null
   company_name: string | null
   company_logo_url: string | null
   company_stage: string | null
@@ -505,30 +507,10 @@ export function toCompanyView(
 
 // ── formatting ──────────────────────────────────────────────────────────────
 
-/** "$4,000" — a payout figure a scout is deciding on deserves full precision. */
-export function formatPayout(usd?: number | null): string | null {
-  if (usd == null || usd <= 0) return null
-  return `$${Math.round(usd).toLocaleString('en-US')}`
-}
-
-/**
- * What a scout earns, in the plainest words available. Prefers the explicit
- * per-scout figure, falls back to the fee we charge the client, and returns
- * null rather than guessing when neither is recorded.
- */
-export function payoutLine(role: {
-  scout_payout?: number | null
-  fee_flat?: number | null
-  fee_percentage?: number | null
-  payout_note?: string | null
-}): string | null {
-  const payout = formatPayout(role.scout_payout)
-  if (payout) return `${payout} to you on placement`
-  const flat = formatPayout(role.fee_flat)
-  if (flat) return `${flat} placement fee`
-  if (role.fee_percentage) return `${role.fee_percentage}% of first-year salary`
-  return role.payout_note?.trim() || null
-}
+// Payout arithmetic and formatting live in lib/fees.ts. They used to be here as
+// `formatPayout` and `payoutLine`, which only knew how to echo back a figure
+// somebody had typed — so every mandate without one read "Payout not set yet"
+// even though the fee has always been a knowable percentage of base.
 
 /**
  * Remaining submission slots, or null when the role is uncapped.

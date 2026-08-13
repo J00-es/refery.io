@@ -12,7 +12,8 @@ import {
   detailLine,
 } from '@/lib/desk-ui'
 import { REMOTE_LABELS, formatSalary, seniorityLabel } from '@/lib/job-ui'
-import { PRIORITY_META, payoutLine, slotsLeft, type PartnerRoleRow } from '@/lib/partners'
+import { PRIORITY_META, slotsLeft, type PartnerRoleRow } from '@/lib/partners'
+import { feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
 
 /**
  * One live search.
@@ -32,7 +33,8 @@ export function RoleCard({
   mySubmissions: number
 }) {
   const priority = PRIORITY_META[role.priority] ?? PRIORITY_META.normal
-  const payout = payoutLine(role)
+  const fee = resolveFee(role)
+  const payout = payoutAmount(fee)
   const slots = slotsLeft(role)
 
   const facts = detailLine(
@@ -60,12 +62,16 @@ export function RoleCard({
 
       {facts && <p className={`mt-2 ${META}`}>{facts}</p>}
 
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        {payout ? (
-          <span className={`text-[14px] font-semibold ${FOREST}`}>{payout}</span>
-        ) : (
-          <span className={`text-[13.5px] ${MUTED}`}>Payout not set</span>
-        )}
+      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <span>
+          {payout ? (
+            <span className={`block text-[15px] font-semibold ${FOREST}`}>{payout} to you</span>
+          ) : (
+            <span className={`block text-[13.5px] ${MUTED}`}>Payout depends on the offer</span>
+          )}
+          {/* The arithmetic, so the figure can be checked rather than trusted. */}
+          <span className={`mt-0.5 block ${META}`}>{feeExplanation(fee)}</span>
+        </span>
         <span className={`text-[13px] ${slots === 0 ? 'font-semibold text-[#9C3F37]' : MUTED}`}>
           {detailLine(
             slots === null
