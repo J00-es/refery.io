@@ -92,6 +92,25 @@ export async function addReaction(
 }
 
 /**
+ * This app's own bot user ID, memoised for the life of the instance.
+ *
+ * Needed because a reaction added by the bot arrives as a reaction_added event
+ * with `user` set to the bot's own user ID and no `bot_id` field at all. There
+ * is no way to tell it apart from a human reaction without knowing this value,
+ * and the pre-seeded :+1: on every message means getting it wrong sends the
+ * applicant an email nobody approved.
+ */
+let cachedBotUserId: string | null = null
+
+export async function botUserId(): Promise<string | null> {
+  if (cachedBotUserId) return cachedBotUserId
+  const res = await call('auth.test', {})
+  if (!res.ok || typeof res.user_id !== 'string') return null
+  cachedBotUserId = res.user_id
+  return cachedBotUserId
+}
+
+/**
  * Verifies Slack's v0 request signature.
  *
  * Returns null when the delivery is authentic, or a short reason when it is

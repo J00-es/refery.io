@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { postThreadReply, verifySlackSignature } from '@/lib/slack-bot'
+import { botUserId, postThreadReply, verifySlackSignature } from '@/lib/slack-bot'
 import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/intake-emails'
 
 export const dynamic = 'force-dynamic'
@@ -87,9 +87,23 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const reject = REJECT.has(reaction)
   if (!approve && !reject) return
 
+  if (!event.user) return
+
   // The notifier seeds :+1: and :-1: on every message so triage is one click.
-  // Those seeds arrive here as events too, and must not decide anything.
-  if (event.bot_id || !event.user) return
+  // Those seeds come back as reaction_added events carrying the bot's own user
+  // ID and no bot_id, so they are indistinguishable from a human reaction
+  // unless we know that ID. Left unchecked, the seed approves the application
+  // and emails the applicant a second after they submit the form.
+  //
+  // Unverifiable means stop. The only realistic reason auth.test fails is a
+  // broken token, in which case the email and the thread reply were going to
+  // fail anyway, and silently doing nothing beats silently sending.
+  const self = await botUserId()
+  if (!self) {
+    console.error('[slack-events] cannot resolve bot user id, skipping to avoid acting on our own reaction')
+    return
+  }
+  if (event.user === self || event.bot_id) return
 
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
