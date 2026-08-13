@@ -10,7 +10,7 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireSuperAdmin } from '@/lib/admin-auth'
 import { briefUrl, newBriefSlug } from '@/lib/hm-brief'
 
 export const dynamic = 'force-dynamic'
@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 const STATUSES = new Set(['draft', 'published', 'revoked'])
 
 export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const auth = await requireAdmin()
+  const auth = await requireSuperAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
 
   const { id } = await ctx.params

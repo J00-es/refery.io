@@ -3,7 +3,7 @@ import { normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
 
 export type AdminCheckResult =
   | { ok: true; userId: string; email: string; role: 'super_admin' | 'admin' }
-  | { ok: false; status: 401 | 403; message: string }
+  | { ok: false; status: 401 | 403 | 404; message: string }
 
 /**
  * Verifies that the current request is from an authenticated admin or
@@ -54,4 +54,22 @@ export async function requireAdmin(): Promise<AdminCheckResult> {
     email,
     role: adminUser.role as 'admin' | 'super_admin',
   }
+}
+
+/**
+ * Super-admin only. For surfaces an ordinary admin must not reach at all.
+ *
+ * Answers 404 rather than 403 to anyone who is merely an admin: the reply
+ * should not confirm that the thing they were denied exists. Callers that leak
+ * client confidences use this -- hiring-manager briefs carry salary bands,
+ * equity, and a candid read on the founders, and the link they hand out needs
+ * no login, so the set of people who can mint one stays as small as possible.
+ */
+export async function requireSuperAdmin(): Promise<AdminCheckResult> {
+  const auth = await requireAdmin()
+  if (!auth.ok) return auth
+  if (auth.role !== 'super_admin') {
+    return { ok: false, status: 404, message: 'Not found' }
+  }
+  return auth
 }

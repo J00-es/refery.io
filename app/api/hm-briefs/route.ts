@@ -8,13 +8,13 @@
 
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { requireAdmin } from '@/lib/admin-auth'
+import { requireSuperAdmin } from '@/lib/admin-auth'
 import { briefUrl, newBriefSlug } from '@/lib/hm-brief'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireSuperAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
 
   const raw = (await request.json().catch(() => null)) as Record<string, unknown> | null

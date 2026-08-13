@@ -244,8 +244,14 @@ export default async function CompanyDetailPage({ params }: PageProps) {
             canEdit={canManageCompany}
           />
 
-          {/* Hiring manager brief — the public link and what has happened on it */}
-          {isAdmin && <CompanyBriefCard companyId={id} companyName={typedCompany.name} />}
+          {/*
+            Hiring manager brief: the public link and what has happened on it.
+            Super admin only, deliberately narrower than the rest of this page.
+            The card exposes salary bands, equity, the candid read on the
+            founders, and a link that needs no login to open, so an ordinary
+            admin should not see it exists. The API enforces the same rule.
+          */}
+          {isSuperAdmin && <CompanyBriefCard companyId={id} companyName={typedCompany.name} />}
 
           {/* Company Contacts - Admin only */}
           {isAdmin && <CompanyContacts companyId={id} canEdit={canManageCompany} />}
