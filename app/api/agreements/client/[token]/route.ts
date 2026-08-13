@@ -12,8 +12,10 @@ import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendAgreementEmails } from '@/lib/send-agreement-emails'
 import { isLikelyBot, logAgreementEvent } from '@/lib/agreement-events'
 import { getRequestContext } from '@/lib/request-context'
+// Agreement activity is announced in Slack only. It used to also go out as a
+// Resend email to lily@refery.io, which meant every open arrived twice; the
+// duplicate is what stopped either copy from being read.
 import { notifySlack } from '@/lib/slack'
-import { sendAgreementActivityEmail } from '@/lib/send-agreement-activity-email'
 
 export const dynamic = 'force-dynamic'
 // PDF rendering and email send take a few seconds, so raise the Vercel ceiling.
@@ -176,25 +178,6 @@ export async function GET(
           })
 
           if (!logged.logged) return
-
-          const result = await sendAgreementActivityEmail({
-            companyName: link.company_name,
-            recipientLabel: link.recipient_name
-              ? `${link.recipient_name}${link.recipient_email ? ` (${link.recipient_email})` : ''}`
-              : null,
-            eventType: 'viewed',
-            seq: logged.seq,
-            device: logged.device,
-            ipAddress: ip,
-            occurredAtHuman: new Date().toUTCString().replace(' GMT', ' UTC'),
-            version,
-            feePercent: formatFeePercent(feePercent),
-            companyUrl: `${origin}/companies/${link.company_id}`,
-            signUrl: `${origin}/sign/client-agreement/${token}`,
-          })
-          if (!result.sent) {
-            console.error('[agreements/client GET] activity email failed:', result.error)
-          }
 
           await notifySlack({
             stream: 'clients',
@@ -380,23 +363,6 @@ export async function POST(
         })
 
         if (signedEvent.logged) {
-          const activity = await sendAgreementActivityEmail({
-            companyName: link.company_name,
-            recipientLabel: `${signerName}${signerTitle ? `, ${signerTitle}` : ''} (${signerEmail})`,
-            eventType: 'signed',
-            seq: signedEvent.seq,
-            device: signedEvent.device,
-            ipAddress: ip,
-            occurredAtHuman: signedAtHuman,
-            version: storedVersion,
-            feePercent: formatFeePercent(feePercent),
-            companyUrl: `${origin}/companies/${link.company_id}`,
-            signUrl: `${origin}/sign/client-agreement/${token}`,
-          })
-          if (!activity.sent) {
-            console.error('[agreements/client POST] activity email failed:', activity.error)
-          }
-
           await notifySlack({
             stream: 'clients',
             emoji: ':handshake:',
