@@ -147,17 +147,20 @@ export function seniorityLabel(key: string): string {
   return SENIORITY_LEVELS.find(s => s.key === key)?.label ?? key
 }
 
-/**
- * Roles we already have an agreement or a live conversation on, as opposed to
- * the sourced watchlist that makes up the rest of the board. 'public' is what
- * the ingester writes by default, so anything else was set by a human.
- */
-export const PARTNER_DEAL_TYPES = ['partnership', 'pipeline'] as const
+/*
+  `PARTNER_DEAL_TYPES` and `isPartnerRole` used to live here, marking the roles we
+  have an agreement on so the board could badge and filter them.
 
-/** True for the handful of roles we have an agreement or a live thread on. */
-export function isPartnerRole(dealType?: string | null): boolean {
-  return (PARTNER_DEAL_TYPES as readonly string[]).includes(dealType ?? '')
-}
+  Both are gone deliberately, not by accident. Rendered next to a company name,
+  that badge disclosed our client list to everyone with an account, and the filter
+  turned the whole board into a directory of it. Which searches we are retained on
+  is not something the jobs board should answer — that is the Partners desk, where
+  a client is anonymised until a scout is assigned to it.
+
+  `jobs.internal_deal_type` still holds the values and an admin can still set them
+  on a job's own page; nothing on the board reads them. Please do not reintroduce a
+  board-level partner marker without a reason that outweighs the disclosure.
+*/
 
 export const SALARY_BANDS = [
   { key: 'lt100', label: 'Under $100k', min: null, max: 100_000 },

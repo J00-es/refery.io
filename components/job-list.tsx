@@ -40,7 +40,6 @@ import {
   SENIORITY_LEVELS,
   STATUS_META,
   formatSalary,
-  isPartnerRole,
   locationLabel,
   seniorityLabel,
   shortAge,
@@ -51,7 +50,6 @@ export interface JobStats {
   newThisWeek: number
   withCandidates: number
   remote: number
-  partner: number
 }
 
 interface JobListProps {
@@ -441,11 +439,6 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-[14px] font-semibold text-[#161613]">{j.title}</span>
-          {isPartnerRole(j.internal_deal_type) && (
-            <span className="shrink-0 rounded-full bg-[#1F4D3A] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
-              Partner
-            </span>
-          )}
         </span>
         <span className="mt-0.5 block truncate text-[12.5px] text-[#6E6E68]">
           {[company, j.location].filter(Boolean).join(' · ')}
@@ -524,7 +517,6 @@ export function JobList({
   const posted = params.get('posted') || ''
   const withCands = params.get('cands') === '1'
   const paidOnly = params.get('paid') === '1'
-  const partnerOnly = params.get('partner') === '1'
   const view = params.get('view') === 'row' ? 'row' : 'card'
   const sort = params.get('sort') || 'newest'
 
@@ -539,8 +531,7 @@ export function JobList({
     payCount +
     statuses.length +
     (posted ? 1 : 0) +
-    (withCands ? 1 : 0) +
-    (partnerOnly ? 1 : 0)
+    (withCands ? 1 : 0)
   const hasAny = facetCount > 0 || q.length > 0
 
   const clearAll = () =>
@@ -554,7 +545,6 @@ export function JobList({
       stage: null,
       pay: null,
       paid: null,
-      partner: null,
       status: null,
       posted: null,
       cands: null,
@@ -620,21 +610,12 @@ export function JobList({
     <OptionList
       options={[
         {
-          key: 'partner',
-          label: 'Partner roles only',
-          hint: 'Signed or in conversation — the rest is our watchlist',
-        },
-        {
           key: 'cands',
           label: canViewAllPipeline ? 'Has candidates' : 'Where I have candidates',
         },
       ]}
-      selected={[partnerOnly ? 'partner' : '', withCands ? 'cands' : ''].filter(Boolean)}
-      onToggle={k =>
-        k === 'partner'
-          ? set({ partner: partnerOnly ? null : '1' })
-          : set({ cands: withCands ? null : '1' })
-      }
+      selected={withCands ? ['cands'] : []}
+      onToggle={() => set({ cands: withCands ? null : '1' })}
     />
   )
 
@@ -651,15 +632,6 @@ export function JobList({
                 patch: isAdmin ? { status: 'open' } : {},
               },
               { label: 'New this week', value: stats.newThisWeek, patch: { posted: '7d' } },
-              // The distinction the board note explains, made actionable. The
-              // count is of open roles, so admins — who see drafts and closed
-              // roles by default — get the status pinned too, or the tile
-              // would not agree with the board it opens.
-              {
-                label: 'Partner roles',
-                value: stats.partner,
-                patch: isAdmin ? { partner: '1', status: 'open' } : { partner: '1' },
-              },
               {
                 // Board-wide for the super admin, this viewer's own otherwise.
                 label: canViewAllPipeline ? 'With candidates' : 'Your candidates',
@@ -932,9 +904,6 @@ export function JobList({
             label={POSTED_BANDS.find(b => b.key === posted)?.label ?? posted}
             onClear={() => set({ posted: null })}
           />
-        )}
-        {partnerOnly && (
-          <ActiveChip label="Partner roles" onClear={() => set({ partner: null })} />
         )}
         {withCands && (
           <ActiveChip

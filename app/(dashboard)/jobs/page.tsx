@@ -6,7 +6,6 @@ import type { JobRow } from '@/components/jobs/job-card'
 import { getAppUser } from '@/lib/current-user'
 import { FOCUS } from '@/lib/candidate-ui'
 import {
-  PARTNER_DEAL_TYPES,
   POSTED_BANDS,
   SALARY_BANDS,
   functionFilterClauses,
@@ -55,7 +54,6 @@ export default async function JobsPage({ searchParams }: PageProps) {
   const posted = one(sp.posted)
   const withCands = one(sp.cands) === '1'
   const paidOnly = one(sp.paid) === '1'
-  const partnerOnly = one(sp.partner) === '1'
   const sort = one(sp.sort) || 'newest'
   const page = Math.max(1, parseInt(one(sp.page) || '1', 10) || 1)
 
@@ -102,10 +100,6 @@ export default async function JobsPage({ searchParams }: PageProps) {
   // silently drops them. This makes that exclusion something you can ask for
   // on its own rather than only stumble into.
   if (paidOnly) query = query.not('salary_max', 'is', null)
-
-  // Roles we already have an agreement or a live conversation on, as opposed
-  // to the sourced watchlist the rest of the board is made of.
-  if (partnerOnly) query = query.in('internal_deal_type', [...PARTNER_DEAL_TYPES])
 
   // Salary bands are OR-ed with each other. Matched against salary_max so a
   // wide posted range still lands in the band a referrer would expect.
@@ -177,21 +171,19 @@ export default async function JobsPage({ searchParams }: PageProps) {
   // Head-only counts for the insight strip — no rows fetched. The board-level
   // numbers are the same for everyone; only "with candidates" is per-viewer.
   const base = () => adminClient.from('jobs_list').select('id', { count: 'exact', head: true })
-  const [openRes, weekRes, candsRes, remoteRes, partnerRes] = await Promise.all([
+  const [openRes, weekRes, candsRes, remoteRes] = await Promise.all([
     base().eq('status', 'open'),
     base().gte('created_at', daysAgoIso(7)).eq('status', 'open'),
     canViewAllPipeline
       ? base().gt('pipeline_count', 0)
       : base().contains('candidate_owner_ids', [appUser.id]),
     base().eq('remote_policy', 'remote').eq('status', 'open'),
-    base().in('internal_deal_type', [...PARTNER_DEAL_TYPES]).eq('status', 'open'),
   ])
   const stats: JobStats = {
     open: openRes.count ?? 0,
     newThisWeek: weekRes.count ?? 0,
     withCandidates: candsRes.count ?? 0,
     remote: remoteRes.count ?? 0,
-    partner: partnerRes.count ?? 0,
   }
 
   return (
@@ -218,10 +210,12 @@ export default async function JobsPage({ searchParams }: PageProps) {
         </div>
       </header>
 
-      {/* Most of this board is sourced, not signed. Nobody can read that off a
-          job card, and acting on the wrong assumption wastes a scout's time —
-          so the explanation sits on the page itself. */}
-      <JobsBoardNote partnerCount={stats.partner} />
+      {/* Most of this board is sourced, not signed, and nobody can read that
+          off a job card — so the explanation sits on the page itself. It no
+          longer counts or marks the roles we do have an agreement on: doing that
+          next to a company name disclosed the client list to the whole network.
+          Those live on the Partners desk, behind assignment. */}
+      <JobsBoardNote />
 
       <JobList
         jobs={jobs}

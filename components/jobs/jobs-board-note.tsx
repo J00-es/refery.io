@@ -32,11 +32,11 @@ const STEPS = [
   {
     icon: Handshake,
     title: 'Then we go and open the door',
-    body: 'When a match is strong we look for a real path to the hiring manager — a shared investor, a mutual contact, a direct approach — and turn a watched role into a live conversation. That is how most partnerships here start.',
+    body: 'When a match is strong we look for a real path to the hiring manager — a shared investor, a mutual contact, a direct approach — and turn a watched role into a live conversation.',
   },
 ]
 
-export function JobsBoardNote({ partnerCount }: { partnerCount: number }) {
+export function JobsBoardNote() {
   // Starts expanded so a first-time reader always sees it; the stored
   // preference is applied after mount rather than guessed during render, which
   // would mismatch the server HTML.
@@ -76,8 +76,8 @@ export function JobsBoardNote({ partnerCount }: { partnerCount: number }) {
             How this board works
           </span>
           <span className="mt-0.5 block text-[13px] leading-[1.5] text-[#6E6E68]">
-            These are roles we are eyeing — a sourced watchlist sitting on top of the{' '}
-            {partnerCount.toLocaleString()} we already partner on.
+            These are roles we are eyeing — a sourced watchlist, not a list of searches we have
+            been retained on.
           </span>
         </span>
         <ChevronDown
@@ -111,12 +111,13 @@ export function JobsBoardNote({ partnerCount }: { partnerCount: number }) {
             ))}
           </ol>
 
+          {/* This paragraph used to point at a "Partner roles" tile and a badge on
+              each card. Both are gone: naming which companies we are retained by
+              disclosed the client list to everyone with an account. */}
           <p className="mt-4 border-t border-[#ECECE6] pt-3.5 text-[12.5px] leading-[1.55] text-[#6E6E68]">
-            <span className="font-semibold text-[#161613]">
-              Roles we already partner on are marked Partner.
-            </span>{' '}
-            Those have an agreement and a direct line in — filter to them with the Partner roles tile
-            above. Everything else is ours to open.{' '}
+            <span className="font-semibold text-[#161613]">Treat every role here as ours to open.</span>{' '}
+            Being listed does not mean we have an agreement — if we do, you will be briefed on it
+            directly rather than reading it off this board.{' '}
             <span className="font-semibold text-[#161613]">Keep all of it confidential:</span>{' '}
             company names and role details stay private until a candidate clears vetting, and that is
             what keeps founders sending us their hardest roles.
