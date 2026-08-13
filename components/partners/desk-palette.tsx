@@ -45,6 +45,21 @@ export function DeskPalette({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  /**
+   * The hint has to name the key this reader actually presses. Most of this
+   * network is on Windows, where "⌘K" is not a key they have.
+   *
+   * Resolved after mount rather than during render: `navigator` does not exist on
+   * the server, and guessing wrong would mean the markup changes on hydration.
+   */
+  const [modifier, setModifier] = useState('Ctrl')
+  useEffect(() => {
+    const platform =
+      (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ??
+      navigator.platform ??
+      ''
+    if (/mac|iphone|ipad/i.test(platform)) setModifier('⌘')
+  }, [])
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -78,7 +93,7 @@ export function DeskPalette({
         <Command className="h-3.5 w-3.5" />
         Jump to a client or search
         <kbd className={`ml-1 rounded border border-[#E7E7E0] px-1.5 py-0.5 font-sans text-[11px] ${META}`}>
-          ⌘K
+          {modifier}K
         </kbd>
       </button>
 
