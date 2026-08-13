@@ -11,6 +11,8 @@ import {
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendAgreementEmails } from '@/lib/send-agreement-emails'
 import { isLikelyBot, logAgreementEvent } from '@/lib/agreement-events'
+import { getRequestContext } from '@/lib/request-context'
+import { notifySlack } from '@/lib/slack'
 import { sendAgreementActivityEmail } from '@/lib/send-agreement-activity-email'
 
 export const dynamic = 'force-dynamic'
@@ -145,6 +147,7 @@ export async function GET(
 
     const ip = getIp(request)
     const userAgent = request.headers.get('user-agent')
+    const geo = getRequestContext(request)
 
     // Log the open and alert the admin, after the document is already on its
     // way to the reader. Mail scanners and link previewers fetch this URL too,
@@ -168,6 +171,7 @@ export async function GET(
             eventType: 'viewed',
             ipAddress: ip,
             userAgent,
+            location: geo.location,
             metadata: { version },
           })
 
@@ -191,6 +195,26 @@ export async function GET(
           if (!result.sent) {
             console.error('[agreements/client GET] activity email failed:', result.error)
           }
+
+          await notifySlack({
+            emoji: logged.seq === 1 ? ':eyes:' : ':repeat:',
+            title:
+              logged.seq === 1
+                ? `${link.company_name} opened the agreement`
+                : `${link.company_name} opened the agreement again (#${logged.seq})`,
+            context:
+              logged.seq >= 3
+                ? 'Opened repeatedly without signing. Usually someone else needs to approve it, or one term is sticking.'
+                : 'Warmest this lead will be all week.',
+            fields: [
+              { label: 'Sent to', value: link.recipient_name ?? 'Open link' },
+              { label: 'Terms', value: `v${version} · ${formatFeePercent(feePercent)}% fee` },
+              { label: 'Location', value: geo.location || 'Unknown' },
+              { label: 'Device', value: logged.device || 'Unknown' },
+            ],
+            links: [{ label: 'Open company', url: `${origin}/companies/${link.company_id}` }],
+          })
+
         } catch (err) {
           console.error('[agreements/client GET] view logging failed:', err)
         }
@@ -282,6 +306,7 @@ export async function POST(
 
     const ip = getIp(request)
     const userAgent = request.headers.get('user-agent') || null
+    const geo = getRequestContext(request)
     const signedAt = new Date()
     const signedAtIso = signedAt.toISOString()
 
@@ -344,6 +369,7 @@ export async function POST(
           eventType: 'signed',
           ipAddress: ip,
           userAgent,
+          location: geo.location,
           metadata: {
             signer_name: signerName,
             signer_email: signerEmail,
@@ -369,6 +395,19 @@ export async function POST(
           if (!activity.sent) {
             console.error('[agreements/client POST] activity email failed:', activity.error)
           }
+
+          await notifySlack({
+            emoji: ':handshake:',
+            title: `${link.company_name} signed the agreement`,
+            context: 'Countersigned PDF is on its way to them.',
+            fields: [
+              { label: 'Signer', value: `${signerName}${signerTitle ? `, ${signerTitle}` : ''}` },
+              { label: 'Email', value: signerEmail },
+              { label: 'Terms', value: `v${storedVersion} · ${formatFeePercent(feePercent)}% fee` },
+              { label: 'Location', value: geo.location || 'Unknown' },
+            ],
+            links: [{ label: 'Open company', url: `${origin}/companies/${link.company_id}` }],
+          })
         }
 
         const pdfBuffer = await generateAgreementPdf({

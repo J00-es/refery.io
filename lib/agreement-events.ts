@@ -74,6 +74,8 @@ interface LogArgs {
   eventType: AgreementEventType
   ipAddress?: string | null
   userAgent?: string | null
+  /** "Seoul, KR" from the edge geo headers, when available. */
+  location?: string | null
   metadata?: Record<string, unknown>
 }
 
@@ -126,6 +128,7 @@ export async function logAgreementEvent(
       ip_address: args.ipAddress ?? null,
       user_agent: args.userAgent ?? null,
       device,
+      location: args.location ?? null,
       seq,
       metadata: args.metadata ?? {},
     })

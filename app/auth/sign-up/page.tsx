@@ -79,6 +79,47 @@ function getAgreementForRole(role: Role): { text: string; version: string; type:
   return null
 }
 
+/**
+ * One id per visit, so the funnel can tell "the same person reached step 3"
+ * from "three people reached step 1". Kept in sessionStorage, never sent
+ * anywhere except our own beacon.
+ */
+function signupSessionId(): string {
+  if (typeof window === 'undefined') return 'ssr'
+  try {
+    const KEY = 'refery_signup_session'
+    let id = sessionStorage.getItem(KEY)
+    if (!id) {
+      id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
+      sessionStorage.setItem(KEY, id)
+    }
+    return id
+  } catch {
+    return `nostore-${Math.random().toString(36).slice(2, 10)}`
+  }
+}
+
+type TrackStep =
+  | 'page_view'
+  | 'role_selected'
+  | 'details_completed'
+  | 'agreement_viewed'
+  | 'completed'
+  | 'failed'
+
+function track(step: TrackStep, data: Record<string, unknown> = {}) {
+  try {
+    void fetch('/api/signup/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step, session_id: signupSessionId(), ...data }),
+      keepalive: true,
+    }).catch(() => {})
+  } catch {
+    /* telemetry must never interrupt sign-up */
+  }
+}
+
 interface PreviewRole {
   title: string
   location: string | null
@@ -156,12 +197,17 @@ export default function Page() {
 
   const agreement = selectedRole ? getAgreementForRole(selectedRole as Role) : null
 
+  useEffect(() => {
+    track('page_view')
+  }, [])
+
   const handleNextFromRole = () => {
     setError(null)
     if (!selectedRole) {
       setError('Please select your role to continue')
       return
     }
+    track('role_selected', { role: selectedRole })
     setStep(2)
   }
 
@@ -191,6 +237,15 @@ export default function Page() {
       setError('Passwords do not match')
       return
     }
+    const who = {
+      role: selectedRole,
+      email,
+      full_name: fullName,
+      linkedin_url: linkedinUrl,
+    }
+    track('details_completed', who)
+    // Step 3 is the terms, so reaching it is the moment worth announcing.
+    track('agreement_viewed', who)
     setStep(3)
   }
 
@@ -232,6 +287,13 @@ export default function Page() {
         throw new Error(data.error || 'Sign up failed')
       }
 
+      track('completed', {
+        role: selectedRole,
+        email,
+        full_name: fullName,
+        linkedin_url: linkedinUrl,
+      })
+
       try {
         localStorage.setItem('pendingVerificationEmail', email)
       } catch {
@@ -240,6 +302,7 @@ export default function Page() {
 
       router.push('/auth/sign-up-success')
     } catch (err: unknown) {
+      track('failed', { role: selectedRole, email })
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setIsLoading(false)
