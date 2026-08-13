@@ -93,7 +93,7 @@ export function BriefLinkControls({
       setCopied(true)
       setTimeout(() => setCopied(false), 2200)
     } catch {
-      setError('Could not reach the clipboard — copy it by hand.')
+      setError('Could not reach the clipboard. Copy it by hand.')
     }
   }
 
@@ -149,7 +149,7 @@ export function BriefLinkControls({
 
       {confirmingRotate && (
         <p className="text-[13px] text-muted-foreground">
-          A new URL is minted and this one stops working — for the founder&apos;s bookmark and anyone
+          A new URL is minted and this one stops working, for the founder&apos;s bookmark and anyone
           it was forwarded to. Comments and history are kept.
         </p>
       )}

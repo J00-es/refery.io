@@ -46,7 +46,7 @@ export async function CompanyBriefCard({
         <CardHeader>
           <CardTitle>Hiring manager brief</CardTitle>
           <CardDescription>
-            A public link {companyName} can open without an account — the brief as you would send
+            A public link {companyName} can open without an account. The brief as you would send
             it, with a box under every section for corrections.
           </CardDescription>
         </CardHeader>
@@ -92,7 +92,7 @@ export async function CompanyBriefCard({
             <CardDescription>
               {brief.status === 'published'
                 ? 'Anyone with this link can read it and write back. No login.'
-                : 'Not reachable yet — publish it to hand the link over.'}
+                : 'Not reachable yet. Publish it to hand the link over.'}
             </CardDescription>
           </div>
         </div>
@@ -107,7 +107,7 @@ export async function CompanyBriefCard({
               Opens
             </p>
             <p className="mt-0.5 text-[15px] font-medium">
-              {views.length || '—'}
+              {views.length}
               {lastView && (
                 <span className="ml-1.5 text-[13px] font-normal text-muted-foreground">
                   last {when(lastView.created_at)}
@@ -123,7 +123,7 @@ export async function CompanyBriefCard({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Read to
             </p>
-            <p className="mt-0.5 text-[15px] font-medium">{lastRead?.furthest_label ?? '—'}</p>
+            <p className="mt-0.5 text-[15px] font-medium">{lastRead?.furthest_label ?? 'Not yet'}</p>
             {lastRead && (
               <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                 {lastRead.scroll_pct != null ? `${lastRead.scroll_pct}% · ` : ''}
@@ -136,7 +136,7 @@ export async function CompanyBriefCard({
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Comments
             </p>
-            <p className="mt-0.5 text-[15px] font-medium">{comments?.length ? comments.length : '—'}</p>
+            <p className="mt-0.5 text-[15px] font-medium">{comments?.length ?? 0}</p>
           </div>
         </div>
 

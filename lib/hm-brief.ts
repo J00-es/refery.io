@@ -238,7 +238,7 @@ export async function notifyBriefRead(
   await notifySlack({
     stream: 'clients',
     emoji: ':book:',
-    title: `${brief.companyName} finished reading — stopped at ${stopped}`,
+    title: `${brief.companyName} finished reading. Stopped at ${stopped}`,
     context:
       summary.scrollPct != null && summary.scrollPct >= 90
         ? 'They reached the end. If nothing came back on the confirm list, that is the nudge.'
@@ -277,7 +277,7 @@ export async function notifyBriefComment(
     context:
       action === 'deleted'
         ? 'Deleted by the person who wrote it. Kept here as the record.'
-        : 'Reply in the thread you already have with them — they are reading right now.',
+        : 'Reply in the thread you already have with them. They are reading right now.',
     fields,
     body: comment.body,
     links: [{ label: 'Open the brief', url: `${briefUrl(brief.slug)}#comments` }],
