@@ -4,6 +4,7 @@ import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { candidateRowFromParsed, sanitizeCandidateInput, toText } from '@/lib/resume'
 import { embedCandidate } from '@/lib/embeddings'
 import type { ParsedResumeData } from '@/lib/types'
+import { getSubmissionTermsStatus } from '@/lib/submission-terms'
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,6 +71,18 @@ export async function POST(request: NextRequest) {
     }
 
     const adminClient = createAdminClient()
+
+    // Partner Terms v2.0 leaves attribution and candidate consent to the
+    // Submission Terms, which bind here. 428 is the signal the upload screen
+    // uses to show them; it is not an error the partner did anything wrong.
+    const termsStatus = await getSubmissionTermsStatus(adminClient, appUser)
+    if (termsStatus.required && !termsStatus.accepted) {
+      return NextResponse.json(
+        { error: 'submission_terms_required', submission_terms_required: true },
+        { status: 428 },
+      )
+    }
+
     const body = (await request.json()) as Record<string, unknown>
 
     const parsed = (body.parsed_data ?? null) as Partial<ParsedResumeData> | null

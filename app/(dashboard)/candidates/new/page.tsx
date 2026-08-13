@@ -12,6 +12,7 @@ import { resumeCompleteness } from '@/lib/resume'
 import { readJsonResponse } from '@/lib/api-client'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { ParsedResumeData } from '@/lib/types'
+import { SubmissionTermsDialog } from '@/components/submission-terms-dialog'
 
 interface UploadResult {
   pathname: string
@@ -37,6 +38,8 @@ export default function NewCandidatePage() {
     setUploadResult(null)
   }
 
+  const [showSubmissionTerms, setShowSubmissionTerms] = useState(false)
+
   const handleCreateCandidate = async () => {
     if (!uploadResult) return
 
@@ -61,6 +64,14 @@ export default function NewCandidatePage() {
 
       const data = await readJsonResponse<{ candidate?: { id: string; name: string }; error?: string; code?: string }>(res)
 
+      // First submission on Partner Terms v2.0: show the Submission Terms, then
+      // pick this back up exactly where it left off.
+      if (res.status === 428) {
+        setShowSubmissionTerms(true)
+        setIsCreating(false)
+        return
+      }
+
       if (!res.ok) {
         if (data.code === 'DUPLICATE' && data.candidate) {
           setDuplicate(data.candidate)
@@ -82,6 +93,14 @@ export default function NewCandidatePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-0">
+      <SubmissionTermsDialog
+        open={showSubmissionTerms}
+        onCancel={() => setShowSubmissionTerms(false)}
+        onAccepted={() => {
+          setShowSubmissionTerms(false)
+          handleCreateCandidate()
+        }}
+      />
       <div className="mb-6 sm:mb-8">
         <h1 className="text-xl sm:text-3xl font-bold tracking-tight text-foreground">Upload Resume</h1>
         <p className="text-sm sm:text-base text-muted-foreground">
