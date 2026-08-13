@@ -55,14 +55,21 @@ export async function GET(request: NextRequest) {
       // Everything still waiting on a client, regardless of when it was sent.
       admin
         .from('client_agreement_links')
-        .select('company_name, recipient_name, status, sent_at, viewed_at')
+        .select('company_name, recipient_name, status, sent_at, viewed_at, expires_at')
         .in('status', ['sent', 'viewed']),
     ])
 
     const signups = signupRes.data ?? []
     const agreements = agreementRes.data ?? []
     const candidates = candidateRes.data ?? []
-    const openLinks = openLinksRes.data ?? []
+
+    // A link past its expiry is not a chase, it is a reissue. Counting the two
+    // together made six dead May and June links read as warm stalled revenue.
+    const allPending = openLinksRes.data ?? []
+    const isLive = (l: { expires_at: string | null }) =>
+      !l.expires_at || new Date(l.expires_at) > new Date()
+    const openLinks = allPending.filter(isLive)
+    const expiredLinks = allPending.filter((l) => !isLive(l))
 
     // A drop-off is a session that reached the terms and never completed.
     const sessions = new Map<string, { steps: Set<string>; who: string | null; role: string | null }>()
@@ -113,7 +120,12 @@ export async function GET(request: NextRequest) {
       },
       {
         label: 'Agreements still out',
-        value: openLinks.length === 0 ? 'None' : `${openLinks.length} unsigned`,
+        value:
+          openLinks.length === 0
+            ? 'None live'
+            : `${openLinks.length} live and unsigned${
+                expiredLinks.length ? `, ${expiredLinks.length} expired` : ''
+              }`,
       },
     ]
 
@@ -156,6 +168,15 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    if (expiredLinks.length) {
+      actions.push(
+        `*${plural(expiredLinks.length, 'link')} expired unsigned:* ${expiredLinks
+          .map((l) => l.company_name)
+          .slice(0, 6)
+          .join(', ')}. These need reissuing, not chasing. A reissued link picks up the current terms automatically.`,
+      )
+    }
+
     const result = await notifySlack({
       stream: 'daily',
       emoji: ':sunrise:',
@@ -181,6 +202,7 @@ export async function GET(request: NextRequest) {
         signed: signed.length,
         candidates: candidates.length,
         openLinks: openLinks.length,
+        expiredLinks: expiredLinks.length,
         staleOpened: staleOpened.length,
         neverOpened: neverOpened.length,
       },
