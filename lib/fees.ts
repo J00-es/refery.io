@@ -143,9 +143,18 @@ export function shortMoney(usd?: number | null): string | null {
   return `$${Math.round(usd / 1000)}k`
 }
 
+/**
+ * A figure or a range.
+ *
+ * The upper bound drops its currency symbol — "$14,000–21,000" rather than
+ * "$14,000–$21,000". That is the ordinary typographic convention for a range, and
+ * it also stops the widest case wrapping onto two lines in the payout column.
+ */
 function range(low: number | null, high: number | null, fmt = money): string | null {
   if (low == null && high == null) return null
-  if (low != null && high != null && low !== high) return `${fmt(low)}–${fmt(high)}`
+  if (low != null && high != null && low !== high) {
+    return `${fmt(low)}–${fmt(high)?.replace(/^\$/, '')}`
+  }
   return fmt(low ?? high)
 }
 
