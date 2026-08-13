@@ -3,7 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import {
   generateAgreementHash,
   getAgreementText,
-  AGREEMENT_VERSIONS,
+  getAgreementVersion,
   type AgreementType,
 } from '@/lib/agreements'
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
@@ -123,8 +123,13 @@ export async function POST(req: Request) {
 
           // Canonical agreement text + version + integrity hash, computed server
           // side so the recorded hash, the PDF, and the email all match.
+          // Both come from the same pair of helpers. Reading the version
+          // straight out of AGREEMENT_VERSIONS[partnerType] recorded "1.2.0"
+          // against a hash of the v2.0 text, which made the acceptance
+          // self-contradictory and, because the Submission Terms gate matches
+          // on version, meant new partners were never asked for tier two.
           const content = getAgreementText(partnerType)
-          const version = AGREEMENT_VERSIONS[partnerType]
+          const version = getAgreementVersion(partnerType)
           const termsHash = await generateAgreementHash(content)
 
           const { data: acceptance, error: acceptError } = await adminClient
