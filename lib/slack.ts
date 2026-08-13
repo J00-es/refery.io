@@ -61,7 +61,16 @@ function esc(s: string): string {
 
 export async function notifySlack(n: SlackNotification): Promise<{ sent: boolean; error?: string }> {
   const url = webhookFor(n.stream)
-  if (!url) return { sent: false, error: 'no Slack webhook configured' }
+  if (!url) {
+    // Loud on purpose. A notification that goes nowhere and says nothing is
+    // indistinguishable from one that was never triggered, which makes a
+    // misconfigured webhook impossible to diagnose from the outside.
+    const wanted = n.stream ? STREAM_ENV[n.stream] : 'SLACK_WEBHOOK_URL'
+    console.warn(
+      `[slack] skipped "${n.title}": neither ${wanted} nor SLACK_WEBHOOK_URL is set in this environment`,
+    )
+    return { sent: false, error: `${wanted} not set` }
+  }
 
   const blocks: unknown[] = [
     {
@@ -118,7 +127,9 @@ export async function notifySlack(n: SlackNotification): Promise<{ sent: boolean
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => '')
-      console.error('[slack] post failed:', res.status, detail)
+      // Slack answers with a plain-text reason such as "no_service" for a
+      // revoked webhook or "channel_not_found" for a deleted channel.
+      console.error(`[slack] ${n.stream ?? 'default'} post failed: ${res.status} ${detail}`)
       return { sent: false, error: `${res.status} ${detail}` }
     }
     return { sent: true }

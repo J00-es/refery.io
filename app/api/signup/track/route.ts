@@ -102,13 +102,17 @@ export async function POST(request: NextRequest) {
       if (email) fields.push({ label: 'Email', value: email })
       if (linkedinUrl) fields.push({ label: 'LinkedIn', value: linkedinUrl })
 
-      await notifySlack({
+      const slack = await notifySlack({
         stream: 'partners',
         emoji: step === 'completed' ? ':white_check_mark:' : ':eyes:',
         title: headline(step, role, fullName),
         context: advice(step),
         fields,
       })
+
+      // Surfaced in the response so the wiring can be checked from outside
+      // without reading server logs. The event itself is already recorded.
+      return NextResponse.json({ ok: true, notified: slack.sent, notifyError: slack.error })
     }
 
     return NextResponse.json({ ok: true })
