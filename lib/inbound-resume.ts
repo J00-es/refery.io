@@ -216,11 +216,13 @@ async function defaultOwnerUserId(admin: SupabaseClient): Promise<string | null>
     return process.env.REFERY_DEFAULT_OWNER_USER_ID
   }
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from('users_admin')
     .select('user_id')
     .eq('email', normalizeEmail(SUPER_ADMIN_EMAILS[0]))
     .maybeSingle()
+
+  if (error) throw new Error(`could not resolve the default owner: ${error.message}`)
 
   return data?.user_id ?? null
 }
@@ -252,12 +254,20 @@ export async function resolveOwner(
   const internal = internalAddresses().includes(from)
 
   if (!internal) {
-    const { data: partner } = await admin
+    const { data: partner, error } = await admin
       .from('users_admin')
       .select('id, user_id, email, full_name, role, status')
       .eq('email', from)
       .eq('status', 'active')
       .maybeSingle()
+
+    // A failed lookup must not read as "not a partner". Silently falling
+    // through would hand a partner's candidate to Lily and quietly delete the
+    // attribution that decides who gets paid — so a broken query fails the
+    // whole ingest instead, which surfaces in Slack and can be retried.
+    if (error) {
+      throw new Error(`could not look up the sender in users_admin: ${error.message}`)
+    }
 
     if (partner?.user_id && ['scout', 'recruiter', 'admin'].includes(partner.role)) {
       return {
@@ -316,10 +326,21 @@ export async function findDuplicate(
 ): Promise<{ kind: 'hard' | 'soft'; match: DuplicateMatch } | null> {
   const select = 'id, name, email, owner_user_id'
 
+  // Every branch throws on a query error rather than returning "no duplicate".
+  // Treating a failed lookup as a clean result is how you end up creating the
+  // second copy this function exists to prevent.
+  const lookup = async (build: () => PromiseLike<{ data: unknown; error: { message: string } | null }>) => {
+    const { data, error } = await build()
+    if (error) throw new Error(`duplicate check failed: ${error.message}`)
+    return (data ?? null) as DuplicateMatch | null
+  }
+
   const email = toText(row.email)
   if (email) {
-    const { data } = await admin.from('candidates').select(select).ilike('email', email).limit(1).maybeSingle()
-    if (data) return { kind: 'hard', match: data as DuplicateMatch }
+    const match = await lookup(() =>
+      admin.from('candidates').select(select).ilike('email', email).limit(1).maybeSingle(),
+    )
+    if (match) return { kind: 'hard', match }
   }
 
   const linkedin = toText(row.linkedin_url)
@@ -328,20 +349,19 @@ export async function findDuplicate(
     // profile URL and the one typed into the form, so match on the handle.
     const handle = linkedin.replace(/\/+$/, '').split('/').pop()
     if (handle && handle.length > 2) {
-      const { data } = await admin
-        .from('candidates')
-        .select(select)
-        .ilike('linkedin_url', `%/${handle}%`)
-        .limit(1)
-        .maybeSingle()
-      if (data) return { kind: 'hard', match: data as DuplicateMatch }
+      const match = await lookup(() =>
+        admin.from('candidates').select(select).ilike('linkedin_url', `%/${handle}%`).limit(1).maybeSingle(),
+      )
+      if (match) return { kind: 'hard', match }
     }
   }
 
   const name = toText(row.name)
   if (name) {
-    const { data } = await admin.from('candidates').select(select).ilike('name', name).limit(1).maybeSingle()
-    if (data) return { kind: 'soft', match: data as DuplicateMatch }
+    const match = await lookup(() =>
+      admin.from('candidates').select(select).ilike('name', name).limit(1).maybeSingle(),
+    )
+    if (match) return { kind: 'soft', match }
   }
 
   return null
