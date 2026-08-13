@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
 
 /**
  * Publishing a partner company, and writing the alias an unassigned scout sees.
@@ -14,6 +14,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ compan
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const blocked = previewBlocked(access)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { companyId } = await params

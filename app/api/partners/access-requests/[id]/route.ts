@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
 
 /**
  * Deciding an access request. Approving it grants the assignment in the same
@@ -11,6 +11,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  const blocked = previewBlocked(access)
+  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params

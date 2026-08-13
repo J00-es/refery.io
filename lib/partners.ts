@@ -302,8 +302,29 @@ export interface SubmissionRow {
 
 // ── access ──────────────────────────────────────────────────────────────────
 
+/** Who a super admin is previewing the desk as. */
+export interface PartnerPreview {
+  userId: string
+  name: string
+  role: string
+}
+
 export interface PartnerAccess {
+  /**
+   * The user the desk should behave as. This is the persona while previewing, so
+   * everything downstream — "my candidates", "my submissions", which clients are
+   * unlocked — is correct without any call site knowing a preview is happening.
+   */
   appUser: AppUser
+  /**
+   * The signed-in person, always. Separate from `appUser` because permission to
+   * *preview* belongs to the real user while permission to *see* belongs to the
+   * persona, and collapsing the two is how impersonation features become
+   * privilege-escalation bugs.
+   */
+  realUser: AppUser
+  /** Non-null while previewing. Every write must refuse in that state. */
+  preview: PartnerPreview | null
   /**
    * Whether this user may reach the desk at all. Gated by
    * `DESK_SUPER_ADMIN_ONLY` while it is still being built.

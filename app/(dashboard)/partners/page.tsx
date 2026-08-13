@@ -22,6 +22,7 @@ import { RequestAccess } from '@/components/partners/request-access'
 import { DeskPalette, type PaletteTarget } from '@/components/partners/desk-palette'
 import { DeskTabs, type DeskView } from '@/components/partners/desk-tabs'
 import { SearchesView } from '@/components/partners/searches-view'
+import { ViewAs } from '@/components/partners/view-as'
 import { ViewSwitch, type DeskViewKind } from '@/components/partners/view-switch'
 
 export const dynamic = 'force-dynamic'
@@ -224,7 +225,11 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           </p>
           <p className={`mt-2.5 ${META}`}>{summary}</p>
         </div>
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          {/* Offered from the real user's rights, not the persona's, so it does
+              not appear while already previewing — nesting personas would make
+              the banner a lie. */}
+          {access.realUser.isSuperAdmin && !access.preview && <ViewAs />}
           <DeskPalette targets={paletteTargets} hasRequests={pendingRequests > 0} />
         </div>
       </header>
