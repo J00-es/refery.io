@@ -34,10 +34,14 @@ export function SearchRow({ search }: { search: DeskSearch }) {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">
         {/* The figure, first and in the reading order, so a scan down the list is
-            a scan down a column of payouts. */}
-        <div className="sm:w-[150px] sm:shrink-0">
+            a scan down a column of payouts. Wide enough for the longest range a
+            band can produce, and `whitespace-nowrap` so a figure never breaks
+            across two lines even if one day it is longer than that. */}
+        <div className="sm:w-[172px] sm:shrink-0">
           {payout ? (
-            <p className={`font-serif text-[21px] leading-none tracking-[-0.02em] ${FOREST}`}>
+            <p
+              className={`whitespace-nowrap font-serif text-[21px] leading-none tracking-[-0.02em] ${FOREST}`}
+            >
               {payout}
             </p>
           ) : (
