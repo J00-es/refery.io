@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
       if (linkedinUrl) fields.push({ label: 'LinkedIn', value: linkedinUrl })
 
       await notifySlack({
+        stream: 'partners',
         emoji: step === 'completed' ? ':white_check_mark:' : ':eyes:',
         title: headline(step, role, fullName),
         context: advice(step),

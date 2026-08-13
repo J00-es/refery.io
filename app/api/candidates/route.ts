@@ -196,6 +196,7 @@ export async function POST(request: NextRequest) {
         const origin = request.nextUrl.origin
 
         await notifySlack({
+          stream: 'candidates',
           emoji: ':inbox_tray:',
           title: `${appUser.fullName || appUser.email} submitted ${name}`,
           context: h.headline ? `Currently ${h.headline}.` : undefined,

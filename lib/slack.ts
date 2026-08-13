@@ -6,7 +6,28 @@
  * must never fail the request that triggered them.
  */
 
-const WEBHOOK = () => process.env.SLACK_WEBHOOK_URL || ''
+/**
+ * Notifications are grouped by who they are about, because the useful reaction
+ * differs: a client opening an agreement wants a same-day reply, a candidate
+ * upload wants a look when convenient.
+ *
+ * Each stream reads its own webhook and falls back to SLACK_WEBHOOK_URL, so a
+ * single webhook still receives everything until the channels exist.
+ */
+export type SlackStream = 'clients' | 'partners' | 'candidates' | 'daily'
+
+const STREAM_ENV: Record<SlackStream, string> = {
+  clients: 'SLACK_WEBHOOK_CLIENTS',
+  partners: 'SLACK_WEBHOOK_PARTNERS',
+  candidates: 'SLACK_WEBHOOK_CANDIDATES',
+  daily: 'SLACK_WEBHOOK_DAILY',
+}
+
+function webhookFor(stream?: SlackStream): string {
+  const fallback = process.env.SLACK_WEBHOOK_URL || ''
+  if (!stream) return fallback
+  return process.env[STREAM_ENV[stream]] || fallback
+}
 
 export interface SlackField {
   label: string
@@ -24,6 +45,8 @@ export interface SlackNotification {
   links?: { label: string; url: string }[]
   /** Emoji shown before the title, e.g. ":inbox_tray:". */
   emoji?: string
+  /** Which channel this belongs to. Falls back to the single shared webhook. */
+  stream?: SlackStream
 }
 
 function truncate(s: string, n: number): string {
@@ -37,8 +60,8 @@ function esc(s: string): string {
 }
 
 export async function notifySlack(n: SlackNotification): Promise<{ sent: boolean; error?: string }> {
-  const url = WEBHOOK()
-  if (!url) return { sent: false, error: 'SLACK_WEBHOOK_URL not set' }
+  const url = webhookFor(n.stream)
+  if (!url) return { sent: false, error: 'no Slack webhook configured' }
 
   const blocks: unknown[] = [
     {

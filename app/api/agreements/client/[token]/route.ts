@@ -197,6 +197,7 @@ export async function GET(
           }
 
           await notifySlack({
+            stream: 'clients',
             emoji: logged.seq === 1 ? ':eyes:' : ':repeat:',
             title:
               logged.seq === 1
@@ -397,6 +398,7 @@ export async function POST(
           }
 
           await notifySlack({
+            stream: 'clients',
             emoji: ':handshake:',
             title: `${link.company_name} signed the agreement`,
             context: 'Countersigned PDF is on its way to them.',
