@@ -33,18 +33,19 @@ const navItems = [
 /**
  * Surfaces still being built, super-admin-only for now.
  *
- * Partners sits first: it is the handful of searches we are actually retained on,
- * where Jobs is the 29k-role sourced watchlist. Ordering them the other way sends
- * everyone to the noise first.
+ * Two groups because they belong in different places, not because they differ in
+ * permission. Partners leads the row: it is the handful of searches we are
+ * actually retained on, where Jobs is the 29k-role sourced watchlist, and putting
+ * it after would send everyone to the noise first. Briefs is a review queue you
+ * visit when there is something in it, so it trails — grouping both up front
+ * pushed Dashboard into third place, which is not what anyone opens first.
  *
- * Hiding a link is not access control — these are kept in step with
+ * Hiding a link is not access control. These are kept in step with
  * DESK_SUPER_ADMIN_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and
  * their API handlers actually enforce.
  */
-const superAdminNavItems = [
-  { href: '/partners', label: 'Partners', icon: Handshake },
-  { href: '/briefs', label: 'Briefs', icon: Mail },
-]
+const superAdminLeadNavItems = [{ href: '/partners', label: 'Partners', icon: Handshake }]
+const superAdminTrailNavItems = [{ href: '/briefs', label: 'Briefs', icon: Mail }]
 
 /**
  * Admin destinations live in the Admin menu rather than the top row.
@@ -115,7 +116,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {isSuperAdmin && superAdminNavItems.map((item) => (
+            {isSuperAdmin && superAdminLeadNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -130,6 +131,20 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
               </Link>
             ))}
             {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
+                  isActiveRoute(item.href)
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+            {isSuperAdmin && superAdminTrailNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -237,7 +252,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
 
             {/* Mobile Navigation */}
             <nav className="p-2">
-              {isSuperAdmin && superAdminNavItems.map((item) => {
+              {isSuperAdmin && superAdminLeadNavItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
@@ -257,6 +272,25 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
                 )
               })}
               {navItems.map((item) => {
+                const Icon = item.icon
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                      isActiveRoute(item.href)
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-foreground hover:bg-accent/50'
+                    )}
+                  >
+                    <Icon className="h-5 w-5" />
+                    {item.label}
+                    <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
+                  </Link>
+                )
+              })}
+              {isSuperAdmin && superAdminTrailNavItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
