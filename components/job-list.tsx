@@ -45,13 +45,6 @@ import {
   shortAge,
 } from '@/lib/job-ui'
 
-export interface JobStats {
-  open: number
-  newThisWeek: number
-  withCandidates: number
-  remote: number
-}
-
 interface JobListProps {
   jobs: JobRow[]
   total: number
@@ -65,7 +58,6 @@ interface JobListProps {
    * sort-by-pipeline option change with it.
    */
   canViewAllPipeline: boolean
-  stats?: JobStats | null
 }
 
 const GRID =
@@ -486,7 +478,6 @@ export function JobList({
   pageSize,
   isAdmin,
   canViewAllPipeline,
-  stats,
 }: JobListProps) {
   const { params, set, list, toggle, pending } = useQueryState()
 
@@ -621,41 +612,6 @@ export function JobList({
 
   return (
     <div className="space-y-4">
-      {/* ── insight strip: each number is also a filter ─────────────────── */}
-      {stats && (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-          {(
-            [
-              {
-                label: 'Open roles',
-                value: stats.open,
-                patch: isAdmin ? { status: 'open' } : {},
-              },
-              { label: 'New this week', value: stats.newThisWeek, patch: { posted: '7d' } },
-              {
-                // Board-wide for the super admin, this viewer's own otherwise.
-                label: canViewAllPipeline ? 'With candidates' : 'Your candidates',
-                value: stats.withCandidates,
-                patch: { cands: '1' },
-              },
-              { label: 'Remote', value: stats.remote, patch: { remote: 'remote' } },
-            ] as { label: string; value: number; patch: Record<string, string | null> }[]
-          ).map(s => (
-            <button
-              key={s.label}
-              type="button"
-              onClick={() => set(s.patch)}
-              className={`${CARD} cursor-pointer px-3.5 py-3 text-left transition-colors hover:border-[#D8D8D0] ${FOCUS}`}
-            >
-              <div className="truncate text-[11.5px] text-[#6E6E68]">{s.label}</div>
-              <div className="mt-1 font-serif text-[22px] leading-none tracking-[-0.01em] text-[#161613]">
-                {s.value.toLocaleString()}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* ── toolbar ─────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <div className="relative min-w-0 flex-1">

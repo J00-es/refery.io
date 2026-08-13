@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { BatchUpload } from '@/components/batch-upload'
-import { JobList, type JobStats } from '@/components/job-list'
+import { JobList } from '@/components/job-list'
 import type { JobRow } from '@/components/jobs/job-card'
 import { getAppUser } from '@/lib/current-user'
 import { FOCUS } from '@/lib/candidate-ui'
@@ -168,23 +168,13 @@ export default async function JobsPage({ searchParams }: PageProps) {
     jobs = jobs.map(j => ({ ...j, pipeline_count: byJob.get(j.id) ?? 0 }))
   }
 
-  // Head-only counts for the insight strip — no rows fetched. The board-level
-  // numbers are the same for everyone; only "with candidates" is per-viewer.
-  const base = () => adminClient.from('jobs_list').select('id', { count: 'exact', head: true })
-  const [openRes, weekRes, candsRes, remoteRes] = await Promise.all([
-    base().eq('status', 'open'),
-    base().gte('created_at', daysAgoIso(7)).eq('status', 'open'),
-    canViewAllPipeline
-      ? base().gt('pipeline_count', 0)
-      : base().contains('candidate_owner_ids', [appUser.id]),
-    base().eq('remote_policy', 'remote').eq('status', 'open'),
-  ])
-  const stats: JobStats = {
-    open: openRes.count ?? 0,
-    newThisWeek: weekRes.count ?? 0,
-    withCandidates: candsRes.count ?? 0,
-    remote: remoteRes.count ?? 0,
-  }
+  /*
+    The board used to open on a strip of four counts — open roles, new this week,
+    with candidates, remote. Each was also a filter shortcut, but every one of
+    those filters is in the row below, so the strip was four numbers nobody
+    decided anything with. Removing it also removes four count queries per page
+    load against an 80k-row view.
+  */
 
   return (
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
@@ -224,7 +214,6 @@ export default async function JobsPage({ searchParams }: PageProps) {
         pageSize={PAGE_SIZE}
         isAdmin={isAdmin}
         canViewAllPipeline={canViewAllPipeline}
-        stats={stats}
       />
     </div>
   )
