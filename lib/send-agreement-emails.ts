@@ -344,12 +344,12 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
           </tr>
           <tr>
             <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
-              You&rsquo;re officially a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner &mdash; we&rsquo;re genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.
+              You&rsquo;re officially a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner, and we&rsquo;re genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.
             </td>
           </tr>
           <tr>
             <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
-              From here, we handle the business side &mdash; clients, contracts, invoicing, and the guarantee &mdash; so you can focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.
+              From here, we handle the business side: clients, contracts, invoicing, and the guarantee. That leaves you free to focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.
             </td>
           </tr>
 
