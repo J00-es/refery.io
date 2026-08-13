@@ -353,7 +353,7 @@ You earn 70% of the placement fee for every successful placement. Refery retains
 
 Refery works with a growing network of VC-backed startups, each with their own fee arrangement. Depending on the client relationship, a role's placement fee may appear in one of two formats:
 
-- **Percentage-based:** A percentage of the candidate's first-year annual base salary (typically 15–20%), as negotiated between Refery and the client. Your payout is 70% of this fee.
+- **Percentage-based:** A percentage of the candidate's first-year annual base salary (typically 10–20%), as negotiated between Refery and the client. Your payout is 70% of this fee.
 - **Fixed referral fee:** A specific dollar amount (e.g. $10,000, $25,000, $50,000) set by the client. Your payout is 70% of this amount.
 
 Each role on the platform shows the confirmed fee structure when active. The fee shown at the time of your submission is the fee that applies to any resulting placement.
@@ -470,7 +470,7 @@ You earn 70% of the placement fee for every successful placement. Refery retains
 
 Refery works with a growing network of VC-backed startups, each with their own fee arrangement. Depending on the client relationship, a role's placement fee may appear in one of two formats:
 
-- **Percentage-based:** A percentage of the candidate's first-year annual base salary (typically 15–20%), as negotiated between Refery and the client. Your payout is 70% of this fee.
+- **Percentage-based:** A percentage of the candidate's first-year annual base salary (typically 10–20%), as negotiated between Refery and the client. Your payout is 70% of this fee.
 - **Fixed referral fee:** A specific dollar amount (e.g. $10,000, $25,000, $50,000) set by the client. Your payout is 70% of this amount.
 
 Each role on the platform shows the confirmed fee structure when active. The fee shown at the time of your submission is the fee that applies to any resulting placement.
