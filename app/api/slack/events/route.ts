@@ -2,9 +2,9 @@
  * Slack Events API endpoint: turns a reaction into a decision.
  *
  * :+1: on an intake message sends the applicant the reply Lily would have
- * written by hand and marks them qualified. :-1: files them as not qualified
- * and sends nothing. The reaction is the whole interface, so the important
- * property is that it behaves the same however many times Slack delivers it.
+ * written by hand and moves them to in_conversation. :-1: rejects them and
+ * sends nothing. The reaction is the whole interface, so the important property
+ * is that it behaves the same however many times Slack delivers it.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -19,6 +19,14 @@ export const maxDuration = 60
 
 const APPROVE = new Set(['+1', 'thumbsup', 'thumbsup_all'])
 const REJECT = new Set(['-1', 'thumbsdown'])
+
+/**
+ * Both tables already had a status vocabulary, so triage reuses it instead of
+ * adding a parallel one. An approval means the intro email went out and a
+ * conversation has started, which is what in_conversation already meant.
+ */
+const APPROVED_STATUS = 'in_conversation'
+const REJECTED_STATUS = 'rejected'
 
 const TABLE_BY_CHANNEL: () => Record<string, 'scout_applications' | 'hiring_manager_leads'> = () => {
   const map: Record<string, 'scout_applications' | 'hiring_manager_leads'> = {}
@@ -109,7 +117,7 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const { data: claimed, error: claimErr } = await admin
     .from(table)
     .update({
-      status: approve ? 'qualified' : 'not_qualified',
+      status: approve ? APPROVED_STATUS : REJECTED_STATUS,
       reviewed_at: new Date().toISOString(),
       reviewed_by: event.user,
     })
@@ -136,7 +144,7 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     await postThreadReply(
       channel,
       ts,
-      `:-1: Marked *not qualified* by <@${event.user}>. No email sent.`,
+      `:-1: Marked *rejected* by <@${event.user}>. No email sent.`,
     )
     return
   }
@@ -166,12 +174,12 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     return
   }
 
-  // The status stays qualified: the decision was real, only the delivery
-  // failed. Surfacing it in-thread is the only way anyone finds out.
+  // The status stays approved: the decision was real, only the delivery failed.
+  // Surfacing it in-thread is the only way anyone finds out.
   await admin.from(table).update({ outreach_error: sent.error ?? 'unknown' }).eq('id', row.id)
   await postThreadReply(
     channel,
     ts,
-    `:warning: Marked qualified, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
+    `:warning: Approved, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
   )
 }

@@ -86,9 +86,10 @@ export function scoutPriority(a: ScoutApplication): PriorityVerdict {
     reasons.push('SF/NY network')
   }
 
-  if ((a.sample_candidate_urls ?? []).length > 0) {
+  const shared = (a.sample_candidate_urls ?? []).length
+  if (shared > 0) {
     score += 1
-    reasons.push(`shared ${(a.sample_candidate_urls ?? []).length} candidate(s)`)
+    reasons.push(`shared ${shared} candidate${shared === 1 ? '' : 's'}`)
   }
 
   if (a.network_tier && STRONG_TIERS.has(a.network_tier.toLowerCase())) {
@@ -240,7 +241,7 @@ function actionHint(upAction: string): SlackBlock {
     elements: [
       {
         type: 'mrkdwn',
-        text: `:+1: to ${upAction}   ·   :-1: to mark not qualified`,
+        text: `:+1: to ${upAction}   ·   :-1: to reject`,
       },
     ],
   }

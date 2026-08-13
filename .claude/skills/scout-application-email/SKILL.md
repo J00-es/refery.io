@@ -9,8 +9,8 @@ The first email a scout applicant gets. Its only job is to book a 15 minute call
 
 ## Where this fires automatically
 
-`:+1:` on a message in `#refery-scouts-application` sends exactly this email and marks the
-row `qualified` in `scout_applications`. The code lives in `lib/intake-emails.ts`
+`:+1:` on a message in `#refery-scouts-application` sends exactly this email and moves the
+row to `in_conversation` in `scout_applications`. The code lives in `lib/intake-emails.ts`
 (`scoutApplicationEmail`), driven by `app/api/slack/events/route.ts`.
 
 **If you change the copy here, change it there too.** Two copies that drift are worse than
@@ -55,12 +55,12 @@ from scout_applications
 where email = '<their email>';
 ```
 
-Send only if `status = 'new'`. Afterwards set `status = 'qualified'`,
+Send only if `status = 'new'`. Afterwards set `status = 'in_conversation'`,
 `reviewed_at = now()`, and `outreach_sent_at = now()` so the Slack reaction path and the
 manual path cannot both fire.
 
 ## When someone is not a fit
 
-Send nothing. Set `status = 'not_qualified'` and `reviewed_at = now()`. This is what
+Send nothing. Set `status = 'rejected'` and `reviewed_at = now()`. This is what
 `:-1:` does. There is deliberately no rejection email: a network application that goes
 quiet is normal, and a rejection note invites a reply asking why.

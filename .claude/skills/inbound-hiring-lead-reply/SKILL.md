@@ -10,8 +10,7 @@ book a call.
 
 ## Where this fires automatically
 
-`:+1:` on a message in `#refery-new-hiring-lead` sends exactly this email and marks the row
-`qualified` in `hiring_manager_leads`. The code lives in `lib/intake-emails.ts`
+`:+1:` on a message in `#refery-new-hiring-lead` sends exactly this email and moves the row to `in_conversation` in `hiring_manager_leads`. The code lives in `lib/intake-emails.ts`
 (`hiringLeadEmail`), driven by `app/api/slack/events/route.ts`.
 
 **If you change the copy here, change it there too.**
@@ -65,10 +64,10 @@ from hiring_manager_leads
 where work_email = '<their email>';
 ```
 
-Send only if `status = 'new'`. Afterwards set `status = 'qualified'`,
+Send only if `status = 'new'`. Afterwards set `status = 'in_conversation'`,
 `reviewed_at = now()`, `outreach_sent_at = now()`.
 
 ## When a lead is not a fit
 
-Send nothing. Set `status = 'not_qualified'` and `reviewed_at = now()`. This is what
+Send nothing. Set `status = 'rejected'` and `reviewed_at = now()`. This is what
 `:-1:` does.
