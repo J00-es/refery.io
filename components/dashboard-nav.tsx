@@ -28,19 +28,23 @@ const navItems = [
   { href: '/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2 },
-  { href: '/briefs', label: 'Briefs', icon: Mail },
 ]
 
 /**
- * Partners is super-admin-only while the desk is still being built, and it sits
- * first: it is the handful of searches we are actually retained on, where Jobs
- * is the 29k-role sourced watchlist. Ordering them the other way sends everyone
- * to the noise first.
+ * Surfaces still being built, super-admin-only for now.
  *
- * Kept in step with DESK_SUPER_ADMIN_ONLY in lib/partners.ts, which is what the
- * pages themselves enforce — this only hides the link.
+ * Partners sits first: it is the handful of searches we are actually retained on,
+ * where Jobs is the 29k-role sourced watchlist. Ordering them the other way sends
+ * everyone to the noise first.
+ *
+ * Hiding a link is not access control — these are kept in step with
+ * DESK_SUPER_ADMIN_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and
+ * their API handlers actually enforce.
  */
-const superAdminNavItems = [{ href: '/partners', label: 'Partners', icon: Handshake }]
+const superAdminNavItems = [
+  { href: '/partners', label: 'Partners', icon: Handshake },
+  { href: '/briefs', label: 'Briefs', icon: Mail },
+]
 
 /**
  * Admin destinations live in the Admin menu rather than the top row.

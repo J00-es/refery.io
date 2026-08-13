@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getAppUser, ownsCandidate } from '@/lib/current-user'
+import { BRIEFS_SUPER_ADMIN_ONLY, getAppUser, ownsCandidate } from '@/lib/current-user'
 
 /** Load a draft and confirm the caller may act on its candidate. */
 async function loadAuthorized(id: string) {
   const appUser = await getAppUser()
   if (!appUser?.isActive) return { error: 'Unauthorized', status: 401 as const }
+  // Super-admin-only for now — see BRIEFS_SUPER_ADMIN_ONLY. This gate covers the
+  // preview GET and the send/dismiss PATCH alike, which matters because sending
+  // is the one irreversible step in the pipeline.
+  if (BRIEFS_SUPER_ADMIN_ONLY && !appUser.isSuperAdmin) {
+    return { error: 'Not found', status: 404 as const }
+  }
 
   const adminClient = createAdminClient()
   const { data: draft } = await adminClient

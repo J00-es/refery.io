@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { BRIEFS_SUPER_ADMIN_ONLY, candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 
 /**
  * The review queue. Drafts are written by the nightly and never sent on their
@@ -11,6 +11,11 @@ export async function GET(request: NextRequest) {
     const appUser = await getAppUser()
     if (!appUser?.isActive) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // Super-admin-only for now — see BRIEFS_SUPER_ADMIN_ONLY. 404 rather than
+    // 403: the surface is not meant to exist for anyone else yet.
+    if (BRIEFS_SUPER_ADMIN_ONLY && !appUser.isSuperAdmin) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     const status = request.nextUrl.searchParams.get('status') || 'draft'

@@ -3,6 +3,18 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 export const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 /**
+ * Candidate briefs are super-admin-only for now.
+ *
+ * The review queue is where a branded brief gets sent to a hiring contact, and
+ * sending is the single irreversible step in the whole nightly pipeline. Until the
+ * partner-facing story for briefs is settled, nobody else sees the surface.
+ *
+ * One flag, honoured by the page, the nav link and both API handlers — flip it to
+ * `false` to open it back up. Mirrors DESK_SUPER_ADMIN_ONLY in lib/partners.ts.
+ */
+export const BRIEFS_SUPER_ADMIN_ONLY = true
+
+/**
  * Canonical form of an email for identity lookups.
  *
  * Supabase Auth stores `auth.users.email` lower-cased, but `users_admin.email`

@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
-import { getAppUser } from '@/lib/current-user'
+import { notFound, redirect } from 'next/navigation'
+import { BRIEFS_SUPER_ADMIN_ONLY, getAppUser } from '@/lib/current-user'
 import { BriefReview } from '@/components/briefs/brief-review'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +7,8 @@ export const dynamic = 'force-dynamic'
 export default async function BriefsPage() {
   const appUser = await getAppUser()
   if (!appUser) redirect('/auth/login')
+  // Super-admin-only for now — see BRIEFS_SUPER_ADMIN_ONLY.
+  if (BRIEFS_SUPER_ADMIN_ONLY && !appUser.isSuperAdmin) notFound()
 
   return (
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
