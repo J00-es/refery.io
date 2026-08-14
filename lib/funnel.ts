@@ -32,16 +32,23 @@ export const DORMANT_PARTNER_DAYS = 14
 const UNTRIAGED = 'new'
 
 /**
- * Our own accounts. lily@refery.io is a second users_admin row carrying the
- * recruiter identity, distinct from the lily@10kventures.co super admin, and it
- * is dormant by design: it exists so inbound résumés have an owner, not so
- * somebody submits through it.
+ * Our own domains. Six of the 54 "partners" are staff and test rows:
+ * scouts@refery.io and lily@refery.io carry internal identities so inbound
+ * résumés have an owner, kim@10kventures.co is the firm, and there are three
+ * deliberate test accounts. None of them will ever submit anyone, so counting
+ * them made activation read 19/54 when the real denominator is 48, and put six
+ * phantom names at the top of the chase list.
  *
- * Excluded from the chase list only. They stay in `active` and `activated`,
- * because the activation rate is a measurement and quietly shrinking its
- * denominator would flatter it.
+ * Matching on domain rather than on a list of addresses because the list would
+ * go stale the next time a staff or test account is created, and a real partner
+ * is never on one of our own domains.
  */
-const INTERNAL_EMAILS = new Set(['lily@10kventures.co', 'lily@refery.io'])
+const INTERNAL_DOMAINS = new Set(['refery.io', '10kventures.co'])
+
+function isInternal(email: string | null | undefined): boolean {
+  const domain = (email ?? '').trim().toLowerCase().split('@')[1]
+  return !!domain && INTERNAL_DOMAINS.has(domain)
+}
 
 export interface StalledIntake {
   id: string
@@ -89,6 +96,9 @@ export interface PartnerStage {
   active: number
   pending: number
   activated: number
+  /** Staff and test rows excluded from every other number here. Reported so the
+   *  exclusion is visible rather than a silently smaller denominator. */
+  internal: number
   dormant: DormantPartner[]
 }
 
@@ -215,20 +225,21 @@ export async function loadFunnel(
   }
 
   const partnerRoles = new Set(['scout', 'recruiter'])
-  const partners = users.filter((u) => partnerRoles.has(u.role))
+  const allPartnerRows = users.filter((u) => partnerRoles.has(u.role))
+  const partners = allPartnerRows.filter((u) => !isInternal(u.email))
   const activePartners = partners.filter((u) => u.status === 'active')
 
   const dormantBefore = Date.now() - DORMANT_PARTNER_DAYS * DAY_MS
   const partnerStage: PartnerStage = {
     active: activePartners.length,
     pending: partners.filter((u) => u.status === 'pending').length,
+    internal: allPartnerRows.length - partners.length,
     activated: activePartners.filter((u) => u.user_id && owners.has(u.user_id)).length,
     dormant: activePartners
       .filter(
         (u) =>
           !(u.user_id && owners.has(u.user_id)) &&
-          new Date(u.created_at).getTime() < dormantBefore &&
-          !INTERNAL_EMAILS.has((u.email ?? '').trim().toLowerCase()),
+          new Date(u.created_at).getTime() < dormantBefore,
       )
       .map((u) => ({
         id: u.id,

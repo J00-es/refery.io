@@ -284,7 +284,13 @@ export default function FunnelPage() {
             <CardDescription>Accounts that can submit today</CardDescription>
           </CardHeader>
           <CardContent className="divide-y pt-0">
-            <Stage label="Active" count={partners.active} note={`${partners.pending} awaiting approval`} />
+            <Stage
+              label="Active"
+              count={partners.active}
+              note={`${partners.pending} awaiting approval${
+                partners.internal ? ` · ${partners.internal} staff and test rows excluded` : ''
+              }`}
+            />
             <Divider />
             <Stage
               label="Ever submitted a candidate"

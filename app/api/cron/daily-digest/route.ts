@@ -35,6 +35,11 @@ function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`
 }
 
+/** Agrees the verb with a count that plural() has already rendered. */
+function verb(n: number, one: string, many: string): string {
+  return n === 1 ? one : many
+}
+
 export async function GET(request: NextRequest) {
   if (!authorised(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -42,7 +47,15 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
   const since = new Date(Date.now() - DAY_MS).toISOString()
-  const origin = request.nextUrl.origin
+  // Not request.nextUrl.origin: the cron invokes this on the immutable
+  // deployment hostname, so every link in the digest pointed at
+  // v0-hr-tool-...-5sih8cwzu.vercel.app, which sits behind Vercel auth and is
+  // superseded by the next deploy. The links have to outlive the deployment.
+  const origin = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://refery.xyz'
+  ).replace(/\/+$/, '')
 
   try {
     const [funnel, agreementRes, candidateRes, openLinksRes] = await Promise.all([
@@ -191,7 +204,7 @@ export async function GET(request: NextRequest) {
     )
     if (staleOpened.length) {
       actions.push(
-        `*${plural(staleOpened.length, 'client')} opened an agreement over 5 days ago and has not signed:* ${staleOpened
+        `*${plural(staleOpened.length, 'client')} opened an agreement over 5 days ago and ${verb(staleOpened.length, 'has', 'have')} not signed:* ${staleOpened
           .map((l) => l.company_name)
           .slice(0, 5)
           .join(', ')}.`,
@@ -224,7 +237,7 @@ export async function GET(request: NextRequest) {
     // 19 working ones.
     if (partners.dormant.length) {
       actions.push(
-        `*${plural(partners.dormant.length, 'approved partner')} joined over ${DORMANT_PARTNER_DAYS} days ago and has never submitted anyone:* ${partners.dormant
+        `*${plural(partners.dormant.length, 'approved partner')} joined over ${DORMANT_PARTNER_DAYS} days ago and ${verb(partners.dormant.length, 'has', 'have')} never submitted anyone:* ${partners.dormant
           .slice(0, 6)
           .map((p) => `${p.name || p.email} (${p.ageDays}d)`)
           .join(', ')}${
