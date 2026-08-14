@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { notifySlack, type SlackField } from '@/lib/slack'
+import { loadFunnel, STALE_INTAKE_DAYS, DORMANT_PARTNER_DAYS } from '@/lib/funnel'
 
 /**
  * Daily digest and stalled-work sweep.
@@ -8,6 +9,11 @@ import { notifySlack, type SlackField } from '@/lib/slack'
  * The per-event channels answer "what just happened". This answers the two
  * questions they cannot: what did the day add up to, and what is sitting still
  * that nobody will be told about, because silence never fires an event.
+ *
+ * That second question is the one that matters most at the top of the funnel.
+ * An application announced once and never reacted to generates no further
+ * events for the rest of its life, so without a sweep it is indistinguishable
+ * from one that was handled. Sixty-odd of them accumulated that way.
  *
  * Runs on a Vercel cron at 23:00 UTC, which is 08:00 in Seoul.
  */
@@ -39,11 +45,10 @@ export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin
 
   try {
-    const [signupRes, agreementRes, candidateRes, openLinksRes] = await Promise.all([
-      admin
-        .from('signup_events')
-        .select('session_id, step, role, full_name, email')
-        .gte('occurred_at', since),
+    const [funnel, agreementRes, candidateRes, openLinksRes] = await Promise.all([
+      // Covers sign-up sessions for the day plus the cumulative intake and
+      // activation backlogs, which have no useful window.
+      loadFunnel(admin, { windowDays: 1 }),
       admin
         .from('client_agreement_events')
         .select('event_type, seq, company_id, link_id')
@@ -59,7 +64,6 @@ export async function GET(request: NextRequest) {
         .in('status', ['sent', 'viewed']),
     ])
 
-    const signups = signupRes.data ?? []
     const agreements = agreementRes.data ?? []
     const candidates = candidateRes.data ?? []
 
@@ -72,19 +76,16 @@ export async function GET(request: NextRequest) {
     const expiredLinks = allPending.filter((l) => !isLive(l))
 
     // A drop-off is a session that reached the terms and never completed.
-    const sessions = new Map<string, { steps: Set<string>; who: string | null; role: string | null }>()
-    for (const e of signups) {
-      const s = sessions.get(e.session_id) ?? { steps: new Set<string>(), who: null, role: null }
-      s.steps.add(e.step)
-      s.who = s.who ?? e.full_name ?? e.email ?? null
-      s.role = s.role ?? e.role ?? null
-      sessions.set(e.session_id, s)
-    }
+    const { signup, scouts, hiringManagers, partners } = funnel
+    const stalledAtTerms = signup.stalledAtTerms
 
-    const started = [...sessions.values()].filter((s) => s.steps.has('role_selected'))
-    const reachedTerms = [...sessions.values()].filter((s) => s.steps.has('agreement_viewed'))
-    const completed = [...sessions.values()].filter((s) => s.steps.has('completed'))
-    const stalledAtTerms = reachedTerms.filter((s) => !s.steps.has('completed'))
+    // Two different failures, and they need different fixes: an application
+    // nobody was told about is a wiring bug, one that was announced and
+    // ignored is a queue nobody is working.
+    const stalledIntake = [...hiringManagers.stalled, ...scouts.stalled].sort(
+      (a, b) => b.ageDays - a.ageDays,
+    )
+    const unannounced = stalledIntake.filter((r) => !r.announced)
 
     const opens = agreements.filter((a) => a.event_type === 'viewed')
     const signed = agreements.filter((a) => a.event_type === 'signed')
@@ -92,20 +93,35 @@ export async function GET(request: NextRequest) {
     // Repeat opens are already alerted in real time on #refery-clients, so the
     // digest does not restate them. What it adds is the opposite: the links
     // nothing has happened to, which never fire an event at all.
+    //
+    // A day with a stalled queue is never "quiet", however little arrived, so
+    // the backlog counts towards this too.
     const nothingHappened =
-      started.length === 0 &&
-      completed.length === 0 &&
+      signup.roleSelected === 0 &&
+      signup.completed === 0 &&
       opens.length === 0 &&
       signed.length === 0 &&
-      candidates.length === 0
+      candidates.length === 0 &&
+      stalledIntake.length === 0 &&
+      partners.dormant.length === 0
 
     const fields: SlackField[] = [
       {
+        label: 'Waiting on a reply',
+        value:
+          scouts.untriaged === 0 && hiringManagers.untriaged === 0
+            ? 'Nothing untriaged'
+            : `${plural(scouts.untriaged, 'scout application')}, ${plural(
+                hiringManagers.untriaged,
+                'hiring lead',
+              )}`,
+      },
+      {
         label: 'Partner sign-ups',
         value:
-          started.length === 0
+          signup.roleSelected === 0
             ? 'Nobody started'
-            : `${plural(started.length, 'start')}, ${reachedTerms.length} reached the terms, ${completed.length} finished`,
+            : `${plural(signup.roleSelected, 'start')}, ${signup.reachedTerms} reached the terms, ${signup.completed} finished`,
       },
       {
         label: 'Client agreements',
@@ -127,10 +143,36 @@ export async function GET(request: NextRequest) {
                 expiredLinks.length ? `, ${expiredLinks.length} expired` : ''
               }`,
       },
+      {
+        label: 'Partner activation',
+        value: partners.active
+          ? `${partners.activated} of ${partners.active} have submitted anyone`
+          : 'No active partners',
+      },
     ]
 
     // The part worth acting on. Named, not counted.
     const actions: string[] = []
+
+    // First, because it is the widest leak: someone raised their hand and got
+    // nothing back. Everything below this is a smaller number.
+    if (stalledIntake.length) {
+      const oldest = stalledIntake[0]
+      const names = stalledIntake
+        .slice(0, 6)
+        .map((r) => `${r.name || r.email || 'unnamed'}${r.company ? ` (${r.company})` : ''} ${r.ageDays}d`)
+      actions.push(
+        `*${plural(stalledIntake.length, 'application')} untriaged for over ${STALE_INTAKE_DAYS} days.* ${names.join(
+          ', ',
+        )}${stalledIntake.length > 6 ? `, plus ${stalledIntake.length - 6} more` : ''}. The oldest has been waiting ${oldest.ageDays} days.`,
+      )
+    }
+
+    if (unannounced.length) {
+      actions.push(
+        `*${unannounced.length} of those were never posted to Slack at all*, so nobody was ever told they existed. They will not appear in the intake channels no matter how long you wait: work them from the funnel page.`,
+      )
+    }
 
     if (stalledAtTerms.length) {
       const names = stalledAtTerms
@@ -177,6 +219,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Last, because it is the slowest-moving of the four and the least urgent
+    // on any given morning. It is still the difference between 54 partners and
+    // 19 working ones.
+    if (partners.dormant.length) {
+      actions.push(
+        `*${plural(partners.dormant.length, 'approved partner')} joined over ${DORMANT_PARTNER_DAYS} days ago and has never submitted anyone:* ${partners.dormant
+          .slice(0, 6)
+          .map((p) => `${p.name || p.email} (${p.ageDays}d)`)
+          .join(', ')}${
+          partners.dormant.length > 6 ? `, plus ${partners.dormant.length - 6} more` : ''
+        }.`,
+      )
+    }
+
     const result = await notifySlack({
       stream: 'daily',
       emoji: ':sunrise:',
@@ -186,7 +242,10 @@ export async function GET(request: NextRequest) {
       context: actions.length
         ? undefined
         : 'Nothing is sitting still that needs chasing.',
-      links: [{ label: 'Open Refery', url: `${origin}/dashboard` }],
+      links: [
+        { label: 'Funnel', url: `${origin}/admin/funnel` },
+        { label: 'Open Refery', url: `${origin}/dashboard` },
+      ],
     })
 
     return NextResponse.json({
@@ -194,10 +253,13 @@ export async function GET(request: NextRequest) {
       posted: result.sent,
       error: result.error,
       summary: {
-        started: started.length,
-        reachedTerms: reachedTerms.length,
-        completed: completed.length,
+        started: signup.roleSelected,
+        reachedTerms: signup.reachedTerms,
+        completed: signup.completed,
         stalledAtTerms: stalledAtTerms.length,
+        stalledIntake: stalledIntake.length,
+        unannouncedIntake: unannounced.length,
+        dormantPartners: partners.dormant.length,
         opens: opens.length,
         signed: signed.length,
         candidates: candidates.length,

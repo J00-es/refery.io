@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { BarChart3, Users, Settings } from 'lucide-react'
+import { BarChart3, Users, Settings, Filter } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 
 export default function AdminLayout({
@@ -69,6 +69,13 @@ export default function AdminLayout({
         >
           <BarChart3 className="h-4 w-4" />
           Analytics
+        </Link>
+        <Link
+          href="/admin/funnel"
+          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        >
+          <Filter className="h-4 w-4" />
+          Funnel
         </Link>
         {isSuperAdmin && (
           <Link
