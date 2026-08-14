@@ -31,6 +31,18 @@ export const DORMANT_PARTNER_DAYS = 14
 /** Only these mean nobody has dealt with the row yet. */
 const UNTRIAGED = 'new'
 
+/**
+ * Our own accounts. lily@refery.io is a second users_admin row carrying the
+ * recruiter identity, distinct from the lily@10kventures.co super admin, and it
+ * is dormant by design: it exists so inbound résumés have an owner, not so
+ * somebody submits through it.
+ *
+ * Excluded from the chase list only. They stay in `active` and `activated`,
+ * because the activation rate is a measurement and quietly shrinking its
+ * denominator would flatter it.
+ */
+const INTERNAL_EMAILS = new Set(['lily@10kventures.co', 'lily@refery.io'])
+
 export interface StalledIntake {
   id: string
   name: string | null
@@ -215,7 +227,8 @@ export async function loadFunnel(
       .filter(
         (u) =>
           !(u.user_id && owners.has(u.user_id)) &&
-          new Date(u.created_at).getTime() < dormantBefore,
+          new Date(u.created_at).getTime() < dormantBefore &&
+          !INTERNAL_EMAILS.has((u.email ?? '').trim().toLowerCase()),
       )
       .map((u) => ({
         id: u.id,
