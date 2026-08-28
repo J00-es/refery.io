@@ -22,6 +22,22 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const HOUR_MS = 60 * 60 * 1000
+
+/**
+ * The nightly run is scheduled once a day, so anything past a day plus a
+ * scheduling-drift allowance means a night was skipped, not delayed.
+ */
+const NIGHTLY_OVERDUE_MS = 26 * HOUR_MS
+
+/** A run still 'running' after this long died without writing a status. */
+const RUN_HUNG_MS = 6 * HOUR_MS
+
+/**
+ * The ATS ingest arrives in bursts every few days rather than nightly, and the
+ * longest healthy gap observed is seven days. Past that it has stopped.
+ */
+const INGEST_STALE_DAYS = 8
 
 function authorised(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
@@ -38,6 +54,12 @@ function plural(n: number, one: string, many = `${one}s`): string {
 /** Agrees the verb with a count that plural() has already rendered. */
 function verb(n: number, one: string, many: string): string {
   return n === 1 ? one : many
+}
+
+/** Run errors carry full URLs and stack context, which no digest line needs. */
+function truncateError(e: string): string {
+  const firstLine = e.split('\n')[0]
+  return firstLine.length > 160 ? `${firstLine.slice(0, 159)}...` : firstLine
 }
 
 export async function GET(request: NextRequest) {
@@ -58,7 +80,17 @@ export async function GET(request: NextRequest) {
   ).replace(/\/+$/, '')
 
   try {
-    const [funnel, agreementRes, candidateRes, openLinksRes] = await Promise.all([
+    const [
+      funnel,
+      agreementRes,
+      candidateRes,
+      openLinksRes,
+      lastRunRes,
+      hungRunsRes,
+      newestJobRes,
+      unembeddedJobsRes,
+      autoMatchedRes,
+    ] = await Promise.all([
       // Covers sign-up sessions for the day plus the cumulative intake and
       // activation backlogs, which have no useful window.
       loadFunnel(admin, { windowDays: 1 }),
@@ -75,6 +107,35 @@ export async function GET(request: NextRequest) {
         .from('client_agreement_links')
         .select('company_name, recipient_name, status, sent_at, viewed_at, expires_at')
         .in('status', ['sent', 'viewed']),
+      // The nightly run reports itself into daily_run_log, but nothing ever
+      // read that table back. A run that dies leaves a row stuck at 'running'
+      // and says nothing, which is indistinguishable from a quiet night.
+      admin
+        .from('daily_run_log')
+        .select('run_date, status, started_at, finished_at, errors')
+        .order('started_at', { ascending: false })
+        .limit(1),
+      admin
+        .from('daily_run_log')
+        .select('run_date, started_at', { count: 'exact' })
+        .eq('status', 'running')
+        .lt('started_at', new Date(Date.now() - RUN_HUNG_MS).toISOString()),
+      // Job ingest happens outside this app entirely, so its silence is the
+      // failure nothing here would otherwise notice.
+      admin
+        .from('jobs')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1),
+      admin
+        .from('jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'open')
+        .is('embedding', null),
+      admin
+        .from('job_candidate_pipeline')
+        .select('id', { count: 'exact', head: true })
+        .eq('stage', 'auto_matched'),
     ])
 
     const agreements = agreementRes.data ?? []
@@ -100,6 +161,58 @@ export async function GET(request: NextRequest) {
     )
     const unannounced = stalledIntake.filter((r) => !r.announced)
 
+    // Pipeline health. Every check here answers the same question: is the
+    // absence of news good news, or is a machine quietly not running?
+    const lastRun = lastRunRes.data?.[0] ?? null
+    const lastRunAgeMs = lastRun ? Date.now() - new Date(lastRun.started_at).getTime() : null
+    const nightlyOverdue = lastRunAgeMs === null || lastRunAgeMs > NIGHTLY_OVERDUE_MS
+    const hungRuns = hungRunsRes.data ?? []
+    const newestJobAt = newestJobRes.data?.[0]?.created_at ?? null
+    const ingestAgeDays = newestJobAt
+      ? Math.floor((Date.now() - new Date(newestJobAt).getTime()) / DAY_MS)
+      : null
+    const unembeddedOpenJobs = unembeddedJobsRes.count ?? 0
+    const autoMatchedBacklog = autoMatchedRes.count ?? 0
+
+    const pipelineProblems: string[] = []
+
+    if (nightlyOverdue) {
+      pipelineProblems.push(
+        lastRun
+          ? `*The nightly run has not started since ${lastRun.run_date}*, ${Math.floor(
+              (lastRunAgeMs as number) / HOUR_MS,
+            )} hours ago. No jobs are being embedded or matched until it runs again.`
+          : '*The nightly run has never reported in.* Nothing is being embedded or matched.',
+      )
+    } else if (lastRun && lastRun.status !== 'success') {
+      pipelineProblems.push(
+        `*Last night's run finished as \`${lastRun.status}\`.*${
+          lastRun.errors?.length ? ` First error: ${truncateError(lastRun.errors[0])}` : ''
+        }`,
+      )
+    }
+
+    if (hungRuns.length) {
+      pipelineProblems.push(
+        `*${plural(hungRuns.length, 'nightly run')} died mid-flight and never wrote a result:* ${hungRuns
+          .map((r) => r.run_date)
+          .slice(0, 5)
+          .join(', ')}. That night's work did not happen.`,
+      )
+    }
+
+    if (ingestAgeDays !== null && ingestAgeDays >= INGEST_STALE_DAYS) {
+      pipelineProblems.push(
+        `*No new jobs have been ingested for ${plural(ingestAgeDays, 'day')}.* The ATS ingest runs outside Refery, so nothing else will tell you it stopped. Without it the match pipeline runs against a frozen board.`,
+      )
+    }
+
+    if (unembeddedOpenJobs > 0) {
+      pipelineProblems.push(
+        `*${plural(unembeddedOpenJobs, 'open job')} ${verb(unembeddedOpenJobs, 'has', 'have')} no embedding*, so ${verb(unembeddedOpenJobs, 'it is', 'they are')} invisible to matching.`,
+      )
+    }
+
     const opens = agreements.filter((a) => a.event_type === 'viewed')
     const signed = agreements.filter((a) => a.event_type === 'signed')
 
@@ -109,6 +222,8 @@ export async function GET(request: NextRequest) {
     //
     // A day with a stalled queue is never "quiet", however little arrived, so
     // the backlog counts towards this too.
+    // A morning where the machines were down is never "quiet" either. That was
+    // the whole failure mode: nothing arrived, so nothing looked wrong.
     const nothingHappened =
       signup.roleSelected === 0 &&
       signup.completed === 0 &&
@@ -116,9 +231,40 @@ export async function GET(request: NextRequest) {
       signed.length === 0 &&
       candidates.length === 0 &&
       stalledIntake.length === 0 &&
-      partners.dormant.length === 0
+      partners.dormant.length === 0 &&
+      pipelineProblems.length === 0
 
     const fields: SlackField[] = [
+      {
+        label: 'Nightly pipeline',
+        value: nightlyOverdue
+          ? ':red_circle: not running'
+          : `${lastRun?.status === 'success' ? 'Ran' : `Ran ${lastRun?.status}`} ${
+              (lastRunAgeMs as number) < HOUR_MS
+                ? 'under an hour ago'
+                : `${plural(Math.floor((lastRunAgeMs as number) / HOUR_MS), 'hour')} ago`
+            }`,
+      },
+      {
+        label: 'Job board',
+        value:
+          ingestAgeDays === null
+            ? 'No jobs ingested yet'
+            : `${
+                unembeddedOpenJobs === 0
+                  ? 'All open jobs embedded'
+                  : `${plural(unembeddedOpenJobs, 'open job')} unembedded`
+              }, last ingest ${
+                ingestAgeDays === 0 ? 'today' : `${plural(ingestAgeDays, 'day')} ago`
+              }`,
+      },
+      {
+        label: 'Matches awaiting review',
+        value:
+          autoMatchedBacklog === 0
+            ? 'None'
+            : `${autoMatchedBacklog} at auto_matched`,
+      },
       {
         label: 'Waiting on a reply',
         value:
@@ -165,7 +311,9 @@ export async function GET(request: NextRequest) {
     ]
 
     // The part worth acting on. Named, not counted.
-    const actions: string[] = []
+    // Broken machinery goes first: every other number below it is only as
+    // trustworthy as the run that produced it.
+    const actions: string[] = [...pipelineProblems]
 
     // First, because it is the widest leak: someone raised their hand and got
     // nothing back. Everything below this is a smaller number.
@@ -248,8 +396,13 @@ export async function GET(request: NextRequest) {
 
     const result = await notifySlack({
       stream: 'daily',
-      emoji: ':sunrise:',
-      title: nothingHappened ? 'Yesterday was quiet' : 'Yesterday on Refery',
+      // A broken pipeline should not open with a sunrise.
+      emoji: pipelineProblems.length ? ':rotating_light:' : ':sunrise:',
+      title: pipelineProblems.length
+        ? 'Yesterday on Refery: the pipeline needs attention'
+        : nothingHappened
+          ? 'Yesterday was quiet'
+          : 'Yesterday on Refery',
       fields,
       body: actions.length ? actions.join('\n\n') : undefined,
       context: actions.length
@@ -266,6 +419,12 @@ export async function GET(request: NextRequest) {
       posted: result.sent,
       error: result.error,
       summary: {
+        pipelineProblems: pipelineProblems.length,
+        nightlyOverdue,
+        hungRuns: hungRuns.length,
+        ingestAgeDays,
+        unembeddedOpenJobs,
+        autoMatchedBacklog,
         started: signup.roleSelected,
         reachedTerms: signup.reachedTerms,
         completed: signup.completed,
