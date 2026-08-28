@@ -25,7 +25,7 @@ import type {
   RoleItem,
   StatItem,
 } from '@/lib/brief'
-import { briefNav } from '@/lib/brief'
+import { briefNav, jdPlainText } from '@/lib/brief'
 import { Inline } from './brief-inline'
 import { CopyButton } from './copy-button'
 
@@ -328,6 +328,222 @@ function Blurb({ block }: { block: Extract<BriefBlock, { kind: 'blurb' }> }) {
   )
 }
 
+/** "$150K". Bands are quoted in whole thousands everywhere else in a brief. */
+function money(n: number): string {
+  return n >= 1000 ? `$${Math.round(n / 1000)}K` : `$${n}`
+}
+
+/**
+ * Salary bands drawn on one scale.
+ *
+ * The argument a comp section makes is comparative, and a column of "$150K to
+ * $250K" strings does not make it: the reader has to hold eight ranges in their
+ * head. Drawn against a shared axis, the gap between their band and the
+ * companies they named is the first thing they see, which is the point.
+ *
+ * Bars are positioned with inline styles because the percentages come from the
+ * data; Tailwind only ships class names it can see at build time.
+ */
+function CompBars({ block }: { block: Extract<BriefBlock, { kind: 'compbars' }> }) {
+  const lo = block.min ?? Math.min(...block.rows.map(r => r.low))
+  const hi = block.max ?? Math.max(...block.rows.map(r => r.high))
+  // Round out to whole $100K so the axis ticks land on readable numbers.
+  const floor = Math.floor(lo / 100_000) * 100_000
+  const ceil = Math.ceil(hi / 100_000) * 100_000
+  const span = Math.max(ceil - floor, 1)
+  const pct = (v: number) => ((v - floor) / span) * 100
+
+  const ticks: number[] = []
+  for (let t = floor; t <= ceil; t += 100_000) ticks.push(t)
+
+  const fill = {
+    ours: 'bg-[#1F4D3A]',
+    peer: 'bg-[#B9CDC2]',
+    named: 'bg-[#DCC894]',
+  }
+
+  return (
+    <figure className={`my-6 ${DOC.card} px-4 py-5 sm:px-6`}>
+      {(block.caption || block.note) && (
+        <figcaption className="mb-4">
+          {block.caption && (
+            <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${DOC.green}`}>
+              <Inline text={block.caption} />
+            </p>
+          )}
+          {block.note && <p className={`mt-1 text-[12.5px] ${DOC.muted}`}>{block.note}</p>}
+        </figcaption>
+      )}
+
+      <div className="space-y-3.5">
+        {block.rows.map((row, i) => (
+          <div key={i} className="sm:flex sm:items-center sm:gap-4">
+            <div className="sm:w-[190px] sm:shrink-0">
+              <p className={`text-[13px] font-semibold leading-snug ${DOC.deep}`}>{row.label}</p>
+              {row.note && <p className={`text-[11.5px] leading-snug ${DOC.muted}`}>{row.note}</p>}
+            </div>
+            <div className="relative mt-1.5 h-[26px] flex-1 rounded-[4px] bg-[#F4F3EE] sm:mt-0">
+              <div
+                className={`absolute inset-y-0 rounded-[4px] ${fill[row.tone ?? 'peer']}`}
+                style={{ left: `${pct(row.low)}%`, width: `${pct(row.high) - pct(row.low)}%` }}
+              />
+              <span
+                className={`absolute inset-y-0 flex items-center whitespace-nowrap px-2 text-[11.5px] font-semibold tabular-nums ${
+                  row.tone === 'ours' ? 'text-white' : DOC.deep
+                }`}
+                style={{ left: `${pct(row.low)}%` }}
+              >
+                {money(row.low)} to {money(row.high)}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div aria-hidden className="mt-3 sm:ml-[206px]">
+        <div className="flex justify-between border-t border-[#E6E4DC] pt-1.5">
+          {ticks.map(t => (
+            <span key={t} className={`text-[10.5px] tabular-nums ${DOC.faint}`}>
+              {money(t)}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {block.legend && (
+        <p className={`mt-3 text-[12px] leading-relaxed ${DOC.muted}`}>
+          <Inline text={block.legend} />
+        </p>
+      )}
+    </figure>
+  )
+}
+
+/**
+ * A grid of market data. Scrolls sideways inside its own box on a phone rather
+ * than making the whole document scroll, which is what a reader would blame the
+ * document for.
+ */
+function DataTable({ block }: { block: Extract<BriefBlock, { kind: 'table' }> }) {
+  return (
+    <figure className="my-6">
+      {block.caption && (
+        <figcaption className={`mb-2 text-[11px] font-bold uppercase tracking-[0.15em] ${DOC.green}`}>
+          <Inline text={block.caption} />
+        </figcaption>
+      )}
+      <div className={`overflow-x-auto ${DOC.card}`}>
+        <table className="w-full min-w-[560px] border-separate border-spacing-0">
+          <thead>
+            <tr>
+              {block.columns.map((c, i) => (
+                <th
+                  key={i}
+                  scope="col"
+                  className={`border-b border-[#E6E4DC] bg-[#EDF3EF] px-4 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.09em] ${DOC.deep}`}
+                >
+                  {c}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {block.rows.map((row, i) => (
+              <tr key={i} className={row.emphasis ? 'bg-[#FBFAF7]' : undefined}>
+                {row.cells.map((cell, j) => (
+                  <td
+                    key={j}
+                    className={`border-b border-[#E6E4DC] px-4 py-3 align-top text-[13px] leading-relaxed tabular-nums ${
+                      row.emphasis && j === 0 ? `font-semibold ${DOC.deep}` : DOC.body
+                    }`}
+                  >
+                    <Inline text={cell} />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {block.note && <p className={`mt-2 text-[12.5px] ${DOC.muted}`}>{block.note}</p>}
+    </figure>
+  )
+}
+
+/**
+ * The drafted job descriptions, collapsed.
+ *
+ * `<details>` rather than state: it opens without JavaScript, it prints open in
+ * some browsers, and find-in-page reaches inside it. The copy button gives the
+ * plain text, because the thing a client wants from a JD draft is to paste it.
+ */
+function Jds({ block }: { block: Extract<BriefBlock, { kind: 'jd' }> }) {
+  return (
+    <div className="my-6 space-y-3">
+      {block.note && (
+        <p className={`rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}>
+          <Inline text={block.note} />
+        </p>
+      )}
+      {block.items.map((item, i) => (
+        <details key={i} className={`group ${DOC.card} overflow-hidden`}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 sm:px-6">
+            <span className="min-w-0">
+              <span className={`block font-serif text-[18px] leading-snug ${DOC.deep}`}>
+                {item.title}
+              </span>
+              {item.meta && (
+                <span className={`mt-0.5 block text-[12.5px] ${DOC.muted}`}>{item.meta}</span>
+              )}
+            </span>
+            <span
+              className={`shrink-0 text-[11px] font-bold uppercase tracking-[0.13em] ${DOC.gold}`}
+            >
+              <span className="group-open:hidden">Open draft</span>
+              <span className="hidden group-open:inline">Close</span>
+            </span>
+          </summary>
+
+          <div className="border-t border-[#E6E4DC] px-5 py-5 sm:px-6">
+            {item.parts.map((part, j) => (
+              <div key={j} className="mb-5 last:mb-0">
+                <h4 className={`text-[11px] font-bold uppercase tracking-[0.14em] ${DOC.green}`}>
+                  {part.heading}
+                </h4>
+                {part.paragraphs?.map((p, k) => (
+                  <p key={k} className={`mt-2 text-[14.5px] leading-relaxed ${DOC.body}`}>
+                    <Inline text={p} />
+                  </p>
+                ))}
+                {!!part.items?.length && (
+                  <ul className="mt-2">
+                    {part.items.map((li, k) => (
+                      <li key={k} className="flex gap-3 py-1">
+                        <span aria-hidden className={`w-2 shrink-0 text-[13px] ${DOC.gold}`}>
+                          ·
+                        </span>
+                        <span className={`text-[14.5px] leading-relaxed ${DOC.body}`}>
+                          <Inline text={li} />
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#E6E4DC] pt-4">
+              <CopyButton text={jdPlainText(item)} label="Copy this JD" />
+              <span className={`text-[12.5px] ${DOC.muted}`}>
+                Copies the plain text, ready to paste into your ATS.
+              </span>
+            </div>
+          </div>
+        </details>
+      ))}
+    </div>
+  )
+}
+
 function Steps({ items }: { items: string[] }) {
   return (
     <ol className="my-5 space-y-3">
@@ -438,6 +654,20 @@ function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (a
           </p>
         </aside>
       )
+    case 'heading':
+      return (
+        <h3
+          className={`mb-3 mt-8 border-b border-[#E6E4DC] pb-2 font-serif text-[19px] leading-snug sm:text-[21px] ${DOC.deep}`}
+        >
+          {block.text}
+        </h3>
+      )
+    case 'compbars':
+      return <CompBars block={block} />
+    case 'table':
+      return <DataTable block={block} />
+    case 'jd':
+      return <Jds block={block} />
   }
 }
 
@@ -558,6 +788,25 @@ export function BriefDocument({
                 </p>
               ))}
             </div>
+            {!!content.confidential.points?.length && (
+              <div className="mt-4 border-t border-[#CBDDD2] pt-3.5">
+                <p className={`text-[10.5px] font-bold uppercase tracking-[0.18em] ${DOC.green}`}>
+                  {content.confidential.pointsHeading ?? 'If you have two minutes'}
+                </p>
+                <ul className="mt-2">
+                  {content.confidential.points.map((p, i) => (
+                    <li key={i} className="flex gap-3 py-1">
+                      <span aria-hidden className={`w-3 shrink-0 font-serif text-[14px] italic ${DOC.gold}`}>
+                        {i + 1}
+                      </span>
+                      <span className={`text-[14px] leading-relaxed ${DOC.body}`}>
+                        <Inline text={p} />
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </aside>
         )}
 
@@ -595,6 +844,18 @@ export function BriefDocument({
                   {section.heading}
                 </h2>
               </div>
+              {section.summary && (
+                <p
+                  className={`mb-5 rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}
+                >
+                  <span
+                    className={`mr-2 text-[10.5px] font-bold uppercase tracking-[0.14em] ${DOC.gold}`}
+                  >
+                    In short
+                  </span>
+                  <Inline text={section.summary} />
+                </p>
+              )}
               {section.blocks.map((block, i) => (
                 <Block
                   key={i}

@@ -116,6 +116,48 @@ export interface QuestionItem {
   question: string
   looking_for?: string
 }
+/**
+ * One salary band on the comparison chart.
+ *
+ * Amounts are whole dollars rather than thousands, because a brief that quotes
+ * "$150K to $250K" in prose and stores `150` invites exactly one bug, and it is
+ * the expensive kind to find in front of a client.
+ */
+export interface CompBarRow {
+  label: string
+  /** The second line: what the band is drawn from, e.g. "28 SF/NY postings". */
+  note?: string
+  low: number
+  high: number
+  /**
+   * `ours` is the client's own band and is drawn solid; `peer` is the market at
+   * the same stage; `named` is the specific companies they said they hire from,
+   * which is the comparison that actually changes a mind.
+   */
+  tone?: 'ours' | 'peer' | 'named'
+}
+export interface TableRow {
+  cells: string[]
+  /** Drawn as the client's own line rather than as market data. */
+  emphasis?: boolean
+}
+export interface JdPart {
+  heading: string
+  paragraphs?: string[]
+  items?: string[]
+}
+/**
+ * A job description drafted for the client, collapsed until they open it.
+ *
+ * Two full JDs inline would bury the sections after them, and the hiring manager
+ * reads this on a phone. Collapsed, they are two lines; opened, they are the
+ * thing that gets posted.
+ */
+export interface JdItem {
+  title: string
+  meta?: string
+  parts: JdPart[]
+}
 
 export type BriefBlock =
   | { kind: 'lede'; text: string }
@@ -133,6 +175,22 @@ export type BriefBlock =
   | { kind: 'checklist'; items: ChecklistItem[]; note?: string }
   /** A tinted aside inside a section — the aside you'd read out loud. */
   | { kind: 'callout'; text: string }
+  /** A sub-heading, for the one or two sections long enough to need turning. */
+  | { kind: 'heading'; text: string }
+  /** Salary bands on one scale: theirs against the market and against names. */
+  | {
+      kind: 'compbars'
+      rows: CompBarRow[]
+      caption?: string
+      note?: string
+      /** Scale ends. Derived from the rows when absent. */
+      min?: number
+      max?: number
+      /** The legend line, e.g. "your bands · seed peers · hunting grounds". */
+      legend?: string
+    }
+  | { kind: 'table'; columns: string[]; rows: TableRow[]; caption?: string; note?: string }
+  | { kind: 'jd'; items: JdItem[]; note?: string }
 
 export interface BriefSection {
   /** Anchor id, used by the in-page contents rail. */
@@ -140,6 +198,12 @@ export interface BriefSection {
   heading: string
   /** Short label for the contents rail; falls back to the heading. */
   nav?: string
+  /**
+   * The "in short" line. A hiring manager skims the ten headings first and
+   * reads the two sections that worry them, so every section says its own
+   * conclusion before arguing it.
+   */
+  summary?: string
   blocks: BriefBlock[]
 }
 
@@ -149,7 +213,11 @@ export interface BriefContent {
   subtitle?: string
   /** The company's own site. Rendered only to viewers who are unlocked. */
   url?: string
-  confidential?: { heading?: string; paragraphs: string[] }
+  /**
+   * `points` is the "if you have two minutes" list: the three or four
+   * conclusions, each linking to the section that argues them.
+   */
+  confidential?: { heading?: string; paragraphs: string[]; pointsHeading?: string; points?: string[] }
   sections: BriefSection[]
   signoff?: { name: string; lines: string[]; reminder?: string }
 }
@@ -187,12 +255,32 @@ function strList(v: unknown): string[] {
   return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()) : []
 }
 
+/**
+ * Table cells keep their blanks. `strList` drops empties, which is right for a
+ * bullet list and wrong for a row: dropping one blank cell shifts every cell
+ * after it into the wrong column.
+ */
+function cellList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []
+}
+
+/** Finite numbers only. A band whose end is null would draw a bar to nowhere. */
+function num(v: unknown): number | null {
+  return typeof v === 'number' && Number.isFinite(v) ? v : null
+}
+
 function normalizeConfidential(v: unknown): BriefContent['confidential'] {
   if (!v || typeof v !== 'object') return undefined
   const o = v as Record<string, unknown>
   const paragraphs = strList(o.paragraphs)
   if (!paragraphs.length) return undefined
-  return { heading: str(o.heading), paragraphs }
+  const points = strList(o.points)
+  return {
+    heading: str(o.heading),
+    paragraphs,
+    pointsHeading: points.length ? str(o.pointsHeading) : undefined,
+    points: points.length ? points : undefined,
+  }
 }
 
 function normalizeSignoff(v: unknown): BriefContent['signoff'] {
@@ -213,6 +301,7 @@ function normalizeSection(v: unknown, index: number): BriefSection | null {
     id: str(o.id) ?? `section-${index + 1}`,
     heading,
     nav: str(o.nav),
+    summary: str(o.summary),
     blocks: blocks.map(normalizeBlock).filter((b): b is BriefBlock => b !== null),
   }
 }
@@ -323,6 +412,60 @@ function normalizeBlock(v: unknown): BriefBlock | null {
       const text = str(o.text)
       return text ? { kind: 'callout', text } : null
     }
+    case 'heading': {
+      const text = str(o.text)
+      return text ? { kind: 'heading', text } : null
+    }
+    case 'compbars': {
+      const rows = objList<CompBarRow>(o.rows, r => {
+        const label = str(r.label)
+        const low = num(r.low)
+        const high = num(r.high)
+        // A zero-width or inverted band is a typo, not a design; drop it rather
+        // than draw a bar that reads as a precise number it never was.
+        if (!label || low === null || high === null || high <= low) return null
+        const tone: CompBarRow['tone'] =
+          r.tone === 'ours' ? 'ours' : r.tone === 'named' ? 'named' : 'peer'
+        return { label, note: str(r.note), low, high, tone }
+      })
+      if (!rows.length) return null
+      return {
+        kind: 'compbars',
+        rows,
+        caption: str(o.caption),
+        note: str(o.note),
+        min: num(o.min) ?? undefined,
+        max: num(o.max) ?? undefined,
+        legend: str(o.legend),
+      }
+    }
+    case 'table': {
+      const columns = strList(o.columns)
+      const rows = objList<TableRow>(o.rows, r => {
+        const cells = cellList(r.cells)
+        return cells.length ? { cells, emphasis: r.emphasis === true } : null
+      })
+      if (!columns.length || !rows.length) return null
+      return { kind: 'table', columns, rows, caption: str(o.caption), note: str(o.note) }
+    }
+    case 'jd': {
+      const items = objList<JdItem>(o.items, i => {
+        const title = str(i.title)
+        const parts = objList<JdPart>(i.parts, p => {
+          const heading = str(p.heading)
+          const paragraphs = strList(p.paragraphs)
+          const list = strList(p.items)
+          if (!heading || (!paragraphs.length && !list.length)) return null
+          return {
+            heading,
+            paragraphs: paragraphs.length ? paragraphs : undefined,
+            items: list.length ? list : undefined,
+          }
+        })
+        return title && parts.length ? { title, meta: str(i.meta), parts } : null
+      })
+      return items.length ? { kind: 'jd', items, note: str(o.note) } : null
+    }
     default:
       return null
   }
@@ -341,6 +484,32 @@ export function briefNav(content: BriefContent): { id: string; label: string }[]
   return content.sections
     .filter(s => s.blocks.length)
     .map(s => ({ id: s.id, label: s.nav ?? s.heading }))
+}
+
+/**
+ * A drafted JD as plain text, for the clipboard.
+ *
+ * The point of the copy button is that the client pastes this straight into
+ * their ATS, so it carries none of the brief's inline syntax: `**bold**` would
+ * arrive as literal asterisks in a job post.
+ */
+export function jdPlainText(item: JdItem): string {
+  const lines: string[] = [item.title]
+  if (item.meta) lines.push(item.meta)
+
+  for (const part of item.parts) {
+    lines.push('', part.heading)
+    for (const p of part.paragraphs ?? []) lines.push(plainInline(p))
+    for (const i of part.items ?? []) lines.push(`- ${plainInline(i)}`)
+  }
+  return lines.join('\n')
+}
+
+/** Inline syntax stripped back to the words. `[label](href)` keeps the label. */
+function plainInline(raw: string): string {
+  return parseInline(raw)
+    .map(n => n.v)
+    .join('')
 }
 
 /** The copy-to-candidate block, if the brief has one. Surfaced on the role page. */

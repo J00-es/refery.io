@@ -1,0 +1,244 @@
+{
+  "_comment": "Skeleton for hm_briefs.content. Keys prefixed with _ are ignored by normalizeBrief and are here as notes. Replace every <angle bracket>. Delete blocks you do not need; a block missing a required field is dropped silently, so an empty placeholder is worse than no block.",
+
+  "kicker": "Hiring Manager Note · <Month D, YYYY>",
+  "title": "<Company>",
+  "subtitle": "<Role one> · <Role two> · <Role three>",
+  "url": "https://<company site>",
+
+  "confidential": {
+    "heading": "Before we start",
+    "paragraphs": [
+      "A short note so we are working from the same brief before I start bringing you people. This is the full picture I am working from: your company, your team, the roles and the bar, exactly as candidates will hear it from me. If anything here is off, or has shifted, tell me and I will recalibrate.",
+      "Everything below is my read from our conversation plus your roles pack and public research. Correct me freely. There is a box under every section, and anything you write reaches me straight away."
+    ]
+  },
+
+  "sections": [
+    {
+      "id": "company",
+      "nav": "Company",
+      "heading": "The company, as I will pitch it",
+      "blocks": [
+        { "kind": "lede", "text": "<One sentence on what they build, with the **defining phrase in bold**.>" },
+        {
+          "kind": "stats",
+          "items": [
+            { "value": "$<X>M", "label": "<Round, led by whom>" },
+            { "value": "<N>", "label": "<Customers, countries, whatever is impressive>" },
+            { "value": "<YYYY>", "label": "Founded" },
+            { "value": "<N> to <N>", "label": "Hires now, team within a year" }
+          ]
+        },
+        {
+          "kind": "bullets",
+          "items": [
+            "**What you do:** <the technical claim, in their own framing>",
+            "**Traction:** <customers, deployments, revenue>",
+            "**The raise:** <who led, who participated, any conviction signal>",
+            "**The endgame:** <the ambitious version, the closing argument for candidates>",
+            "**Trajectory:** <what hiring looks like over the next six months>"
+          ]
+        },
+        { "kind": "callout", "text": "The context I will use with candidates: <the one-paragraph reason a great person should take this seat now>" }
+      ]
+    },
+
+    {
+      "id": "team",
+      "nav": "Team",
+      "heading": "The team, as I present it",
+      "blocks": [
+        { "kind": "paragraph", "tone": "note", "text": "Candidates at this level always ask who they will work with, so this is the picture I give them. Tell me if I have anyone's role wrong or should add someone." },
+        {
+          "kind": "people",
+          "_footer": "Optional line under the people grid, set as \"footer\".",
+          "items": [
+            { "name": "<Name>", "role": "<Co-founder>", "note": "<Background, and what they do in the process, e.g. runs the intro call.>", "linkedin": "https://www.linkedin.com/in/<handle>" }
+          ]
+        },
+        {
+          "kind": "cards",
+          "items": [
+            { "title": "The founders", "body": "<One line on the founding pair.>" },
+            { "title": "The first wave", "body": "<Who these hires join, and where they sit.>" },
+            { "title": "What this tells candidates", "body": "<The story this makes sellable.>" }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "roles",
+      "nav": "The roles",
+      "heading": "The roles",
+      "blocks": [
+        { "kind": "lede", "text": "My read: <are they parallel or sequenced, which is scarcest, and the **through-line signal** across every seat>. If you would fill one seat first, tell me and I will weight my search accordingly." },
+        {
+          "kind": "roles",
+          "items": [
+            {
+              "tag": "Live now",
+              "title": "<Seat title>",
+              "points": [
+                "<What they own, end to end.>",
+                "<The domain signal that separates the right person from a generalist.>",
+                "<The hard requirement.>"
+              ],
+              "want": "**What I will screen for:** <years, background, education window, company types.>",
+              "exclude": "I will filter out: <the disqualifiers, stated as plainly as the bar.>",
+              "comp": "$<X>K to $<Y>K base + <A> to <B>% equity"
+            },
+            {
+              "tag": "Scarcest profile · founding equity",
+              "title": "<Seat title>",
+              "_secondary": "Set \"secondary\": true instead of a tag for a non-priority track. It renders with a lighter rule.",
+              "points": [
+                "<What they own, end to end.>",
+                "<The domain signal.>",
+                "<The hard requirement.>"
+              ],
+              "want": "**What I will screen for:** <years, background, company types.>",
+              "exclude": "I will filter out: <disqualifiers.>",
+              "comp": "$<X>K to $<Y>K base + <A> to <B>% equity"
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "bar",
+      "nav": "The bar",
+      "heading": "The bar",
+      "blocks": [
+        {
+          "kind": "bar",
+          "groups": [
+            {
+              "tone": "must",
+              "heading": "Non-negotiable",
+              "items": [
+                "**<Short label.>** <What it means, and that you screen hardest for it.>",
+                "**<Location and onsite policy.>** <Detail.>",
+                "**<The character filter.>** <How you test for it before they see a profile.>"
+              ]
+            },
+            {
+              "tone": "nice",
+              "heading": "Explicitly not required",
+              "items": [
+                "**Pedigree.** <What you will not filter out.>",
+                "**<Thing founders assume is required but is not.>** <Detail.>"
+              ]
+            },
+            {
+              "tone": "no",
+              "heading": "What I will filter out",
+              "items": [
+                "**<Disqualifier.>** <Detail.>",
+                "**<Disqualifier.>** <Detail.>"
+              ]
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "logistics",
+      "nav": "Logistics",
+      "heading": "Logistics",
+      "blocks": [
+        {
+          "kind": "facts",
+          "rows": [
+            { "label": "Location", "value": "<Where, and onsite / hybrid / remote.>" },
+            { "label": "Relocation", "value": "<Expected? Any support? If unknown, say so and put it on the confirm list.>" },
+            { "label": "Visa", "value": "<Which statuses are sponsored, and which are not.>" },
+            { "label": "Compensation", "value": "<Currency, philosophy, flex.>" },
+            { "label": "Tempo", "value": "<Hours and intensity, honestly.>" },
+            { "label": "Reporting", "value": "<Who they report to.>" },
+            { "label": "Process", "value": "<Stage by stage, so I can set expectations.>" },
+            { "label": "Language", "value": "English." }
+          ]
+        },
+        { "kind": "callout", "text": "<A consequence you have drawn from the logistics, e.g. running this as a national search rather than a local one.>" }
+      ]
+    },
+
+    {
+      "id": "how",
+      "nav": "How we work",
+      "heading": "How we work from here",
+      "blocks": [
+        { "kind": "paragraph", "text": "Refery is not an agency. We are a private group of roughly 400 scouts globally: founders, operators, mostly C-level, and investors managing billions, who refer people they personally rate. Scouts earn a share of the fee, so nobody spends their reputation on a weak profile. You will get very few profiles from me, not a pipeline; each one is pre-screened by our team and, for roles like these, by me personally, so you sit as the final decision maker rather than the first filter." },
+        {
+          "kind": "steps",
+          "items": [
+            "**Sign the agreement.** The link is in our email thread. One signature and we are live.",
+            "**Slack and WhatsApp are our channels.** Candidates come to you there, so nothing sits in an inbox.",
+            "**Each candidate arrives ready to assess:** why they fit, their LinkedIn, and their resume. If another format works better, say the word.",
+            "**Speed wins the talent.** Great candidates at this level collect other offers fast. The hiring managers who consistently land top people share feedback almost live and get calls scheduled within days. Quick, honest feedback either way is all I ask.",
+            "**That is it.** No forms, no portal, no batching; I come back the moment I have someone interesting."
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": "blurb",
+      "nav": "Candidate blurb",
+      "heading": "What we will share with candidates",
+      "blocks": [
+        { "kind": "paragraph", "tone": "note", "text": "This is the exact anonymized blurb candidates see before an introduction. Nothing in it identifies <Company>." },
+        {
+          "kind": "blurb",
+          "label": "Candidate blurb",
+          "note": "Anonymous until your go-sign",
+          "paragraphs": [
+            "<Para 1: stage, geography, what they build, traction, direction. No name.>",
+            "<Para 2: the seats, comp ranges, equity, visa.>",
+            "<Para 3: culture, founders, what they hire for.>",
+            "I can share the company name once we're a step further along."
+          ]
+        },
+        { "kind": "callout", "text": "I have kept <Company> unnamed for now. Say the word and I will name you openly, which does make the first conversation considerably easier." }
+      ]
+    },
+
+    {
+      "id": "confirm",
+      "nav": "To confirm",
+      "heading": "A few things to confirm",
+      "blocks": [
+        {
+          "kind": "checklist",
+          "note": "A one-line reply on each is plenty. Answer them here and they come straight to me. No email needed, and you can edit or delete anything you write.",
+          "items": [
+            { "ask": "<The open question, answerable in one line.>", "why": "<What it changes about how I search or pitch.>" },
+            { "ask": "<A discrepancy between the call and the pack. Name both versions.>", "why": "<Why it matters now.>" }
+          ]
+        }
+      ]
+    }
+  ],
+
+  "_unused_block_kinds": {
+    "questions": {
+      "kind": "questions",
+      "items": [
+        { "tag": "<Stage>", "question": "<What you will ask candidates>", "looking_for": "<What a good answer sounds like>" }
+      ]
+    }
+  },
+
+  "signoff": {
+    "name": "Lily Joo",
+    "lines": [
+      "Founding Partner, Refery · [lily@refery.io](mailto:lily@refery.io)",
+      "Anything to correct or add, write it under the section it belongs to. It reaches me straight away."
+    ],
+    "reminder": "Confidential · prepared for <Company>"
+  }
+}
