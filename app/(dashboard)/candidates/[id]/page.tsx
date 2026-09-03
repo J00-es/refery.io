@@ -8,6 +8,7 @@ import { CandidateActions } from '@/components/candidate-actions'
 import { RecruiterNotes } from '@/components/recruiter-notes'
 import { CandidateActivityLog } from '@/components/candidate-activity-log'
 import { SuggestedJobs } from '@/components/candidates/suggested-jobs'
+import { JobLink } from '@/components/jobs/job-link'
 import { CandidateOwnerAssignment } from '@/components/candidate-owner-assignment'
 import { Linkedin, Github, Globe, ArrowRight } from 'lucide-react'
 import { CandidateVerdict } from '@/components/candidate-verdict'
@@ -355,9 +356,10 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                       (Date.now() - new Date(p.created_at).getTime()) / 86_400_000
                     )
                     return (
-                      <Link
+                      <JobLink
                         key={p.id}
-                        href={`/jobs/${p.job?.id}`}
+                        jobId={p.job?.id}
+                        canOpen={isSuperAdmin}
                         className={`flex items-center gap-4 border-t border-[#ECECE6] px-5 py-3.5 transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
                       >
                         <div className="min-w-0 flex-1">
@@ -377,7 +379,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                           </p>
                         </div>
                         <ArrowRight className="h-4 w-4 shrink-0 text-[#C9C9C1]" />
-                      </Link>
+                      </JobLink>
                     )
                   }
                 )}
@@ -501,7 +503,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               scout it is a list they cannot act on next to a pipeline they can,
               which reads as though both mean the same thing. It is a matching
               tool, so it stays with the people who do the matching. */}
-          {isAdmin && <SuggestedJobs candidateId={id} />}
+          {isSuperAdmin && <SuggestedJobs candidateId={id} />}
 
           <RecruiterNotes candidateId={id} />
 

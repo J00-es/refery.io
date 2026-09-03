@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Building2, Globe, MapPin, Users, Briefcase, ExternalLink, ArrowLeft, Edit, Linkedin } from 'lucide-react'
 import type { Job } from '@/lib/types'
+import { getAppUser } from '@/lib/current-user'
+import { JobLink } from '@/components/jobs/job-link'
 
 interface Props {
   params: Promise<{ name: string }>
@@ -14,6 +16,10 @@ export default async function CompanyViewPage({ params }: Props) {
   const { name: encodedName } = await params
   const companyName = decodeURIComponent(encodedName)
   const supabase = await createClient()
+
+  // /jobs is super-admin-only for now, so nobody else gets a way into it.
+  const appUser = await getAppUser()
+  const isSuperAdmin = appUser?.isSuperAdmin ?? false
 
   // Check if company exists in database
   const { data: existingCompany } = await supabase
@@ -233,9 +239,11 @@ export default async function CompanyViewPage({ params }: Props) {
                   <Briefcase className="h-5 w-5" />
                   Jobs at {companyName}
                 </CardTitle>
-                <Link href={`/jobs/new?company=${encodeURIComponent(companyName)}`}>
-                  <Button size="sm">Add Job</Button>
-                </Link>
+                {isSuperAdmin && (
+                  <Link href={`/jobs/new?company=${encodeURIComponent(companyName)}`}>
+                    <Button size="sm">Add Job</Button>
+                  </Link>
+                )}
               </div>
             </CardHeader>
             <CardContent>
@@ -246,9 +254,10 @@ export default async function CompanyViewPage({ params }: Props) {
               ) : (
                 <div className="space-y-3">
                   {typedJobs.map(job => (
-                    <Link 
-                      key={job.id} 
-                      href={`/jobs/${job.id}`}
+                    <JobLink
+                      key={job.id}
+                      jobId={job.id}
+                      canOpen={isSuperAdmin}
                       className="block border rounded-lg p-4 hover:border-primary/50 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-4">
@@ -278,7 +287,7 @@ export default async function CompanyViewPage({ params }: Props) {
                           </div>
                         </div>
                       </div>
-                    </Link>
+                    </JobLink>
                   ))}
                 </div>
               )}

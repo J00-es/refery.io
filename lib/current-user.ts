@@ -15,6 +15,20 @@ export const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 export const BRIEFS_SUPER_ADMIN_ONLY = true
 
 /**
+ * The Jobs board is super-admin-only for now.
+ *
+ * /jobs is the sourced watchlist: tens of thousands of roles at companies we
+ * were never retained by, carrying salary bands, internal notes and owner
+ * assignments. Until there is a partner-facing answer for which of those a
+ * scout or recruiter should see, the whole surface stays with the super admin.
+ *
+ * One flag, honoured by the route layout, the nav link and every /api/jobs
+ * handler - flip it to `false` to open it back up. Mirrors
+ * BRIEFS_SUPER_ADMIN_ONLY above.
+ */
+export const JOBS_SUPER_ADMIN_ONLY = true
+
+/**
  * Canonical form of an email for identity lookups.
  *
  * Supabase Auth stores `auth.users.email` lower-cased, but `users_admin.email`

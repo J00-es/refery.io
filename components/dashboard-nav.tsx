@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake, type LucideIcon } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,9 +23,17 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet'
 
-const navItems = [
+interface NavItem {
+  href: string
+  label: string
+  icon: LucideIcon
+  /** Kept in step with JOBS_SUPER_ADMIN_ONLY, which is what /jobs enforces. */
+  superAdminOnly?: boolean
+}
+
+const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/jobs', label: 'Jobs', icon: Briefcase },
+  { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
   { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2 },
 ]
@@ -87,6 +95,9 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
   const pathname = usePathname()
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
+  // Hiding a link is not access control: /jobs is enforced by its route layout
+  // and by every /api/jobs handler. This only keeps the row honest.
+  const visibleNavItems = navItems.filter(item => !item.superAdminOnly || isSuperAdmin)
   const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -130,7 +141,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
                 {item.label}
               </Link>
             ))}
-            {navItems.map((item) => (
+            {visibleNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -271,7 +282,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
                   </Link>
                 )
               })}
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link

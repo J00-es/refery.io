@@ -2,11 +2,14 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
 import { NextResponse } from 'next/server'
 import type { Candidate } from '@/lib/types'
+import { jobsAccessDenied } from '@/lib/admin-auth'
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id: jobId } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()
@@ -88,6 +91,8 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id: jobId } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()
@@ -160,6 +165,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id: jobId } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()
@@ -267,6 +274,8 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id: jobId } = await params
   const supabase = await createClient()
   const adminClient = createAdminClient()

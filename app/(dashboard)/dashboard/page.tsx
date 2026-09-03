@@ -112,6 +112,7 @@ export default async function DashboardPage() {
   // the broader admin-console capability. See lib/current-user.ts.
   const canViewAll = appUser.canViewAllCandidates
   const isAdmin = appUser.isAdmin
+  const isSuperAdmin = appUser.isSuperAdmin
   const firstName = appUser.fullName?.split(' ')[0] || 'there'
   const me = appUser.id
   const now = new Date()
@@ -247,11 +248,11 @@ export default async function DashboardPage() {
           </div>
           <p className="mt-2.5 text-[15px] text-[#6E6E68] sm:text-base">{summary}</p>
         </div>
-        {/* Only "Refer a candidate": partners cannot create roles, so a button
-            that leads to a page they are not allowed to use is an invitation to
-            a dead end. */}
+        {/* Only "Refer a candidate" for everyone but the super admin: the whole
+            /jobs surface is hidden while JOBS_SUPER_ADMIN_ONLY is set, so a
+            button that leads to a page they cannot open is a dead end. */}
         <div className="flex shrink-0 gap-2.5">
-          {isAdmin && (
+          {isSuperAdmin && (
             <Link
               href="/jobs/new"
               className={`rounded-full border border-[#D8D8D0] px-5 py-2.5 text-sm font-semibold text-[#161613] motion-safe:transition-colors hover:border-[#9C9C95] ${focusCls}`}

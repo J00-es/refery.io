@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { jobsAccessDenied } from '@/lib/admin-auth'
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id } = await params
   const supabase = await createClient()
   
@@ -37,6 +40,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   const { id } = await params
   const supabase = await createClient()
   

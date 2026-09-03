@@ -13,6 +13,7 @@ import { CompanyHiringInsights } from '@/components/company-hiring-insights'
 import { CompanyAgreements } from '@/components/company-agreements'
 import { CompanyServicesAgreement } from '@/components/company-services-agreement'
 import { CompanyBriefCard } from '@/components/hm/company-brief-card'
+import { JobLink } from '@/components/jobs/job-link'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -205,15 +206,17 @@ export default async function CompanyDetailPage({ params }: PageProps) {
                     {openJobs.length} open position{openJobs.length !== 1 ? 's' : ''} at {typedCompany.name}
                   </CardDescription>
                 </div>
-                <Link href={`/jobs/new?company=${encodeURIComponent(typedCompany.name)}`}>
-                  <Button size="sm">Add Job</Button>
-                </Link>
+                {isSuperAdmin && (
+                  <Link href={`/jobs/new?company=${encodeURIComponent(typedCompany.name)}`}>
+                    <Button size="sm">Add Job</Button>
+                  </Link>
+                )}
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
                 {openJobs.map((job) => (
-                  <Link key={job.id} href={`/jobs/${job.id}`}>
+                  <JobLink key={job.id} jobId={job.id} canOpen={isSuperAdmin}>
                     <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                       <div className="flex items-start justify-between">
                         <div>
@@ -231,7 +234,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
                         <ExternalLink className="h-4 w-4 text-muted-foreground" />
                       </div>
                     </div>
-                  </Link>
+                  </JobLink>
                 ))}
               </div>
             </CardContent>

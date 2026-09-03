@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { jobsAccessDenied } from '@/lib/admin-auth'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -41,6 +42,8 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -74,6 +77,8 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   try {
     const { id } = await params
     const supabase = await createClient()
@@ -116,6 +121,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   try {
     const { id } = await params
     const supabase = await createClient()

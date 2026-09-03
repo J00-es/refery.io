@@ -1,5 +1,6 @@
+import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
+import { JOBS_SUPER_ADMIN_ONLY, normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
 
 export type AdminCheckResult =
   | { ok: true; userId: string; email: string; role: 'super_admin' | 'admin' }
@@ -72,4 +73,21 @@ export async function requireSuperAdmin(): Promise<AdminCheckResult> {
     return { ok: false, status: 404, message: 'Not found' }
   }
   return auth
+}
+
+/**
+ * Guard for the /api/jobs handlers while JOBS_SUPER_ADMIN_ONLY is set.
+ *
+ * Returns the response to send when the caller may not touch the jobs surface,
+ * and null when they may proceed. 404 rather than 403, matching the page: the
+ * reply should not confirm the board is there.
+ *
+ * The pages hide themselves in app/(dashboard)/jobs/layout.tsx. This is the
+ * half that actually enforces it - the job routes are all reachable directly.
+ */
+export async function jobsAccessDenied(): Promise<NextResponse | null> {
+  if (!JOBS_SUPER_ADMIN_ONLY) return null
+  const auth = await requireSuperAdmin()
+  if (auth.ok) return null
+  return NextResponse.json({ error: auth.message }, { status: auth.status })
 }

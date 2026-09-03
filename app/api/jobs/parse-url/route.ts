@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { generateText, Output } from 'ai'
 import { z } from 'zod'
+import { jobsAccessDenied } from '@/lib/admin-auth'
 
 const ParsedJobSchema = z.object({
   title: z.string().describe('Job title'),
@@ -27,6 +28,8 @@ const ParsedJobSchema = z.object({
 })
 
 export async function POST(req: Request) {
+  const denied = await jobsAccessDenied()
+  if (denied) return denied
   try {
     const { url } = await req.json()
 
