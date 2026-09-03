@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { companiesAccessDenied } from '@/lib/admin-auth'
 
 export async function POST(request: Request) {
+  const denied = await companiesAccessDenied()
+  if (denied) return denied
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 

@@ -29,6 +29,20 @@ export const BRIEFS_SUPER_ADMIN_ONLY = true
 export const JOBS_SUPER_ADMIN_ONLY = true
 
 /**
+ * The Companies directory is super-admin-only for now.
+ *
+ * /companies is the other half of the sourced watchlist that /jobs sits on:
+ * every company we have ever ingested, with contacts, internal notes, hiring
+ * insights and signed agreements hanging off each one. A partner has no reason
+ * to browse it, and several of those cards are client confidences.
+ *
+ * One flag, honoured by the route layout, the nav link and every /api/companies
+ * handler - flip it to `false` to open it back up. Mirrors
+ * JOBS_SUPER_ADMIN_ONLY above.
+ */
+export const COMPANIES_SUPER_ADMIN_ONLY = true
+
+/**
  * Canonical form of an email for identity lookups.
  *
  * Supabase Auth stores `auth.users.email` lower-cased, but `users_admin.email`

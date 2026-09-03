@@ -27,7 +27,10 @@ interface NavItem {
   href: string
   label: string
   icon: LucideIcon
-  /** Kept in step with JOBS_SUPER_ADMIN_ONLY, which is what /jobs enforces. */
+  /**
+   * Kept in step with JOBS_SUPER_ADMIN_ONLY and COMPANIES_SUPER_ADMIN_ONLY,
+   * which are what those routes actually enforce.
+   */
   superAdminOnly?: boolean
 }
 
@@ -35,7 +38,7 @@ const navItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
   { href: '/candidates', label: 'Candidates', icon: Users },
-  { href: '/companies', label: 'Companies', icon: Building2 },
+  { href: '/companies', label: 'Companies', icon: Building2, superAdminOnly: true },
 ]
 
 /**
@@ -95,8 +98,9 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
   const pathname = usePathname()
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
-  // Hiding a link is not access control: /jobs is enforced by its route layout
-  // and by every /api/jobs handler. This only keeps the row honest.
+  // Hiding a link is not access control: /jobs and /companies are enforced by
+  // their route layouts and by every handler under /api/jobs and
+  // /api/companies. This only keeps the row honest.
   const visibleNavItems = navItems.filter(item => !item.superAdminOnly || isSuperAdmin)
   const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)

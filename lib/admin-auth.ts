@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { JOBS_SUPER_ADMIN_ONLY, normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
+import {
+  COMPANIES_SUPER_ADMIN_ONLY,
+  JOBS_SUPER_ADMIN_ONLY,
+  normalizeEmail,
+  SUPER_ADMIN_EMAILS,
+} from '@/lib/current-user'
 
 export type AdminCheckResult =
   | { ok: true; userId: string; email: string; role: 'super_admin' | 'admin' }
@@ -87,6 +92,20 @@ export async function requireSuperAdmin(): Promise<AdminCheckResult> {
  */
 export async function jobsAccessDenied(): Promise<NextResponse | null> {
   if (!JOBS_SUPER_ADMIN_ONLY) return null
+  const auth = await requireSuperAdmin()
+  if (auth.ok) return null
+  return NextResponse.json({ error: auth.message }, { status: auth.status })
+}
+
+/**
+ * Guard for the /api/companies handlers while COMPANIES_SUPER_ADMIN_ONLY is set.
+ *
+ * The companies half of jobsAccessDenied(), and the same reasoning: the pages
+ * hide themselves in app/(dashboard)/companies/layout.tsx, but every one of
+ * these routes is reachable directly, so this is what enforces it.
+ */
+export async function companiesAccessDenied(): Promise<NextResponse | null> {
+  if (!COMPANIES_SUPER_ADMIN_ONLY) return null
   const auth = await requireSuperAdmin()
   if (auth.ok) return null
   return NextResponse.json({ error: auth.message }, { status: auth.status })

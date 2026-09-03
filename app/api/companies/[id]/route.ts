@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { companiesAccessDenied } from '@/lib/admin-auth'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -24,6 +25,8 @@ async function canManageCompany(supabase: Awaited<ReturnType<typeof createClient
 }
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await companiesAccessDenied()
+  if (denied) return denied
   const { id } = await params
   const supabase = await createClient()
   
@@ -49,6 +52,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await companiesAccessDenied()
+  if (denied) return denied
   const { id } = await params
   const supabase = await createClient()
   
@@ -83,6 +88,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = await companiesAccessDenied()
+  if (denied) return denied
   const { id } = await params
   const supabase = await createClient()
   
