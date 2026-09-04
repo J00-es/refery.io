@@ -2,6 +2,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import type { Candidate } from '@/lib/types'
 import { CandidateList } from '@/components/candidate-list'
+import { CandidatesIntroNote } from '@/components/candidates/candidates-intro-note'
 import { UNASSIGNED, type OwnerOption } from '@/components/candidates/owner-filter'
 import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
 import { FOCUS, ownerName } from '@/lib/candidate-ui'
@@ -201,6 +202,8 @@ export default async function CandidatesPage({
           </Link>
         </div>
       </header>
+
+      <CandidatesIntroNote />
 
       <CandidateList
         candidates={enrichedCandidates}
