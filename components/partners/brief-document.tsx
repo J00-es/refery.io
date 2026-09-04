@@ -33,15 +33,15 @@ import { CopyButton } from './copy-button'
 // class names. Mirrors the authored briefs: forest green, gold accent, warm
 // paper, hairline rules.
 const DOC = {
-  ink: 'text-[#1D1F1D]',
-  body: 'text-[#3C403C]',
-  muted: 'text-[#75796F]',
-  faint: 'text-[#A9ADA2]',
-  green: 'text-[#1F4D3A]',
-  deep: 'text-[#173B2D]',
+  ink: 'text-[#161613]',
+  body: 'text-[#2A2A26]',
+  muted: 'text-[#6E6E68]',
+  faint: 'text-[#9C9C95]',
+  green: 'text-[#1F3A2F]',
+  deep: 'text-[#142E24]',
   gold: 'text-[#9A7B2E]',
-  line: 'border-[#E6E4DC]',
-  card: 'bg-white border border-[#E6E4DC] rounded-[10px]',
+  line: 'border-[#E4E3DC]',
+  card: 'bg-white border border-[#E4E3DC] rounded-[10px]',
 }
 
 const romanise = (n: number) => ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii', 'viii', 'ix', 'x'][n] ?? String(n + 1)
@@ -53,7 +53,7 @@ function Stats({ items }: { items: StatItem[] }) {
     <dl className="my-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
       {items.map((s, i) => (
         <div key={i} className={`${DOC.card} px-4 py-4`}>
-          <dt className={`font-serif text-[20px] leading-tight tracking-[-0.02em] sm:text-[23px] ${DOC.deep}`}>
+          <dt className={`font-semibold text-[20px] leading-tight tracking-[-0.02em] sm:text-[23px] ${DOC.deep}`}>
             {s.value}
           </dt>
           <dd className={`mt-1.5 text-[10.5px] font-semibold uppercase leading-snug tracking-[0.09em] ${DOC.muted}`}>
@@ -71,11 +71,11 @@ function Bullets({ items }: { items: string[] }) {
       {items.map((item, i) => (
         <li
           key={i}
-          className={`relative border-b border-[#E6E4DC] py-2.5 pl-6 text-[14.5px] leading-relaxed last:border-b-0 ${DOC.body}`}
+          className={`relative border-b border-[#E4E3DC] py-2.5 pl-6 text-[14.5px] leading-relaxed last:border-b-0 ${DOC.body}`}
         >
           <span
             aria-hidden
-            className="absolute left-0.5 top-[15px] h-1.5 w-1.5 rounded-full bg-[#1F4D3A]"
+            className="absolute left-0.5 top-[15px] h-1.5 w-1.5 rounded-full bg-[#1F3A2F]"
           />
           <Inline text={item} />
         </li>
@@ -93,14 +93,14 @@ function People({ items, footer }: { items: PersonItem[]; footer?: string }) {
             {p.role && (
               <p className={`text-[10px] font-bold uppercase tracking-[0.12em] ${DOC.gold}`}>{p.role}</p>
             )}
-            <p className={`mt-1 font-serif text-[16.5px] ${DOC.deep}`}>{p.name}</p>
+            <p className={`mt-1 font-semibold text-[16.5px] ${DOC.deep}`}>{p.name}</p>
             {p.note && <p className={`mt-1.5 text-[13px] leading-relaxed ${DOC.muted}`}>{p.note}</p>}
             {p.linkedin && (
               <a
                 href={p.linkedin}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2.5 inline-block border-b border-[#CBDDD2] text-[12.5px] font-semibold text-[#1F4D3A] transition-colors hover:border-[#1F4D3A]"
+                className="mt-2.5 inline-block border-b border-[#C6D6CC] text-[12.5px] font-semibold text-[#1F3A2F] transition-colors hover:border-[#1F3A2F]"
               >
                 LinkedIn
               </a>
@@ -124,21 +124,21 @@ function Roles({ items }: { items: RoleItem[] }) {
         <article
           key={i}
           className={`${DOC.card} flex flex-col border-t-[3px] px-6 py-6 ${
-            r.secondary ? 'border-t-[#CBDDD2]' : 'border-t-[#1F4D3A]'
+            r.secondary ? 'border-t-[#C6D6CC]' : 'border-t-[#1F3A2F]'
           }`}
         >
           {r.tag && (
             <span
               className={`mb-3.5 inline-block rounded-full px-3 py-1 text-[9.5px] font-bold uppercase tracking-[0.14em] ${
                 r.secondary
-                  ? 'border border-[#E6E4DC] bg-[#FBFAF7] text-[#75796F]'
-                  : 'bg-[#1F4D3A] text-white'
+                  ? 'border border-[#E4E3DC] bg-[#FAF9F5] text-[#6E6E68]'
+                  : 'bg-[#1F3A2F] text-white'
               }`}
             >
               {r.tag}
             </span>
           )}
-          <h3 className={`font-serif text-[20px] leading-snug ${DOC.ink}`}>{r.title}</h3>
+          <h3 className={`font-semibold text-[20px] leading-snug ${DOC.ink}`}>{r.title}</h3>
           {r.scope && (
             <p className={`mt-1 text-[11px] font-bold uppercase tracking-[0.1em] ${DOC.gold}`}>{r.scope}</p>
           )}
@@ -146,7 +146,7 @@ function Roles({ items }: { items: RoleItem[] }) {
             <ul className="mt-4 space-y-2">
               {r.points.map((point, j) => (
                 <li key={j} className={`relative pl-5 text-[14px] leading-relaxed ${DOC.body}`}>
-                  <span aria-hidden className="absolute left-0 top-0 text-[13px] text-[#1F4D3A]">
+                  <span aria-hidden className="absolute left-0 top-0 text-[13px] text-[#1F3A2F]">
                     →
                   </span>
                   <Inline text={point} />
@@ -155,12 +155,12 @@ function Roles({ items }: { items: RoleItem[] }) {
             </ul>
           )}
           {r.want && (
-            <p className={`mt-4 border-t border-[#E6E4DC] pt-3.5 text-[13.5px] leading-relaxed ${DOC.body}`}>
+            <p className={`mt-4 border-t border-[#E4E3DC] pt-3.5 text-[13.5px] leading-relaxed ${DOC.body}`}>
               <Inline text={r.want} />
             </p>
           )}
           {r.exclude && (
-            <p className="mt-2.5 flex gap-2.5 text-[13px] leading-relaxed text-[#9A4034]">
+            <p className="mt-2.5 flex gap-2.5 text-[13px] leading-relaxed text-[#8E4239]">
               <span aria-hidden className="shrink-0 font-bold">
                 ✕
               </span>
@@ -174,7 +174,7 @@ function Roles({ items }: { items: RoleItem[] }) {
             lines up across a row of cards whatever length the bullets ran to.
           */}
           {r.comp && (
-            <p className={`mt-auto border-t border-[#E6E4DC] pt-3.5 text-[13.5px] font-semibold ${DOC.deep}`}>
+            <p className={`mt-auto border-t border-[#E4E3DC] pt-3.5 text-[13.5px] font-semibold ${DOC.deep}`}>
               <Inline text={r.comp} />
             </p>
           )}
@@ -185,9 +185,9 @@ function Roles({ items }: { items: RoleItem[] }) {
 }
 
 const BAR_TONES: Record<BarGroup['tone'], { rule: string; heading: string; mark: string; glyph: string }> = {
-  must: { rule: 'border-l-[#1F4D3A]', heading: 'text-[#1F4D3A]', mark: 'text-[#1F4D3A]', glyph: '✓' },
+  must: { rule: 'border-l-[#1F3A2F]', heading: 'text-[#1F3A2F]', mark: 'text-[#1F3A2F]', glyph: '✓' },
   nice: { rule: 'border-l-[#C8A24B]', heading: 'text-[#9A7B2E]', mark: 'text-[#C8A24B]', glyph: '○' },
-  no: { rule: 'border-l-[#B0483C]', heading: 'text-[#B0483C]', mark: 'text-[#B0483C]', glyph: '✕' },
+  no: { rule: 'border-l-[#A8564C]', heading: 'text-[#A8564C]', mark: 'text-[#A8564C]', glyph: '✕' },
 }
 
 function Bar({ groups }: { groups: BarGroup[] }) {
@@ -204,7 +204,7 @@ function Bar({ groups }: { groups: BarGroup[] }) {
               {g.items.map((item, j) => (
                 <li
                   key={j}
-                  className="flex gap-3.5 border-b border-[#FBFAF7] py-2 last:border-b-0"
+                  className="flex gap-3.5 border-b border-[#FAF9F5] py-2 last:border-b-0"
                 >
                   <span aria-hidden className={`w-4 shrink-0 text-center text-[13px] font-bold ${tone.mark}`}>
                     {tone.glyph}
@@ -238,18 +238,18 @@ function Facts({ rows }: { rows: { label: string; value: string }[] }) {
             <tr key={i}>
               <th
                 scope="row"
-                className={`w-[210px] border-b border-[#E6E4DC] bg-[#EDF3EF] px-4 py-3.5 text-left align-top text-[12.5px] font-semibold tracking-[0.03em] ${DOC.deep}`}
+                className={`w-[210px] border-b border-[#E4E3DC] bg-[#E7EDE9] px-4 py-3.5 text-left align-top text-[12.5px] font-semibold tracking-[0.03em] ${DOC.deep}`}
               >
                 {row.label}
               </th>
-              <td className={`border-b border-[#E6E4DC] px-4 py-3.5 align-top text-[14.5px] leading-relaxed ${DOC.body}`}>
+              <td className={`border-b border-[#E4E3DC] px-4 py-3.5 align-top text-[14.5px] leading-relaxed ${DOC.body}`}>
                 <Inline text={row.value} />
               </td>
             </tr>
           ))}
         </tbody>
       </table>
-      <dl className={`${DOC.card} divide-y divide-[#E6E4DC] sm:hidden`}>
+      <dl className={`${DOC.card} divide-y divide-[#E4E3DC] sm:hidden`}>
         {rows.map((row, i) => (
           <div key={i} className="px-4 py-3.5">
             <dt className={`text-[11px] font-semibold uppercase tracking-[0.09em] ${DOC.green}`}>
@@ -270,7 +270,7 @@ function Cards({ items }: { items: CardItem[] }) {
     <div className="my-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((c, i) => (
         <div key={i} className={`${DOC.card} px-5 py-4`}>
-          <p className={`font-serif text-[16.5px] ${DOC.deep}`}>{c.title}</p>
+          <p className={`font-semibold text-[16.5px] ${DOC.deep}`}>{c.title}</p>
           {c.body && <p className={`mt-1.5 text-[13.5px] leading-relaxed ${DOC.muted}`}>{c.body}</p>}
         </div>
       ))}
@@ -286,7 +286,7 @@ function Questions({ items }: { items: QuestionItem[] }) {
           {q.tag && (
             <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${DOC.gold}`}>{q.tag}</p>
           )}
-          <p className={`mt-1.5 font-serif text-[17px] italic leading-snug ${DOC.deep}`}>{q.question}</p>
+          <p className={`mt-1.5 font-semibold text-[17px] italic leading-snug ${DOC.deep}`}>{q.question}</p>
           {q.looking_for && (
             <p className={`mt-2 text-[13.5px] leading-relaxed ${DOC.muted}`}>
               <Inline text={q.looking_for} />
@@ -300,13 +300,13 @@ function Questions({ items }: { items: QuestionItem[] }) {
 
 function Blurb({ block }: { block: Extract<BriefBlock, { kind: 'blurb' }> }) {
   return (
-    <div className="my-5 overflow-hidden rounded-[12px] border border-[#CBDDD2] bg-white shadow-[0_10px_34px_rgba(31,77,58,0.07)]">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#173B2D] px-5 py-4 sm:px-7">
+    <div className="my-5 overflow-hidden rounded-[12px] border border-[#C6D6CC] bg-white shadow-[0_10px_34px_rgba(31,77,58,0.07)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-[#142E24] px-5 py-4 sm:px-7">
         <div className="min-w-0">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-white">
             {block.label ?? 'Copy to adapt'}
           </p>
-          {block.note && <p className="mt-0.5 text-[12.5px] text-[#B9CDC2]">{block.note}</p>}
+          {block.note && <p className="mt-0.5 text-[12.5px] text-[#B4C7BC]">{block.note}</p>}
         </div>
         <CopyButton text={block.paragraphs.join('\n\n')} label="Copy blurb" />
       </div>
@@ -314,7 +314,7 @@ function Blurb({ block }: { block: Extract<BriefBlock, { kind: 'blurb' }> }) {
         {block.paragraphs.map((p, i) => (
           <p
             key={i}
-            className={`mb-4 font-serif text-[16px] leading-[1.7] last:mb-0 ${
+ className={`mb-4 font-semibold text-[16px] leading-[1.7] last:mb-0 ${
               i === block.paragraphs.length - 1 && block.paragraphs.length > 1
                 ? `italic ${DOC.muted}`
                 : DOC.ink
@@ -357,8 +357,8 @@ function CompBars({ block }: { block: Extract<BriefBlock, { kind: 'compbars' }> 
   for (let t = floor; t <= ceil; t += 100_000) ticks.push(t)
 
   const fill = {
-    ours: 'bg-[#1F4D3A]',
-    peer: 'bg-[#B9CDC2]',
+    ours: 'bg-[#1F3A2F]',
+    peer: 'bg-[#B4C7BC]',
     named: 'bg-[#DCC894]',
   }
 
@@ -382,7 +382,7 @@ function CompBars({ block }: { block: Extract<BriefBlock, { kind: 'compbars' }> 
               <p className={`text-[13px] font-semibold leading-snug ${DOC.deep}`}>{row.label}</p>
               {row.note && <p className={`text-[11.5px] leading-snug ${DOC.muted}`}>{row.note}</p>}
             </div>
-            <div className="relative mt-1.5 h-[26px] flex-1 rounded-[4px] bg-[#F4F3EE] sm:mt-0">
+            <div className="relative mt-1.5 h-[26px] flex-1 rounded-[4px] bg-[#F2F1EB] sm:mt-0">
               <div
                 className={`absolute inset-y-0 rounded-[4px] ${fill[row.tone ?? 'peer']}`}
                 style={{ left: `${pct(row.low)}%`, width: `${pct(row.high) - pct(row.low)}%` }}
@@ -401,7 +401,7 @@ function CompBars({ block }: { block: Extract<BriefBlock, { kind: 'compbars' }> 
       </div>
 
       <div aria-hidden className="mt-3 sm:ml-[206px]">
-        <div className="flex justify-between border-t border-[#E6E4DC] pt-1.5">
+        <div className="flex justify-between border-t border-[#E4E3DC] pt-1.5">
           {ticks.map(t => (
             <span key={t} className={`text-[10.5px] tabular-nums ${DOC.faint}`}>
               {money(t)}
@@ -440,7 +440,7 @@ function DataTable({ block }: { block: Extract<BriefBlock, { kind: 'table' }> })
                 <th
                   key={i}
                   scope="col"
-                  className={`border-b border-[#E6E4DC] bg-[#EDF3EF] px-4 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.09em] ${DOC.deep}`}
+                  className={`border-b border-[#E4E3DC] bg-[#E7EDE9] px-4 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.09em] ${DOC.deep}`}
                 >
                   {c}
                 </th>
@@ -449,11 +449,11 @@ function DataTable({ block }: { block: Extract<BriefBlock, { kind: 'table' }> })
           </thead>
           <tbody>
             {block.rows.map((row, i) => (
-              <tr key={i} className={row.emphasis ? 'bg-[#FBFAF7]' : undefined}>
+              <tr key={i} className={row.emphasis ? 'bg-[#FAF9F5]' : undefined}>
                 {row.cells.map((cell, j) => (
                   <td
                     key={j}
-                    className={`border-b border-[#E6E4DC] px-4 py-3 align-top text-[13px] leading-relaxed tabular-nums ${
+                    className={`border-b border-[#E4E3DC] px-4 py-3 align-top text-[13px] leading-relaxed tabular-nums ${
                       row.emphasis && j === 0 ? `font-semibold ${DOC.deep}` : DOC.body
                     }`}
                   >
@@ -481,7 +481,7 @@ function Jds({ block }: { block: Extract<BriefBlock, { kind: 'jd' }> }) {
   return (
     <div className="my-6 space-y-3">
       {block.note && (
-        <p className={`rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}>
+        <p className={`rounded-[8px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}>
           <Inline text={block.note} />
         </p>
       )}
@@ -489,7 +489,7 @@ function Jds({ block }: { block: Extract<BriefBlock, { kind: 'jd' }> }) {
         <details key={i} className={`group ${DOC.card} overflow-hidden`}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 sm:px-6">
             <span className="min-w-0">
-              <span className={`block font-serif text-[18px] leading-snug ${DOC.deep}`}>
+              <span className={`block font-semibold text-[18px] leading-snug ${DOC.deep}`}>
                 {item.title}
               </span>
               {item.meta && (
@@ -504,7 +504,7 @@ function Jds({ block }: { block: Extract<BriefBlock, { kind: 'jd' }> }) {
             </span>
           </summary>
 
-          <div className="border-t border-[#E6E4DC] px-5 py-5 sm:px-6">
+          <div className="border-t border-[#E4E3DC] px-5 py-5 sm:px-6">
             {item.parts.map((part, j) => (
               <div key={j} className="mb-5 last:mb-0">
                 <h4 className={`text-[11px] font-bold uppercase tracking-[0.14em] ${DOC.green}`}>
@@ -531,7 +531,7 @@ function Jds({ block }: { block: Extract<BriefBlock, { kind: 'jd' }> }) {
                 )}
               </div>
             ))}
-            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#E6E4DC] pt-4">
+            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-[#E4E3DC] pt-4">
               <CopyButton text={jdPlainText(item)} label="Copy this JD" />
               <span className={`text-[12.5px] ${DOC.muted}`}>
                 Copies the plain text, ready to paste into your ATS.
@@ -549,7 +549,7 @@ function Steps({ items }: { items: string[] }) {
     <ol className="my-5 space-y-3">
       {items.map((item, i) => (
         <li key={i} className={`${DOC.card} flex gap-4 px-5 py-4 sm:px-6`}>
-          <span aria-hidden className={`w-6 shrink-0 font-serif text-[18px] italic ${DOC.gold}`}>
+          <span aria-hidden className={`w-6 shrink-0 font-semibold text-[18px] italic ${DOC.gold}`}>
             {romanise(i)}
           </span>
           <span className={`text-[14.5px] leading-relaxed ${DOC.body}`}>
@@ -585,7 +585,7 @@ function Checklist({
       <ol className="space-y-3">
         {block.items.map((item, i) => (
           <li key={i} className={`${DOC.card} flex gap-3.5 px-5 py-4 sm:px-6`}>
-            <span aria-hidden className={`w-5 shrink-0 pt-px font-serif text-[14px] italic ${DOC.gold}`}>
+            <span aria-hidden className={`w-5 shrink-0 pt-px font-semibold text-[14px] italic ${DOC.gold}`}>
               {i + 1}
             </span>
             <div className="min-w-0 flex-1">
@@ -648,8 +648,8 @@ function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (a
       return <Checklist block={block} slot={checklistSlot} />
     case 'callout':
       return (
-        <aside className="my-5 rounded-r-[8px] border-l-[3px] border-l-[#1F4D3A] bg-[#EDF3EF] px-5 py-4 sm:px-6">
-          <p className={`font-serif text-[15.5px] leading-[1.65] ${DOC.body}`}>
+        <aside className="my-5 rounded-r-[8px] border-l-[3px] border-l-[#1F3A2F] bg-[#E7EDE9] px-5 py-4 sm:px-6">
+          <p className={`font-semibold text-[15.5px] leading-[1.65] ${DOC.body}`}>
             <Inline text={block.text} />
           </p>
         </aside>
@@ -657,7 +657,7 @@ function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (a
     case 'heading':
       return (
         <h3
-          className={`mb-3 mt-8 border-b border-[#E6E4DC] pb-2 font-serif text-[19px] leading-snug sm:text-[21px] ${DOC.deep}`}
+ className={`mb-3 mt-8 border-b border-[#E4E3DC] pb-2 font-semibold text-[19px] leading-snug sm:text-[21px] ${DOC.deep}`}
         >
           {block.text}
         </h3>
@@ -724,14 +724,14 @@ export function BriefDocument({
   }
 
   return (
-    <div className={standalone ? 'bg-[#FBFAF7]' : ''}>
+    <div className={standalone ? 'bg-[#FAF9F5]' : ''}>
       {standalone && (
-        <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-[#173B2D] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-white sm:px-8 print:static">
+        <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-[#142E24] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-white sm:px-8 print:static">
           <span className="flex items-center gap-2">
             <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#C8A24B]" />
             {ribbonLabel}
           </span>
-          <span className="text-[12px] font-medium normal-case tracking-[0.04em] text-[#B9CDC2]">
+          <span className="text-[12px] font-medium normal-case tracking-[0.04em] text-[#B4C7BC]">
             {ribbonNote}
           </span>
         </div>
@@ -746,12 +746,12 @@ export function BriefDocument({
               </p>
             )}
             <h1
-              className={`mt-4 font-serif text-[40px] font-normal leading-[1.02] tracking-[-0.015em] sm:text-[64px] lg:text-[80px] ${DOC.deep}`}
+ className={`mt-4 text-[40px] font-semibold leading-[1.02] tracking-[-0.035em] sm:text-[64px] lg:text-[80px] ${DOC.deep}`}
             >
               {content.title}
             </h1>
             {content.subtitle && (
-              <p className={`mt-3 font-serif text-[19px] leading-snug sm:text-[24px] ${DOC.ink}`}>
+              <p className={`mt-3 font-semibold text-[19px] leading-snug sm:text-[24px] ${DOC.ink}`}>
                 {content.subtitle}
               </p>
             )}
@@ -761,7 +761,7 @@ export function BriefDocument({
                   href={content.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`border-b border-[#E6E4DC] text-[14px] transition-colors hover:text-[#1F4D3A] ${DOC.faint}`}
+                  className={`border-b border-[#E4E3DC] text-[14px] transition-colors hover:text-[#1F3A2F] ${DOC.faint}`}
                 >
                   {content.url.replace(/^https?:\/\/(www\.)?/, '')}
                 </a>
@@ -769,13 +769,13 @@ export function BriefDocument({
             )}
             <div
               aria-hidden
-              className="mt-9 h-[3px] bg-[linear-gradient(90deg,#1F4D3A_0_64px,#E6E4DC_64px_100%)]"
+              className="mt-9 h-[3px] bg-[linear-gradient(90deg,#1F3A2F_0_64px,#E4E3DC_64px_100%)]"
             />
           </header>
         )}
 
         {content.confidential && (
-          <aside className="mt-10 rounded-[8px] border border-[#CBDDD2] border-l-[4px] border-l-[#1F4D3A] bg-[#EDF3EF] px-5 py-5 sm:px-7">
+          <aside className="mt-10 rounded-[8px] border border-[#C6D6CC] border-l-[4px] border-l-[#1F3A2F] bg-[#E7EDE9] px-5 py-5 sm:px-7">
             {content.confidential.heading && (
               <p className={`text-[10.5px] font-bold uppercase tracking-[0.18em] ${DOC.green}`}>
                 {content.confidential.heading}
@@ -789,14 +789,14 @@ export function BriefDocument({
               ))}
             </div>
             {!!content.confidential.points?.length && (
-              <div className="mt-4 border-t border-[#CBDDD2] pt-3.5">
+              <div className="mt-4 border-t border-[#C6D6CC] pt-3.5">
                 <p className={`text-[10.5px] font-bold uppercase tracking-[0.18em] ${DOC.green}`}>
                   {content.confidential.pointsHeading ?? 'If you have two minutes'}
                 </p>
                 <ul className="mt-2">
                   {content.confidential.points.map((p, i) => (
                     <li key={i} className="flex gap-3 py-1">
-                      <span aria-hidden className={`w-3 shrink-0 font-serif text-[14px] italic ${DOC.gold}`}>
+                      <span aria-hidden className={`w-3 shrink-0 font-semibold text-[14px] italic ${DOC.gold}`}>
                         {i + 1}
                       </span>
                       <span className={`text-[14px] leading-relaxed ${DOC.body}`}>
@@ -813,13 +813,13 @@ export function BriefDocument({
         {standalone && nav.length > 1 && (
           <nav
             aria-label="Brief contents"
-            className="mt-8 flex flex-wrap gap-2 border-b border-[#E6E4DC] pb-5 print:hidden"
+            className="mt-8 flex flex-wrap gap-2 border-b border-[#E4E3DC] pb-5 print:hidden"
           >
             {nav.map(item => (
               <a
                 key={item.id}
                 href={`#${item.id}`}
-                className={`rounded-full border border-[#E6E4DC] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors hover:border-[#1F4D3A] hover:bg-[#1F4D3A] hover:text-white ${DOC.muted}`}
+                className={`rounded-full border border-[#E4E3DC] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors hover:border-[#1F3A2F] hover:bg-[#1F3A2F] hover:text-white ${DOC.muted}`}
               >
                 {item.label}
               </a>
@@ -834,19 +834,19 @@ export function BriefDocument({
               id={section.id}
               className={standalone ? 'scroll-mt-16 pt-12 sm:pt-14' : ''}
             >
-              <div className="mb-5 flex items-baseline gap-3.5 border-b-2 border-[#1F4D3A] pb-3">
-                <span aria-hidden className={`font-serif text-[15px] italic ${DOC.gold}`}>
+              <div className="mb-5 flex items-baseline gap-3.5 border-b-2 border-[#1F3A2F] pb-3">
+                <span aria-hidden className={`font-semibold text-[15px] italic ${DOC.gold}`}>
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <h2
-                  className={`font-serif text-[21px] font-normal leading-snug tracking-[-0.01em] sm:text-[27px] ${DOC.deep}`}
+ className={`text-[21px] font-semibold leading-snug tracking-[-0.01em] sm:text-[27px] ${DOC.deep}`}
                 >
                   {section.heading}
                 </h2>
               </div>
               {section.summary && (
                 <p
-                  className={`mb-5 rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}
+                  className={`mb-5 rounded-[8px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3 text-[13.5px] leading-relaxed ${DOC.body}`}
                 >
                   <span
                     className={`mr-2 text-[10.5px] font-bold uppercase tracking-[0.14em] ${DOC.gold}`}
@@ -872,9 +872,9 @@ export function BriefDocument({
         </div>
 
         {content.signoff && (
-          <footer className="mt-16 flex flex-wrap items-end justify-between gap-4 border-t-[3px] border-[#1F4D3A] pt-6">
+          <footer className="mt-16 flex flex-wrap items-end justify-between gap-4 border-t-[3px] border-[#1F3A2F] pt-6">
             <div>
-              <p className={`font-serif text-[20px] ${DOC.deep}`}>{content.signoff.name}</p>
+              <p className={`font-semibold text-[20px] ${DOC.deep}`}>{content.signoff.name}</p>
               {content.signoff.lines.map((line, i) => (
                 <p key={i} className={`text-[13.5px] ${DOC.muted}`}>
                   <Inline text={line} />
