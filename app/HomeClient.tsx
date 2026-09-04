@@ -455,7 +455,7 @@ export default function HomeClient() {
         }
         @media (min-width: 900px) {
           .only-lg {
-            display: inline;
+            display: inline-flex;
           }
         }
 
