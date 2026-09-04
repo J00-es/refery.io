@@ -73,7 +73,7 @@ export default function PendingApprovalPage() {
       <header className="fixed top-0 left-0 right-0 z-10 bg-background border-b">
         <div className="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link href="/" className="font-semibold text-xl text-foreground">
-            Refery<span className="text-primary">.</span>io
+            Refery<span className="text-primary">.</span>
           </Link>
           <Button variant="ghost" size="sm" onClick={handleSignOut} className="gap-2 text-muted-foreground">
             <LogOut className="h-4 w-4" />

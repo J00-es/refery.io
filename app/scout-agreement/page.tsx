@@ -20,7 +20,7 @@ export default function ScoutAgreementPage() {
           </Link>
           <div>
             <Link href="/" className="font-semibold text-xl text-foreground">
-              Refery<span className="text-primary">.</span>io
+              Refery<span className="text-primary">.</span>
             </Link>
           </div>
         </div>

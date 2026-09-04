@@ -126,7 +126,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
         {/* Logo and Desktop Nav */}
         <div className="flex items-center gap-4 lg:gap-8">
           <Link href="/dashboard" className="font-semibold text-lg sm:text-xl text-foreground">
-            Refery<span className="text-green-500">.</span>io
+            Refery<span className="text-green-500">.</span>
           </Link>
           
           {/* Desktop Navigation */}
@@ -240,7 +240,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
           <SheetContent side="right" className="w-[300px] sm:w-[350px] p-0">
             <SheetHeader className="p-4 border-b">
               <SheetTitle className="font-semibold text-left text-lg">
-                Refery<span className="text-green-500">.</span>io
+                Refery<span className="text-green-500">.</span>
               </SheetTitle>
             </SheetHeader>
             

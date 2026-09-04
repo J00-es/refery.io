@@ -923,7 +923,7 @@ export default function PartnerGuidelinesPage() {
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,248,243,0.2)', marginBottom: 16 }}>Startups</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <li><a href="mailto:hello@refery.io" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>Start Hiring</a></li>
+              
               <li><a href="mailto:hello@refery.io" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>hello@refery.io</a></li>
             </ul>
           </div>

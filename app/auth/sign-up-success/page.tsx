@@ -32,7 +32,7 @@ export default function Page() {
               textDecoration: 'none',
             }}
           >
-            Refery<span style={{ color: '#2A6B45' }}>.</span>io
+            Refery<span style={{ color: '#2A6B45' }}>.</span>
           </Link>
         </div>
       </header>

@@ -1,34 +1,45 @@
+/**
+ * The landing page FAQ, and the source of its FAQPage structured data.
+ *
+ * Rewritten for partners. refery.xyz used to carry the founder pitch, which
+ * meant the only people who ever reached it, scouts and independent recruiters,
+ * read answers about agency fees and hiring timelines that were addressed to
+ * somebody else. Hiring managers are served by refery.io.
+ *
+ * Kept in one file because app/page.tsx renders it twice: once as visible copy
+ * and once as JSON-LD. Two copies would drift.
+ */
 export const faqItems = [
   {
-    q: 'What makes Refery different from an agency?',
-    a: "Agencies source from the same LinkedIn pool using junior researchers. Refery candidates are personally referred by founders, CTOs, fund partners, and operators who have actually built what you're building. They know what great looks like at the early stage because they've lived it. Different source. Different caliber.",
+    q: 'What does it pay?',
+    a: 'Our client fee is 10% to 20% of the hire’s first-year base salary, depending on the search, and 70% of that fee is yours. You are paid once the client settles, and there is no cap on how many introductions you make.',
   },
   {
-    q: 'What roles and locations does Refery cover?',
-    a: "We focus on engineering and GTM roles for VC-backed startups from seed to Series B, primarily in San Francisco and New York. These are the roles where the wrong hire is most costly and the right hire is hardest to find through traditional channels. If you're hiring outside these areas, reach out — we'll be honest about whether we can help.",
+    q: 'Do I need to be a recruiter?',
+    a: 'No. Most of our scouts have never recruited. If you know people worth backing and are willing to put your name to them, that is the job. Independent recruiters get a second track, with live searches at companies we are already retained by.',
   },
   {
-    q: 'Why not just post on job boards and wait for applicants?',
-    a: 'Because the people who will define your company aren\'t applying to job boards. They\'re heads-down building, and the only way they move is when someone they trust reaches out and says "you need to look at this." Job boards give you volume — hundreds of applications, most unqualified. Refery gives you signal — a handful of candidates, each personally referred by someone who knows them and knows your world. At the early stage, you don\'t need more resumes. You need the right intro.',
+    q: 'What if I only ever refer one person?',
+    a: 'That is fine, and it is the common case. There is no quota, no exclusivity and no obligation to keep going. One exceptional introduction is worth more to us than a batch of maybes.',
   },
   {
-    q: 'We already have an internal TA team. Why would we use Refery?',
-    a: "Refery isn't a replacement for your TA team — it's the channel they can't replicate. Your internal team is great at running process, screening, and closing. But they can't tap into the personal networks of hundreds of founders, CTOs, and fund partners who know candidates your TA team will never find on LinkedIn. Think of it as extending your team's reach into a referral layer that doesn't exist inside any single company. No exclusivity, so it runs in parallel with everything your TA team is already doing.",
+    q: 'What happens to someone I introduce?',
+    a: 'We read every profile. If they are a fit we speak to them, take them through our talent committee, and represent them to the founders we work with. Your claim on that candidate stands for 24 months, whether they are placed next week or next year.',
   },
   {
-    q: 'How quickly will I receive candidates?',
-    a: "Most startups receive their first warm referrals within the first week. Because our scouts are already embedded in the right networks, there's no ramp-up — they usually already know someone who fits.",
+    q: 'Do I need an open role to refer someone?',
+    a: 'No. Introduce anyone you would vouch for and we match them against the searches we are running now and the ones that come next. Waiting for a perfect role to appear is how good people get missed.',
   },
   {
-    q: 'What does the 10% fee cover?',
-    a: "10% of the hired candidate's first-year salary, paid on successful placement. No retainer. No exclusivity. No upfront costs. Every placement includes a 90-day quality guarantee — if things don't work out, we find you a replacement at no extra cost. If a replacement isn't available, you receive a 50% fee credit toward your next hire.",
+    q: 'Is my network exposed to anyone?',
+    a: 'No. The candidates you introduce stay yours, client names stay confidential, and nothing about a person reaches a company until they have agreed to it.',
   },
   {
-    q: 'What if the referral introduces someone already in my pipeline?',
-    a: 'No fee. If a candidate is already active in your recruitment process before Refery introduces them, you owe nothing. You only pay for genuine new intros.',
+    q: 'Who do you actually place?',
+    a: 'Hands-on builders and sellers at the individual contributor level, usually two to five years in, for seed to Series B startups in San Francisco and New York. Engineering and go-to-market. We do not place people who mainly want to manage, remote-only candidates, or candidates who need new visa sponsorship.',
   },
   {
-    q: 'What startups does Refery work with?',
-    a: 'VC-backed startups from seed to Series B, primarily in San Francisco and New York, backed by top-tier funds including Y Combinator, Sequoia, a16z, Index Ventures, General Catalyst, and more. We focus on the stage where every hire is critical and the margin for error is thinnest.',
+    q: 'What does it cost me?',
+    a: 'Nothing. There is no fee to join, no subscription and no software to buy. We only make money when a placement happens, which is the same moment you do.',
   },
 ]
