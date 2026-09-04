@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getRequestContext, isLikelyBot } from '@/lib/request-context'
 import { notifySlack } from '@/lib/slack'
+import { announcePartnerSignup } from '@/lib/partner-signup-slack'
 
 /**
  * Sign-up funnel beacon.
@@ -102,13 +103,24 @@ export async function POST(request: NextRequest) {
       if (email) fields.push({ label: 'Email', value: email })
       if (linkedinUrl) fields.push({ label: 'LinkedIn', value: linkedinUrl })
 
-      const slack = await notifySlack({
-        stream: 'partners',
-        emoji: step === 'completed' ? ':white_check_mark:' : ':eyes:',
-        title: headline(step, role, fullName),
-        context: advice(step),
-        fields,
-      })
+      // A completed sign-up is the only step anyone acts on, so it is the only
+      // one posted with the bot: reactions need a message timestamp, and a
+      // webhook does not return one. Everything else stays fire-and-forget.
+      const slack =
+        step === 'completed'
+          ? await announcePartnerSignup({
+              title: headline(step, role, fullName),
+              context: advice(step) ?? '',
+              fields,
+              email,
+            })
+          : await notifySlack({
+              stream: 'partners',
+              emoji: ':eyes:',
+              title: headline(step, role, fullName),
+              context: advice(step),
+              fields,
+            })
 
       // Surfaced in the response so the wiring can be checked from outside
       // without reading server logs. The event itself is already recorded.
