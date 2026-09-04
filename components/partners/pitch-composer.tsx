@@ -94,7 +94,7 @@ export function PitchComposer({
       <>
         <div className="flex-1 space-y-3 overflow-y-auto px-5 py-6">
           {result.submitted > 0 && (
-            <p className="flex items-start gap-2 rounded-[12px] bg-[#E9F0EC] px-4 py-3 text-[14px] text-[#1F4D3A]">
+            <p className="flex items-start gap-2 rounded-[12px] bg-[#E7EDE9] px-4 py-3 text-[14px] text-[#1F3A2F]">
               <Check className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
                 {result.submitted} {result.submitted === 1 ? 'candidate' : 'candidates'} submitted.
@@ -143,7 +143,7 @@ export function PitchComposer({
           const verdict = VERDICT_GRADES[GRADE_TO_VERDICT[person.grade ?? ''] ?? '']
 
           return (
-            <div key={person.id} className="rounded-[14px] border border-[#ECECE6] bg-white p-4">
+            <div key={person.id} className="rounded-[14px] border border-[#E4E3DC] bg-white p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[14px] font-semibold text-[#161613]">
                   {person.name || 'Unnamed candidate'}
@@ -159,7 +159,7 @@ export function PitchComposer({
               </div>
 
               {person.hint && (
-                <div className="mt-2.5 rounded-[10px] bg-[#FAFAF6] px-3 py-2.5">
+                <div className="mt-2.5 rounded-[10px] bg-[#FAF9F5] px-3 py-2.5">
                   <p className="text-[12.5px] font-medium text-[#8A8A82]">
                     Why the matcher picked them
                   </p>
@@ -167,7 +167,7 @@ export function PitchComposer({
                   <button
                     type="button"
                     onClick={() => setPitches(p => ({ ...p, [person.id]: person.hint ?? '' }))}
-                    className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#1F4D3A] transition-colors hover:text-[#173D2E] ${FOCUS}`}
+                    className={`mt-2 inline-flex items-center gap-1.5 text-[12.5px] font-semibold text-[#1F3A2F] transition-colors hover:text-[#142E24] ${FOCUS}`}
                   >
                     <Sparkles className="h-3 w-3" />
                     Use as a starting point
@@ -183,11 +183,11 @@ export function PitchComposer({
                   onChange={e => setPitches(p => ({ ...p, [person.id]: e.target.value }))}
                   placeholder="What they have done that maps to this role, and the one thing that makes them unusual."
                   className={`mt-1.5 w-full resize-none rounded-[12px] border px-3 py-2.5 text-[14px] leading-relaxed text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS} ${
-                    short && value.length > 0 ? 'border-[#E0BDB8]' : 'border-[#ECECE6]'
+                    short && value.length > 0 ? 'border-[#E0BDB8]' : 'border-[#E4E3DC]'
                   }`}
                 />
                 <span
-                  className={`mt-1 block text-[11.5px] ${short ? 'text-[#9C9C95]' : 'text-[#1F4D3A]'}`}
+                  className={`mt-1 block text-[11.5px] ${short ? 'text-[#9C9C95]' : 'text-[#1F3A2F]'}`}
                 >
                   {short
                     ? `${MIN_PITCH - value.trim().length} more characters needed`
@@ -204,7 +204,7 @@ export function PitchComposer({
                   value={highlights[person.id] ?? ''}
                   onChange={e => setHighlights(h => ({ ...h, [person.id]: e.target.value }))}
                   placeholder={'Shipped the payments rewrite at Stripe\nOpen to London from October'}
-                  className={`mt-1.5 w-full resize-none rounded-[12px] border border-[#ECECE6] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                  className={`mt-1.5 w-full resize-none rounded-[12px] border border-[#E4E3DC] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
                 />
               </label>
             </div>
@@ -218,7 +218,7 @@ export function PitchComposer({
             <button
               type="button"
               onClick={onBack}
-              className={`inline-flex min-h-[44px] items-center rounded-full border border-[#D8D8D0] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] ${FOCUS}`}
+              className={`inline-flex min-h-[44px] items-center rounded-full border border-[#D2D1C7] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] ${FOCUS}`}
             >
               {backLabel}
             </button>
@@ -240,8 +240,8 @@ export function PitchComposer({
   )
 }
 
-export const PRIMARY = `inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`
+export const PRIMARY = `inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-60 ${FOCUS}`
 
 export function Footer({ children }: { children: React.ReactNode }) {
-  return <div className="border-t border-[#ECECE6] bg-white px-5 py-4">{children}</div>
+  return <div className="border-t border-[#E4E3DC] bg-white px-5 py-4">{children}</div>
 }

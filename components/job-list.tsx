@@ -141,7 +141,7 @@ function OptionRow({
         aria-hidden
         className={`grid h-[18px] w-[18px] shrink-0 place-items-center border transition-colors ${
           single ? 'rounded-full' : 'rounded-[5px]'
-        } ${on ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white' : 'border-[#D8D8D0] bg-white'}`}
+        } ${on ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white' : 'border-[#D2D1C7] bg-white'}`}
       >
         {on &&
           (single ? (
@@ -229,13 +229,13 @@ function FacetDropdown({
           type="button"
           className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${FOCUS} ${
             on
-              ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-              : 'border-[#D8D8D0] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
+              ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+              : 'border-[#D2D1C7] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
           }`}
         >
           {label}
           {on && (
-            <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F4D3A] px-1 text-[10.5px] font-semibold text-white">
+            <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F3A2F] px-1 text-[10.5px] font-semibold text-white">
               {count}
             </span>
           )}
@@ -246,13 +246,13 @@ function FacetDropdown({
         align="start"
         sideOffset={6}
         collisionPadding={12}
-        className={`${width} max-w-[calc(100vw-24px)] overflow-hidden rounded-[14px] border-[#ECECE6] p-0 shadow-lg`}
+        className={`${width} max-w-[calc(100vw-24px)] overflow-hidden rounded-[14px] border-[#E4E3DC] p-0 shadow-lg`}
       >
         <div className="max-h-[min(62vh,380px)] overflow-y-auto overscroll-contain p-2">
           {children}
         </div>
         {on && (
-          <div className="border-t border-[#ECECE6] bg-[#FAFAF6] p-2">
+          <div className="border-t border-[#E4E3DC] bg-[#FAF9F5] p-2">
             <button
               type="button"
               onClick={onClear}
@@ -310,13 +310,13 @@ function LocationPicker({
           }}
           placeholder="Market, city or country…"
           aria-label="Find a location"
-          className={`h-9 rounded-[10px] border-[#ECECE6] bg-[#FAFAF6] pl-8 text-[13px] placeholder:text-[#9C9C95] ${FOCUS}`}
+          className={`h-9 rounded-[10px] border-[#E4E3DC] bg-[#FAF9F5] pl-8 text-[13px] placeholder:text-[#9C9C95] ${FOCUS}`}
         />
       </div>
 
       {locq && (
         <div className="px-0.5">
-          <span className="flex items-center gap-1 rounded-[10px] bg-[#E9F0EC] py-1.5 pl-2.5 pr-1 text-[12.5px] text-[#1F4D3A]">
+          <span className="flex items-center gap-1 rounded-[10px] bg-[#E7EDE9] py-1.5 pl-2.5 pr-1 text-[12.5px] text-[#1F3A2F]">
             <span className="min-w-0 flex-1 truncate">Location contains “{locq}”</span>
             <button
               type="button"
@@ -346,7 +346,7 @@ function LocationPicker({
 
       {/* Escape hatch for the towns and office names no bucket covers. */}
       {needle && (
-        <div className="border-t border-[#ECECE6] pt-2">
+        <div className="border-t border-[#E4E3DC] pt-2">
           <button
             type="button"
             onClick={() => onSearch(term.trim())}
@@ -372,7 +372,7 @@ function LocationPicker({
 
 function ActiveChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F0EA] py-1 pl-3 pr-1 text-[12.5px] text-[#161613]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAE9E1] py-1 pl-3 pr-1 text-[12.5px] text-[#161613]">
       <span className="max-w-[180px] truncate">{label}</span>
       <button
         type="button"
@@ -405,12 +405,12 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
   return (
     <Link
       href={`/jobs/${j.id}`}
-      className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-[#FAFAF6] sm:px-4 ${FOCUS}`}
+      className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-[#FAF9F5] sm:px-4 ${FOCUS}`}
     >
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] text-[12px] font-semibold ${
-          showLogo ? 'border border-[#ECECE6] bg-white p-0.5' : avatarTint(company)
+          showLogo ? 'border border-[#E4E3DC] bg-white p-0.5' : avatarTint(company)
         }`}
       >
         {showLogo ? (
@@ -457,7 +457,7 @@ function JobRowItem({ j, isAdmin }: { j: JobRow; isAdmin: boolean }) {
       )}
       <span className="hidden w-14 shrink-0 text-right text-[12px] sm:block">
         {j.pipeline_count ? (
-          <span className="font-medium text-[#1F4D3A]">{j.pipeline_count}</span>
+          <span className="font-medium text-[#1F3A2F]">{j.pipeline_count}</span>
         ) : (
           <span className="text-[#9C9C95]">—</span>
         )}
@@ -565,7 +565,7 @@ export function JobList({
       <OptionList options={SALARY_BANDS} selected={pay} onToggle={k => toggle('pay', k)} />
       {/* Bands match on salary_max, which 87% of roles leave null — so any
           band silently hides them. Saying so beats letting people guess. */}
-      <div className="border-t border-[#ECECE6] pt-2">
+      <div className="border-t border-[#E4E3DC] pt-2">
         <OptionRow
           label="Only roles with pay posted"
           hint="Most roles do not publish a range"
@@ -621,14 +621,14 @@ export function JobList({
             onChange={e => setDraft(e.target.value)}
             placeholder="Search role, company, location…"
             aria-label="Search jobs"
-            className={`h-10 rounded-full border-[#D8D8D0] bg-white pl-10 pr-9 text-[14px] placeholder:text-[#9C9C95] ${FOCUS}`}
+            className={`h-10 rounded-full border-[#D2D1C7] bg-white pl-10 pr-9 text-[14px] placeholder:text-[#9C9C95] ${FOCUS}`}
           />
           {draft && (
             <button
               type="button"
               onClick={() => setDraft('')}
               aria-label="Clear search"
-              className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#9C9C95] transition-colors hover:bg-[#F0F0EA] hover:text-[#161613] ${FOCUS}`}
+              className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#9C9C95] transition-colors hover:bg-[#EAE9E1] hover:text-[#161613] ${FOCUS}`}
             >
               <X className="h-4 w-4" />
             </button>
@@ -644,14 +644,14 @@ export function JobList({
                 type="button"
                 className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors sm:hidden ${FOCUS} ${
                   facetCount > 0
-                    ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                    : 'border-[#D8D8D0] bg-white text-[#161613]'
+                    ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                    : 'border-[#D2D1C7] bg-white text-[#161613]'
                 }`}
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
                 {facetCount > 0 && (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F4D3A] px-1 text-[11px] font-semibold text-white">
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F3A2F] px-1 text-[11px] font-semibold text-white">
                     {facetCount}
                   </span>
                 )}
@@ -683,7 +683,7 @@ export function JobList({
               <button
                 type="button"
                 aria-label="Sort jobs"
-                className={`flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#D8D8D0] bg-white px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+                className={`flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#D2D1C7] bg-white px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
               >
                 <ArrowUpDown className="h-4 w-4" />
                 <span className="hidden lg:inline">{JOB_SORTS.find(s => s.key === sort)?.label}</span>
@@ -692,7 +692,7 @@ export function JobList({
             <PopoverContent
               align="end"
               collisionPadding={12}
-              className="w-[200px] rounded-[14px] border-[#ECECE6] p-1.5"
+              className="w-[200px] rounded-[14px] border-[#E4E3DC] p-1.5"
             >
               {/* Sorting by pipeline size would rank roles by other partners'
                   activity, so it is offered only to the super admin. */}
@@ -701,8 +701,8 @@ export function JobList({
                   key={s.key}
                   type="button"
                   onClick={() => set({ sort: s.key })}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAFAF6] ${FOCUS} ${
-                    sort === s.key ? 'font-semibold text-[#1F4D3A]' : 'text-[#6E6E68]'
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAF9F5] ${FOCUS} ${
+                    sort === s.key ? 'font-semibold text-[#1F3A2F]' : 'text-[#6E6E68]'
                   }`}
                 >
                   {s.label}
@@ -711,7 +711,7 @@ export function JobList({
             </PopoverContent>
           </Popover>
 
-          <div className="flex h-10 shrink-0 items-center rounded-full border border-[#D8D8D0] bg-white p-0.5">
+          <div className="flex h-10 shrink-0 items-center rounded-full border border-[#D2D1C7] bg-white p-0.5">
             {(
               [
                 { key: 'card', icon: LayoutGrid, label: 'Card view' },
@@ -774,14 +774,14 @@ export function JobList({
               type="button"
               className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors ${FOCUS} ${
                 facetCount > 0
-                  ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                  : 'border-[#D8D8D0] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
+                  ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                  : 'border-[#D2D1C7] bg-white text-[#3F3F3A] hover:border-[#9C9C95] hover:text-[#161613]'
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
               All filters
               {facetCount > 0 && (
-                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F4D3A] px-1 text-[10.5px] font-semibold text-white">
+                <span className="grid h-[18px] min-w-[18px] place-items-center rounded-full bg-[#1F3A2F] px-1 text-[10.5px] font-semibold text-white">
                   {facetCount}
                 </span>
               )}
@@ -894,14 +894,14 @@ export function JobList({
             <button
               type="button"
               onClick={clearAll}
-              className={`mt-5 rounded-full border border-[#D8D8D0] px-4 py-2 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+              className={`mt-5 rounded-full border border-[#D2D1C7] px-4 py-2 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
             >
               Clear all filters
             </button>
           ) : (
             <Link
               href="/jobs/new"
-              className={`mt-5 rounded-full bg-[#1F4D3A] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+              className={`mt-5 rounded-full bg-[#1F3A2F] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] ${FOCUS}`}
             >
               Add a role
             </Link>
@@ -916,7 +916,7 @@ export function JobList({
               ))}
             </div>
           ) : (
-            <div className={`${CARD} divide-y divide-[#ECECE6] overflow-hidden`}>
+            <div className={`${CARD} divide-y divide-[#E4E3DC] overflow-hidden`}>
               {jobs.map(j => (
                 <JobRowItem key={j.id} j={j} isAdmin={isAdmin} />
               ))}
@@ -932,7 +932,7 @@ export function JobList({
             type="button"
             disabled={page <= 1}
             onClick={() => set({ page: String(page - 1) })}
-            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D8D8D0] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
+            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D2D1C7] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Previous</span>
@@ -944,7 +944,7 @@ export function JobList({
             type="button"
             disabled={page >= totalPages}
             onClick={() => set({ page: String(page + 1) })}
-            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D8D8D0] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
+            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D2D1C7] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
           >
             <span className="hidden sm:inline">Next</span>
             <ChevronRight className="h-4 w-4" />
@@ -997,8 +997,8 @@ function AllFiltersSheet({
       side="bottom"
       className="mx-auto h-[86vh] max-w-[620px] gap-0 rounded-t-[20px] p-0"
     >
-      <SheetHeader className="shrink-0 border-b border-[#ECECE6] px-4 py-3.5 text-left">
-        <SheetTitle className="font-serif text-[20px] font-normal tracking-[-0.01em] text-[#161613]">
+      <SheetHeader className="shrink-0 border-b border-[#E4E3DC] px-4 py-3.5 text-left">
+        <SheetTitle className="text-[20px] font-semibold tracking-[-0.01em] text-[#161613]">
           Filters
           {facetCount > 0 && (
             <span className="ml-2 text-[13px] font-sans text-[#6E6E68]">{facetCount} active</span>
@@ -1026,12 +1026,12 @@ function AllFiltersSheet({
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-2.5 border-t border-[#ECECE6] bg-white px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2.5 border-t border-[#E4E3DC] bg-white px-4 py-3">
         {hasAny && (
           <button
             type="button"
             onClick={onClearAll}
-            className={`h-11 shrink-0 rounded-full border border-[#D8D8D0] px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+            className={`h-11 shrink-0 rounded-full border border-[#D2D1C7] px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
           >
             Clear all
           </button>
@@ -1039,7 +1039,7 @@ function AllFiltersSheet({
         <SheetClose asChild>
           <button
             type="button"
-            className={`h-11 flex-1 rounded-full bg-[#1F4D3A] text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+            className={`h-11 flex-1 rounded-full bg-[#1F3A2F] text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] ${FOCUS}`}
           >
             Show {total.toLocaleString()} {total === 1 ? 'role' : 'roles'}
           </button>

@@ -48,7 +48,7 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
     <div
       className={cn(
         'border-t border-[rgba(16,15,15,0.06)] first:border-t-0 cursor-pointer transition-colors',
-        isOpen ? 'bg-[#F8F8F3]' : 'hover:bg-[#F0F0EA]'
+        isOpen ? 'bg-[#F8F8F3]' : 'hover:bg-[#EAE9E1]'
       )}
     >
       <div
@@ -114,7 +114,7 @@ export function ActionQueueCard({ rows }: ActionQueueCardProps) {
   if (rows.length === 0) {
     return (
       <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[22px] py-12 text-center">
-        <p className="text-[rgba(16,15,15,0.40)] font-serif italic text-lg">
+        <p className="font-semibold text-[rgba(16,15,15,0.40)] italic text-lg">
           All clear — nothing needs you right now.
         </p>
       </div>

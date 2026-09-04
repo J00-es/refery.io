@@ -123,7 +123,7 @@ export default function PartnerGuidelinesPage() {
         
         :root {
           --bg: #F8F8F3;
-          --bg-2: #F0F0EA;
+          --bg-2: #EAE9E1;
           --bg-3: #E8E8E1;
           --card: #FFFFFF;
           --ink: #100F0F;

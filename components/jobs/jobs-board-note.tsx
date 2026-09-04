@@ -63,7 +63,7 @@ export function JobsBoardNote() {
   }
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[#ECECE6] bg-[#FAFAF6]">
+    <section className="overflow-hidden rounded-[18px] border border-[#E4E3DC] bg-[#FAF9F5]">
       <button
         type="button"
         onClick={toggle}
@@ -88,13 +88,13 @@ export function JobsBoardNote() {
       </button>
 
       {!collapsed && (
-        <div id="jobs-board-note-body" className="border-t border-[#ECECE6] px-4 pb-4 pt-4">
+        <div id="jobs-board-note-body" className="border-t border-[#E4E3DC] px-4 pb-4 pt-4">
           <ol className="grid gap-4 sm:grid-cols-3">
             {STEPS.map((s, i) => (
               <li key={s.title} className="flex gap-3">
                 <span
                   aria-hidden
-                  className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[#E9F0EC] text-[#1F4D3A]"
+                  className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-[#E7EDE9] text-[#1F3A2F]"
                 >
                   <s.icon className="h-4 w-4" />
                 </span>
@@ -114,7 +114,7 @@ export function JobsBoardNote() {
           {/* This paragraph used to point at a "Partner roles" tile and a badge on
               each card. Both are gone: naming which companies we are retained by
               disclosed the client list to everyone with an account. */}
-          <p className="mt-4 border-t border-[#ECECE6] pt-3.5 text-[12.5px] leading-[1.55] text-[#6E6E68]">
+          <p className="mt-4 border-t border-[#E4E3DC] pt-3.5 text-[12.5px] leading-[1.55] text-[#6E6E68]">
             <span className="font-semibold text-[#161613]">Treat every role here as ours to open.</span>{' '}
             Being listed does not mean we have an agreement — if we do, you will be briefed on it
             directly rather than reading it off this board.{' '}

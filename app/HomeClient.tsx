@@ -118,7 +118,7 @@ export default function HomeClient() {
 
         :root {
           --bg: #f8f8f3;
-          --bg-2: #f0f0ea;
+          --bg-2: #EAE9E1;
           --bg-3: #e8e8e1;
           --card: #ffffff;
           --ink: #100f0f;

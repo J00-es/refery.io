@@ -126,7 +126,7 @@ export function SubmitCandidates({
       <SheetTrigger asChild>
         <button
           type="button"
-          className={`inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#1F4D3A] px-4 text-[14px] font-semibold text-[#1F4D3A] transition-colors hover:bg-[#E9F0EC] ${FOCUS}`}
+          className={`inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#1F3A2F] px-4 text-[14px] font-semibold text-[#1F3A2F] transition-colors hover:bg-[#E7EDE9] ${FOCUS}`}
         >
           <UserPlus className="h-4 w-4" />
           {label}
@@ -134,8 +134,8 @@ export function SubmitCandidates({
       </SheetTrigger>
 
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
-        <SheetHeader className="border-b border-[#ECECE6] px-5 py-4">
-          <SheetTitle className="text-left font-serif text-[19px] font-normal text-[#161613]">
+        <SheetHeader className="border-b border-[#E4E3DC] px-5 py-4">
+          <SheetTitle className="text-left text-[19px] font-semibold text-[#161613]">
             {step === 'why' ? 'Why them?' : 'Choose from your candidates'}
           </SheetTitle>
           <p className="text-left text-[13px] text-[#6E6E68]">{roleTitle}</p>
@@ -143,7 +143,7 @@ export function SubmitCandidates({
 
         {step === 'pick' ? (
           <>
-            <div className="border-b border-[#ECECE6] px-5 py-3">
+            <div className="border-b border-[#E4E3DC] px-5 py-3">
               <div className="relative">
                 <Search
                   className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#B8B8B0]"
@@ -153,7 +153,7 @@ export function SubmitCandidates({
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="Search your candidates by name"
-                  className={`w-full rounded-full border border-[#ECECE6] bg-white py-2.5 pl-9 pr-3 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                  className={`w-full rounded-full border border-[#E4E3DC] bg-white py-2.5 pl-9 pr-3 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
                 />
               </div>
               {slotsLeft !== null && (
@@ -181,7 +181,7 @@ export function SubmitCandidates({
                     : 'You have no candidates yet. Add one from the Candidates page and they will show up here.'}
                 </p>
               ) : (
-                <ul className="divide-y divide-[#ECECE6] rounded-[14px] border border-[#ECECE6]">
+                <ul className="divide-y divide-[#E4E3DC] rounded-[14px] border border-[#E4E3DC]">
                   {candidates.map(c => {
                     const taken = c.submitted
                     const verdict = VERDICT_GRADES[GRADE_TO_VERDICT[c.panel_grade ?? ''] ?? '']
@@ -203,7 +203,7 @@ export function SubmitCandidates({
                                   : [...prev, c.id],
                               )
                             }
-                            className="mt-1 h-4 w-4 shrink-0 accent-[#1F4D3A]"
+                            className="mt-1 h-4 w-4 shrink-0 accent-[#1F3A2F]"
                           />
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-2">

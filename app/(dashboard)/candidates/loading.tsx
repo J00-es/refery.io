@@ -3,7 +3,7 @@
 // rendered as saturated green blocks and read as a broken page rather than a
 // loading one.
 const BAR = 'animate-pulse rounded-full bg-[#EFEFE9]'
-const CARD_CLS = 'rounded-[18px] border border-[#ECECE6] bg-white p-4 sm:p-5'
+const CARD_CLS = 'rounded-[18px] border border-[#E4E3DC] bg-white p-4 sm:p-5'
 
 export default function CandidatesLoading() {
   return (
@@ -19,7 +19,7 @@ export default function CandidatesLoading() {
         </div>
       </div>
 
-      <div className="flex gap-5 border-b border-[#ECECE6] pb-3">
+      <div className="flex gap-5 border-b border-[#E4E3DC] pb-3">
         {[56, 48, 72, 76, 64].map((w, i) => (
           <div key={i} className={`${BAR} h-4`} style={{ width: w }} />
         ))}
@@ -54,7 +54,7 @@ export default function CandidatesLoading() {
                 <div className={`${BAR} h-6 w-16`} />
               </div>
             </div>
-            <div className="mt-5 flex items-center justify-between border-t border-[#ECECE6] pt-3">
+            <div className="mt-5 flex items-center justify-between border-t border-[#E4E3DC] pt-3">
               <div className={`${BAR} h-4 w-28`} />
               <div className={`${BAR} h-3 w-14`} />
             </div>

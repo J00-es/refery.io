@@ -87,7 +87,7 @@ export function MatchedCandidates({
                           : [...prev, match.candidateId],
                       )
                     }
-                    className="mt-1 h-4 w-4 shrink-0 accent-[#1F4D3A]"
+                    className="mt-1 h-4 w-4 shrink-0 accent-[#1F3A2F]"
                   />
                 )}
                 <span className="min-w-0 flex-1">
@@ -102,7 +102,7 @@ export function MatchedCandidates({
                       </span>
                     )}
                     {match.matchScore != null && (
-                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[10.5px] font-semibold text-[#6E6E68]">
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#EAE9E1] px-2 py-0.5 text-[10.5px] font-semibold text-[#6E6E68]">
                         <Sparkles className="h-2.5 w-2.5" />
                         {Math.round(Number(match.matchScore))}
                         {match.matchTier ? ` · ${match.matchTier}` : ''}
@@ -141,7 +141,7 @@ export function MatchedCandidates({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(31,77,58,0.24)] transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+              className={`inline-flex min-h-[46px] w-full items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white shadow-[0_8px_24px_rgba(31,77,58,0.24)] transition-colors hover:bg-[#142E24] ${FOCUS}`}
             >
               <Send className="h-4 w-4" />
               Submit {picked.length} {picked.length === 1 ? 'candidate' : 'candidates'} officially
@@ -158,8 +158,8 @@ export function MatchedCandidates({
         }}
       >
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
-          <SheetHeader className="border-b border-[#ECECE6] px-5 py-4">
-            <SheetTitle className="text-left font-serif text-[19px] font-normal text-[#161613]">
+          <SheetHeader className="border-b border-[#E4E3DC] px-5 py-4">
+            <SheetTitle className="text-left text-[19px] font-semibold text-[#161613]">
               Why them?
             </SheetTitle>
             <p className="text-left text-[13px] text-[#6E6E68]">{roleTitle}</p>

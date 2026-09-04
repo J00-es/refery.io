@@ -150,7 +150,7 @@ export default async function PartnerCompanyPage({
                 href={company.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`mt-1.5 inline-flex items-center gap-1 text-[13.5px] text-[#6E6E68] transition-colors hover:text-[#1F4D3A] ${FOCUS}`}
+                className={`mt-1.5 inline-flex items-center gap-1 text-[13.5px] text-[#6E6E68] transition-colors hover:text-[#1F3A2F] ${FOCUS}`}
               >
                 {company.website.replace(/^https?:\/\/(www\.)?/, '')}
                 <ExternalLink className="h-3 w-3" />
@@ -232,7 +232,7 @@ export default async function PartnerCompanyPage({
 
       {brief && (
         <Link href={`/partners/${company.companyId}/brief`} className={`flex items-start gap-3 p-4 ${CARD_LINK}`}>
-          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F4D3A]" aria-hidden />
+          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F3A2F]" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block text-[14.5px] font-semibold text-[#161613]">Scout brief</span>
             <span className={`mt-0.5 block ${META}`}>

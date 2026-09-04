@@ -99,7 +99,7 @@ export function FilterBar({
               >
                 <Check
                   className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${
-                    query.sort === option.key ? 'text-[#1F4D3A]' : 'text-transparent'
+                    query.sort === option.key ? 'text-[#1F3A2F]' : 'text-transparent'
                   }`}
                 />
                 <span>
@@ -150,7 +150,7 @@ export function FilterBar({
                       }`}
                     >
                       <Check
-                        className={`h-3.5 w-3.5 shrink-0 ${isOn ? 'text-[#1F4D3A]' : 'text-transparent'}`}
+                        className={`h-3.5 w-3.5 shrink-0 ${isOn ? 'text-[#1F3A2F]' : 'text-transparent'}`}
                       />
                       <span className="min-w-0 flex-1 truncate">{option.label}</span>
                       <span className={`shrink-0 tabular-nums ${dead ? 'text-[#D2D2C8]' : MUTED}`}>
@@ -192,7 +192,7 @@ export function FilterBar({
                   }`}
                 >
                   <Check
-                    className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isOn ? 'text-[#1F4D3A]' : 'text-transparent'}`}
+                    className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${isOn ? 'text-[#1F3A2F]' : 'text-transparent'}`}
                   />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2 text-[13.5px] font-medium text-[#161613]">
@@ -229,7 +229,7 @@ export function FilterBar({
           <button
             type="button"
             onClick={() => go(emptyDeskQuery())}
-            className={`ml-1 text-[13px] font-semibold text-[#1F4D3A] hover:text-[#173D2E] ${FOCUS}`}
+            className={`ml-1 text-[13px] font-semibold text-[#1F3A2F] hover:text-[#142E24] ${FOCUS}`}
           >
             Clear all
           </button>
@@ -242,7 +242,7 @@ export function FilterBar({
 function triggerClass(on: boolean): string {
   return `inline-flex h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
     on
-      ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white'
+      ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
       : 'border-[#E0E0D7] bg-white text-[#5F5F58] hover:border-[#D2D2C8] hover:text-[#161613]'
   }`
 }

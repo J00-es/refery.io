@@ -60,7 +60,7 @@ export function RequestAccess({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-[#D8D8D0] px-3.5 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`}
+        className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full border border-[#D2D1C7] px-3.5 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F] ${FOCUS}`}
       >
         <Lock className="h-3.5 w-3.5" />
         Request access
@@ -78,7 +78,7 @@ export function RequestAccess({
           value={message}
           onChange={e => setMessage(e.target.value)}
           placeholder={`e.g. I have three senior backend people who'd fit ${companyLabel}.`}
-          className={`mt-1.5 w-full resize-none rounded-[12px] border border-[#ECECE6] bg-white px-3 py-2 text-[13.5px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+          className={`mt-1.5 w-full resize-none rounded-[12px] border border-[#E4E3DC] bg-white px-3 py-2 text-[13.5px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
         />
       </label>
       {error && <p className="text-[12.5px] text-[#A3423A]">{error}</p>}
@@ -87,7 +87,7 @@ export function RequestAccess({
           type="button"
           onClick={submit}
           disabled={state === 'sending'}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full bg-[#1F4D3A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`}
+          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full bg-[#1F3A2F] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-60 ${FOCUS}`}
         >
           {state === 'sending' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Send request

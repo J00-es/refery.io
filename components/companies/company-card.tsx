@@ -61,7 +61,7 @@ function Logo({ name, url: rawUrl }: { name: string; url?: string | null }) {
     )
   }
   return (
-    <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[#ECECE6] bg-white p-1">
+    <span className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-[12px] border border-[#E4E3DC] bg-white p-1">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imgRef}
@@ -94,7 +94,7 @@ function CompanyCardComponent({ company, isAdmin = false }: { company: CompanyRo
   return (
     <Link href={href} className={`group block h-full rounded-[18px] ${FOCUS}`}>
       <article
-        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D8D8D0] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
+        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D2D1C7] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
       >
         {/* ── identity ───────────────────────────────────────────────────── */}
         <header className="flex min-w-0 items-start gap-3">
@@ -137,20 +137,20 @@ function CompanyCardComponent({ company, isAdmin = false }: { company: CompanyRo
           rather than chips so the eye lands on it, and so the row is legible
           even when one of the three is missing.
         */}
-        <div className="rounded-[12px] border border-[#ECECE6] bg-[#FAFAF6] px-3 py-2.5">
+        <div className="rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-3 py-2.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#9C9C95]">
               Last round
             </span>
             {fresh && (
-              <span className="shrink-0 rounded-full bg-[#E9F0EC] px-1.5 py-0.5 text-[10px] font-semibold text-[#1F4D3A]">
+              <span className="shrink-0 rounded-full bg-[#E7EDE9] px-1.5 py-0.5 text-[10px] font-semibold text-[#1F3A2F]">
                 Fresh capital
               </span>
             )}
           </div>
           {hasFunding ? (
             <div className="mt-1.5 flex min-w-0 items-baseline gap-2">
-              <span className="shrink-0 font-serif text-[19px] leading-none tracking-[-0.01em] text-[#161613]">
+              <span className="font-semibold shrink-0 text-[19px] leading-none tracking-[-0.01em] text-[#161613]">
                 {amount ?? '—'}
               </span>
               {round && (
@@ -192,9 +192,9 @@ function CompanyCardComponent({ company, isAdmin = false }: { company: CompanyRo
         </div>
 
         {/* ── footer ─────────────────────────────────────────────────────── */}
-        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
+        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#E4E3DC] pt-3 text-[12px]">
           {company.jobCount ? (
-            <span className="flex items-center gap-1.5 font-medium text-[#1F4D3A]">
+            <span className="flex items-center gap-1.5 font-medium text-[#1F3A2F]">
               <Briefcase className="h-3.5 w-3.5 shrink-0" />
               {company.jobCount} open {company.jobCount === 1 ? 'role' : 'roles'}
             </span>

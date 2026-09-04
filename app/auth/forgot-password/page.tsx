@@ -48,7 +48,7 @@ export default function ForgotPasswordPage() {
         <div className="w-full max-w-sm">
           <div className="flex flex-col gap-4 sm:gap-6">
             <div className="text-center mb-1 sm:mb-2">
-              <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
+              <Link href="/" className="font-semibold text-xl sm:text-2xl text-foreground">
                 Refery<span className="text-primary">.</span>io
               </Link>
             </div>
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="text-center mb-1 sm:mb-2">
-            <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
+            <Link href="/" className="font-semibold text-xl sm:text-2xl text-foreground">
               Refery<span className="text-primary">.</span>io
             </Link>
           </div>

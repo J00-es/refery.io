@@ -12,17 +12,17 @@
 export const INK = 'text-[#161613]'
 export const MUTED = 'text-[#6E6E68]'
 export const FAINT = 'text-[#9C9C95]'
-export const LINE = 'border-[#ECECE6]'
-export const LINE_STRONG = 'border-[#D8D8D0]'
-export const FOREST = 'text-[#1F4D3A]'
-export const FOREST_BG = 'bg-[#E9F0EC]'
+export const LINE = 'border-[#E4E3DC]'
+export const LINE_STRONG = 'border-[#D2D1C7]'
+export const FOREST = 'text-[#1F3A2F]'
+export const FOREST_BG = 'bg-[#E7EDE9]'
 
 /** Focus ring used on every interactive element on these pages. */
 export const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F4D3A]/40 focus-visible:ring-offset-1'
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F3A2F]/40 focus-visible:ring-offset-1'
 
 /** Card shell: white on the paper canvas, hairline border, 18px radius. */
-export const CARD = 'bg-white border border-[#ECECE6] rounded-[18px]'
+export const CARD = 'bg-white border border-[#E4E3DC] rounded-[18px]'
 
 /**
  * Neutral chip. Status is carried by a small colored dot inside the chip
@@ -34,7 +34,7 @@ export const CARD = 'bg-white border border-[#ECECE6] rounded-[18px]'
  * sets the row's min-content width and pushes past the card edge.
  */
 export const CHIP =
-  'inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-[#ECECE6] bg-[#FAFAF6] px-2.5 py-1 text-[11.5px] font-medium text-[#6E6E68] leading-none'
+  'inline-flex max-w-full min-w-0 items-center gap-1.5 rounded-full border border-[#E4E3DC] bg-[#FAF9F5] px-2.5 py-1 text-[11.5px] font-medium text-[#6E6E68] leading-none'
 
 /** Minimum comfortable touch target (WCAG 2.2 target-size guidance). */
 export const TAP = 'min-h-[44px]'
@@ -63,7 +63,7 @@ const STAGE_DOTS: Record<string, string> = {
   job_matched: 'bg-[#7C93A8]',
   job_shared: 'bg-[#5E8BA8]',
   interest_confirmed: 'bg-[#3F8F73]',
-  hm_shared: 'bg-[#1F4D3A]',
+  hm_shared: 'bg-[#1F3A2F]',
   hm_pending: 'bg-[#C79A2E]',
   auto_passed: 'bg-[#C9C9C1]',
   rejected: 'bg-[#C2544B]',
@@ -101,12 +101,12 @@ export const VERDICT_GRADES: Record<string, { grade: string; label: string; clas
   very_strong: {
     grade: 'A+',
     label: 'Very strong',
-    className: 'bg-[#1F4D3A] text-white border-transparent',
+    className: 'bg-[#1F3A2F] text-white border-transparent',
   },
   strong: {
     grade: 'A',
     label: 'Strong',
-    className: 'bg-[#E9F0EC] text-[#1F4D3A] border-[#1F4D3A]/20',
+    className: 'bg-[#E7EDE9] text-[#1F3A2F] border-[#1F3A2F]/20',
   },
   moderate: {
     grade: 'A−',
@@ -129,7 +129,7 @@ export const VERDICT_GRADES: Record<string, { grade: string; label: string; clas
 export const UNGRADED = {
   grade: '—',
   label: 'Not yet calibrated',
-  className: 'bg-transparent text-[#9C9C95] border-dashed border-[#D8D8D0]',
+  className: 'bg-transparent text-[#9C9C95] border-dashed border-[#D2D1C7]',
 }
 
 export const GRADE_BADGE =
@@ -143,7 +143,7 @@ export const GRADE_BADGE =
  * from the name so a person keeps the same tint everywhere.
  */
 const AVATAR_TINTS = [
-  'bg-[#E9F0EC] text-[#1F4D3A]',
+  'bg-[#E7EDE9] text-[#1F3A2F]',
   'bg-[#EDEDE6] text-[#5A5A52]',
   'bg-[#F0EAE2] text-[#7A6250]',
   'bg-[#E7EDF2] text-[#3F5A70]',

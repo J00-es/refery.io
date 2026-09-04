@@ -219,7 +219,7 @@ export function StageDrilldownClient({
       {/* Candidate groups */}
       {processedData.length === 0 ? (
         <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] py-16 text-center">
-          <p className="text-[rgba(16,15,15,0.40)] font-serif italic text-lg">
+          <p className="font-semibold text-[rgba(16,15,15,0.40)] italic text-lg">
             {showStaleOnly
               ? 'No stale candidates found. Try removing the filter.'
               : searchQuery

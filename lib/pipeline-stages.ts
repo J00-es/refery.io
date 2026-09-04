@@ -278,7 +278,7 @@ export const DISPLAY_STAGES: DisplayStage[] = [
     key: 'in_play',
     name: 'In play with companies',
     description: 'Interested candidates, introduced to hiring teams.',
-    dotColor: '#1F4D3A',
+    dotColor: '#1F3A2F',
     stages: ['interest_confirmed', 'hm_shared'],
   },
   {

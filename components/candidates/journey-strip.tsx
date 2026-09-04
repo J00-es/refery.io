@@ -86,13 +86,13 @@ export function JourneyStrip({
   const closed = changeable.filter(s => s.category === 'closed')
 
   return (
-    <div className="rounded-[18px] border border-[#ECECE6] bg-white p-4 sm:p-5">
+    <div className="rounded-[18px] border border-[#E4E3DC] bg-white p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h2 className="text-[15px] font-semibold text-[#161613]">{current.label}</h2>
             {offMarket && (
-              <span className="rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[11px] font-medium text-[#6E6E68]">
+              <span className="rounded-full bg-[#EAE9E1] px-2 py-0.5 text-[11px] font-medium text-[#6E6E68]">
                 Off market
               </span>
             )}
@@ -106,7 +106,7 @@ export function JourneyStrip({
           <DropdownMenu>
             <DropdownMenuTrigger
               disabled={busy}
-              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#D8D8D0] px-3.5 py-2 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-[#D2D1C7] px-3.5 py-2 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
             >
               {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
               Change
@@ -123,7 +123,7 @@ export function JourneyStrip({
                   className="flex items-start gap-2 text-[13.5px]"
                 >
                   <span className="w-4 shrink-0 pt-0.5">
-                    {s.value === stage && <Check className="h-3.5 w-3.5 text-[#1F4D3A]" />}
+                    {s.value === stage && <Check className="h-3.5 w-3.5 text-[#1F3A2F]" />}
                   </span>
                   <span className="min-w-0">
                     <span className="block font-medium text-[#161613]">{s.label}</span>
@@ -166,7 +166,7 @@ export function JourneyStrip({
                 <span
                   aria-hidden
                   className={`h-1 rounded-full ${
-                    done ? 'bg-[#1F4D3A]' : here ? 'bg-[#1F4D3A]' : 'bg-[#ECECE6]'
+                    done ? 'bg-[#1F3A2F]' : here ? 'bg-[#1F3A2F]' : 'bg-[#E4E3DC]'
                   } ${here ? 'opacity-100' : done ? 'opacity-45' : ''}`}
                 />
                 {/* Six labels across a 360px screen leaves ~55px each, which
@@ -174,7 +174,7 @@ export function JourneyStrip({
                     the progress, and the current step is named in full above. */}
                 <span
                   className={`hidden truncate text-[10.5px] leading-none sm:block ${
-                    here ? 'font-semibold text-[#1F4D3A]' : 'text-[#9C9C95]'
+                    here ? 'font-semibold text-[#1F3A2F]' : 'text-[#9C9C95]'
                   }`}
                 >
                   {s.label}

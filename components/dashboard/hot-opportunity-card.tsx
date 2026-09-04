@@ -37,7 +37,7 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
           </div>
           <h3 className="text-sm font-semibold text-[#100F0F] mb-1">{title}</h3>
           <p className="text-[12.5px] text-[rgba(16,15,15,0.64)] leading-relaxed">{subtitle}</p>
-          <p className="text-xs text-[rgba(16,15,15,0.40)] font-serif italic mt-3">{emptyText}</p>
+          <p className="font-semibold text-xs text-[rgba(16,15,15,0.40)] italic mt-3">{emptyText}</p>
         </div>
       </div>
     )

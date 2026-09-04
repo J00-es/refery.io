@@ -47,7 +47,7 @@ export type RolePriority = 'urgent' | 'high' | 'normal'
 export const PRIORITY_META: Record<RolePriority, { label: string; dot: string; chip: string }> = {
   urgent: { label: 'Urgent', dot: 'bg-[#C2544B]', chip: 'bg-[#FBEDEB] text-[#A3423A]' },
   high: { label: 'Priority', dot: 'bg-[#C79A2E]', chip: 'bg-[#F5EEDD] text-[#8A6A1F]' },
-  normal: { label: 'Open', dot: 'bg-[#5E8571]', chip: 'bg-[#E9F0EC] text-[#1F4D3A]' },
+  normal: { label: 'Open', dot: 'bg-[#5E8571]', chip: 'bg-[#E7EDE9] text-[#1F3A2F]' },
 }
 
 export const PRIORITY_ORDER: Record<RolePriority, number> = { urgent: 0, high: 1, normal: 2 }
@@ -115,8 +115,8 @@ export const SUBMISSION_STATUSES: SubmissionStatusConfig[] = [
     value: 'client_interview',
     label: 'Interviewing',
     blurb: 'In the company’s own process.',
-    dot: 'bg-[#1F4D3A]',
-    chip: 'bg-[#E9F0EC] text-[#1F4D3A]',
+    dot: 'bg-[#1F3A2F]',
+    chip: 'bg-[#E7EDE9] text-[#1F3A2F]',
     category: 'in_progress',
     order: 4,
   },
@@ -133,8 +133,8 @@ export const SUBMISSION_STATUSES: SubmissionStatusConfig[] = [
     value: 'placed',
     label: 'Placed',
     blurb: 'Hired. Your payout is on its way.',
-    dot: 'bg-[#1F4D3A]',
-    chip: 'bg-[#1F4D3A] text-white',
+    dot: 'bg-[#1F3A2F]',
+    chip: 'bg-[#1F3A2F] text-white',
     category: 'won',
     order: 6,
   },
@@ -152,7 +152,7 @@ export const SUBMISSION_STATUSES: SubmissionStatusConfig[] = [
     label: 'Withdrawn',
     blurb: 'Pulled back by the scout.',
     dot: 'bg-[#B8B8B0]',
-    chip: 'bg-[#F0F0EA] text-[#6E6E68]',
+    chip: 'bg-[#EAE9E1] text-[#6E6E68]',
     category: 'closed',
     order: 8,
   },
@@ -548,7 +548,7 @@ export function slotsLeft(role: {
 }
 
 export const RELATIONSHIP_META: Record<string, { label: string; chip: string }> = {
-  client: { label: 'Signed client', chip: 'bg-[#E9F0EC] text-[#1F4D3A]' },
+  client: { label: 'Signed client', chip: 'bg-[#E7EDE9] text-[#1F3A2F]' },
   prospect: { label: 'In conversation', chip: 'bg-[#F5EEDD] text-[#8A6A1F]' },
 }
 
@@ -556,7 +556,7 @@ export function relationshipMeta(relationship?: string | null) {
   return (
     RELATIONSHIP_META[relationship ?? ''] ?? {
       label: relationship ? relationship.replace(/_/g, ' ') : 'Partner',
-      chip: 'bg-[#F0F0EA] text-[#6E6E68]',
+      chip: 'bg-[#EAE9E1] text-[#6E6E68]',
     }
   )
 }

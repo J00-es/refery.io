@@ -30,7 +30,7 @@ import {
  */
 
 const label = FIELD_LABEL
-const input = `mt-1.5 w-full rounded-[12px] border border-[#ECECE6] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
+const input = `mt-1.5 w-full rounded-[12px] border border-[#E4E3DC] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
 
 export function ManageRole({
   jobId,
@@ -136,7 +136,7 @@ export function ManageRole({
       <SheetTrigger asChild>
         <button
           type="button"
-          className={`inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D8D8D0] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`}
+          className={`inline-flex min-h-[44px] items-center gap-2 rounded-full border border-[#D2D1C7] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F] ${FOCUS}`}
         >
           <Settings2 className="h-4 w-4" />
           Terms
@@ -144,8 +144,8 @@ export function ManageRole({
       </SheetTrigger>
 
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]">
-        <SheetHeader className="border-b border-[#ECECE6] px-5 py-4">
-          <SheetTitle className="text-left font-serif text-[19px] font-normal text-[#161613]">
+        <SheetHeader className="border-b border-[#E4E3DC] px-5 py-4">
+          <SheetTitle className="text-left text-[19px] font-semibold text-[#161613]">
             Mandate terms
           </SheetTitle>
           <p className="text-left text-[13px] text-[#6E6E68]">{jobTitle}</p>
@@ -155,19 +155,19 @@ export function ManageRole({
           {message && (
             <p
               className={`rounded-[10px] px-3 py-2 text-[13px] ${
-                message.tone === 'ok' ? 'bg-[#E9F0EC] text-[#1F4D3A]' : 'bg-[#FBEDEB] text-[#A3423A]'
+                message.tone === 'ok' ? 'bg-[#E7EDE9] text-[#1F3A2F]' : 'bg-[#FBEDEB] text-[#A3423A]'
               }`}
             >
               {message.text}
             </p>
           )}
 
-          <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[#ECECE6] px-3.5 py-3 text-[13.5px] text-[#161613]">
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[#E4E3DC] px-3.5 py-3 text-[13.5px] text-[#161613]">
             <input
               type="checkbox"
               checked={isLive}
               onChange={e => setIsLive(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 accent-[#1F4D3A]"
+              className="mt-0.5 h-4 w-4 shrink-0 accent-[#1F3A2F]"
             />
             <span>
               Live on the desk
@@ -187,8 +187,8 @@ export function ManageRole({
                   onClick={() => setPriority(key)}
                   className={`inline-flex min-h-[38px] flex-1 items-center justify-center gap-1.5 rounded-full border text-[13px] font-medium transition-colors ${FOCUS} ${
                     priority === key
-                      ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white'
-                      : 'border-[#ECECE6] text-[#6E6E68] hover:border-[#D8D8D0]'
+                      ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                      : 'border-[#E4E3DC] text-[#6E6E68] hover:border-[#D2D1C7]'
                   }`}
                 >
                   {PRIORITY_META[key].label}
@@ -231,7 +231,7 @@ export function ManageRole({
                 of base, and putting four fee inputs on screen at once makes the
                 common case look complicated. */}
             <details className="mt-3">
-              <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#1F4D3A]">
+              <summary className="cursor-pointer list-none text-[13px] font-semibold text-[#1F3A2F]">
                 Not a percentage of base
               </summary>
               <div className="mt-2.5 space-y-3">
@@ -263,7 +263,7 @@ export function ManageRole({
             </details>
 
             <div className="mt-3 rounded-[10px] bg-[#F2F2EC] px-3 py-2.5">
-              <p className="text-[15px] font-semibold text-[#1F4D3A]">
+              <p className="text-[15px] font-semibold text-[#1F3A2F]">
                 {preview.payout ? `${preview.payout} to the scout` : 'No figure — no salary recorded'}
               </p>
               <p className="mt-0.5 text-[12.5px] text-[#5F5F58]">{preview.explanation}</p>
@@ -312,8 +312,8 @@ export function ManageRole({
                   onClick={() => setExclusivity(option.key as typeof exclusivity)}
                   className={`inline-flex min-h-[38px] flex-1 items-center justify-center rounded-full border text-[13px] font-medium transition-colors ${FOCUS} ${
                     exclusivity === option.key
-                      ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white'
-                      : 'border-[#ECECE6] text-[#6E6E68] hover:border-[#D8D8D0]'
+                      ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                      : 'border-[#E4E3DC] text-[#6E6E68] hover:border-[#D2D1C7]'
                   }`}
                 >
                   {option.label}
@@ -354,12 +354,12 @@ export function ManageRole({
           </label>
         </div>
 
-        <div className="border-t border-[#ECECE6] bg-white px-5 py-4">
+        <div className="border-t border-[#E4E3DC] bg-white px-5 py-4">
           <button
             type="button"
             onClick={save}
             disabled={busy}
-            className={`inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`}
+            className={`inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-60 ${FOCUS}`}
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Save terms

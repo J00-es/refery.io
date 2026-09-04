@@ -45,7 +45,7 @@ export function AccessRequestActions({ requestId }: { requestId: string }) {
           type="button"
           disabled={busy !== null}
           onClick={() => decide('approved')}
-          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full bg-[#1F4D3A] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`}
+          className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-full bg-[#1F3A2F] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-60 ${FOCUS}`}
         >
           {busy === 'approved' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Approve

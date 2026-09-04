@@ -32,7 +32,7 @@
 export const INK = 'text-[#161613]'
 export const SOFT = 'text-[#5F5F58]'
 export const MUTED = 'text-[#8A8A82]'
-export const FOREST = 'text-[#1F4D3A]'
+export const FOREST = 'text-[#1F3A2F]'
 
 // ── rules and surfaces ──────────────────────────────────────────────────────
 /** The one hairline. Used for rules between rows, not to box things in. */
@@ -53,7 +53,7 @@ export const CARD_LINK =
 export const WELL = 'rounded-[16px] bg-white/60'
 
 export const FOCUS =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F4D3A]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1F4F1]'
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F3A2F]/35 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F1F4F1]'
 
 /** WCAG 2.2 target size. Every interactive element gets at least this. */
 export const TAP = 'min-h-[44px]'
@@ -61,11 +61,11 @@ export const TAP = 'min-h-[44px]'
 // ── type scale ──────────────────────────────────────────────────────────────
 /** Page title. Serif, because these pages are read as documents. */
 export const H1 =
-  'font-serif text-[29px] font-normal leading-[1.1] tracking-[-0.02em] text-[#161613] sm:text-[34px]'
+  'text-[29px] font-semibold leading-[1.1] tracking-[-0.02em] text-[#161613] sm:text-[34px]'
 /** Section heading. Sentence case, no rule under it — space does that job. */
-export const H2 = 'font-serif text-[21px] font-normal leading-tight text-[#161613]'
+export const H2 = 'text-[21px] font-semibold leading-tight text-[#161613]'
 /** The name of one object in a list. */
-export const H3 = 'font-serif text-[17px] font-normal leading-snug text-[#161613]'
+export const H3 = 'text-[17px] font-semibold leading-snug text-[#161613]'
 
 /**
  * A field label. Sentence case and small, sitting *under* its value where the
@@ -78,7 +78,7 @@ export const BODY = 'text-[14.5px] leading-relaxed text-[#3F3F3A]'
 export const META = 'text-[12.5px] text-[#8A8A82]'
 
 /** A figure. Serif and large so it reads before its label does. */
-export const FIGURE = 'font-serif text-[26px] font-normal leading-none tracking-[-0.02em] text-[#161613]'
+export const FIGURE = 'text-[26px] font-semibold leading-none tracking-[-0.02em] text-[#161613]'
 
 // ── chips ───────────────────────────────────────────────────────────────────
 /**
@@ -94,7 +94,7 @@ export const CHIP =
 
 /** The one chip allowed to be forest: what this is worth to the reader. */
 export const CHIP_VALUE =
-  'inline-flex items-center gap-1.5 rounded-full bg-[#E7EFEA] px-2.5 py-1 text-[12px] font-semibold leading-none text-[#1F4D3A]'
+  'inline-flex items-center gap-1.5 rounded-full bg-[#E7EFEA] px-2.5 py-1 text-[12px] font-semibold leading-none text-[#1F3A2F]'
 
 /** Needs attention. Amber, and only ever for something the reader must act on. */
 export const CHIP_WARN =
@@ -104,9 +104,9 @@ export const CHIP_BAD =
   'inline-flex items-center gap-1.5 rounded-full bg-[#F9EBE9] px-2.5 py-1 text-[12px] font-semibold leading-none text-[#9C3F37]'
 
 // ── buttons ─────────────────────────────────────────────────────────────────
-export const BTN_PRIMARY = `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`
-export const BTN_QUIET = `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-[#D8D8D0] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`
-export const BTN_TEXT = `inline-flex min-h-[38px] items-center gap-1.5 text-[13.5px] font-semibold text-[#1F4D3A] transition-colors hover:text-[#173D2E] ${FOCUS}`
+export const BTN_PRIMARY = `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-50 ${FOCUS}`
+export const BTN_QUIET = `inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-[#D2D1C7] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F] ${FOCUS}`
+export const BTN_TEXT = `inline-flex min-h-[38px] items-center gap-1.5 text-[13.5px] font-semibold text-[#1F3A2F] transition-colors hover:text-[#142E24] ${FOCUS}`
 
 // ── forms ───────────────────────────────────────────────────────────────────
 export const FIELD_LABEL = 'block text-[13px] font-medium text-[#3F3F3A]'

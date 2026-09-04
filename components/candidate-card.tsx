@@ -90,7 +90,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
         lets the column shrink so the children actually clip.
       */}
       <article
-        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D8D8D0] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
+        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D2D1C7] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
       >
         {/* ── identity ───────────────────────────────────────────────────── */}
         <header className="flex min-w-0 items-start gap-3">
@@ -187,14 +187,14 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
               )}
               {years && (
                 <>
-                  {candidate.location && <span className="shrink-0 text-[#D8D8D0]">·</span>}
+                  {candidate.location && <span className="shrink-0 text-[#D2D1C7]">·</span>}
                   <span className="shrink-0">{years}</span>
                 </>
               )}
               {salary && (
                 <>
                   {(candidate.location || years) && (
-                    <span className="shrink-0 text-[#D8D8D0]">·</span>
+                    <span className="shrink-0 text-[#D2D1C7]">·</span>
                   )}
                   <span className="shrink-0 font-medium text-[#161613]">{salary}</span>
                 </>
@@ -243,7 +243,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
         </div>
 
         {/* ── footer: ownership + recency, the two metadata facts ────────── */}
-        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
+        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#E4E3DC] pt-3 text-[12px]">
           {canViewAll ? (
             owner ? (
               <span className="flex min-w-0 items-center gap-1.5 text-[#6E6E68]">
@@ -267,7 +267,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
           {action ? (
             <span
               className={`shrink-0 font-semibold ${
-                action.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
+                action.tone === 'do' ? 'text-[#1F3A2F]' : 'text-[#8A6A1F]'
               }`}
             >
               {action.label} →

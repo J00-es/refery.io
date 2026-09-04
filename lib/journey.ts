@@ -244,7 +244,7 @@ export const JOURNEY_BUCKETS: BucketConfig[] = [
     key: 'needs_you',
     label: 'Needs you',
     blurb: 'Waiting on a warm introduction from you. Longest wait first.',
-    dot: '#1F4D3A',
+    dot: '#1F3A2F',
     order: 1,
   },
   {

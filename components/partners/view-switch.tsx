@@ -42,7 +42,7 @@ export function ViewSwitch({
                filter, and the filter rail below already uses pills. */
             className={`-mb-px border-b-2 pb-2.5 text-[15px] font-medium transition-colors ${FOCUS} ${
               active
-                ? 'border-[#1F4D3A] text-[#161613]'
+                ? 'border-[#1F3A2F] text-[#161613]'
                 : 'border-transparent text-[#8A8A82] hover:text-[#161613]'
             }`}
           >
