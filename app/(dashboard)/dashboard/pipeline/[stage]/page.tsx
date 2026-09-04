@@ -296,7 +296,7 @@ export default async function StageDrillDownPage({ params, searchParams }: PageP
         <div className="flex-1">
           <h1 className="text-[28px] sm:text-[38px] font-semibold leading-tight tracking-tight text-[#100F0F] flex flex-wrap items-baseline gap-2 sm:gap-3.5">
             {bucket.label}
-            <span className="text-xs sm:text-sm font-medium bg-[#F0F0EA] text-[rgba(16,15,15,0.64)] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full tracking-normal">
+            <span className="text-xs sm:text-sm font-medium bg-[#EAE9E1] text-[rgba(16,15,15,0.64)] px-2 sm:px-3 py-1 sm:py-1.5 rounded-full tracking-normal">
               {totalCount} candidate{totalCount !== 1 ? 's' : ''}
             </span>
           </h1>

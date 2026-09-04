@@ -19,8 +19,8 @@ export default function ScoutAgreementPage() {
             </Button>
           </Link>
           <div>
-            <Link href="/" className="font-serif text-xl text-foreground">
-              Refery<span className="text-primary">.</span>io
+            <Link href="/" className="font-semibold text-xl text-foreground">
+              Refery<span className="text-primary">.</span>
             </Link>
           </div>
         </div>

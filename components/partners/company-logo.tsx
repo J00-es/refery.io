@@ -46,7 +46,7 @@ export function CompanyLogo({
     return (
       <span
         aria-hidden
-        className={`grid shrink-0 place-items-center border border-dashed border-[#D8D8D0] bg-[#FAFAF6] text-[#9C9C95] ${box}`}
+        className={`grid shrink-0 place-items-center border border-dashed border-[#D2D1C7] bg-[#FAF9F5] text-[#9C9C95] ${box}`}
       >
         <EyeOff className="h-4 w-4" />
       </span>
@@ -71,7 +71,7 @@ export function CompanyLogo({
       src={src}
       alt=""
       onError={() => setFailed(true)}
-      className={`shrink-0 border border-[#ECECE6] object-contain p-1 ${box}`}
+      className={`shrink-0 border border-[#E4E3DC] object-contain p-1 ${box}`}
     />
   )
 }

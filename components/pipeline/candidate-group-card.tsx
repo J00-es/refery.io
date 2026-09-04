@@ -84,7 +84,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
               'w-[38px] h-[38px] rounded-full flex items-center justify-center text-sm font-medium shrink-0',
               isCritical && 'bg-[#FDECEC] text-[#B23B3B]',
               isStale && !isCritical && 'bg-[#FBF3E1] text-[#B7791F]',
-              !isStale && 'bg-[#F0F0EA] text-[rgba(16,15,15,0.64)]'
+              !isStale && 'bg-[#EAE9E1] text-[rgba(16,15,15,0.64)]'
             )}
           >
             {initials}
@@ -125,7 +125,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
               'w-[22px] h-[22px] rounded-full flex items-center justify-center text-[10px] font-semibold',
               data.owner
                 ? 'bg-[#EBF4EF] text-[#2A6B45]'
-                : 'bg-[#F0F0EA] text-[rgba(16,15,15,0.40)]'
+                : 'bg-[#EAE9E1] text-[rgba(16,15,15,0.40)]'
             )}
           >
             {data.owner
@@ -163,7 +163,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
                 'w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0',
                 isCritical && 'bg-[#FDECEC] text-[#B23B3B]',
                 isStale && !isCritical && 'bg-[#FBF3E1] text-[#B7791F]',
-                !isStale && 'bg-[#F0F0EA] text-[rgba(16,15,15,0.64)]'
+                !isStale && 'bg-[#EAE9E1] text-[rgba(16,15,15,0.64)]'
               )}
             >
               {initials}

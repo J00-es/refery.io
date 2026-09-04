@@ -10,7 +10,7 @@ import { AgreementContent } from '@/components/agreement-content'
  * -------------------------------------------------------------------------- */
 const C = {
   bg: '#F8F8F3',
-  bg2: '#F0F0EA',
+  bg2: '#EAE9E1',
   bg3: '#E8E8E1',
   card: '#FFFFFF',
   ink: '#100F0F',

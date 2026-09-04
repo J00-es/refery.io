@@ -48,8 +48,8 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 const label = FIELD_LABEL
-const input = `mt-1.5 w-full rounded-[12px] border border-[#ECECE6] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
-const primary = `inline-flex min-h-[42px] items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-60 ${FOCUS}`
+const input = `mt-1.5 w-full rounded-[12px] border border-[#E4E3DC] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`
+const primary = `inline-flex min-h-[42px] items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-60 ${FOCUS}`
 
 export function ManageCompany({
   companyId,
@@ -227,8 +227,8 @@ export function ManageCompany({
 
   return (
     <>
-      <section className="rounded-[18px] border border-[#ECECE6] bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECECE6] px-5 py-3.5">
+      <section className="rounded-[18px] border border-[#E4E3DC] bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E3DC] px-5 py-3.5">
           <div>
             <h2 className="text-[14.5px] font-semibold text-[#161613]">Client setup</h2>
             <p className="mt-0.5 text-[13px] text-[#9C9C95]">
@@ -243,14 +243,14 @@ export function ManageCompany({
               setTab('roles')
               setOpen(true)
             }}
-            className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border border-[#D8D8D0] px-4 text-[13.5px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] hover:text-[#1F4D3A] ${FOCUS}`}
+            className={`inline-flex min-h-[40px] items-center gap-2 rounded-full border border-[#D2D1C7] px-4 text-[13.5px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F] ${FOCUS}`}
           >
             <Settings2 className="h-4 w-4" />
             Manage
           </button>
         </div>
 
-        <ul className="divide-y divide-[#ECECE6]">
+        <ul className="divide-y divide-[#E4E3DC]">
           {steps.map(step => (
             <li key={step.key}>
               <button
@@ -259,11 +259,11 @@ export function ManageCompany({
                   setTab(step.key)
                   setOpen(true)
                 }}
-                className={`flex w-full min-h-[58px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
+                className={`flex w-full min-h-[58px] items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-[#FAF9F5] ${FOCUS}`}
               >
                 <span aria-hidden className="shrink-0">
                   {step.done ? (
-                    <Check className="h-4 w-4 text-[#1F4D3A]" />
+                    <Check className="h-4 w-4 text-[#1F3A2F]" />
                   ) : (
                     <AlertCircle className="h-4 w-4 text-[#C79A2E]" />
                   )}
@@ -276,7 +276,7 @@ export function ManageCompany({
                     {step.state}
                   </span>
                 </span>
-                <span className="shrink-0 text-[13px] font-semibold text-[#1F4D3A]">
+                <span className="shrink-0 text-[13px] font-semibold text-[#1F3A2F]">
                   {step.action}
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-[#B8B8B0]" aria-hidden />
@@ -288,13 +288,13 @@ export function ManageCompany({
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
-        <SheetHeader className="border-b border-[#ECECE6] px-5 py-4">
-          <SheetTitle className="text-left font-serif text-[19px] font-normal text-[#161613]">
+        <SheetHeader className="border-b border-[#E4E3DC] px-5 py-4">
+          <SheetTitle className="text-left text-[19px] font-semibold text-[#161613]">
             {companyName}
           </SheetTitle>
         </SheetHeader>
 
-        <div className="flex gap-1.5 overflow-x-auto border-b border-[#ECECE6] px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex gap-1.5 overflow-x-auto border-b border-[#E4E3DC] px-5 py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map(t => (
             <button
               key={t.key}
@@ -302,8 +302,8 @@ export function ManageCompany({
               onClick={() => setTab(t.key)}
               className={`min-h-[34px] shrink-0 rounded-full px-3 text-[13px] font-medium transition-colors ${FOCUS} ${
                 tab === t.key
-                  ? 'bg-[#1F4D3A] text-white'
-                  : 'text-[#6E6E68] hover:bg-[#F0F0EA] hover:text-[#161613]'
+                  ? 'bg-[#1F3A2F] text-white'
+                  : 'text-[#6E6E68] hover:bg-[#EAE9E1] hover:text-[#161613]'
               }`}
             >
               {t.label}
@@ -316,7 +316,7 @@ export function ManageCompany({
             <p
               className={`mb-4 rounded-[10px] px-3 py-2 text-[13px] ${
                 message.tone === 'ok'
-                  ? 'bg-[#E9F0EC] text-[#1F4D3A]'
+                  ? 'bg-[#E7EDE9] text-[#1F3A2F]'
                   : 'bg-[#FBEDEB] text-[#A3423A]'
               }`}
             >
@@ -372,7 +372,7 @@ export function ManageCompany({
                 <Loading />
               ) : (
                 <>
-                  <ul className="divide-y divide-[#ECECE6] rounded-[14px] border border-[#ECECE6]">
+                  <ul className="divide-y divide-[#E4E3DC] rounded-[14px] border border-[#E4E3DC]">
                     {users.map(u => (
                       <li key={u.user_id}>
                         <label className="flex min-h-[52px] cursor-pointer items-center gap-3 px-3.5 py-2.5">
@@ -380,7 +380,7 @@ export function ManageCompany({
                             type="checkbox"
                             checked={assignees.has(u.user_id)}
                             onChange={() => setAssignees(toggle(assignees, u.user_id))}
-                            className="h-4 w-4 shrink-0 accent-[#1F4D3A]"
+                            className="h-4 w-4 shrink-0 accent-[#1F3A2F]"
                           />
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-[14px] font-medium text-[#161613]">
@@ -423,7 +423,7 @@ export function ManageCompany({
                 revised without re-sending a file.
               </p>
               {hasBrief && (
-                <p className="rounded-[10px] bg-[#F0F0EA] px-3 py-2 text-[12.5px] text-[#6E6E68]">
+                <p className="rounded-[10px] bg-[#EAE9E1] px-3 py-2 text-[12.5px] text-[#6E6E68]">
                   A {briefStatus === 'published' ? 'published' : 'draft'} brief already exists.
                   Importing replaces it.
                 </p>
@@ -433,7 +433,7 @@ export function ManageCompany({
                   file is read in the browser and posted as text — no upload
                   endpoint, no storage bucket, nothing to clean up later. */}
               <label
-                className={`flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-dashed border-[#D8D8D0] bg-[#FAFAF6] px-4 text-[13.5px] font-semibold text-[#1F4D3A] transition-colors hover:border-[#1F4D3A] ${FOCUS}`}
+                className={`flex min-h-[52px] cursor-pointer items-center justify-center gap-2 rounded-[14px] border border-dashed border-[#D2D1C7] bg-[#FAF9F5] px-4 text-[13.5px] font-semibold text-[#1F3A2F] transition-colors hover:border-[#1F3A2F] ${FOCUS}`}
               >
                 <Upload className="h-4 w-4" />
                 {fileName ? `Loaded ${fileName}` : 'Choose the brief’s .html file'}
@@ -469,7 +469,7 @@ export function ManageCompany({
                   type="checkbox"
                   checked={publishBrief}
                   onChange={e => setPublishBrief(e.target.checked)}
-                  className="h-4 w-4 accent-[#1F4D3A]"
+                  className="h-4 w-4 accent-[#1F3A2F]"
                 />
                 Publish it to assigned scouts straight away
               </label>
@@ -506,7 +506,7 @@ export function ManageCompany({
                         briefStatus === 'published' ? 'Brief unpublished.' : 'Brief published.',
                       )
                     }
-                    className={`inline-flex min-h-[42px] items-center rounded-full border border-[#D8D8D0] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F4D3A] ${FOCUS}`}
+                    className={`inline-flex min-h-[42px] items-center rounded-full border border-[#D2D1C7] px-4 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] ${FOCUS}`}
                   >
                     {briefStatus === 'published' ? 'Unpublish' : 'Publish existing'}
                   </button>
@@ -521,12 +521,12 @@ export function ManageCompany({
                 Publishing puts this client on the desk for the whole network — anonymised, with its
                 live role titles and payouts visible, so scouts can ask to be put on it.
               </p>
-              <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[#ECECE6] px-3.5 py-3 text-[13.5px] text-[#161613]">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-[14px] border border-[#E4E3DC] px-3.5 py-3 text-[13.5px] text-[#161613]">
                 <input
                   type="checkbox"
                   checked={isPublished}
                   onChange={e => setIsPublished(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#1F4D3A]"
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-[#1F3A2F]"
                 />
                 <span>
                   Show on the partner desk
@@ -626,7 +626,7 @@ function JobGroup({
       <p className="mb-2 text-[13px] font-medium text-[#8A8A82]">
         {heading}
       </p>
-      <ul className="divide-y divide-[#ECECE6] rounded-[14px] border border-[#ECECE6]">
+      <ul className="divide-y divide-[#E4E3DC] rounded-[14px] border border-[#E4E3DC]">
         {jobs.map(job => {
           const salary = formatSalary(job.salary_min, job.salary_max)
           return (
@@ -636,7 +636,7 @@ function JobGroup({
                   type="checkbox"
                   checked={picked.has(job.id)}
                   onChange={() => onToggle(job.id)}
-                  className="h-4 w-4 shrink-0 accent-[#1F4D3A]"
+                  className="h-4 w-4 shrink-0 accent-[#1F3A2F]"
                 />
                 <span className="min-w-0 flex-1">
                   <span

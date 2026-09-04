@@ -98,8 +98,8 @@ export default function ResetPasswordPage() {
         <div className="w-full max-w-sm">
           <div className="flex flex-col gap-4 sm:gap-6">
             <div className="text-center mb-1 sm:mb-2">
-              <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
-                Refery<span className="text-primary">.</span>io
+              <Link href="/" className="font-semibold text-xl sm:text-2xl text-foreground">
+                Refery<span className="text-primary">.</span>
               </Link>
             </div>
             <Card className="border-0 sm:border shadow-lg sm:shadow-md">
@@ -125,8 +125,8 @@ export default function ResetPasswordPage() {
         <div className="w-full max-w-sm">
           <div className="flex flex-col gap-4 sm:gap-6">
             <div className="text-center mb-1 sm:mb-2">
-              <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
-                Refery<span className="text-primary">.</span>io
+              <Link href="/" className="font-semibold text-xl sm:text-2xl text-foreground">
+                Refery<span className="text-primary">.</span>
               </Link>
             </div>
             <Card className="border-0 sm:border shadow-lg sm:shadow-md">
@@ -154,8 +154,8 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="flex flex-col gap-4 sm:gap-6">
           <div className="text-center mb-1 sm:mb-2">
-            <Link href="/" className="font-serif text-xl sm:text-2xl text-foreground">
-              Refery<span className="text-primary">.</span>io
+            <Link href="/" className="font-semibold text-xl sm:text-2xl text-foreground">
+              Refery<span className="text-primary">.</span>
             </Link>
           </div>
           <Card className="border-0 sm:border shadow-lg sm:shadow-md">

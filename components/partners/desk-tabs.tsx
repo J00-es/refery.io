@@ -44,8 +44,8 @@ export function DeskTabs({
             aria-current={active ? 'page' : undefined}
             className={`inline-flex min-h-[38px] shrink-0 items-center gap-1.5 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
               active
-                ? 'border-[#1F4D3A] bg-[#1F4D3A] text-white'
-                : 'border-[#ECECE6] bg-white text-[#6E6E68] hover:border-[#D8D8D0] hover:text-[#161613]'
+                ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                : 'border-[#E4E3DC] bg-white text-[#6E6E68] hover:border-[#D2D1C7] hover:text-[#161613]'
             }`}
           >
             {tab.label}

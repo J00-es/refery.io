@@ -124,8 +124,8 @@ function FacetGroup({
               onClick={() => onToggle(o.key)}
               className={`rounded-full border px-3 py-2 text-[13px] font-medium transition-colors ${FOCUS} ${
                 on
-                  ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                  : 'border-[#ECECE6] bg-white text-[#6E6E68] hover:border-[#D8D8D0] hover:text-[#161613]'
+                  ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                  : 'border-[#E4E3DC] bg-white text-[#6E6E68] hover:border-[#D2D1C7] hover:text-[#161613]'
               }`}
             >
               {o.label}
@@ -139,7 +139,7 @@ function FacetGroup({
 
 function ActiveChip({ label, onClear }: { label: string; onClear: () => void }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-[#F0F0EA] py-1 pl-3 pr-1 text-[12.5px] text-[#161613]">
+    <span className="inline-flex items-center gap-1 rounded-full bg-[#EAE9E1] py-1 pl-3 pr-1 text-[12.5px] text-[#161613]">
       <span className="max-w-[160px] truncate">{label}</span>
       <button
         type="button"
@@ -174,12 +174,12 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-[#FAFAF6] sm:px-4 ${FOCUS}`}
+      className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-[#FAF9F5] sm:px-4 ${FOCUS}`}
     >
       <span
         aria-hidden
         className={`grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-[10px] text-[12px] font-semibold ${
-          showLogo ? 'border border-[#ECECE6] bg-white p-0.5' : avatarTint(c.name)
+          showLogo ? 'border border-[#E4E3DC] bg-white p-0.5' : avatarTint(c.name)
         }`}
       >
         {showLogo ? (
@@ -233,7 +233,7 @@ function CompanyRowItem({ c, isAdmin }: { c: CompanyRow; isAdmin: boolean }) {
       </span>
       <span className="hidden w-24 shrink-0 text-right text-[12px] sm:block">
         {c.jobCount ? (
-          <span className="font-medium text-[#1F4D3A]">{c.jobCount} roles</span>
+          <span className="font-medium text-[#1F3A2F]">{c.jobCount} roles</span>
         ) : (
           <span className="text-[#9C9C95]">—</span>
         )}
@@ -325,8 +325,8 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
                 onClick={() => set({ funded: on ? null : b.key })}
                 className={`rounded-full border px-3 py-2 text-[13px] font-medium transition-colors ${FOCUS} ${
                   on
-                    ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                    : 'border-[#ECECE6] bg-white text-[#6E6E68] hover:border-[#D8D8D0] hover:text-[#161613]'
+                    ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                    : 'border-[#E4E3DC] bg-white text-[#6E6E68] hover:border-[#D2D1C7] hover:text-[#161613]'
                 }`}
               >
                 {b.label}
@@ -371,11 +371,11 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
               disabled={!s.patch}
               onClick={() => s.patch && set(s.patch)}
               className={`${CARD} px-3.5 py-3 text-left transition-colors ${
-                s.patch ? `cursor-pointer hover:border-[#D8D8D0] ${FOCUS}` : 'cursor-default'
+                s.patch ? `cursor-pointer hover:border-[#D2D1C7] ${FOCUS}` : 'cursor-default'
               }`}
             >
               <div className="truncate text-[11.5px] text-[#6E6E68]">{s.label}</div>
-              <div className="mt-1 font-serif text-[22px] leading-none tracking-[-0.01em] text-[#161613]">
+              <div className="font-semibold mt-1 text-[22px] leading-none tracking-[-0.01em] text-[#161613]">
                 {s.value.toLocaleString()}
               </div>
             </button>
@@ -392,14 +392,14 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             onChange={e => setDraft(e.target.value)}
             placeholder="Search company, industry, location…"
             aria-label="Search companies"
-            className={`h-10 rounded-full border-[#D8D8D0] bg-white pl-10 pr-9 text-[14px] placeholder:text-[#9C9C95] ${FOCUS}`}
+            className={`h-10 rounded-full border-[#D2D1C7] bg-white pl-10 pr-9 text-[14px] placeholder:text-[#9C9C95] ${FOCUS}`}
           />
           {draft && (
             <button
               type="button"
               onClick={() => setDraft('')}
               aria-label="Clear search"
-              className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#9C9C95] transition-colors hover:bg-[#F0F0EA] hover:text-[#161613] ${FOCUS}`}
+              className={`absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-[#9C9C95] transition-colors hover:bg-[#EAE9E1] hover:text-[#161613] ${FOCUS}`}
             >
               <X className="h-4 w-4" />
             </button>
@@ -414,14 +414,14 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
                   type="button"
                   className={`flex h-10 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
                     facetCount > 0
-                      ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                      : 'border-[#D8D8D0] bg-white text-[#161613] hover:border-[#9C9C95]'
+                      ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                      : 'border-[#D2D1C7] bg-white text-[#161613] hover:border-[#9C9C95]'
                   }`}
                 >
                   <SlidersHorizontal className="h-4 w-4" />
                   Filters
                   {facetCount > 0 && (
-                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F4D3A] px-1 text-[11px] font-semibold text-white">
+                    <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F3A2F] px-1 text-[11px] font-semibold text-white">
                       {facetCount}
                     </span>
                   )}
@@ -429,7 +429,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
               </PopoverTrigger>
               <PopoverContent
                 align="end"
-                className="max-h-[70vh] w-[360px] overflow-y-auto rounded-[14px] border-[#ECECE6] p-4"
+                className="max-h-[70vh] w-[360px] overflow-y-auto rounded-[14px] border-[#E4E3DC] p-4"
               >
                 {facets}
               </PopoverContent>
@@ -442,14 +442,14 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
                 type="button"
                 className={`flex h-10 flex-1 items-center justify-center gap-2 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors sm:hidden ${FOCUS} ${
                   facetCount > 0
-                    ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-                    : 'border-[#D8D8D0] bg-white text-[#161613]'
+                    ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+                    : 'border-[#D2D1C7] bg-white text-[#161613]'
                 }`}
               >
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
                 {facetCount > 0 && (
-                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F4D3A] px-1 text-[11px] font-semibold text-white">
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-[#1F3A2F] px-1 text-[11px] font-semibold text-white">
                     {facetCount}
                   </span>
                 )}
@@ -457,7 +457,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             </SheetTrigger>
             <SheetContent side="bottom" className="max-h-[88vh] overflow-y-auto rounded-t-[20px]">
               <SheetHeader className="px-4 text-left">
-                <SheetTitle className="font-serif text-[20px] tracking-[-0.01em]">Filters</SheetTitle>
+                <SheetTitle className="font-semibold text-[20px] tracking-[-0.01em]">Filters</SheetTitle>
               </SheetHeader>
               <div className="space-y-5 px-4 pb-8 pt-2">
                 {facets}
@@ -465,7 +465,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
                   <button
                     type="button"
                     onClick={clearAll}
-                    className={`h-11 w-full rounded-full border border-[#D8D8D0] text-[14px] font-medium text-[#161613] ${FOCUS}`}
+                    className={`h-11 w-full rounded-full border border-[#D2D1C7] text-[14px] font-medium text-[#161613] ${FOCUS}`}
                   >
                     Clear all filters
                   </button>
@@ -479,7 +479,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
               <button
                 type="button"
                 aria-label="Sort companies"
-                className={`flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#D8D8D0] bg-white px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+                className={`flex h-10 shrink-0 items-center gap-2 rounded-full border border-[#D2D1C7] bg-white px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
               >
                 <ArrowUpDown className="h-4 w-4" />
                 <span className="hidden lg:inline">
@@ -487,14 +487,14 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
                 </span>
               </button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-[200px] rounded-[14px] border-[#ECECE6] p-1.5">
+            <PopoverContent align="end" className="w-[200px] rounded-[14px] border-[#E4E3DC] p-1.5">
               {COMPANY_SORTS.map(s => (
                 <button
                   key={s.key}
                   type="button"
                   onClick={() => set({ sort: s.key })}
-                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAFAF6] ${FOCUS} ${
-                    sort === s.key ? 'font-semibold text-[#1F4D3A]' : 'text-[#6E6E68]'
+                  className={`block w-full rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAF9F5] ${FOCUS} ${
+                    sort === s.key ? 'font-semibold text-[#1F3A2F]' : 'text-[#6E6E68]'
                   }`}
                 >
                   {s.label}
@@ -503,7 +503,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             </PopoverContent>
           </Popover>
 
-          <div className="flex h-10 shrink-0 items-center rounded-full border border-[#D8D8D0] bg-white p-0.5">
+          <div className="flex h-10 shrink-0 items-center rounded-full border border-[#D2D1C7] bg-white p-0.5">
             {(
               [
                 { key: 'card', icon: LayoutGrid, label: 'Card view' },
@@ -588,14 +588,14 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             <button
               type="button"
               onClick={clearAll}
-              className={`mt-5 rounded-full border border-[#D8D8D0] px-4 py-2 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+              className={`mt-5 rounded-full border border-[#D2D1C7] px-4 py-2 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
             >
               Clear all filters
             </button>
           ) : (
             <Link
               href="/companies/new"
-              className={`mt-5 rounded-full bg-[#1F4D3A] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+              className={`mt-5 rounded-full bg-[#1F3A2F] px-5 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] ${FOCUS}`}
             >
               Add a company
             </Link>
@@ -610,7 +610,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
               ))}
             </div>
           ) : (
-            <div className={`${CARD} divide-y divide-[#ECECE6] overflow-hidden`}>
+            <div className={`${CARD} divide-y divide-[#E4E3DC] overflow-hidden`}>
               {companies.map((c, i) => (
                 <CompanyRowItem key={c.id ?? `${c.name}-${i}`} c={c} isAdmin={isAdmin} />
               ))}
@@ -626,7 +626,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             type="button"
             disabled={page <= 1}
             onClick={() => set({ page: String(page - 1) })}
-            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D8D8D0] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
+            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D2D1C7] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
           >
             <ChevronLeft className="h-4 w-4" />
             <span className="hidden sm:inline">Previous</span>
@@ -638,7 +638,7 @@ export function CompanyList({ companies, total, page, pageSize, isAdmin, stats }
             type="button"
             disabled={page >= totalPages}
             onClick={() => set({ page: String(page + 1) })}
-            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D8D8D0] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
+            className={`flex h-11 items-center gap-1.5 rounded-full border border-[#D2D1C7] bg-white px-4 text-[14px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS}`}
           >
             <span className="hidden sm:inline">Next</span>
             <ChevronRight className="h-4 w-4" />

@@ -40,12 +40,12 @@ export function SearchRow({ search }: { search: DeskSearch }) {
         <div className="sm:w-[172px] sm:shrink-0">
           {payout ? (
             <p
-              className={`whitespace-nowrap font-serif text-[21px] leading-none tracking-[-0.02em] ${FOREST}`}
+              className={`font-semibold whitespace-nowrap text-[21px] leading-none tracking-[-0.02em] ${FOREST}`}
             >
               {payout}
             </p>
           ) : (
-            <p className={`font-serif text-[19px] leading-none ${MUTED}`}>—</p>
+            <p className={`font-semibold text-[19px] leading-none ${MUTED}`}>—</p>
           )}
           <p className={`mt-1.5 ${META}`}>{feeExplanation(search.fee)}</p>
         </div>

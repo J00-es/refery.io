@@ -90,11 +90,11 @@ export function stageLabel(stage?: string | null): string | null {
  */
 export function stageTint(stage?: string | null): string {
   const s = (stage || '').toLowerCase()
-  if (s === 'pre-seed' || s === 'seed') return 'bg-[#E9F0EC] text-[#1F4D3A]'
+  if (s === 'pre-seed' || s === 'seed') return 'bg-[#E7EDE9] text-[#1F3A2F]'
   if (s.startsWith('series-a') || s.startsWith('series-b')) return 'bg-[#E7EDF2] text-[#3F5A70]'
   if (s.startsWith('series-')) return 'bg-[#F0EAE2] text-[#7A6250]'
   if (s === 'growth') return 'bg-[#F3F1E6] text-[#6E6A2E]'
-  return 'bg-[#F0F0EA] text-[#6E6E68]'
+  return 'bg-[#EAE9E1] text-[#6E6E68]'
 }
 
 // ── size bands for the funding filter ───────────────────────────────────────

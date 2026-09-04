@@ -81,7 +81,7 @@ export function CandidatesIntroNote() {
   }
 
   return (
-    <section className="overflow-hidden rounded-[18px] border border-[#ECECE6] bg-[#FAFAF6]">
+    <section className="overflow-hidden rounded-[18px] border border-[#E4E3DC] bg-[#FAF9F5]">
       <button
         type="button"
         onClick={toggle}
@@ -105,7 +105,7 @@ export function CandidatesIntroNote() {
       {!collapsed && (
         <div
           id="candidates-intro-note-body"
-          className="border-t border-[#ECECE6] px-4 pb-4 pt-4"
+          className="border-t border-[#E4E3DC] px-4 pb-4 pt-4"
         >
           <p className="max-w-[68ch] text-[13px] leading-[1.6] text-[#6E6E68]">
             This is the place to introduce exceptional talent you know and would personally vouch
@@ -116,10 +116,10 @@ export function CandidatesIntroNote() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2 sm:gap-6">
             <div>
-              <h3 className="mb-2.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.07em] text-[#1F4D3A]">
+              <h3 className="mb-2.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.07em] text-[#1F3A2F]">
                 <span
                   aria-hidden
-                  className="grid h-4 w-4 shrink-0 place-items-center rounded-[5px] bg-[#E9F0EC]"
+                  className="grid h-4 w-4 shrink-0 place-items-center rounded-[5px] bg-[#E7EDE9]"
                 >
                   <Check className="h-2.5 w-2.5" strokeWidth={3.2} />
                 </span>
@@ -152,7 +152,7 @@ export function CandidatesIntroNote() {
                 {NOT_FIT.map(item => (
                   <li
                     key={item}
-                    className="relative pl-[15px] text-[12.5px] leading-[1.55] text-[#6E6E68] before:absolute before:left-0 before:top-[7.5px] before:h-[5px] before:w-[5px] before:rounded-full before:bg-[#D8D8D0] before:content-['']"
+                    className="relative pl-[15px] text-[12.5px] leading-[1.55] text-[#6E6E68] before:absolute before:left-0 before:top-[7.5px] before:h-[5px] before:w-[5px] before:rounded-full before:bg-[#D2D1C7] before:content-['']"
                   >
                     {item}
                   </li>
@@ -161,7 +161,7 @@ export function CandidatesIntroNote() {
             </div>
           </div>
 
-          <div className="mt-4 grid gap-2 border-t border-[#ECECE6] pt-3.5">
+          <div className="mt-4 grid gap-2 border-t border-[#E4E3DC] pt-3.5">
             <p className="text-[12.5px] leading-[1.55] text-[#6E6E68]">
               <span className="font-semibold text-[#161613]">On work authorization.</span> Most US
               roles require existing authorization. A straightforward H-1B transfer may be possible.
@@ -173,14 +173,14 @@ export function CandidatesIntroNote() {
               CV to{' '}
               <a
                 href="mailto:lily@refery.io"
-                className={`text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
+                className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
               >
                 lily@refery.io
               </a>{' '}
               copying{' '}
               <a
                 href="mailto:candidates@refery.io"
-                className={`text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
+                className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
               >
                 candidates@refery.io
               </a>
@@ -192,7 +192,7 @@ export function CandidatesIntroNote() {
             </p>
           </div>
 
-          <p className="mt-3 border-t border-[#ECECE6] pt-3 font-serif text-[17px] leading-[1.35] text-[#161613]">
+          <p className="font-semibold mt-3 border-t border-[#E4E3DC] pt-3 text-[17px] leading-[1.35] text-[#161613]">
             Quality over volume. One exceptional profile beats a batch of maybes.
           </p>
         </div>

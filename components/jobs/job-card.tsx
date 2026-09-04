@@ -58,7 +58,7 @@ function Logo({ name, url: rawUrl }: { name: string; url?: string | null }) {
     )
   }
   return (
-    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#ECECE6] bg-white p-1">
+    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-[11px] border border-[#E4E3DC] bg-white p-1">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         ref={imgRef}
@@ -86,7 +86,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
   return (
     <Link href={`/jobs/${job.id}`} className={`group block h-full rounded-[18px] ${FOCUS}`}>
       <article
-        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D8D8D0] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
+        className={`${CARD} grid h-full grid-cols-[minmax(0,1fr)] grid-rows-[auto_auto_1fr_auto] gap-3.5 overflow-hidden p-4 transition-[border-color,box-shadow] duration-150 group-hover:border-[#D2D1C7] group-hover:shadow-[0_2px_12px_rgba(22,22,19,0.06)] sm:p-5`}
       >
         {/* ── identity: the role leads, the company qualifies it ─────────── */}
         <header className="flex min-w-0 items-start gap-3">
@@ -116,7 +116,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
               client list to the whole network, which is not the board's job —
               our mandates live on the Partners desk, behind assignment. */}
           {fresh && (
-            <span className="shrink-0 rounded-full bg-[#E9F0EC] px-2 py-0.5 text-[10.5px] font-semibold text-[#1F4D3A]">
+            <span className="shrink-0 rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[10.5px] font-semibold text-[#1F3A2F]">
               New
             </span>
           )}
@@ -136,7 +136,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
             </span>
             {remote && (
               <>
-                <span className="shrink-0 text-[#D8D8D0]">·</span>
+                <span className="shrink-0 text-[#D2D1C7]">·</span>
                 <span className="shrink-0">{remote}</span>
               </>
             )}
@@ -175,7 +175,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
           {/* Referral bonus is on only 34 of 72,862 jobs, so when it is set it
               is genuinely notable — give it real emphasis rather than a chip. */}
           {job.referral_bonus ? (
-            <p className="flex items-center gap-1.5 rounded-[10px] bg-[#E9F0EC] px-2.5 py-1.5 text-[12.5px] font-semibold text-[#1F4D3A]">
+            <p className="flex items-center gap-1.5 rounded-[10px] bg-[#E7EDE9] px-2.5 py-1.5 text-[12.5px] font-semibold text-[#1F3A2F]">
               ${job.referral_bonus.toLocaleString()} referral bonus
               {job.referral_bonus_type ? (
                 <span className="font-normal opacity-70">· {job.referral_bonus_type}</span>
@@ -185,7 +185,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
         </div>
 
         {/* ── footer ─────────────────────────────────────────────────────── */}
-        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#ECECE6] pt-3 text-[12px]">
+        <footer className="flex min-w-0 items-center justify-between gap-3 border-t border-[#E4E3DC] pt-3 text-[12px]">
           <span className="flex min-w-0 items-center gap-3">
             {isAdmin && status && (
               <span className="flex shrink-0 items-center gap-1.5 text-[#6E6E68]">
@@ -194,7 +194,7 @@ function JobCardComponent({ job, isAdmin = false }: { job: JobRow; isAdmin?: boo
               </span>
             )}
             {pipeline > 0 && (
-              <span className="flex shrink-0 items-center gap-1.5 font-medium text-[#1F4D3A]">
+              <span className="flex shrink-0 items-center gap-1.5 font-medium text-[#1F3A2F]">
                 <Users className="h-3.5 w-3.5" />
                 {pipeline}
               </span>

@@ -134,7 +134,7 @@ export function SubmissionList({
                     hide
                   </span>
                 </summary>
-                <ol className="mt-2 space-y-2 border-l border-[#ECECE6] pl-3.5">
+                <ol className="mt-2 space-y-2 border-l border-[#E4E3DC] pl-3.5">
                   {trail.map((event, i) => {
                     const meta = submissionStatus(event.to_status)
                     return (
@@ -156,7 +156,7 @@ export function SubmissionList({
             )}
 
             {submission.review_note && status.category !== 'in_progress' && (
-              <p className="mt-3 rounded-[10px] bg-[#FAFAF6] px-3 py-2 text-[13px] leading-relaxed text-[#6E6E68]">
+              <p className="mt-3 rounded-[10px] bg-[#FAF9F5] px-3 py-2 text-[13px] leading-relaxed text-[#6E6E68]">
                 <span className="font-semibold text-[#161613]">From Refery: </span>
                 {submission.review_note}
               </p>
@@ -191,7 +191,7 @@ function Track({ status }: { status: SubmissionStatus }) {
           <span
             key={step}
             className={`h-1.5 flex-1 rounded-full ${
-              i <= reached ? (i === SUBMISSION_TRACK.length - 1 ? 'bg-[#1F4D3A]' : 'bg-[#5E8571]') : 'bg-[#ECECE6]'
+              i <= reached ? (i === SUBMISSION_TRACK.length - 1 ? 'bg-[#1F3A2F]' : 'bg-[#5E8571]') : 'bg-[#E4E3DC]'
             }`}
           />
         ))}

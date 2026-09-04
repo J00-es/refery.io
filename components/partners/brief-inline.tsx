@@ -25,7 +25,7 @@ export function Inline({ text }: { text: string }) {
               key={i}
               href={node.href}
               {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-              className="border-b border-[#CBDDD2] text-[#1F4D3A] transition-colors hover:border-[#1F4D3A]"
+              className="border-b border-[#CBDDD2] text-[#1F3A2F] transition-colors hover:border-[#1F3A2F]"
             >
               {node.v}
             </a>

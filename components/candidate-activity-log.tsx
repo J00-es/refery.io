@@ -110,14 +110,14 @@ export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps)
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
-          className={`rounded-full border border-[#D8D8D0] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+          className={`rounded-full border border-[#D2D1C7] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
         >
           {open ? 'Cancel' : 'Log'}
         </button>
       </div>
 
       {open && (
-        <div className="mt-3 space-y-2.5 rounded-xl border border-[#ECECE6] bg-[#FAFAF6] p-3">
+        <div className="mt-3 space-y-2.5 rounded-xl border border-[#E4E3DC] bg-[#FAF9F5] p-3">
           <div className="flex flex-wrap gap-1.5">
             {LOGGABLE.map(t => (
               <button
@@ -126,8 +126,8 @@ export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps)
                 onClick={() => setType(t.key)}
                 className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
                   type === t.key
-                    ? 'bg-[#1F4D3A] text-white'
-                    : 'border border-[#D8D8D0] text-[#6E6E68] hover:border-[#9C9C95]'
+                    ? 'bg-[#1F3A2F] text-white'
+                    : 'border border-[#D2D1C7] text-[#6E6E68] hover:border-[#9C9C95]'
                 }`}
               >
                 {t.label}
@@ -138,13 +138,13 @@ export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps)
             placeholder="What happened?"
             value={description}
             onChange={e => setDescription(e.target.value)}
-            className="min-h-[70px] resize-y border-[#D8D8D0] bg-white text-[13.5px]"
+            className="min-h-[70px] resize-y border-[#D2D1C7] bg-white text-[13.5px]"
           />
           <button
             type="button"
             onClick={add}
             disabled={!description.trim() || submitting}
-            className={`w-full rounded-full bg-[#1F4D3A] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`}
+            className={`w-full rounded-full bg-[#1F3A2F] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-50 ${FOCUS}`}
           >
             {submitting ? 'Saving…' : 'Save'}
           </button>
@@ -167,7 +167,7 @@ export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps)
                 <span
                   aria-hidden
                   className={`mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full ${
-                    automated ? 'bg-[#C9C9C1]' : 'bg-[#1F4D3A]'
+                    automated ? 'bg-[#C9C9C1]' : 'bg-[#1F3A2F]'
                   }`}
                 />
                 <div className="min-w-0 flex-1">
@@ -186,7 +186,7 @@ export function CandidateActivityLog({ candidateId }: CandidateActivityLogProps)
                     {/* Whether a person or the system did this. It is the first
                         thing you want to know before trusting or undoing it. */}
                     {automated && (
-                      <span className="rounded bg-[#F0F0EA] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
+                      <span className="rounded bg-[#EAE9E1] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
                         auto
                       </span>
                     )}

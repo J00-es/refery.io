@@ -178,7 +178,7 @@ export default async function CandidatesPage({
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-serif text-[30px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[36px]">
+          <h1 className="text-[30px] font-semibold leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[36px]">
             Candidates
           </h1>
           <p className="mt-2 text-[14px] text-[#6E6E68] sm:text-[15px]">
@@ -190,13 +190,13 @@ export default async function CandidatesPage({
         <div className="flex shrink-0 gap-2.5">
           <Link
             href="/candidates/bulk"
-            className={`flex h-11 items-center rounded-full border border-[#D8D8D0] px-5 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+            className={`flex h-11 items-center rounded-full border border-[#D2D1C7] px-5 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
           >
             Bulk upload
           </Link>
           <Link
             href="/candidates/new"
-            className={`flex h-11 items-center rounded-full bg-[#1F4D3A] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#173D2E] ${FOCUS}`}
+            className={`flex h-11 items-center rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[#142E24] ${FOCUS}`}
           >
             Add candidate
           </Link>

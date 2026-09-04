@@ -26,10 +26,10 @@ interface Suggestion {
 
 /** Plain-language read of the composite score, so a number is never shown bare. */
 function fitLabel(score: number): { label: string; className: string } {
-  if (score >= 0.7) return { label: 'Strong fit', className: 'bg-[#1F4D3A] text-white' }
-  if (score >= 0.6) return { label: 'Good fit', className: 'bg-[#E9F0EC] text-[#1F4D3A]' }
+  if (score >= 0.7) return { label: 'Strong fit', className: 'bg-[#1F3A2F] text-white' }
+  if (score >= 0.6) return { label: 'Good fit', className: 'bg-[#E7EDE9] text-[#1F3A2F]' }
   if (score >= 0.5) return { label: 'Possible fit', className: 'bg-[#F3F1E6] text-[#6E6A2E]' }
-  return { label: 'Loose fit', className: 'bg-[#F0F0EA] text-[#6E6E68]' }
+  return { label: 'Loose fit', className: 'bg-[#EAE9E1] text-[#6E6E68]' }
 }
 
 /**
@@ -80,14 +80,14 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
   return (
     <section className={`${CARD} p-4 sm:p-5`}>
       <header className="mb-4 flex items-center gap-2">
-        <Sparkles className="h-4 w-4 shrink-0 text-[#1F4D3A]" />
-        <h2 className="font-serif text-[18px] tracking-[-0.01em] text-[#161613]">Suggested roles</h2>
+        <Sparkles className="h-4 w-4 shrink-0 text-[#1F3A2F]" />
+        <h2 className="font-semibold text-[18px] tracking-[-0.01em] text-[#161613]">Suggested roles</h2>
       </header>
 
       {!suggestions ? (
         <div className="space-y-2.5">
           {[0, 1, 2].map(i => (
-            <div key={i} className="h-16 animate-pulse rounded-[12px] bg-[#F0F0EA]" />
+            <div key={i} className="h-16 animate-pulse rounded-[12px] bg-[#EAE9E1]" />
           ))}
         </div>
       ) : (
@@ -101,7 +101,7 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
             return (
               <li
                 key={s.job_id}
-                className="flex min-w-0 items-start gap-3 rounded-[12px] border border-[#ECECE6] bg-[#FAFAF6] p-3"
+                className="flex min-w-0 items-start gap-3 rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] p-3"
               >
                 <div className="min-w-0 flex-1">
                   <Link
@@ -145,7 +145,7 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
                     )
                   })()}
                   {isAdded ? (
-                    <span className="flex items-center gap-1 text-[12px] font-medium text-[#1F4D3A]">
+                    <span className="flex items-center gap-1 text-[12px] font-medium text-[#1F3A2F]">
                       <Check className="h-3.5 w-3.5" />
                       Added
                     </span>
@@ -154,7 +154,7 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
                       type="button"
                       disabled={adding === s.job_id}
                       onClick={() => addToPipeline(s.job_id)}
-                      className={`flex items-center gap-1 rounded-full border border-[#D8D8D0] bg-white px-2.5 py-1 text-[12px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
+                      className={`flex items-center gap-1 rounded-full border border-[#D2D1C7] bg-white px-2.5 py-1 text-[12px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
                     >
                       <Plus className="h-3.5 w-3.5" />
                       {adding === s.job_id ? 'Adding…' : 'Add'}

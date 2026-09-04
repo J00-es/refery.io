@@ -169,8 +169,8 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     )
   }
 
-  const linkCls = `text-[#1F4D3A] hover:underline ${FOCUS}`
-  const btnCls = `rounded-full border border-[#D8D8D0] px-4 py-2 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`
+  const linkCls = `text-[#1F3A2F] hover:underline ${FOCUS}`
+  const btnCls = `rounded-full border border-[#D2D1C7] px-4 py-2 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`
 
   return (
     <div className="mx-auto max-w-[1060px] space-y-6 px-4 pb-16 sm:px-6">
@@ -185,7 +185,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="font-serif text-[28px] leading-tight tracking-[-0.02em] text-[#161613] sm:text-[34px]">
+              <h1 className="font-semibold text-[28px] leading-tight tracking-[-0.02em] text-[#161613] sm:text-[34px]">
                 {typedCandidate.name}
               </h1>
               <span className={`${GRADE_BADGE} ${grade.className}`} title={grade.label}>
@@ -312,7 +312,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </div>
 
             {typedCandidate.ai_analysis && (
-              <div className="mt-5 border-t border-[#ECECE6] pt-4">
+              <div className="mt-5 border-t border-[#E4E3DC] pt-4">
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
                   Panel reasoning
                 </p>
@@ -323,7 +323,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             )}
 
             {parsedData?.summary && (
-              <div className="mt-5 border-t border-[#ECECE6] pt-4">
+              <div className="mt-5 border-t border-[#E4E3DC] pt-4">
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
                   Summary
                 </p>
@@ -360,7 +360,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                         key={p.id}
                         jobId={p.job?.id}
                         canOpen={isSuperAdmin}
-                        className={`flex items-center gap-4 border-t border-[#ECECE6] px-5 py-3.5 transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
+                        className={`flex items-center gap-4 border-t border-[#E4E3DC] px-5 py-3.5 transition-colors hover:bg-[#FAF9F5] ${FOCUS}`}
                       >
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14px] font-medium text-[#161613]">
@@ -371,7 +371,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                           </p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="text-[12.5px] font-medium text-[#1F4D3A]">
+                          <p className="text-[12.5px] font-medium text-[#1F3A2F]">
                             {isAdmin ? getStageLabel(p.stage) : stageDisplayName(p.stage)}
                           </p>
                           <p className="text-[11.5px] text-[#9C9C95]">
@@ -396,7 +396,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         <div className="space-y-6 lg:col-start-3 lg:row-start-1 lg:row-span-2">
           <section className={`${CARD} p-5`}>
             <h2 className="text-[15px] font-semibold text-[#161613]">At a glance</h2>
-            <dl className="mt-1 divide-y divide-[#ECECE6]">
+            <dl className="mt-1 divide-y divide-[#E4E3DC]">
               <Fact label="Email">
                 {typedCandidate.email && (
                   <a href={`mailto:${typedCandidate.email}`} className={`break-all ${linkCls}`}>
@@ -453,7 +453,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               </Fact>
             </dl>
 
-            <div className="mt-4 space-y-3 border-t border-[#ECECE6] pt-4">
+            <div className="mt-4 space-y-3 border-t border-[#E4E3DC] pt-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-[12.5px] text-[#9C9C95]">Availability</span>
                 <CandidateAvailabilityStatus

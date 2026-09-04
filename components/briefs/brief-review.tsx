@@ -28,9 +28,9 @@ const TABS = [
 function gradeTint(grade: string | null) {
   const g = (grade || '').toUpperCase()
   if (g.startsWith('PASS')) return 'bg-[#F7EDEC] text-[#9C4038]'
-  if (g.startsWith('A')) return 'bg-[#E9F0EC] text-[#1F4D3A]'
+  if (g.startsWith('A')) return 'bg-[#E7EDE9] text-[#1F3A2F]'
   if (g.startsWith('B')) return 'bg-[#F5EEDD] text-[#8A6A1F]'
-  return 'bg-[#F0F0EA] text-[#6E6E68]'
+  return 'bg-[#EAE9E1] text-[#6E6E68]'
 }
 
 export function BriefReview() {
@@ -86,7 +86,7 @@ export function BriefReview() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-1 border-b border-[#ECECE6]">
+      <div className="flex items-center gap-1 border-b border-[#E4E3DC]">
         {TABS.map(t => (
           <button
             key={t.key}
@@ -97,21 +97,21 @@ export function BriefReview() {
           >
             {t.label}
             {tab === t.key && (
-              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#1F4D3A]" />
+              <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-[#1F3A2F]" />
             )}
           </button>
         ))}
       </div>
 
       {notice && (
-        <div className="rounded-[12px] border border-[#ECECE6] bg-[#FAFAF6] px-4 py-2.5 text-[13px] text-[#161613]">
+        <div className="rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-2.5 text-[13px] text-[#161613]">
           {notice}
         </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
         {/* queue */}
-        <div className={`${CARD} divide-y divide-[#ECECE6] overflow-hidden`}>
+        <div className={`${CARD} divide-y divide-[#E4E3DC] overflow-hidden`}>
           {drafts === null ? (
             <div className="flex items-center justify-center gap-2 py-10 text-[13px] text-[#9C9C95]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading
@@ -131,8 +131,8 @@ export function BriefReview() {
               <button
                 key={d.id}
                 onClick={() => open(d)}
-                className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#FAFAF6] ${FOCUS} ${
-                  selected?.id === d.id ? 'bg-[#FAFAF6]' : ''
+                className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-[#FAF9F5] ${FOCUS} ${
+                  selected?.id === d.id ? 'bg-[#FAF9F5]' : ''
                 }`}
               >
                 <span
@@ -179,7 +179,7 @@ export function BriefReview() {
             </div>
           ) : (
             <>
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ECECE6] px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E4E3DC] px-4 py-3">
                 <div className="min-w-0">
                   <p className="truncate text-[14px] font-semibold text-[#161613]">{selected.subject}</p>
                   <p className="mt-0.5 truncate text-[12.5px] text-[#6E6E68]">
@@ -194,14 +194,14 @@ export function BriefReview() {
                     <button
                       onClick={() => act('dismiss')}
                       disabled={busy}
-                      className={`flex h-10 items-center gap-1.5 rounded-full border border-[#D8D8D0] px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
+                      className={`flex h-10 items-center gap-1.5 rounded-full border border-[#D2D1C7] px-3.5 text-[13.5px] font-medium text-[#161613] transition-colors hover:border-[#9C9C95] disabled:opacity-50 ${FOCUS}`}
                     >
                       <X className="h-4 w-4" /> Dismiss
                     </button>
                     <button
                       onClick={() => act('send')}
                       disabled={busy}
-                      className={`flex h-10 items-center gap-1.5 rounded-full bg-[#1F4D3A] px-4 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`}
+                      className={`flex h-10 items-center gap-1.5 rounded-full bg-[#1F3A2F] px-4 text-[13.5px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-50 ${FOCUS}`}
                     >
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                       Send
@@ -209,7 +209,7 @@ export function BriefReview() {
                   </div>
                 )}
                 {selected.status === 'sent' && (
-                  <span className="flex items-center gap-1.5 text-[13px] font-medium text-[#1F4D3A]">
+                  <span className="flex items-center gap-1.5 text-[13px] font-medium text-[#1F3A2F]">
                     <Check className="h-4 w-4" /> Sent
                   </span>
                 )}

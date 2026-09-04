@@ -383,7 +383,7 @@ export default async function PartnerRolePage({
                 href={`/partners/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
                 className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
               >
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F4D3A]" aria-hidden />
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F3A2F]" aria-hidden />
                 <span className="min-w-0">
                   <span className="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-[#161613]">
                     {brief.job_id ? 'Brief for this search' : 'Scout brief'}
@@ -401,7 +401,7 @@ export default async function PartnerRolePage({
                     No brief imported yet.{' '}
                     <Link
                       href={`/partners/${companyId}`}
-                      className={`font-semibold text-[#1F4D3A] underline underline-offset-2 ${FOCUS}`}
+                      className={`font-semibold text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
                     >
                       Import one from the client setup panel
                     </Link>

@@ -15,7 +15,7 @@ export function DaysInStageBadge({ days, className }: DaysInStageBadgeProps) {
         'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-semibold whitespace-nowrap',
         isCritical && 'bg-[#FDECEC] text-[#B23B3B]',
         isStale && !isCritical && 'bg-[#FBF3E1] text-[#B7791F]',
-        !isStale && 'bg-[#F0F0EA] text-[rgba(16,15,15,0.64)]',
+        !isStale && 'bg-[#EAE9E1] text-[rgba(16,15,15,0.64)]',
         className
       )}
     >

@@ -94,7 +94,7 @@ export default async function AccessRequestsPage() {
                       wants access to{' '}
                       <Link
                         href={`/partners/${request.company_id}`}
-                        className={`font-medium text-[#1F4D3A] underline-offset-4 hover:underline ${FOCUS}`}
+                        className={`font-medium text-[#1F3A2F] underline-offset-4 hover:underline ${FOCUS}`}
                       >
                         {companyLabel}
                       </Link>
@@ -110,7 +110,7 @@ export default async function AccessRequestsPage() {
                 </div>
 
                 {request.message && (
-                  <p className="mt-3 rounded-[10px] bg-[#FAFAF6] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#3C403C]">
+                  <p className="mt-3 rounded-[10px] bg-[#FAF9F5] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#3C403C]">
                     {request.message as string}
                   </p>
                 )}

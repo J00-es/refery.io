@@ -5,8 +5,8 @@ export default function PrivacyPage() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="mb-8">
-          <Link href="/" className="font-serif text-2xl text-foreground">
-            Refery<span className="text-green-500">.</span>io
+          <Link href="/" className="font-semibold text-2xl text-foreground">
+            Refery<span className="text-green-500">.</span>
           </Link>
         </div>
         

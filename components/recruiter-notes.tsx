@@ -103,7 +103,7 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
         <button
           type="button"
           onClick={() => setShowForm(v => !v)}
-          className={`shrink-0 rounded-full border border-[#D8D8D0] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
+          className={`shrink-0 rounded-full border border-[#D2D1C7] px-3 py-1.5 text-[12.5px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}
         >
           {showForm ? 'Cancel' : 'Add'}
         </button>
@@ -112,7 +112,7 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
       {showForm && (
         <form
           onSubmit={handleAddNote}
-          className="mt-3 space-y-2.5 rounded-xl border border-[#ECECE6] bg-[#FAFAF6] p-3"
+          className="mt-3 space-y-2.5 rounded-xl border border-[#E4E3DC] bg-[#FAF9F5] p-3"
         >
           <div className="flex flex-wrap gap-1.5">
             {NOTE_TYPES.map(t => (
@@ -122,8 +122,8 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
                 onClick={() => setNoteType(t.key)}
                 className={`rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
                   noteType === t.key
-                    ? 'bg-[#1F4D3A] text-white'
-                    : 'border border-[#D8D8D0] text-[#6E6E68] hover:border-[#9C9C95]'
+                    ? 'bg-[#1F3A2F] text-white'
+                    : 'border border-[#D2D1C7] text-[#6E6E68] hover:border-[#9C9C95]'
                 }`}
               >
                 {t.label}
@@ -135,12 +135,12 @@ export function RecruiterNotes({ candidateId }: RecruiterNotesProps) {
             onChange={e => setContent(e.target.value)}
             placeholder="What did you learn?"
             rows={3}
-            className="resize-y border-[#D8D8D0] bg-white text-[13.5px]"
+            className="resize-y border-[#D2D1C7] bg-white text-[13.5px]"
           />
           <button
             type="submit"
             disabled={isAdding || !content.trim()}
-            className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#1F4D3A] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#173D2E] disabled:opacity-50 ${FOCUS}`}
+            className={`flex w-full items-center justify-center gap-2 rounded-full bg-[#1F3A2F] px-4 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-[#142E24] disabled:opacity-50 ${FOCUS}`}
           >
             {isAdding && <Spinner className="h-3.5 w-3.5" />}
             Save
@@ -176,10 +176,10 @@ function NoteItem({
   const long = note.content.length > 260
 
   return (
-    <li className="rounded-xl border border-[#ECECE6] p-3">
+    <li className="rounded-xl border border-[#E4E3DC] p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[11px] font-medium text-[#6E6E68]">
+          <span className="shrink-0 rounded-full bg-[#EAE9E1] px-2 py-0.5 text-[11px] font-medium text-[#6E6E68]">
             {TYPE_LABELS[note.note_type] || 'Note'}
           </span>
           <span className="truncate text-[11.5px] text-[#9C9C95]">
@@ -210,7 +210,7 @@ function NoteItem({
         <button
           type="button"
           onClick={() => setExpanded(v => !v)}
-          className={`mt-1.5 text-[12.5px] font-medium text-[#1F4D3A] hover:underline ${FOCUS}`}
+          className={`mt-1.5 text-[12.5px] font-medium text-[#1F3A2F] hover:underline ${FOCUS}`}
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>

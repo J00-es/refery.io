@@ -228,8 +228,8 @@ export default async function DashboardPage() {
         ? `${needsYou.length} ${needsYou.length === 1 ? 'candidate is' : 'candidates are'} waiting on you.`
         : "Nothing needs you right now — we'll keep things moving."
 
-  const cardCls = 'bg-white border border-[#ECECE6] rounded-[18px]'
-  const focusCls = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F4D3A]/40'
+  const cardCls = 'bg-white border border-[#E4E3DC] rounded-[18px]'
+  const focusCls = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F3A2F]/40'
 
   return (
     <div className="mx-auto max-w-[1060px] px-4 pb-16 sm:px-6">
@@ -237,11 +237,11 @@ export default async function DashboardPage() {
       <div className="mb-10 flex flex-col gap-5 sm:mb-11 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="font-serif text-[30px] font-normal leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[38px]">
+            <h1 className="text-[30px] font-semibold leading-[1.15] tracking-[-0.02em] text-[#161613] sm:text-[38px]">
               {timeGreeting(now)}, {firstName}
             </h1>
             {canViewAll && (
-              <span className="shrink-0 rounded-full bg-[#E9F0EC] px-2.5 py-1 text-[11px] font-semibold text-[#1F4D3A]">
+              <span className="shrink-0 rounded-full bg-[#E7EDE9] px-2.5 py-1 text-[11px] font-semibold text-[#1F3A2F]">
                 Everyone&apos;s candidates
               </span>
             )}
@@ -255,14 +255,14 @@ export default async function DashboardPage() {
           {isSuperAdmin && (
             <Link
               href="/jobs/new"
-              className={`rounded-full border border-[#D8D8D0] px-5 py-2.5 text-sm font-semibold text-[#161613] motion-safe:transition-colors hover:border-[#9C9C95] ${focusCls}`}
+              className={`rounded-full border border-[#D2D1C7] px-5 py-2.5 text-sm font-semibold text-[#161613] motion-safe:transition-colors hover:border-[#9C9C95] ${focusCls}`}
             >
               Add a role
             </Link>
           )}
           <Link
             href="/candidates/new"
-            className={`rounded-full bg-[#1F4D3A] px-5 py-2.5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-[#173D2E] ${focusCls}`}
+            className={`rounded-full bg-[#1F3A2F] px-5 py-2.5 text-sm font-semibold text-white motion-safe:transition-colors hover:bg-[#142E24] ${focusCls}`}
           >
             Refer a candidate
           </Link>
@@ -273,7 +273,7 @@ export default async function DashboardPage() {
       {needsYou.length > 0 && (
         <div className="mb-14 sm:mb-16">
           <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">Needs you</h2>
+            <h2 className="font-semibold text-[22px] tracking-[-0.01em] text-[#161613]">Needs you</h2>
             {needsYou.length > NEEDS_SHOWN && (
               <Link
                 href="/candidates?filter=needs_you"
@@ -288,7 +288,7 @@ export default async function DashboardPage() {
               <Link
                 key={c.id}
                 href={`/candidates/${c.id}`}
-                className={`flex items-center gap-4 border-b border-[#ECECE6] px-4 py-4 last:border-b-0 motion-safe:transition-colors hover:bg-[#FAFAF6] sm:px-6 ${focusCls}`}
+                className={`flex items-center gap-4 border-b border-[#E4E3DC] px-4 py-4 last:border-b-0 motion-safe:transition-colors hover:bg-[#FAF9F5] sm:px-6 ${focusCls}`}
               >
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[12.5px] font-semibold text-[#6E6E68]">
                   {initials(c.name || '?')}
@@ -299,7 +299,7 @@ export default async function DashboardPage() {
                       {c.name || 'Unnamed candidate'}
                     </span>
                     {c.panel_grade && (
-                      <span className="shrink-0 rounded-md bg-[#E9F0EC] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#1F4D3A]">
+                      <span className="shrink-0 rounded-md bg-[#E7EDE9] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#1F3A2F]">
                         {c.panel_grade === 'A-' ? 'A−' : c.panel_grade}
                       </span>
                     )}
@@ -310,7 +310,7 @@ export default async function DashboardPage() {
                 </div>
                 <span
                   className={`shrink-0 whitespace-nowrap text-sm font-semibold ${
-                    c.action.tone === 'do' ? 'text-[#1F4D3A]' : 'text-[#8A6A1F]'
+                    c.action.tone === 'do' ? 'text-[#1F3A2F]' : 'text-[#8A6A1F]'
                   }`}
                 >
                   {c.action.label} →
@@ -325,7 +325,7 @@ export default async function DashboardPage() {
       {rosterTotal > 0 && (
         <div className="mb-14 sm:mb-16">
           <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+            <h2 className="font-semibold text-[22px] tracking-[-0.01em] text-[#161613]">
               Where your candidates are
             </h2>
             <Link
@@ -337,7 +337,7 @@ export default async function DashboardPage() {
           </div>
           <div className={`${cardCls} p-5 sm:p-[26px]`}>
             <div
-              className="mb-6 flex h-3.5 overflow-hidden rounded-full bg-[#F0F0EA]"
+              className="mb-6 flex h-3.5 overflow-hidden rounded-full bg-[#EAE9E1]"
               role="img"
               aria-label={liveBuckets
                 .filter(b => counts[b.key] > 0)
@@ -366,7 +366,7 @@ export default async function DashboardPage() {
                   <Link
                     key={b.key}
                     href={`/candidates?filter=${b.key}`}
-                    className={`rounded-xl px-3 py-3 motion-safe:transition-colors hover:bg-[#FAFAF6] ${focusCls}`}
+                    className={`rounded-xl px-3 py-3 motion-safe:transition-colors hover:bg-[#FAF9F5] ${focusCls}`}
                   >
                     <div className="flex items-center text-[13px] font-semibold text-[#161613]">
                       <span
@@ -375,7 +375,7 @@ export default async function DashboardPage() {
                       />
                       {b.label}
                     </div>
-                    <div className="my-1 font-serif text-[24px] tracking-[-0.01em] text-[#161613]">
+                    <div className="font-semibold my-1 text-[24px] tracking-[-0.01em] text-[#161613]">
                       {counts[b.key]}
                     </div>
                     <div className="text-[12px] leading-[1.4] text-[#6E6E68]">{b.blurb}</div>
@@ -383,7 +383,7 @@ export default async function DashboardPage() {
                 ))}
             </div>
             {counts.benchmark > 0 && (
-              <div className="mt-5 border-t border-[#ECECE6] pt-4 text-[13px] text-[#9C9C95]">
+              <div className="mt-5 border-t border-[#E4E3DC] pt-4 text-[13px] text-[#9C9C95]">
                 <Link
                   href="/candidates?filter=benchmark"
                   className={`border-b border-[#E0E0D8] pb-px hover:border-[#6E6E68] hover:text-[#6E6E68] ${focusCls}`}
@@ -401,7 +401,7 @@ export default async function DashboardPage() {
       {canViewAll && teamBacklog.length > 0 && (
         <div className="mb-14 sm:mb-16">
           <div className="mb-5 flex items-baseline justify-between">
-            <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+            <h2 className="font-semibold text-[22px] tracking-[-0.01em] text-[#161613]">
               Who the work is sitting with
             </h2>
           </div>
@@ -409,14 +409,14 @@ export default async function DashboardPage() {
             {teamBacklog.map(r => (
               <div
                 key={r.name}
-                className="flex items-center gap-4 border-b border-[#ECECE6] px-4 py-3.5 last:border-b-0 sm:px-6"
+                className="flex items-center gap-4 border-b border-[#E4E3DC] px-4 py-3.5 last:border-b-0 sm:px-6"
               >
                 <div className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[11.5px] font-semibold text-[#6E6E68]">
                   {initials(r.name)}
                 </div>
                 <span className="min-w-0 flex-1 truncate text-sm text-[#161613]">{r.name}</span>
                 <span className="shrink-0 text-[12.5px] text-[#9C9C95]">{r.warm} warm</span>
-                <span className="w-[104px] shrink-0 text-right text-sm font-semibold tabular-nums text-[#1F4D3A]">
+                <span className="w-[104px] shrink-0 text-right text-sm font-semibold tabular-nums text-[#1F3A2F]">
                   {r.waiting} waiting
                 </span>
               </div>
@@ -430,10 +430,10 @@ export default async function DashboardPage() {
         <div className="mb-14 sm:mb-16">
           <Link
             href="/candidates"
-            className={`${cardCls} flex items-center justify-between gap-5 px-4 py-5 motion-safe:transition-colors hover:border-[#D8D8D0] sm:px-6 ${focusCls}`}
+            className={`${cardCls} flex items-center justify-between gap-5 px-4 py-5 motion-safe:transition-colors hover:border-[#D2D1C7] sm:px-6 ${focusCls}`}
           >
             <div className="flex min-w-0 items-start gap-4">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F5EEDD] font-serif text-[17px] text-[#8A6A1F]">
+              <div className="font-semibold grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#F5EEDD] text-[17px] text-[#8A6A1F]">
                 {missingResume}
               </div>
               <div className="min-w-0">
@@ -447,7 +447,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
             </div>
-            <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-[#1F4D3A]">
+            <span className="shrink-0 whitespace-nowrap text-sm font-semibold text-[#1F3A2F]">
               Fix →
             </span>
           </Link>
@@ -456,7 +456,7 @@ export default async function DashboardPage() {
 
       {/* ── what's happened ────────────────────────────────────────────────── */}
       <div className="mb-5 flex items-baseline justify-between">
-        <h2 className="font-serif text-[22px] tracking-[-0.01em] text-[#161613]">
+        <h2 className="font-semibold text-[22px] tracking-[-0.01em] text-[#161613]">
           What&apos;s happened lately
         </h2>
       </div>
@@ -467,7 +467,7 @@ export default async function DashboardPage() {
             return (
               <div
                 key={a.id}
-                className="flex items-start gap-4 border-b border-[#ECECE6] px-4 py-4 last:border-b-0 sm:px-6"
+                className="flex items-start gap-4 border-b border-[#E4E3DC] px-4 py-4 last:border-b-0 sm:px-6"
               >
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[12.5px] font-semibold text-[#6E6E68]">
                   {initials(nameById.get(a.candidate_id) || '?')}
@@ -483,14 +483,14 @@ export default async function DashboardPage() {
                     {a.to_state && (
                       <span className="text-[13px] text-[#6E6E68]">
                         moved to{' '}
-                        <span className="font-medium text-[#1F4D3A]">
+                        <span className="font-medium text-[#1F3A2F]">
                           {a.to_state.replace(/_/g, ' ')}
                         </span>
                       </span>
                     )}
                     <span className="text-[12px] text-[#9C9C95]">{relativeTime(a.created_at)}</span>
                     {automated && (
-                      <span className="rounded bg-[#F0F0EA] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
+                      <span className="rounded bg-[#EAE9E1] px-1.5 py-0.5 text-[10.5px] font-medium uppercase tracking-wide text-[#9C9C95]">
                         auto
                       </span>
                     )}
@@ -514,7 +514,7 @@ export default async function DashboardPage() {
           </p>
           <Link
             href="/candidates/new"
-            className={`inline-block rounded-full bg-[#1F4D3A] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#173D2E] ${focusCls}`}
+            className={`inline-block rounded-full bg-[#1F3A2F] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#142E24] ${focusCls}`}
           >
             Refer a candidate
           </Link>

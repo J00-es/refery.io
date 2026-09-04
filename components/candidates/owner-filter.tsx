@@ -48,7 +48,7 @@ function OwnerRows({
 
   return (
     <div className="flex max-h-[min(60vh,420px)] flex-col">
-      <div className="border-b border-[#ECECE6] p-2.5">
+      <div className="border-b border-[#E4E3DC] p-2.5">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#9C9C95]" />
           <Input
@@ -56,7 +56,7 @@ function OwnerRows({
             onChange={e => setQuery(e.target.value)}
             placeholder="Search owners"
             aria-label="Search owners"
-            className={`h-9 border-[#ECECE6] pl-8 text-[13.5px] placeholder:text-[#9C9C95] ${FOCUS}`}
+            className={`h-9 border-[#E4E3DC] pl-8 text-[13.5px] placeholder:text-[#9C9C95] ${FOCUS}`}
           />
         </div>
       </div>
@@ -67,10 +67,10 @@ function OwnerRows({
         <button
           type="button"
           onClick={() => onChange([])}
-          className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAFAF6] ${FOCUS}`}
+          className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13.5px] transition-colors hover:bg-[#FAF9F5] ${FOCUS}`}
         >
           <span className="grid h-5 w-5 shrink-0 place-items-center">
-            {allSelected && <Check className="h-4 w-4 text-[#1F4D3A]" />}
+            {allSelected && <Check className="h-4 w-4 text-[#1F3A2F]" />}
           </span>
           <Users className="h-4 w-4 shrink-0 text-[#9C9C95]" />
           <span className={`flex-1 ${allSelected ? 'font-semibold text-[#161613]' : 'text-[#6E6E68]'}`}>
@@ -78,7 +78,7 @@ function OwnerRows({
           </span>
         </button>
 
-        <div className="my-1.5 h-px bg-[#ECECE6]" />
+        <div className="my-1.5 h-px bg-[#E4E3DC]" />
 
         {visible.length === 0 && (
           <p className="px-2 py-6 text-center text-[13px] text-[#9C9C95]">No owners match</p>
@@ -89,20 +89,20 @@ function OwnerRows({
           return (
             <label
               key={o.id}
-              className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-[#FAFAF6] ${
-                checked ? 'bg-[#FAFAF6]' : ''
+              className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 transition-colors hover:bg-[#FAF9F5] ${
+                checked ? 'bg-[#FAF9F5]' : ''
               }`}
             >
               <Checkbox
                 checked={checked}
                 onCheckedChange={() => toggle(o.id)}
                 aria-label={`Filter by ${o.name}`}
-                className="h-5 w-5 shrink-0 rounded-[6px] border-[#D8D8D0] data-[state=checked]:border-[#1F4D3A] data-[state=checked]:bg-[#1F4D3A]"
+                className="h-5 w-5 shrink-0 rounded-[6px] border-[#D2D1C7] data-[state=checked]:border-[#1F3A2F] data-[state=checked]:bg-[#1F3A2F]"
               />
               <span
                 aria-hidden
                 className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] font-semibold ${
-                  o.id === UNASSIGNED ? 'bg-[#F0F0EA] text-[#9C9C95]' : avatarTint(o.name)
+                  o.id === UNASSIGNED ? 'bg-[#EAE9E1] text-[#9C9C95]' : avatarTint(o.name)
                 }`}
               >
                 {o.id === UNASSIGNED ? '—' : initialsOf(o.name)}
@@ -118,7 +118,7 @@ function OwnerRows({
                 )}
               </span>
               {/* Counts let you judge a facet before applying it. */}
-              <span className="shrink-0 rounded-full bg-[#F0F0EA] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[#6E6E68]">
+              <span className="shrink-0 rounded-full bg-[#EAE9E1] px-2 py-0.5 text-[11px] font-medium tabular-nums text-[#6E6E68]">
                 {o.count}
               </span>
             </label>
@@ -141,7 +141,7 @@ export function OwnerFilter({ owners, selected, onChange, inline = false }: Owne
 
   if (inline) {
     return (
-      <div className="rounded-[14px] border border-[#ECECE6]">
+      <div className="rounded-[14px] border border-[#E4E3DC]">
         <OwnerRows owners={owners} selected={selected} onChange={onChange} />
       </div>
     )
@@ -155,8 +155,8 @@ export function OwnerFilter({ owners, selected, onChange, inline = false }: Owne
           aria-label={`Filter by owner. Currently: ${label}`}
           className={`flex h-10 items-center gap-2 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors ${FOCUS} ${
             selected.length > 0
-              ? 'border-[#1F4D3A]/30 bg-[#E9F0EC] text-[#1F4D3A]'
-              : 'border-[#D8D8D0] bg-white text-[#161613] hover:border-[#9C9C95]'
+              ? 'border-[#1F3A2F]/30 bg-[#E7EDE9] text-[#1F3A2F]'
+              : 'border-[#D2D1C7] bg-white text-[#161613] hover:border-[#9C9C95]'
           }`}
         >
           <Users className="h-4 w-4 shrink-0" />
@@ -164,7 +164,7 @@ export function OwnerFilter({ owners, selected, onChange, inline = false }: Owne
           <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-[300px] rounded-[14px] border-[#ECECE6] p-0">
+      <PopoverContent align="start" className="w-[300px] rounded-[14px] border-[#E4E3DC] p-0">
         <OwnerRows owners={owners} selected={selected} onChange={onChange} />
       </PopoverContent>
     </Popover>
