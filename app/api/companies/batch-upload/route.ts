@@ -2,6 +2,21 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { companiesAccessDenied } from '@/lib/admin-auth'
 
+/**
+ * Reduce a website to its bare host so it can be compared for identity.
+ * Mirrors the expression used by the companies_name_domain_uniq index:
+ * strip protocol, strip leading "www.", keep the host only.
+ */
+function normalizeDomain(website?: string | null): string {
+  return (website ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .split('/')[0]
+    .replace(/\.+$/, '')
+}
+
 export async function POST(request: Request) {
   const denied = await companiesAccessDenied()
   if (denied) return denied
@@ -27,12 +42,28 @@ export async function POST(request: Request) {
 
     for (const company of companies) {
       try {
-        // Check if company already exists
-        const { data: existing } = await supabase
+        // A company is a duplicate only when the name AND the domain match.
+        // Matching on name alone is wrong: unrelated businesses share names
+        // (e.g. two different "Circle Health" companies).
+        //
+        // NB: do not use .single() here - it errors when 2+ rows match, and a
+        // discarded error meant the check silently passed and inserted yet
+        // another copy. That is what compounded duplicates historically.
+        const { data: sameName, error: lookupError } = await supabase
           .from('companies')
-          .select('id')
+          .select('id, website')
           .ilike('name', company.name)
-          .single()
+
+        if (lookupError) {
+          results.failed++
+          results.errors.push(`${company.name}: lookup failed - ${lookupError.message}`)
+          continue
+        }
+
+        const incomingDomain = normalizeDomain(company.website)
+        const existing = (sameName ?? []).find(
+          (row) => normalizeDomain(row.website) === incomingDomain
+        )
 
         if (existing) {
           results.failed++
@@ -55,7 +86,14 @@ export async function POST(request: Request) {
 
         if (error) {
           results.failed++
-          results.errors.push(`${company.name}: ${error.message}`)
+          // 23505 = unique violation. The DB has a unique index on
+          // (lower(trim(name)), domain-of-website) as a backstop against the
+          // race where two uploads insert the same company concurrently.
+          results.errors.push(
+            error.code === '23505'
+              ? `${company.name}: Company already exists`
+              : `${company.name}: ${error.message}`
+          )
         } else {
           results.success++
         }

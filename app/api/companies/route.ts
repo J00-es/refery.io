@@ -46,6 +46,14 @@ export async function POST(req: Request) {
     .single()
 
   if (error) {
+    // 23505 = unique violation on companies_name_domain_uniq: a company with
+    // this name and website already exists. That is a client error, not a 500.
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { error: 'A company with this name and website already exists' },
+        { status: 409 }
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
