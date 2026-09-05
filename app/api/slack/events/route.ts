@@ -18,8 +18,9 @@
  * the answer to every partner on the search, and :see_no_evil: hides the
  * question. See lib/search-questions.ts.
  *
- * A submission card in #refery-desk: :+1: shortlists it. Declining stays on
- * the page because it needs a reason. See lib/desk-notifications.ts.
+ * A submission card in #refery-desk: :+1: shortlists, :outbox_tray: marks it
+ * sent to the client, :-1: arms a decline and the next thread reply is the
+ * reason. See lib/desk-notifications.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -30,7 +31,7 @@ import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/i
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 import { decideAccessRequest } from '@/lib/access-requests'
-import { declineNeedsPage, shortlistFromSlack, submissionForSlackMessage } from '@/lib/desk-notifications'
+import { armDeclineFromSlack, declineFromThread, moveSubmissionFromSlack, submissionForSlackMessage } from '@/lib/desk-notifications'
 import { HIDE_REACTIONS, publishAnswer, questionForSlackMessage, setQuestionVisibility } from '@/lib/search-questions'
 
 export const dynamic = 'force-dynamic'
@@ -39,6 +40,8 @@ export const maxDuration = 60
 
 const APPROVE = new Set(['+1', 'thumbsup', 'thumbsup_all'])
 const REJECT = new Set(['-1', 'thumbsdown'])
+/** On a submission card only: the candidate has gone to the client. */
+const SEND_TO_CLIENT = new Set(['outbox_tray'])
 
 /**
  * Both tables already had a status vocabulary, so triage reuses it instead of
@@ -135,6 +138,16 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
   const self = await botUserId()
   if (!self || m.user === self) return
 
+  // A submission card with a decline armed: this reply is the reason. Without
+  // the :-1: first, a reply on a submission card is just conversation.
+  const sub = await submissionForSlackMessage(m.channel!, m.thread_ts!)
+  if (sub) {
+    if (sub.declinePending) {
+      await declineFromThread({ id: sub.id, text: m.text!, slackUser: m.user!, channel: m.channel!, ts: m.thread_ts! })
+    }
+    return
+  }
+
   const q = await questionForSlackMessage(m.channel!, m.thread_ts!)
   if (!q) return
 
@@ -158,7 +171,8 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const approve = APPROVE.has(reaction)
   const reject = REJECT.has(reaction)
   const hide = HIDE_REACTIONS.has(reaction)
-  if (!approve && !reject && !hide) return
+  const send = SEND_TO_CLIENT.has(reaction)
+  if (!approve && !reject && !hide && !send) return
 
   if (!event.user) return
 
@@ -186,14 +200,17 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   if (await handleQuestionReaction(event, channel, ts, hide)) return
   if (hide) return
 
-  // Submission cards in #refery-desk: :+1: shortlists, :-1: points at the page
-  // because a decline carries a reason the partner reads.
+  // Submission cards in #refery-desk: :+1: shortlists, :outbox_tray: marks sent
+  // to the client, :-1: arms a decline whose reason is the next thread reply.
   const sub = await submissionForSlackMessage(channel, ts)
   if (sub) {
-    if (approve) await shortlistFromSlack({ id: sub.id, slackUser: event.user, channel, ts })
-    else await declineNeedsPage({ id: sub.id, channel, ts })
+    const base = { id: sub.id, slackUser: event.user, channel, ts }
+    if (approve) await moveSubmissionFromSlack({ ...base, to: 'shortlisted', note: null })
+    else if (send) await moveSubmissionFromSlack({ ...base, to: 'sent_to_client', note: null })
+    else if (reject) await armDeclineFromSlack({ ...base, status: sub.status })
     return
   }
+  if (send) return
 
   // Access-request cards can share a channel with sign-ups or intake, so they
   // are recognised by the message itself rather than by where it was posted.

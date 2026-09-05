@@ -21,8 +21,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { addReaction, esc, postMessage, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
-import { submissionStatus } from '@/lib/partners'
-import { workAuthLabel } from '@/lib/partners'
+import { submissionStatus, workAuthLabel } from '@/lib/partners'
+import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -84,7 +84,7 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
   const [{ data: cand }, { data: role }, { data: claim }, { data: partner }] = await Promise.all([
     admin
       .from('candidates')
-      .select('linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email')
+      .select('linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email, panel_grade, recruiter_verdict, lily_verdict')
       .eq('id', s.candidate_id)
       .maybeSingle(),
     admin
@@ -130,6 +130,21 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
     .filter(Boolean)
     .join('  ·  ')
 
+  // The panel's read, already on the record: the grade with its label, the
+  // two-sentence verdict, and Lily's own call after the intro call if she made
+  // one. Nothing is generated here; the card only repeats what the page shows.
+  const grade = typeof c.panel_grade === 'string' ? c.panel_grade : null
+  const gradeMeta = grade ? VERDICT_GRADES[GRADE_TO_VERDICT[grade] ?? ''] : null
+  const take = typeof c.recruiter_verdict === 'string' ? c.recruiter_verdict.replace(/\s+/g, ' ').trim() : ''
+  const lilyCall = typeof c.lily_verdict === 'string' ? c.lily_verdict.trim().split(/\s+/)[0]?.replace(/_/g, ' ') : ''
+  const panelHead = grade ? `*Panel: ${esc(gradeMeta?.grade ?? grade)}${gradeMeta ? ` · ${esc(gradeMeta.label)}` : ''}*` : '*Panel: not graded yet*'
+  const panelLine = [
+    panelHead + (take ? `  ${esc(take.length > 320 ? `${take.slice(0, 319)}…` : take)}` : ''),
+    lilyCall && lilyCall !== 'null' ? `_Lily after the intro call: ${esc(lilyCall)}_` : null,
+  ]
+    .filter(Boolean)
+    .join('\n')
+
   const partnerLine = `${s.submitted_by_name || s.submitted_by_email}${partner?.role ? ` · ${String(partner.role).replace(/_/g, ' ')}` : ''}${s.acted_by_name ? ` (entered by ${String(s.acted_by_name).split(' ')[0]} for them)` : ''}`
 
   const wants = [
@@ -148,6 +163,7 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
       },
     },
     ...(who ? [{ type: 'context', elements: [{ type: 'mrkdwn', text: esc(who) }] }] : []),
+    { type: 'section', text: { type: 'mrkdwn', text: panelLine } },
     {
       type: 'section',
       fields: [
@@ -178,7 +194,15 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
         },
       ],
     },
-    { type: 'context', elements: [{ type: 'mrkdwn', text: ':+1: shortlist  ·  to decline, open the search and say why (the partner reads it)' }] },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: ':+1: shortlist  ·  :outbox_tray: sent to client  ·  :-1: then reply in the thread with the reason to decline (the partner reads it)',
+        },
+      ],
+    },
   ]
 
   const posted = await postToDesk(`${s.candidate_name} submitted to ${title} at ${s.company_name}`, blocks)
@@ -188,62 +212,153 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
     .from('role_submissions')
     .update({ slack_channel_id: posted.channel, slack_message_ts: posted.ts })
     .eq('id', submissionId)
-  await addReaction(posted.channel, posted.ts, '+1')
+  for (const name of ['+1', 'outbox_tray', '-1']) await addReaction(posted.channel, posted.ts, name)
   return { sent: true }
 }
 
 /** The submission whose card is this Slack message, if it is one. */
-export async function submissionForSlackMessage(channel: string, ts: string): Promise<{ id: string; status: string } | null> {
+export async function submissionForSlackMessage(
+  channel: string,
+  ts: string,
+): Promise<{ id: string; status: string; declinePending: boolean } | null> {
   const admin = createAdminClient()
   const { data } = await admin
     .from('role_submissions')
-    .select('id, status')
+    .select('id, status, slack_decline_pending_at')
     .eq('slack_channel_id', channel)
     .eq('slack_message_ts', ts)
     .maybeSingle()
-  return data ? { id: data.id as string, status: data.status as string } : null
+  return data
+    ? { id: data.id as string, status: data.status as string, declinePending: Boolean(data.slack_decline_pending_at) }
+    : null
+}
+
+/** Which moves a reaction may make, and from where. Everything else is a page decision. */
+const SLACK_MOVES: Record<string, { from: string[]; label: string }> = {
+  shortlisted: { from: ['submitted'], label: 'shortlisted' },
+  sent_to_client: { from: ['submitted', 'shortlisted'], label: 'sent to the client' },
+  declined: { from: ['submitted', 'shortlisted', 'sent_to_client', 'client_interview'], label: 'declined' },
 }
 
 /**
- * :+1: on a submission card. Only a fresh submission can be shortlisted this
- * way; anything further along is a page decision. The claim is conditional on
- * status = 'submitted', so a double tap shortlists once.
+ * Moves a submission from Slack, with the same side effects the page applies.
+ *
+ * The claim is conditional on the current status being one the move allows,
+ * so a double tap or a Slack retry lands once. Declining requires a note: it is
+ * the line the partner reads and the reason they stop sourcing that profile.
  */
-export async function shortlistFromSlack(input: { id: string; slackUser: string; channel: string; ts: string }): Promise<void> {
+export async function moveSubmissionFromSlack(input: {
+  id: string
+  to: 'shortlisted' | 'sent_to_client' | 'declined'
+  note: string | null
+  slackUser: string
+  channel: string
+  ts: string
+}): Promise<void> {
   const admin = createAdminClient()
+  const move = SLACK_MOVES[input.to]
   const now = new Date().toISOString()
+
+  const { data: before } = await admin
+    .from('role_submissions')
+    .select('status, job_id, candidate_id, submitted_by_user_id')
+    .eq('id', input.id)
+    .maybeSingle()
+  if (!before) return
+  const from = before.status as string
+
+  if (!move.from.includes(from)) {
+    await postThreadReply(
+      input.channel,
+      input.ts,
+      `Already *${submissionStatus(from).label.toLowerCase()}*, so nothing changed. Later moves happen on the page.`,
+    )
+    return
+  }
+
+  const patch: Record<string, unknown> = {
+    status: input.to,
+    reviewed_at: now,
+    updated_at: now,
+    slack_decline_pending_at: null,
+    decided_at: input.to === 'declined' ? now : null,
+  }
+  if (input.note) patch.review_note = input.note
+  if (input.to === 'declined') patch.decline_reason = input.note
+
   const { data: claimed, error } = await admin
     .from('role_submissions')
-    .update({ status: 'shortlisted', reviewed_at: now, updated_at: now })
+    .update(patch)
     .eq('id', input.id)
-    .eq('status', 'submitted')
-    .select('id, candidate_id')
+    .eq('status', from)
+    .select('id')
   if (error) {
-    await postThreadReply(input.channel, input.ts, `:warning: Could not shortlist: ${error.message}`)
+    await postThreadReply(input.channel, input.ts, `:warning: Could not move that: ${error.message}`)
     return
   }
   if (!claimed?.length) {
-    const { data: row } = await admin.from('role_submissions').select('status').eq('id', input.id).maybeSingle()
-    const label = row ? submissionStatus(row.status as string).label.toLowerCase() : 'decided'
-    await postThreadReply(input.channel, input.ts, `Already ${label}, so nothing changed.`)
+    await postThreadReply(input.channel, input.ts, 'Someone moved it a moment ago, so nothing changed.')
     return
   }
+
   await admin.from('role_submission_events').insert({
     submission_id: input.id,
-    from_status: 'submitted',
-    to_status: 'shortlisted',
-    note: null,
+    from_status: from,
+    to_status: input.to,
+    note: input.note,
     actor_user_id: null,
   })
-  await postThreadReply(input.channel, input.ts, `:+1: <@${input.slackUser}> shortlisted. The partner sees "Shortlisted" on the search; next step is sending to the client from the page.`)
+
+  // The same side effect the page applies: the dashboard and the job page count
+  // "sent to client" from the pipeline table.
+  if (input.to === 'sent_to_client') {
+    await admin.from('job_candidate_pipeline').upsert(
+      {
+        job_id: before.job_id,
+        candidate_id: before.candidate_id,
+        stage: 'hm_shared',
+        owner_user_id: before.submitted_by_user_id,
+        added_by_user_id: null,
+        match_reason: 'Submitted through the partner desk',
+        updated_at: now,
+      },
+      { onConflict: 'job_id,candidate_id' },
+    )
+  }
+
+  const tail =
+    input.to === 'declined'
+      ? `The partner reads this reason on the search and in Sunday's digest:\n>${esc(input.note ?? '')}`
+      : input.to === 'shortlisted'
+        ? 'The partner sees "Shortlisted" on the search. :outbox_tray: when it goes to the client.'
+        : 'The partner sees "Sent to client". Interview, offer and placed are set on the page, with the hiring manager\'s read.'
+  await postThreadReply(input.channel, input.ts, `:white_check_mark: <@${input.slackUser}> ${move.label}. ${tail}`)
 }
 
-/** :-1: on a submission card: declining needs a reason the partner reads, so point at the page. */
-export async function declineNeedsPage(input: { id: string; channel: string; ts: string }): Promise<void> {
+/**
+ * :-1: on a submission card arms a decline and asks for the reason. The next
+ * human reply in the thread completes it (see declineFromThread). Arming
+ * rather than declining at once is what keeps the reason mandatory.
+ */
+export async function armDeclineFromSlack(input: { id: string; status: string; slackUser: string; channel: string; ts: string }): Promise<void> {
+  if (!SLACK_MOVES.declined.from.includes(input.status)) {
+    await postThreadReply(input.channel, input.ts, `Already *${submissionStatus(input.status).label.toLowerCase()}*, so there is nothing to decline.`)
+    return
+  }
   const admin = createAdminClient()
-  const { data } = await admin.from('role_submissions').select('job_id, company_id').eq('id', input.id).maybeSingle()
-  const url = data ? `${APP_URL}/searches/${data.company_id}/roles/${data.job_id}` : `${APP_URL}/searches`
-  await postThreadReply(input.channel, input.ts, `A decline carries a reason the partner reads, so it lives on the page: <${url}|open the search>, Decline, one line on why.`)
+  await admin.from('role_submissions').update({ slack_decline_pending_at: new Date().toISOString() }).eq('id', input.id)
+  await postThreadReply(
+    input.channel,
+    input.ts,
+    `<@${input.slackUser}>, reply in this thread with one line on why and that declines it. The partner reads that line, so write it for them. To change your mind, react :+1: or :outbox_tray: instead.`,
+  )
+}
+
+/** A thread reply on a submission card with a decline armed: the reply is the reason. */
+export async function declineFromThread(input: { id: string; text: string; slackUser: string; channel: string; ts: string }): Promise<void> {
+  const note = input.text.trim().slice(0, 2000)
+  if (!note) return
+  await moveSubmissionFromSlack({ id: input.id, to: 'declined', note, slackUser: input.slackUser, channel: input.channel, ts: input.ts })
 }
 
 // ── 2. a declined proposal ───────────────────────────────────────────────────

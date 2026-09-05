@@ -335,7 +335,10 @@ alter table public.company_access_requests
 -- shortlists the submission.
 alter table public.role_submissions
   add column if not exists slack_channel_id text,
-  add column if not exists slack_message_ts text;
+  add column if not exists slack_message_ts text,
+  -- :-1: arms a decline; the next thread reply is the reason (migration
+  -- role_submissions_slack_decline_pending).
+  add column if not exists slack_decline_pending_at timestamptz;
 
 -- ── questions answered from Slack (2026-09-06) ──────────────────────────────
 -- Applied to prod as migration search_questions_slack_loop. A question is also
