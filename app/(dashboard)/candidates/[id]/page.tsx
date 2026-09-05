@@ -92,6 +92,30 @@ export default async function CandidateDetailPage({ params }: PageProps) {
     .in('stage', ['job_shared', 'interest_confirmed', 'hm_shared'])
     .order('created_at', { ascending: false })
 
+  /*
+   * The contractual claims on this person: who holds them, with which client,
+   * and until when. Scoped by the same rule as the record itself, so a partner
+   * sees their own and the super admin sees all of them.
+   */
+  let claimsQuery = adminClient
+    .from('submission_claims')
+    .select('id, client_company_id, protected_through, status, intro_confirmed_at, intro_due_by')
+    .eq('candidate_id', id)
+    .eq('status', 'active')
+    .order('protected_through', { ascending: true })
+  if (!appUser.canViewAllCandidates) claimsQuery = claimsQuery.eq('holder_user_id', appUser.id)
+  const { data: claims } = await claimsQuery
+
+  const claimCompanies = claims?.length
+    ? (
+        await adminClient
+          .from('companies')
+          .select('id, name')
+          .in('id', Array.from(new Set(claims.map(c => c.client_company_id))))
+      ).data ?? []
+    : []
+  const claimCompanyName = new Map(claimCompanies.map(c => [c.id as string, c.name as string]))
+
   let ownerInfo = null
   if (candidate.owner_user_id) {
     const { data: owner } = await adminClient
@@ -383,6 +407,45 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                     )
                   }
                 )}
+              </div>
+            </section>
+          )}
+
+          {claims && claims.length > 0 && (
+            <section className={`${CARD} overflow-hidden`}>
+              <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
+                Protected
+                <span className="ml-2 font-normal text-[#9C9C95]">{claims.length}</span>
+              </h2>
+              <div className="mt-3">
+                {claims.map(c => {
+                  const overdue =
+                    !c.intro_confirmed_at &&
+                    c.intro_due_by &&
+                    new Date(c.intro_due_by).getTime() < Date.now()
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center gap-4 border-t border-[#E4E3DC] px-5 py-3.5"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[14px] font-medium text-[#161613]">
+                          {claimCompanyName.get(c.client_company_id) ?? 'Unknown company'}
+                        </p>
+                        <p className="truncate text-[12.5px] text-[#6E6E68]">
+                          {overdue ? 'Introduction still outstanding' : 'Your submission is protected'}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-right text-[12.5px] font-medium text-[#1F3A2F]">
+                        until{' '}
+                        {new Date(c.protected_through).toLocaleDateString('en-GB', {
+                          month: 'short',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}
