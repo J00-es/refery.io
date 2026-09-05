@@ -15,8 +15,8 @@
  * handleAccessRequest and lib/access-requests.ts.
  *
  * A question card adds one more move: a typed reply in its thread publishes
- * the answer to every partner on the search, :+1: on Pep's draft publishes the
- * draft, :see_no_evil: hides the question. See lib/search-questions.ts.
+ * the answer to every partner on the search, and :see_no_evil: hides the
+ * question. See lib/search-questions.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -132,7 +132,7 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
   if (!self || m.user === self) return
 
   const q = await questionForSlackMessage(m.channel!, m.thread_ts!)
-  if (!q || q.kind !== 'card') return
+  if (!q) return
 
   const result = await publishAnswer({
     id: q.id,
@@ -174,9 +174,9 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
 
-  // Question cards and Pep's drafts: :+1: on a draft publishes it, :see_no_evil:
-  // on the card hides the question. Recognised by the message, not the channel.
-  if (await handleQuestionReaction(event, channel, ts, approve, hide)) return
+  // Question cards: :see_no_evil: hides the question from partners. Recognised
+  // by the message, not the channel.
+  if (await handleQuestionReaction(event, channel, ts, hide)) return
   if (hide) return
 
   // Access-request cards can share a channel with sign-ups or intake, so they
@@ -284,39 +284,20 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
 }
 
 /**
- * Reactions on a question card or on Pep's draft beneath it.
+ * Reactions on a question card.
  *
- * Returns false when the message is neither, so the caller carries on. :+1: on
- * the draft publishes the suggested answer word for word; :-1: on it is a
- * no-op, because "not this" is what typing your own reply is for.
- * :see_no_evil: on the card hides the question from partners.
+ * Returns false when the message is not a question card, so the caller carries
+ * on. :see_no_evil: hides the question from partners; :+1: and :-1: on a card
+ * do nothing, because the answer is whatever gets typed in the thread.
  */
 async function handleQuestionReaction(
   event: ReactionEvent,
   channel: string,
   ts: string,
-  approve: boolean,
   hide: boolean,
 ): Promise<boolean> {
   const q = await questionForSlackMessage(channel, ts)
   if (!q) return false
-
-  if (q.kind === 'draft') {
-    if (!approve) return true
-    if (!q.suggestedAnswer) {
-      await postThreadReply(channel, ts, 'There is no draft to publish on this one. Reply in the thread instead.')
-      return true
-    }
-    const result = await publishAnswer({
-      id: q.id,
-      answer: q.suggestedAnswer,
-      answeredBy: null,
-      via: `slack-suggested:${event.user}`,
-      actorLabel: `<@${event.user}>`,
-    })
-    if (!result.ok) await postThreadReply(channel, ts, `:warning: Could not publish Pep's draft: ${result.error}`)
-    return true
-  }
 
   if (hide) {
     const result = await setQuestionVisibility({ id: q.id, visible: false, actorLabel: `<@${event.user}>` })

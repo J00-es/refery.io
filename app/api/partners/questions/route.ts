@@ -5,10 +5,6 @@ import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { canWorkSearch } from '@/lib/partners'
 import { announceQuestion } from '@/lib/search-questions'
 
-// The response returns at once; Pep's draft runs in `after()` and needs the
-// function to stay alive for the model call.
-export const maxDuration = 60
-
 /**
  * A partner's question on a search.
  *
@@ -51,8 +47,7 @@ export async function POST(req: Request) {
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  // The card in Slack and Pep's draft take a few seconds; the partner should
-  // not wait on either.
+  // The card in Slack is two calls; the partner should not wait on it.
   const questionId = data.id as string
   after(() =>
     announceQuestion(questionId).then(r => {

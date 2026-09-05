@@ -332,8 +332,9 @@ alter table public.company_access_requests
 
 -- ── questions answered from Slack (2026-09-06) ──────────────────────────────
 -- Applied to prod as migration search_questions_slack_loop. A question is also
--- a card in #refery-search-questions; Pep drafts in the thread (suggested_*),
--- and :+1: on the draft or a typed thread reply publishes the answer.
+-- a card in #refery-search-questions; a typed thread reply publishes the
+-- answer. suggested_answer / suggested_ts are unused: a model draft was tried
+-- and dropped the same day (Lily, 2026-09-06).
 alter table public.search_questions
   add column if not exists slack_channel_id   text,
   add column if not exists slack_message_ts   text,

@@ -15,8 +15,6 @@ export interface QuestionRow {
   is_visible: boolean
   /** True for the viewer's own question. Never who else asked. */
   mine: boolean
-  /** Pep's draft, admins only. Pre-fills the answer box until someone answers. */
-  suggested_answer?: string | null
 }
 
 /**
@@ -130,13 +128,10 @@ export function SearchQuestions({
 
 function QuestionItem({ q, canManage, canDelete }: { q: QuestionRow; canManage: boolean; canDelete: boolean }) {
   const router = useRouter()
-  // Pep's draft starts in the box when nobody has answered yet, so answering
-  // from the page is the same one-look decision it is in Slack.
-  const [answer, setAnswer] = useState(q.answer ?? q.suggested_answer ?? '')
+  const [answer, setAnswer] = useState(q.answer ?? '')
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const showsDraft = canManage && !q.answer && !!q.suggested_answer
 
   async function save(patch: Record<string, unknown>) {
     setBusy(true)
@@ -181,11 +176,8 @@ function QuestionItem({ q, canManage, canDelete }: { q: QuestionRow; canManage: 
         <div className="flex flex-col gap-2">
           {editing || !q.answer ? (
             <>
-              {showsDraft && (
-                <p className={META}>Pep drafted this from the brief. Publish it as is, or change it first.</p>
-              )}
               <textarea
-                rows={showsDraft ? 4 : 2}
+                rows={2}
                 value={answer}
                 onChange={e => setAnswer(e.target.value)}
                 placeholder="The answer, once, for everyone on the search."
@@ -194,7 +186,7 @@ function QuestionItem({ q, canManage, canDelete }: { q: QuestionRow; canManage: 
               <div className="flex items-center gap-2">
                 <button type="button" disabled={busy || !answer.trim()} onClick={() => save({ answer })} className={`${BTN_PRIMARY} min-h-[36px] px-4 text-[13px]`}>
                   {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {q.answer ? 'Update answer' : showsDraft ? 'Publish' : 'Answer'}
+                  {q.answer ? 'Update answer' : 'Answer'}
                 </button>
                 {q.answer && (
                   <button type="button" onClick={() => setEditing(false)} className={`min-h-[36px] px-2 text-[13px] text-[#6E6E68] ${FOCUS}`}>
