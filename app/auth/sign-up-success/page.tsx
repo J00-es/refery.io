@@ -8,31 +8,33 @@ export default function Page() {
     <div 
       className="min-h-svh w-full"
       style={{ 
-        background: '#F8F8F3',
-        fontFamily: "'Inter', system-ui, sans-serif",
+        background: '#F2F1EB',
+        fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
+      fontWeight: 600,
       }}
     >
       {/* Header */}
       <header 
         className="fixed top-0 left-0 right-0 z-10"
         style={{
-          background: 'rgba(248,248,243,0.88)',
+          background: 'rgba(242,241,235,0.88)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(16,15,15,0.10)',
+          borderBottom: '1px solid rgba(22,22,19,0.10)',
         }}
       >
         <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
           <Link 
             href="/" 
             style={{ 
-              fontFamily: "'Instrument Serif', Georgia, serif",
+              fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
+              fontWeight: 600,
               fontSize: '22px',
-              color: '#100F0F',
+              color: '#161613',
               textDecoration: 'none',
             }}
           >
-            Refery<span style={{ color: '#2A6B45' }}>.</span>
+            Refery<span style={{ color: '#1F3A2F' }}>.</span>
           </Link>
         </div>
       </header>
@@ -43,14 +45,14 @@ export default function Page() {
           {/* Success Icon */}
           <div 
             className="mx-auto mb-8 w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ background: '#EBF4EF' }}
+            style={{ background: '#E7EDE9' }}
           >
             <svg 
               width="28" 
               height="28" 
               viewBox="0 0 24 24" 
               fill="none" 
-              stroke="#2A6B45" 
+              stroke="#1F3A2F" 
               strokeWidth="2" 
               strokeLinecap="round" 
               strokeLinejoin="round"
@@ -63,11 +65,11 @@ export default function Page() {
           <h1 
             className="mb-4"
             style={{ 
-              fontFamily: "'Instrument Serif', Georgia, serif",
+              fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
+              fontWeight: 600,
               fontSize: '42px',
-              fontWeight: 400,
               lineHeight: 1.1,
-              color: '#100F0F',
+              color: '#161613',
               letterSpacing: '-0.02em',
             }}
           >
@@ -79,7 +81,7 @@ export default function Page() {
             style={{ 
               fontSize: '16px',
               lineHeight: 1.6,
-              color: 'rgba(16,15,15,0.64)',
+              color: 'rgba(22,22,19,0.64)',
             }}
           >
             Our team is reviewing your application. We&apos;ll get back to you within 48 hours.
@@ -90,16 +92,16 @@ export default function Page() {
             className="text-left mb-10 p-6"
             style={{ 
               background: '#FFFFFF',
-              border: '1px solid rgba(16,15,15,0.10)',
+              border: '1px solid rgba(22,22,19,0.10)',
               borderRadius: '10px',
             }}
           >
             <div className="flex items-start gap-4">
               <div 
                 className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: '#EBF4EF' }}
+                style={{ background: '#E7EDE9' }}
               >
-                <FileCheck className="h-5 w-5" style={{ color: '#2A6B45' }} />
+                <FileCheck className="h-5 w-5" style={{ color: '#1F3A2F' }} />
               </div>
               <div>
                 <h3 
@@ -107,7 +109,7 @@ export default function Page() {
                   style={{ 
                     fontSize: '15px',
                     fontWeight: 600,
-                    color: '#100F0F',
+                    color: '#161613',
                   }}
                 >
                   Partner agreement
@@ -116,7 +118,7 @@ export default function Page() {
                   style={{ 
                     fontSize: '14px',
                     lineHeight: 1.6,
-                    color: 'rgba(16,15,15,0.64)',
+                    color: 'rgba(22,22,19,0.64)',
                   }}
                 >
                   If you&apos;ve already signed your partner agreement, you&apos;re all set. 
@@ -127,7 +129,7 @@ export default function Page() {
                   style={{ 
                     fontSize: '14px',
                     lineHeight: 1.6,
-                    color: 'rgba(16,15,15,0.64)',
+                    color: 'rgba(22,22,19,0.64)',
                   }}
                 >
                   Haven&apos;t received it yet? Check your inbox or reach out to us.
@@ -143,7 +145,7 @@ export default function Page() {
             style={{ 
               fontSize: '14px',
               fontWeight: 500,
-              color: '#2A6B45',
+              color: '#1F3A2F',
             }}
           >
             Back to login
@@ -153,19 +155,19 @@ export default function Page() {
           {/* Footer */}
           <div 
             className="mt-16 pt-8"
-            style={{ borderTop: '1px solid rgba(16,15,15,0.06)' }}
+            style={{ borderTop: '1px solid rgba(22,22,19,0.06)' }}
           >
             <p 
               style={{ 
                 fontSize: '13px',
-                color: 'rgba(16,15,15,0.40)',
+                color: 'rgba(22,22,19,0.40)',
               }}
             >
               Questions?{' '}
               <a 
                 href="mailto:hello@refery.io" 
                 style={{ 
-                  color: '#2A6B45',
+                  color: '#1F3A2F',
                   fontWeight: 500,
                 }}
               >

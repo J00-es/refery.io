@@ -413,7 +413,7 @@ export function RecruiterAgreementSection({
               
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Agreement Content</p>
-                <ScrollArea className="h-[420px] border rounded-lg" style={{ background: '#F8F8F3' }}>
+                <ScrollArea className="h-[420px] border rounded-lg" style={{ background: '#F2F1EB' }}>
                   <div className="px-6 py-6">
                     <AgreementContent
                       content={viewingAgreement.agreement_content}

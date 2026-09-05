@@ -223,7 +223,7 @@ function BrandStyles() {
         width: 100%;
         padding: 12px 14px;
         font-size: 15px;
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
         color: ${C.ink};
         background: #fff;
         border: 1px solid ${C.border};
@@ -248,7 +248,7 @@ function BrandStyles() {
       .refery-cta {
         background: ${C.ink};
         color: #fff;
-        font-family: 'Inter', system-ui, sans-serif;
+        font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
         font-size: 16px;
         font-weight: 500;
         padding: 14px 28px;

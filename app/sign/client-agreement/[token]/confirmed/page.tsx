@@ -11,20 +11,23 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 const C = {
-  bg: '#F8F8F3',
-  card: '#FFFFFF',
-  ink: '#100F0F',
-  ink2: 'rgba(16,15,15,0.64)',
-  ink3: 'rgba(16,15,15,0.40)',
-  green: '#2A6B45',
-  greenBg: '#EBF4EF',
-  greenBorder: 'rgba(42,107,69,0.20)',
-  border: 'rgba(16,15,15,0.10)',
-  borderSoft: 'rgba(16,15,15,0.06)',
+  bg: '#F2F1EB',
+  card: '#FAF9F5',
+  ink: '#161613',
+  ink2: 'rgba(22,22,19,0.64)',
+  ink3: 'rgba(22,22,19,0.40)',
+  green: '#1F3A2F',
+  greenBg: '#E7EDE9',
+  greenBorder: 'rgba(31,58,47,0.20)',
+  border: 'rgba(22,22,19,0.10)',
+  borderSoft: 'rgba(22,22,19,0.06)',
 }
 
-const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif"
-const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+// The serif is retired platform-wide. Display and body are both DM Sans,
+// loaded once in layout.tsx as --font-dm-sans; display type earns its
+// contrast from weight and tracking rather than a second family.
+const SANS = "var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+const SERIF = SANS
 
 const PDF_TTL_SECONDS = 60 * 60 * 24 * 7 // 7-day signed download URL
 
@@ -88,7 +91,7 @@ export default async function ConfirmedPage({
         <h1
           style={{
             fontFamily: SERIF,
-            fontWeight: 400,
+            fontWeight: 600,
             fontSize: 'clamp(36px, 5vw, 52px)',
             lineHeight: 1.04,
             letterSpacing: '-0.02em',
@@ -241,7 +244,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           position: 'sticky',
           top: 0,
           zIndex: 50,
-          background: 'rgba(248,248,243,0.88)',
+          background: 'rgba(242,241,235,0.88)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           borderBottom: `1px solid ${C.border}`,
@@ -328,7 +331,7 @@ function NotFound() {
         <h1
           style={{
             fontFamily: SERIF,
-            fontWeight: 400,
+            fontWeight: 600,
             fontSize: 36,
             color: C.ink,
             margin: '0 0 12px 0',
@@ -351,7 +354,7 @@ function NotYetSigned({ token }: { token: string }) {
         <h1
           style={{
             fontFamily: SERIF,
-            fontWeight: 400,
+            fontWeight: 600,
             fontSize: 36,
             color: C.ink,
             margin: '0 0 12px 0',

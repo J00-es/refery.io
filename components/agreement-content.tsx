@@ -7,17 +7,20 @@ import { Fragment, useMemo } from 'react'
  * looks consistent on the public sign page and inside the admin dashboard.
  */
 const C = {
-  ink: '#100F0F',
-  ink2: 'rgba(16,15,15,0.72)',
-  ink3: 'rgba(16,15,15,0.48)',
-  green: '#2A6B45',
-  greenBg: '#EBF4EF',
-  border: 'rgba(16,15,15,0.10)',
-  borderSoft: 'rgba(16,15,15,0.06)',
+  ink: '#161613',
+  ink2: 'rgba(22,22,19,0.72)',
+  ink3: 'rgba(22,22,19,0.48)',
+  green: '#1F3A2F',
+  greenBg: '#E7EDE9',
+  border: 'rgba(22,22,19,0.10)',
+  borderSoft: 'rgba(22,22,19,0.06)',
 }
 
-const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif"
-const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+// The serif is retired platform-wide. Display and body are both DM Sans,
+// loaded once in layout.tsx as --font-dm-sans; display type earns its
+// contrast from weight and tracking rather than a second family.
+const SANS = "var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+const SERIF = SANS
 
 type Block =
   | { type: 'h1'; text: string }
@@ -281,7 +284,7 @@ export function AgreementContent({
                 <h1
                   style={{
                     fontFamily: SERIF,
-                    fontWeight: 400,
+                    fontWeight: 600,
                     fontSize: titleSize,
                     lineHeight: 1.04,
                     letterSpacing: '-0.018em',
@@ -302,7 +305,7 @@ export function AgreementContent({
                 key={i}
                 style={{
                   fontFamily: SERIF,
-                  fontWeight: 400,
+                  fontWeight: 600,
                   fontSize: h2Size,
                   lineHeight: 1.18,
                   letterSpacing: '-0.012em',
