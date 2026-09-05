@@ -114,7 +114,7 @@ export function renderWeeklyDigest(d: WeeklyDigest): { subject: string; html: st
   ${needs}
   ${d.searches.length ? section('Your searches', searches) : ''}
   ${section('New this week', lines(d.fresh))}
-  <tr><td style="padding:6px 0 32px 0;"><a href="${APP_URL}/partners" style="display:inline-block; padding:12px 22px; font-family:${SANS}; font-weight:600; font-size:14px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">Open your searches</a>
+  <tr><td style="padding:6px 0 32px 0;"><a href="${APP_URL}/searches" style="display:inline-block; padding:12px 22px; font-family:${SANS}; font-weight:600; font-size:14px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">Open your searches</a>
   <a href="mailto:${REPLY_TO}" style="display:inline-block; margin-left:10px; padding:12px 22px; font-family:${SANS}; font-weight:600; font-size:14px; color:${M.body}; border:1px solid #d2d1c7; border-radius:999px; text-decoration:none;">Reply to Lily</a></td></tr>
   <tr><td style="border-top:1px solid ${M.rule}; padding-top:18px; font-family:${SANS}; font-size:12px; line-height:1.6; color:${M.muted};">You get this once a week while you are on at least one search. What changed and where sourcing energy is needed, never the job descriptions again. Everything in it is confidential to you. Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a></td></tr>
 </table></td></tr></table></body></html>`

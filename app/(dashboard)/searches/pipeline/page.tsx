@@ -65,7 +65,7 @@ export default async function PipelinePage() {
           <p className={LEDE}>
             Nothing here yet. Open a search you are working, pick from your candidates, and say why. They appear here the moment you submit.
           </p>
-          <Link href="/partners" className={`mt-4 inline-flex text-[13.5px] font-semibold text-[#1F3A2F] ${FOCUS}`}>
+          <Link href="/searches" className={`mt-4 inline-flex text-[13.5px] font-semibold text-[#1F3A2F] ${FOCUS}`}>
             Go to your searches →
           </Link>
         </div>
@@ -110,7 +110,7 @@ export default async function PipelinePage() {
               <ul className="mt-3 divide-y divide-[#E4E3DC] border-t border-[#E4E3DC]">
                 {closed.map(s => (
                   <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 text-[13.5px]">
-                    <Link href={`/partners/${s.company_id}/roles/${s.job_id}`} className={`font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
+                    <Link href={`/searches/${s.company_id}/roles/${s.job_id}`} className={`font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
                       {s.candidate_name || 'Unnamed candidate'}
                     </Link>
                     <span className={META}>{s.job_title} · {s.company_name}</span>
@@ -140,7 +140,7 @@ function Card({ s, showsSubmitter }: { s: SubmissionRow; showsSubmitter: boolean
         : null
 
   return (
-    <Link href={`/partners/${s.company_id}/roles/${s.job_id}`} className={`block p-3.5 ${CARD} transition-colors hover:border-[#D2D1C7] ${FOCUS}`}>
+    <Link href={`/searches/${s.company_id}/roles/${s.job_id}`} className={`block p-3.5 ${CARD} transition-colors hover:border-[#D2D1C7] ${FOCUS}`}>
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-[14px] font-semibold text-[#161613]">{s.candidate_name || 'Unnamed candidate'}</span>

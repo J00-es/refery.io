@@ -136,7 +136,7 @@ export function PartnerCompanyCard({
 
   if (company.unlocked) {
     return (
-      <Link href={`/partners/${company.companyId}`} className={`block p-5 ${CARD_LINK}`}>
+      <Link href={`/searches/${company.companyId}`} className={`block p-5 ${CARD_LINK}`}>
         {body}
         {company.briefPublished && (
           <p className={`mt-3.5 inline-flex items-center gap-1.5 ${FOREST} text-[13px] font-semibold`}>

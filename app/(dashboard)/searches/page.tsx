@@ -185,7 +185,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
         missingAuth.length === 1
           ? `${first.candidate_name} is missing work authorisation. ${first.company_name} will ask.`
           : `${missingAuth.length} of your submissions are missing work authorisation. Clients ask on the first read.`,
-      href: `/partners/${first.company_id}/roles/${first.job_id}`,
+      href: `/searches/${first.company_id}/roles/${first.job_id}`,
       action: 'Add',
       tone: 'amber',
     })
@@ -196,7 +196,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     const label = ['', 'strong no', 'no', 'yes', 'strong yes'][first.hm_rating as number] ?? ''
     needsYou.push({
       text: `New read from the hiring manager on ${first.candidate_name}${label ? `: ${label}` : ''}.`,
-      href: `/partners/${first.company_id}/roles/${first.job_id}`,
+      href: `/searches/${first.company_id}/roles/${first.job_id}`,
       action: 'Read',
       tone: 'green',
     })
@@ -204,7 +204,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
   if (access.canManage && (requestRows ?? []).length) {
     needsYou.push({
       text: `${requestRows!.length} ${requestRows!.length === 1 ? 'partner is' : 'partners are'} asking to be put on a client.`,
-      href: '/partners/requests',
+      href: '/searches/requests',
       action: 'Review',
       tone: 'amber',
     })
@@ -233,7 +233,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     ...views.map(company => ({
       kind: 'company' as const,
       id: company.companyId,
-      href: `/partners/${company.companyId}`,
+      href: `/searches/${company.companyId}`,
       label: company.name,
       detail: company.liveRoles ? `${company.liveRoles} live` : null,
       locked: !company.unlocked,
@@ -241,7 +241,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     ...roles.map(role => ({
       kind: 'role' as const,
       id: role.job_id,
-      href: `/partners/${role.company_id}/roles/${role.job_id}`,
+      href: `/searches/${role.company_id}/roles/${role.job_id}`,
       label: role.headline || role.title,
       detail: viewByCompany.get(role.company_id)?.name ?? null,
     })),
@@ -270,7 +270,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
             <h1 className={H1}>Clients</h1>
             <p className={`mt-2 ${META}`}>{views.length} clients · published and unpublished. Partners see only published ones, anonymised until they are on a search there.</p>
           </div>
-          <Link href="/partners" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>Back to searches</Link>
+          <Link href="/searches" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>Back to searches</Link>
         </header>
         <div className="grid gap-4 lg:grid-cols-2">
           {views.map(company => (
@@ -304,7 +304,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           {access.canManage ? (
             <>
               {access.realUser.isSuperAdmin && !access.preview && <ViewAs />}
-              <Link href="/partners?view=clients" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <Link href="/searches?view=clients" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 Clients
               </Link>
             </>
@@ -414,7 +414,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           <Numbers inPlay={inPlay} interviewing={interviewing} protectedCount={protectedCount} isAdmin={access.canManage} />
           {!access.canManage && <IntroduceCompany />}
           {access.canManage && (requestRows ?? []).length > 0 && (
-            <Link href="/partners/requests" className={`flex items-center gap-2.5 rounded-[14px] bg-[#F5EEDD] px-4 py-3 text-[13.5px] font-medium text-[#8A6A1F] ${FOCUS}`}>
+            <Link href="/searches/requests" className={`flex items-center gap-2.5 rounded-[14px] bg-[#F5EEDD] px-4 py-3 text-[13.5px] font-medium text-[#8A6A1F] ${FOCUS}`}>
               <Inbox className="h-4 w-4" />
               {requestRows!.length} access {requestRows!.length === 1 ? 'request' : 'requests'} waiting
             </Link>

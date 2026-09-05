@@ -56,8 +56,8 @@ const navItems: NavItem[] = [
  * their API handlers actually enforce.
  */
 const superAdminLeadNavItems = [
-  { href: '/partners', label: 'Searches', icon: Handshake },
-  { href: '/partners/pipeline', label: 'Pipeline', icon: LayoutGrid },
+  { href: '/searches', label: 'Searches', icon: Handshake },
+  { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
 ]
 const superAdminTrailNavItems = [{ href: '/briefs', label: 'Briefs', icon: Mail }]
 

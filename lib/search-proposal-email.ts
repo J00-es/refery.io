@@ -59,7 +59,7 @@ export async function sendSearchProposalEmail(input: {
   const company = input.role.company_name ?? 'a client'
   const fee = resolveFee(input.role)
   const payout = payoutAmount(fee)
-  const url = `${APP_URL}/partners/${input.companyId}/roles/${input.jobId}`
+  const url = `${APP_URL}/searches/${input.companyId}/roles/${input.jobId}`
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>You are on a new search</title></head>

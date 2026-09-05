@@ -46,7 +46,7 @@ export function RoleCard({
   )
 
   return (
-    <Link href={`/partners/${companyId}/roles/${role.job_id}`} className={`block p-5 ${CARD_LINK}`}>
+    <Link href={`/searches/${companyId}/roles/${role.job_id}`} className={`block p-5 ${CARD_LINK}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className={H3}>{role.headline || role.title}</h3>

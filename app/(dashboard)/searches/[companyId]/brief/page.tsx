@@ -54,7 +54,7 @@ export default async function CompanyBriefPage({
     <div className="-mx-3 -my-4 sm:-mx-4 sm:-my-6 md:-my-8">
       <div className="mx-auto flex max-w-[920px] flex-wrap items-center justify-between gap-3 px-5 pt-4 sm:px-8 print:hidden">
         <Link
-          href={jobId ? `/partners/${companyId}/roles/${jobId}` : `/partners/${companyId}`}
+          href={jobId ? `/searches/${companyId}/roles/${jobId}` : `/searches/${companyId}`}
           className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
         >
           <ArrowLeft className="h-3.5 w-3.5" />

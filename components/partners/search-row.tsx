@@ -31,7 +31,7 @@ export function SearchRow({ search }: { search: DeskSearch }) {
 
   return (
     <Link
-      href={`/partners/${search.companyId}/roles/${search.jobId}`}
+      href={`/searches/${search.companyId}/roles/${search.jobId}`}
       className={`block px-4 py-4 sm:px-5 ${CARD_LINK}`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">

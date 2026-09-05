@@ -272,7 +272,7 @@ export default async function PartnerRolePage({
   return (
     <div className="mx-auto max-w-[1120px] px-1 pb-16 sm:px-0">
       <Link
-        href={`/partners/${companyId}`}
+        href={`/searches/${companyId}`}
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium ${MUTED} transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -318,7 +318,7 @@ export default async function PartnerRolePage({
               </>
             )}
             {access.canManage && (
-              <Link href={`/partners/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <Link href={`/searches/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 <Users className="h-4 w-4" />
                 Coverage
               </Link>
@@ -468,7 +468,7 @@ export default async function PartnerRolePage({
           <div className="mt-7 grid gap-3 sm:grid-cols-2">
             {brief ? (
               <Link
-                href={`/partners/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
+                href={`/searches/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
                 className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
               >
                 <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F3A2F]" aria-hidden />
@@ -488,7 +488,7 @@ export default async function PartnerRolePage({
                   <>
                     No brief imported yet.{' '}
                     <Link
-                      href={`/partners/${companyId}`}
+                      href={`/searches/${companyId}`}
                       className={`font-semibold text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
                     >
                       Import one from the client setup panel

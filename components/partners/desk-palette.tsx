@@ -144,12 +144,12 @@ export function DeskPalette({
           )}
 
           <CommandGroup heading="Go to">
-            <CommandItem value="all clients desk partners" onSelect={() => go('/partners')}>
+            <CommandItem value="all clients desk partners" onSelect={() => go('/searches')}>
               <FileText className="h-4 w-4 text-[#8A8A82]" />
               All clients
             </CommandItem>
             {hasRequests && (
-              <CommandItem value="access requests" onSelect={() => go('/partners/requests')}>
+              <CommandItem value="access requests" onSelect={() => go('/searches/requests')}>
                 <Inbox className="h-4 w-4 text-[#8A8A82]" />
                 Access requests
               </CommandItem>

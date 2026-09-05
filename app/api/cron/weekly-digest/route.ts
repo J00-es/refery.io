@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
       digest.searches.push({
         title: (r.headline as string) || (r.title as string),
         company: r.company_name as string,
-        href: `${APP_URL}/partners/${r.company_id}/roles/${r.job_id}`,
+        href: `${APP_URL}/searches/${r.company_id}/roles/${r.job_id}`,
         status: [
           a.status === 'proposed' ? 'proposed to you' : null,
           searchStageMeta(r.search_stage as string).label,

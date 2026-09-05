@@ -15,6 +15,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // The desk moved from /partners to /searches to match its nav label. Every
+  // brief and proposal email sent before that carries the old path.
+  async redirects() {
+    return [
+      { source: '/partners', destination: '/searches', permanent: true },
+      { source: '/partners/:path*', destination: '/searches/:path*', permanent: true },
+    ]
+  },
 }
 
 export default nextConfig

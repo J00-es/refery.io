@@ -36,7 +36,7 @@ export function ViewSwitch({
         return (
           <Link
             key={tab.key}
-            href={tab.key === 'searches' ? '/partners' : '/partners?view=clients'}
+            href={tab.key === 'searches' ? '/searches' : '/searches?view=clients'}
             aria-current={active ? 'page' : undefined}
             /* An underline rather than a pill: this is a change of surface, not a
                filter, and the filter rail below already uses pills. */

@@ -119,7 +119,7 @@ export default async function PartnerCompanyPage({
   return (
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
       <Link
-        href="/partners"
+        href="/searches"
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -232,7 +232,7 @@ export default async function PartnerCompanyPage({
       )}
 
       {brief && (
-        <Link href={`/partners/${company.companyId}/brief`} className={`flex items-start gap-3 p-4 ${CARD_LINK}`}>
+        <Link href={`/searches/${company.companyId}/brief`} className={`flex items-start gap-3 p-4 ${CARD_LINK}`}>
           <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F3A2F]" aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block text-[14.5px] font-semibold text-[#161613]">Scout brief</span>

@@ -55,7 +55,7 @@ export default async function AccessRequestsPage() {
   return (
     <div className="mx-auto max-w-[760px] space-y-6 px-1 pb-16 sm:px-0">
       <Link
-        href="/partners"
+        href="/searches"
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -93,7 +93,7 @@ export default async function AccessRequestsPage() {
                     <p className={`mt-0.5 text-[13px] ${MUTED}`}>
                       wants access to{' '}
                       <Link
-                        href={`/partners/${request.company_id}`}
+                        href={`/searches/${request.company_id}`}
                         className={`font-medium text-[#1F3A2F] underline-offset-4 hover:underline ${FOCUS}`}
                       >
                         {companyLabel}
