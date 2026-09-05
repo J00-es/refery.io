@@ -47,6 +47,16 @@ export const maxDuration = 300
  */
 const LOOKBACK_HOURS = Number(process.env.CALL_RECAP_LOOKBACK_HOURS || 24)
 
+/**
+ * Ceiling for the `?hours=` override below.
+ *
+ * A manual trigger sometimes needs to reach past the schedule: the first run
+ * after this feature is switched on has a backlog behind it, and a run missed
+ * during an outage leaves a hole wider than the default window. 30 days covers
+ * both without letting one request walk the whole Granola history.
+ */
+const MAX_LOOKBACK_HOURS = 24 * 30
+
 /** Calls to process per run, so one busy afternoon cannot run past maxDuration. */
 const MAX_PER_RUN = 5
 
@@ -209,12 +219,30 @@ async function run(request: NextRequest) {
   }
 
   const admin = createAdminClient()
-  const since = new Date(Date.now() - LOOKBACK_HOURS * 60 * 60 * 1000)
+
+  // `?hours=` widens the window for a manual run. The schedule never sets it,
+  // so steady-state behaviour is unchanged.
+  const requested = Number(request.nextUrl.searchParams.get('hours'))
+  const lookbackHours =
+    Number.isFinite(requested) && requested > 0
+      ? Math.min(requested, MAX_LOOKBACK_HOURS)
+      : LOOKBACK_HOURS
+
+  const since = new Date(Date.now() - lookbackHours * 60 * 60 * 1000)
 
   const notes = await recentNotes(since)
   if (!notes.length) {
-    return NextResponse.json({ ok: true, looked_at: 0, posted: 0, results: [] })
+    return NextResponse.json({ ok: true, lookback_hours: lookbackHours, looked_at: 0, posted: 0, results: [] })
   }
+
+  // Newest first, because a run budget means some notes wait for the next run
+  // and the value of a recap decays fast. Granola returns notes oldest first,
+  // so without this a backlog would spend the budget on the stalest calls: a
+  // follow-up drafted to someone Lily spoke to three weeks ago, while this
+  // morning's call waited another ten minutes. Irrelevant in steady state,
+  // where a run sees one or two notes, and decisive on the first run after a
+  // backfill.
+  notes.sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
 
   // One query rather than one per note. `attempts` decides whether a note that
   // has already failed is worth another model call.
@@ -258,7 +286,7 @@ async function run(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, looked_at: notes.length, posted, results })
+  return NextResponse.json({ ok: true, lookback_hours: lookbackHours, looked_at: notes.length, posted, results })
 }
 
 async function handleNote(
