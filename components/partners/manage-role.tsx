@@ -55,6 +55,11 @@ export function ManageRole({
     /** The band a percentage fee is computed against, for the live preview. */
     salaryMin: number | null
     salaryMax: number | null
+    hardRequirements: string[]
+    intakeNotes: string[]
+    notFor: string | null
+    interviewSteps: { title: string; detail?: string | null }[]
+    decisionDays: number | null
   }
 }) {
   const router = useRouter()
@@ -74,6 +79,14 @@ export function ManageRole({
   const [scoutShare, setScoutShare] = useState(initial.scoutShare?.toString() ?? '')
   const [cap, setCap] = useState(initial.submissionCap?.toString() ?? '')
   const [targetStart, setTargetStart] = useState(initial.targetStart ?? '')
+  const [hardRequirements, setHardRequirements] = useState(initial.hardRequirements.join('\n'))
+  const [intakeNotes, setIntakeNotes] = useState(initial.intakeNotes.join('\n'))
+  const [notFor, setNotFor] = useState(initial.notFor ?? '')
+  // One step per line, "Title | detail". Typed faster than a repeating form.
+  const [interviewSteps, setInterviewSteps] = useState(
+    initial.interviewSteps.map(s => (s.detail ? `${s.title} | ${s.detail}` : s.title)).join('\n'),
+  )
+  const [decisionDays, setDecisionDays] = useState(initial.decisionDays?.toString() ?? '')
 
   /*
     The outcome of the current settings, recomputed as they are typed.
@@ -117,6 +130,18 @@ export function ManageRole({
           exclusivity: exclusivity || null,
           submission_cap: cap || null,
           target_start: targetStart || null,
+          hard_requirements: hardRequirements,
+          intake_notes: intakeNotes,
+          not_for: notFor || null,
+          interview_steps: interviewSteps
+            .split('\n')
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => {
+              const [title, ...rest] = line.split('|')
+              return { title: title.trim(), detail: rest.join('|').trim() || null }
+            }),
+          decision_days: decisionDays || null,
         }),
       })
       const body = await res.json().catch(() => ({}))
@@ -349,6 +374,64 @@ export function ManageRole({
               value={context}
               onChange={e => setContext(e.target.value)}
               placeholder="What came out of the intake call that is not in the job post. Assigned scouts read this."
+              className={input}
+            />
+          </label>
+
+          <p className="pt-2 text-[12.5px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
+            The bar for this seat
+          </p>
+
+          <label className={label}>
+            Hard requirements, from the JD
+            <textarea
+              rows={4}
+              value={hardRequirements}
+              onChange={e => setHardRequirements(e.target.value)}
+              placeholder={'One per line\n3+ years backend, shipped to production\nSan Francisco, in person'}
+              className={input}
+            />
+          </label>
+
+          <label className={label}>
+            From the intake call
+            <textarea
+              rows={4}
+              value={intakeNotes}
+              onChange={e => setIntakeNotes(e.target.value)}
+              placeholder={'One per line. The part the JD does not say.\nEquity appetite is the first filter\nNew grad to senior, the archetype matters more than the years'}
+              className={input}
+            />
+          </label>
+
+          <label className={label}>
+            Not for
+            <input
+              value={notFor}
+              onChange={e => setNotFor(e.target.value)}
+              placeholder="pre-sales or non-coding consulting, or anyone anchored to one stack"
+              className={input}
+            />
+          </label>
+
+          <label className={label}>
+            How they interview
+            <textarea
+              rows={4}
+              value={interviewSteps}
+              onChange={e => setInterviewSteps(e.target.value)}
+              placeholder={'One step per line, title | detail\nFounder call, 30 min | within 3 days of intro\nPaired session, 2 hours | a real problem, on-site if local'}
+              className={input}
+            />
+          </label>
+
+          <label className={label}>
+            Days from first call to a decision
+            <input
+              inputMode="numeric"
+              value={decisionDays}
+              onChange={e => setDecisionDays(e.target.value)}
+              placeholder="14"
               className={input}
             />
           </label>

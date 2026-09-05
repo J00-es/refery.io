@@ -1,9 +1,10 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, ChevronDown, ExternalLink, FileText } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ExternalLink, FileText, Users } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   BODY,
+  BTN_QUIET,
   BTN_TEXT,
   CARD,
   CARD_LINK,
@@ -30,14 +31,19 @@ import { clientFeeAmount, feeExplanation, payoutAmount, resolveFee } from '@/lib
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
   PRIORITY_META,
+  assignmentFor,
+  canWorkSearch,
   isUnlocked,
+  searchStageMeta,
   slotsLeft,
-  submissionStatus,
   toCompanyView,
   type PartnerCompanyRow,
   type PartnerRoleRow,
   type SubmissionRow,
 } from '@/lib/partners'
+import { ProposalActions } from '@/components/partners/proposal-card'
+import { SearchQuestions, type QuestionRow } from '@/components/partners/search-questions'
+import { StageStrip } from '@/components/partners/stage-strip'
 import { CopyButton } from '@/components/partners/copy-button'
 import { MatchedCandidates, type MatchRow } from '@/components/partners/matched-candidates'
 import { ManageRole } from '@/components/partners/manage-role'
@@ -75,6 +81,9 @@ export default async function PartnerRolePage({
   if (!access.canManage && !(companyRow as PartnerCompanyRow).is_published) notFound()
 
   const unlocked = isUnlocked(access, companyId)
+  // Reading the client is company-wide; working a search is per role.
+  const assignment = assignmentFor(access, jobId)
+  const canWork = canWorkSearch(access, jobId, companyId)
 
   /*
     Submissions. A scout reads their own; an admin reads the desk's. There is no
@@ -92,7 +101,7 @@ export default async function PartnerRolePage({
     ? allSubmissions
     : allSubmissions.filter(s => s.submitted_by_user_id === access.appUser.id)
 
-  const [{ data: eventRows }, { data: briefRow }] = await Promise.all([
+  const [{ data: eventRows }, { data: briefRow }, { data: questionRows }] = await Promise.all([
     submissions.length
       ? adminClient
           .from('role_submission_events')
@@ -110,7 +119,24 @@ export default async function PartnerRolePage({
           .eq('company_id', companyId)
           .or(`job_id.eq.${jobId},job_id.is.null`)
       : Promise.resolve({ data: null }),
+    unlocked
+      ? adminClient
+          .from('search_questions')
+          .select('id, question, answer, answered_at, created_at, is_visible, asked_by')
+          .eq('job_id', jobId)
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: [] }),
   ])
+
+  const questions: QuestionRow[] = (questionRows ?? []).map(q => ({
+    id: q.id as string,
+    question: q.question as string,
+    answer: (q.answer as string | null) ?? null,
+    answered_at: (q.answered_at as string | null) ?? null,
+    created_at: q.created_at as string,
+    is_visible: q.is_visible as boolean,
+    mine: q.asked_by === access.appUser.id,
+  }))
 
   /*
     The candidates already paired with this role.
@@ -217,7 +243,8 @@ export default async function PartnerRolePage({
   const payout = payoutAmount(fee)
   const slots = slotsLeft(role)
   const closed = !role.is_live || role.job_status !== 'open'
-  const inPlay = submissions.filter(s => submissionStatus(s.status).category === 'in_progress').length
+  const stage = searchStageMeta(role.search_stage)
+  const interviewSteps = Array.isArray(role.interview_steps) ? role.interview_steps : []
   const targetStart = role.target_start
     ? new Date(role.target_start).toLocaleDateString('en-US', {
         month: 'long',
@@ -282,7 +309,11 @@ export default async function PartnerRolePage({
             </p>
           </div>
           {access.canManage && (
-            <div className="shrink-0">
+            <div className="flex shrink-0 items-center gap-2">
+              <Link href={`/partners/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                <Users className="h-4 w-4" />
+                Coverage
+              </Link>
               <ManageRole
                 jobId={jobId}
                 jobTitle={`${role.title} · ${company.name}`}
@@ -301,6 +332,11 @@ export default async function PartnerRolePage({
                   targetStart: role.target_start,
                   salaryMin: role.salary_min,
                   salaryMax: role.salary_max,
+                  hardRequirements: role.hard_requirements ?? [],
+                  intakeNotes: role.intake_notes ?? [],
+                  notFor: role.not_for,
+                  interviewSteps: interviewSteps,
+                  decisionDays: role.decision_days,
                 }}
               />
             </div>
@@ -335,20 +371,24 @@ export default async function PartnerRolePage({
           {role.payout_note && <dd className={`mt-0.5 ${META}`}>{role.payout_note}</dd>}
         </div>
         <div>
-          <dt className={FIGURE}>{slots === null ? inPlay : slots === 0 ? 'Full' : slots}</dt>
+          <dt className={FIGURE}>
+            {role.decision_days ? `~${role.decision_days} days` : shortAge(role.added_at)}
+          </dt>
           <dd className={`mt-1.5 ${LABEL}`}>
-            {slots === null
-              ? 'in play · no cap'
-              : slots === 0
-                ? 'no slots until one frees up'
-                : `of ${role.submission_cap} slots open`}
+            {role.decision_days
+              ? 'from first call to a decision'
+              : targetStart
+                ? `on the desk · starts ${targetStart}`
+                : 'on the desk'}
           </dd>
+          {role.decision_days && targetStart && (
+            <dd className={`mt-1 ${META}`}>Target start {targetStart}</dd>
+          )}
         </div>
         <div>
-          <dt className={FIGURE}>{shortAge(role.added_at)}</dt>
-          <dd className={`mt-1.5 ${LABEL}`}>
-            {targetStart ? `on the desk · starts ${targetStart}` : 'on the desk'}
-          </dd>
+          {/* How far the search has got, in place of how many are on it. */}
+          <StageStrip stage={role.search_stage} movedAt={role.stage_moved_at} isOpen={!closed} />
+          <dd className={`mt-2 ${META}`}>{stage.blurb}</dd>
         </div>
       </dl>
 
@@ -370,6 +410,44 @@ export default async function PartnerRolePage({
         </section>
       ) : (
         <>
+          {assignment?.status === 'proposed' && (
+            <section className={`mt-7 border-[#E4D9B8] bg-[#FFFDF7] p-5 ${CARD}`}>
+              <h2 className="text-[15px] font-semibold text-[#161613]">Refery put you on this search</h2>
+              <p className={`mt-1 ${LEDE}`}>
+                Read the bar and the brief, then tell us in one tap whether you will work it.
+              </p>
+              <div className="mt-3">
+                <ProposalActions
+                  assignmentId={assignment.id}
+                  why={assignment.why}
+                  proposedAt={assignment.proposed_at}
+                  expiresAt={assignment.expires_at}
+                />
+              </div>
+            </section>
+          )}
+
+          {!canWork && !access.canManage && (
+            <section className={`mt-7 max-w-xl p-5 ${CARD}`}>
+              <h2 className="text-[15px] font-semibold text-[#161613]">
+                {assignment?.status === 'declined'
+                  ? 'You passed on this search'
+                  : 'You are not on this search yet'}
+              </h2>
+              <p className={`mt-1.5 ${LEDE}`}>
+                You can read everything here because you are on another search at this client.
+                Submitting to this one needs Refery to put you on it. Ask, and say what supply you have.
+              </p>
+              <div className="mt-3">
+                <RequestAccess
+                  companyId={companyId}
+                  companyLabel={`${role.headline || role.title} at ${company.name}`}
+                  pending={company.requestPending}
+                />
+              </div>
+            </section>
+          )}
+
           {/*
             The brief and the blurb are one row of two entry points, not two full
             sections. The brief used to be rendered inline below everything else —
@@ -454,6 +532,68 @@ export default async function PartnerRolePage({
             </details>
           )}
 
+          {(!!role.hard_requirements?.length || !!role.intake_notes?.length || role.not_for) && (
+            <section className="mt-9">
+              <h2 className={H2}>The bar for this seat</h2>
+              <div className={`mt-4 grid gap-6 p-5 sm:grid-cols-2 ${CARD}`}>
+                {!!role.hard_requirements?.length && (
+                  <div>
+                    <p className="text-[12.5px] font-semibold text-[#6E6E68]">Hard requirements, from the JD</p>
+                    <ul className="mt-2 space-y-1.5">
+                      {role.hard_requirements.map((line, i) => (
+                        <li key={i} className={`relative pl-4 ${BODY}`}>
+                          <span aria-hidden className="absolute left-0 top-[9px] h-1.5 w-1.5 rounded-full bg-[#1F3A2F]" />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {!!role.intake_notes?.length && (
+                  <div>
+                    <p className="text-[12.5px] font-semibold text-[#8A6A1F]">From the intake call</p>
+                    <ul className="mt-2 space-y-1.5">
+                      {role.intake_notes.map((line, i) => (
+                        <li key={i} className={`relative pl-4 ${BODY}`}>
+                          <span aria-hidden className="absolute left-0 top-[9px] h-1.5 w-1.5 rounded-full bg-[#C79A2E]" />
+                          {line}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {role.not_for && (
+                  <p className={`border-t border-dashed border-[#D2D1C7] pt-3 sm:col-span-2 ${LEDE}`}>
+                    <span className="font-semibold text-[#9C3F37]">Not for: </span>
+                    {role.not_for}
+                  </p>
+                )}
+              </div>
+            </section>
+          )}
+
+          {interviewSteps.length > 0 && (
+            <section className="mt-9">
+              <h2 className={H2}>How they interview</h2>
+              <ol className={`mt-4 grid gap-5 p-5 sm:grid-cols-${Math.min(interviewSteps.length, 4)} ${CARD}`}>
+                {interviewSteps.map((step, i) => (
+                  <li key={i} className="flex gap-3">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E7EDE9] text-[12px] font-bold text-[#1F3A2F]">
+                      {i + 1}
+                    </span>
+                    <span>
+                      <span className="block text-[14px] font-semibold text-[#161613]">{step.title}</span>
+                      {step.detail && <span className={`mt-0.5 block ${META}`}>{step.detail}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {role.decision_days && (
+                <p className={`mt-2 ${META}`}>Decision typically inside {role.decision_days} days of the first call. Refery relays the read after each step.</p>
+              )}
+            </section>
+          )}
+
           {/* The queue you can act on, then the record of what you already did. */}
           <section className="mt-9">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -467,7 +607,7 @@ export default async function PartnerRolePage({
                   you would stand behind and say why.
                 </p>
               </div>
-              {!closed && slots !== 0 && (
+              {!closed && slots !== 0 && canWork && (
                 <SubmitCandidates
                   jobId={jobId}
                   roleTitle={`${role.title} · ${company.name}`}
@@ -481,11 +621,13 @@ export default async function PartnerRolePage({
                 jobId={jobId}
                 roleTitle={`${role.title} · ${company.name}`}
                 matches={matches}
-                disabled={closed || slots === 0}
+                disabled={closed || slots === 0 || !canWork}
                 disabledReason={
                   closed
                     ? 'This search is closed, so nothing more can be submitted.'
-                    : 'This search is full. Nothing more can be submitted until a slot frees up.'
+                    : !canWork
+                      ? 'Ask to be put on this search before submitting.'
+                      : 'This search is not taking more candidates right now.'
                 }
               />
             </div>
@@ -506,6 +648,8 @@ export default async function PartnerRolePage({
               />
             </div>
           </section>
+
+          <SearchQuestions jobId={jobId} questions={questions} canAsk={canWork && !closed} canManage={access.canManage} />
         </>
       )}
     </div>

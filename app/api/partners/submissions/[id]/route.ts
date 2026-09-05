@@ -37,6 +37,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!status || !VALID.has(status)) {
     return NextResponse.json({ error: 'Unknown status' }, { status: 400 })
   }
+  // The hiring manager's read: 1 (strong no) to 4 (strong yes), plus their words.
+  const hmRating =
+    typeof body?.hm_rating === 'number' &&
+    Number.isInteger(body.hm_rating) &&
+    body.hm_rating >= 1 &&
+    body.hm_rating <= 4
+      ? body.hm_rating
+      : null
+  const hmNote =
+    typeof body?.hm_note === 'string' && body.hm_note.trim() ? body.hm_note.trim().slice(0, 2000) : null
 
   const adminClient = createAdminClient()
   const { data: submission } = await adminClient
@@ -71,6 +81,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     patch.reviewed_by = access.appUser.id
     patch.reviewed_at = now
     if (note) patch.review_note = note
+    if (hmRating) patch.hm_rating = hmRating
+    if (hmNote) patch.hm_note = hmNote
+    // A no with no reason is the thing that makes a partner stop sourcing.
+    if (status === 'declined') {
+      if (!note) {
+        return NextResponse.json({ error: 'Say why. The partner reads this line.' }, { status: 400 })
+      }
+      patch.decline_reason = note
+    }
   }
 
   const { error } = await adminClient.from('role_submissions').update(patch).eq('id', id)

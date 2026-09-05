@@ -164,6 +164,9 @@ export function SubmitCandidates({
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
+              <p className="mb-3 text-[12.5px] text-[#6E6E68]">
+                Someone new? <a href="/candidates/new" className="font-semibold text-[#1F3A2F] underline-offset-2 hover:underline">Add them from a PDF CV</a> and they appear here.
+              </p>
               {error && (
                 <p className="mb-3 rounded-[10px] bg-[#FBEDEB] px-3 py-2 text-[13px] text-[#A3423A]">
                   {error}
@@ -232,7 +235,7 @@ export function SubmitCandidates({
                               <span className="mt-1 block text-[12px] font-medium text-[#8A6A1F]">
                                 {c.submitted_by_me
                                   ? `Already yours on this role — ${c.submitted_status}`
-                                  : 'Already submitted to this role by another scout'}
+                                  : 'Already submitted to this search. The first confirmed submission holds the protection.'}
                               </span>
                             )}
                           </span>

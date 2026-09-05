@@ -55,7 +55,7 @@ const navItems: NavItem[] = [
  * DESK_SUPER_ADMIN_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and
  * their API handlers actually enforce.
  */
-const superAdminLeadNavItems = [{ href: '/partners', label: 'Partners', icon: Handshake }]
+const superAdminLeadNavItems = [{ href: '/partners', label: 'Searches', icon: Handshake }]
 const superAdminTrailNavItems = [{ href: '/briefs', label: 'Briefs', icon: Mail }]
 
 /**

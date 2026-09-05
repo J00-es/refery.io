@@ -11,7 +11,12 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser, type AppUser } from '@/lib/current-user'
-import { DESK_SUPER_ADMIN_ONLY, type PartnerAccess, type PartnerPreview } from '@/lib/partners'
+import {
+  DESK_SUPER_ADMIN_ONLY,
+  type PartnerAccess,
+  type PartnerPreview,
+  type SearchAssignmentRow,
+} from '@/lib/partners'
 
 /**
  * The cookie a super admin sets to look at the desk as one of their scouts.
@@ -51,13 +56,22 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
   // downstream is the persona's without any of them knowing about previews.
   const appUser = preview?.appUser ?? realUser
 
-  const [{ data: assignments }, { data: requests }] = await Promise.all([
+  const [{ data: assignments }, { data: searchRows }, { data: requests }] = await Promise.all([
     adminClient.from('company_assignments').select('company_id').eq('user_id', appUser.id),
+    adminClient.from('search_assignments').select('*').eq('user_id', appUser.id),
     adminClient
       .from('company_access_requests')
       .select('company_id')
       .eq('user_id', appUser.id)
       .eq('status', 'pending'),
+  ])
+
+  const searchAssignments = (searchRows ?? []) as SearchAssignmentRow[]
+  // A declined search does not unlock its client; anything else does. A
+  // proposal counts too, because the partner has to read the brief to decide.
+  const assignedCompanyIds = new Set<string>([
+    ...(assignments ?? []).map(a => a.company_id as string),
+    ...searchAssignments.filter(a => a.status !== 'declined').map(a => a.company_id),
   ])
 
   return {
@@ -75,7 +89,8 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
     seesEverything: appUser.isAdmin,
     seesAllSubmissions: appUser.isAdmin,
     seesAllCandidates: appUser.canViewAllCandidates,
-    assignedCompanyIds: new Set((assignments ?? []).map(a => a.company_id as string)),
+    assignedCompanyIds,
+    assignmentByJob: new Map(searchAssignments.map(a => [a.job_id, a])),
     pendingRequestCompanyIds: new Set((requests ?? []).map(r => r.company_id as string)),
   }
 }

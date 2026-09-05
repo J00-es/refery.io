@@ -54,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
     patch.exclusivity = body.exclusivity ?? null
   }
 
-  for (const field of ['headline', 'context', 'payout_note'] as const) {
+  for (const field of ['headline', 'context', 'payout_note', 'not_for'] as const) {
     if (field in body) {
       const value = text(body[field])
       if (value === undefined) return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
@@ -68,6 +68,51 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
       if (value === undefined) return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
       patch[field] = value
     }
+  }
+
+  // One line each. Empty lines dropped, so a trailing newline in the textarea
+  // does not become an empty bullet on the partner's screen.
+  for (const field of ['hard_requirements', 'intake_notes'] as const) {
+    if (field in body) {
+      const raw = body[field]
+      const lines: unknown[] | null = Array.isArray(raw)
+        ? raw
+        : typeof raw === 'string'
+          ? raw.split('\n')
+          : null
+      if (!lines) return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      patch[field] = lines
+        .filter((l): l is string => typeof l === 'string')
+        .map(l => l.trim())
+        .filter(Boolean)
+        .slice(0, 12)
+    }
+  }
+
+  if ('interview_steps' in body) {
+    const raw = body.interview_steps
+    if (!Array.isArray(raw)) return NextResponse.json({ error: 'Invalid interview_steps' }, { status: 400 })
+    patch.interview_steps = (raw as unknown[])
+      .flatMap(step => {
+        if (!step || typeof step !== 'object') return []
+        const o = step as { title?: unknown; detail?: unknown }
+        if (typeof o.title !== 'string' || !o.title.trim()) return []
+        return [
+          {
+            title: o.title.trim().slice(0, 120),
+            detail: typeof o.detail === 'string' && o.detail.trim() ? o.detail.trim().slice(0, 240) : null,
+          },
+        ]
+      })
+      .slice(0, 8)
+  }
+
+  if ('decision_days' in body) {
+    const value = num(body.decision_days)
+    if (value === undefined || (value !== null && (value < 1 || !Number.isInteger(value)))) {
+      return NextResponse.json({ error: 'Decision days must be a whole number above zero' }, { status: 400 })
+    }
+    patch.decision_days = value
   }
 
   if ('submission_cap' in body) {

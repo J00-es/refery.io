@@ -2,7 +2,9 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { Inbox } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
-import { FOCUS, H1, LEDE, META, detailLine } from '@/lib/desk-ui'
+import { FOCUS, H1, H2, LEDE, META, detailLine } from '@/lib/desk-ui'
+import { REMOTE_LABELS } from '@/lib/job-ui'
+import { feeExplanation, payoutAmount } from '@/lib/fees'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import {
   DEFAULT_FEE_PERCENTAGE,
@@ -24,6 +26,9 @@ import { DeskTabs, type DeskView } from '@/components/partners/desk-tabs'
 import { SearchesView } from '@/components/partners/searches-view'
 import { ViewAs } from '@/components/partners/view-as'
 import { ViewSwitch, type DeskViewKind } from '@/components/partners/view-switch'
+import { ProposalActions } from '@/components/partners/proposal-card'
+import { StageStrip } from '@/components/partners/stage-strip'
+import { CARD, CHIP_BAD } from '@/lib/desk-ui'
 
 export const dynamic = 'force-dynamic'
 
@@ -149,9 +154,20 @@ export default async function PartnersPage({ searchParams }: PageProps) {
         mySubmissions: mineByJob.get(role.job_id) ?? 0,
         briefPublished: role.brief_status === 'published',
         addedAt: role.added_at,
+        stage: role.search_stage,
+        stageMovedAt: role.stage_moved_at,
+        isOpen: role.is_live && role.job_status === 'open',
+        assignment: access.assignmentByJob.get(role.job_id)?.status ?? null,
       },
     ]
   })
+
+  // Searches Refery has offered this viewer and they have not answered. Shown
+  // above everything else, because it is the one thing on the page that is
+  // waiting on them.
+  const proposals = roles
+    .filter(role => access.assignmentByJob.get(role.job_id)?.status === 'proposed')
+    .map(role => ({ role, assignment: access.assignmentByJob.get(role.job_id)!, company: viewByCompany.get(role.company_id) }))
 
   const rolesByCompany = new Map<string, CompanyCardRole[]>()
   for (const role of roles) {
@@ -217,11 +233,11 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className={H1}>Partners</h1>
+          <h1 className={H1}>Searches</h1>
           <p className={`mt-2 max-w-2xl ${LEDE}`}>
-            Every search here is a real mandate — we are retained, and a person reads what you
-            submit. Refery charges the client {DEFAULT_FEE_PERCENTAGE}% of first-year base and pays
-            you {DEFAULT_SCOUT_SHARE}% of that, unless a search says otherwise.
+            Every search here is one role at a client we are retained by, with a brief behind it and
+            a person reading what you submit. Refery charges the client {DEFAULT_FEE_PERCENTAGE}% of
+            first-year base and pays you {DEFAULT_SCOUT_SHARE}% of that, unless a search says otherwise.
           </p>
           <p className={`mt-2.5 ${META}`}>{summary}</p>
         </div>
@@ -245,7 +261,53 @@ export default async function PartnersPage({ searchParams }: PageProps) {
         </Link>
       )}
 
-      <div className="border-b border-[#E7E7E0]">
+      {proposals.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className={H2}>Proposed to you</h2>
+            <p className={META}>Say yes only where you have real supply. A no with a reason helps us too.</p>
+          </div>
+          {proposals.map(({ role, assignment, company }) => {
+            const fee = resolveFee(role)
+            const payout = payoutAmount(fee)
+            return (
+              <div key={role.job_id} className={`border-[#E4D9B8] bg-[#FFFDF7] p-5 ${CARD}`}>
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/partners/${role.company_id}/roles/${role.job_id}`}
+                      className={`text-[17px] font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}
+                    >
+                      {role.headline || role.title}
+                    </Link>
+                    {role.priority === 'urgent' && <span className={`ml-2 ${CHIP_BAD}`}>Urgent</span>}
+                    <p className={`mt-1 ${META}`}>
+                      {detailLine(company?.name, role.location, role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null)}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    {payout && <p className="text-[19px] font-semibold tracking-[-0.02em] text-[#1F3A2F]">{payout}</p>}
+                    <p className={META}>{payout ? 'to you on placement' : ''} · {feeExplanation(fee)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 max-w-[320px]">
+                  <StageStrip stage={role.search_stage} movedAt={role.stage_moved_at} compact />
+                </div>
+                <div className="mt-4">
+                  <ProposalActions
+                    assignmentId={assignment.id}
+                    why={assignment.why}
+                    proposedAt={assignment.proposed_at}
+                    expiresAt={assignment.expires_at}
+                  />
+                </div>
+              </div>
+            )
+          })}
+        </section>
+      )}
+
+      <div className="border-b border-[#E4E3DC]">
         <ViewSwitch view={view} searchCount={deskSearches.length} clientCount={views.length} />
       </div>
 

@@ -15,10 +15,12 @@
  *   Can I see who it is and act on it?   Only if you are assigned to that
  *                                        company, or you are an admin.
  *
- * Assignment is granted at company level and never per role: a scout who can
- * see the company can see every live mandate under it. That is the rule the
- * whole surface is built on, so it lives in one function —
- * `resolvePartnerAccess` in lib/partners-access.ts.
+ * Assignment is per search (a role): Refery proposes, the partner confirms or
+ * declines. Holding any non-declined assignment at a client unlocks that
+ * client's name and brief, so a partner on one Arx Labs seat can read the whole
+ * Arx brief. A legacy company-level grant (company_assignments) still unlocks
+ * too. One function decides all of it: `resolvePartnerAccess` in
+ * lib/partners-access.ts, with `canWorkSearch` below for the per-role check.
  *
  * This module stays free of server-only imports so client components can share
  * its vocabulary — the status ladder, the payout formatting, the redaction
@@ -51,6 +53,111 @@ export const PRIORITY_META: Record<RolePriority, { label: string; dot: string; c
 }
 
 export const PRIORITY_ORDER: Record<RolePriority, number> = { urgent: 0, high: 1, normal: 2 }
+
+// ── search stage ────────────────────────────────────────────────────────────
+
+/**
+ * How far a search has got. Derived per role in `partner_roles_v.search_stage`
+ * from the furthest submission on it, and shown to partners instead of any
+ * count of submissions or of other partners.
+ */
+export type SearchStage =
+  | 'sourcing'
+  | 'shortlisting'
+  | 'client_interviewing'
+  | 'offer_out'
+  | 'filled'
+  | 'closed'
+
+/** The five working stages, in order. `closed` sits off the track. */
+export const SEARCH_STAGES: SearchStage[] = [
+  'sourcing',
+  'shortlisting',
+  'client_interviewing',
+  'offer_out',
+  'filled',
+]
+
+export const SEARCH_STAGE_META: Record<SearchStage, { label: string; blurb: string }> = {
+  sourcing: { label: 'Sourcing', blurb: 'Nobody is in front of the client yet. Send as soon as you have conviction.' },
+  shortlisting: { label: 'Shortlisting', blurb: 'Refery has agreed on at least one candidate and is packaging for the client.' },
+  client_interviewing: { label: 'Client interviewing', blurb: 'At least one candidate is in the company’s own process. Still open.' },
+  offer_out: { label: 'Offer out', blurb: 'An offer is on the table. Send only someone exceptional now.' },
+  filled: { label: 'Filled', blurb: 'Hired. The search is closed; protection on anyone you submitted still holds.' },
+  closed: { label: 'Closed', blurb: 'Off the desk. Nothing more can be submitted.' },
+}
+
+export function searchStageMeta(stage?: string | null) {
+  return SEARCH_STAGE_META[(stage as SearchStage) ?? 'sourcing'] ?? SEARCH_STAGE_META.sourcing
+}
+
+// ── search assignments ──────────────────────────────────────────────────────
+
+/**
+ * A partner on one search. `proposed` is Refery's offer; `working` is the
+ * partner's yes; `declined` carries their reason; `paused` is an admin
+ * holding a working assignment without revoking it.
+ */
+export type SearchAssignmentStatus = 'proposed' | 'working' | 'declined' | 'paused'
+
+/** Statuses that count as "on the search": they unlock the client and allow submitting. */
+export const LIVE_ASSIGNMENT_STATUSES: SearchAssignmentStatus[] = ['proposed', 'working', 'paused']
+
+/** How long a proposal waits before it drops back to "on request". */
+export const PROPOSAL_DAYS = 7
+
+export interface SearchAssignmentRow {
+  id: string
+  job_id: string
+  company_id: string
+  user_id: string
+  status: SearchAssignmentStatus
+  why: string | null
+  proposed_by: string | null
+  proposed_at: string
+  expires_at: string | null
+  confirmed_at: string | null
+  declined_at: string | null
+  declined_reason: string | null
+  paused_at: string | null
+  note: string | null
+}
+
+export interface InterviewStep {
+  title: string
+  detail?: string | null
+}
+
+/** The structured answers a client asks for on every submission. */
+export const WORK_AUTH_OPTIONS = [
+  { value: 'citizen_or_pr', label: 'Citizen or green card' },
+  { value: 'h1b_transfer', label: 'H-1B transfer' },
+  { value: 'opt', label: 'OPT, 2.5+ years left' },
+  { value: 'needs_sponsorship', label: 'Needs sponsorship' },
+  { value: 'other', label: 'Other or outside the US' },
+] as const
+
+export const SPOKEN_OPTIONS = [
+  { value: 'interested', label: 'Yes, they are interested' },
+  { value: 'warm', label: 'Yes, warm but not pitched' },
+  { value: 'not_yet', label: 'Not yet' },
+] as const
+
+export function workAuthLabel(value?: string | null): string | null {
+  return WORK_AUTH_OPTIONS.find(o => o.value === value)?.label ?? null
+}
+
+/** The hiring manager's read, Paraform-style: 1 strong no to 4 strong yes. */
+export const HM_RATINGS: { value: number; label: string }[] = [
+  { value: 1, label: 'Strong no' },
+  { value: 2, label: 'No' },
+  { value: 3, label: 'Yes' },
+  { value: 4, label: 'Strong yes' },
+]
+
+export function hmRatingLabel(value?: number | null): string | null {
+  return HM_RATINGS.find(r => r.value === value)?.label ?? null
+}
 
 // ── submission status ───────────────────────────────────────────────────────
 
@@ -271,6 +378,13 @@ export interface PartnerRoleRow {
   live_submission_count: number
   submitter_ids: string[]
   submitted_candidate_ids: string[]
+  hard_requirements: string[] | null
+  intake_notes: string[] | null
+  not_for: string | null
+  interview_steps: InterviewStep[] | null
+  decision_days: number | null
+  search_stage: SearchStage
+  stage_moved_at: string | null
 }
 
 export interface SubmissionRow {
@@ -298,6 +412,14 @@ export interface SubmissionRow {
   company_name: string | null
   submitted_by_name: string | null
   submitted_by_email: string | null
+  work_authorization: string | null
+  current_base: number | null
+  target_base: number | null
+  spoken_to_candidate: string | null
+  fresh_introduction: boolean | null
+  hm_rating: number | null
+  hm_note: string | null
+  decline_reason: string | null
 }
 
 // ── access ──────────────────────────────────────────────────────────────────
@@ -341,10 +463,35 @@ export interface PartnerAccess {
    * An admin runs the desk but still only picks from their own book.
    */
   seesAllCandidates: boolean
-  /** Company ids this user has been assigned to. Empty for admins, who don't need it. */
+  /**
+   * Company ids this user may see in full: a legacy company grant, or any
+   * non-declined search assignment at that client. Empty for admins.
+   */
   assignedCompanyIds: Set<string>
+  /** This user's search assignments by job id, declined ones included. */
+  assignmentByJob: Map<string, SearchAssignmentRow>
   /** Company ids with a pending access request from this user. */
   pendingRequestCompanyIds: Set<string>
+}
+
+/** The assignment this viewer holds on a search, if any. */
+export function assignmentFor(access: PartnerAccess, jobId: string): SearchAssignmentRow | null {
+  return access.assignmentByJob.get(jobId) ?? null
+}
+
+/**
+ * True when this viewer may submit to a search.
+ *
+ * Admins always. A partner needs to be on the search (proposed or working), or
+ * to hold a legacy company-level grant at the client, which predates search
+ * assignments and still counts.
+ */
+export function canWorkSearch(access: PartnerAccess, jobId: string, companyId: string): boolean {
+  if (access.seesEverything) return true
+  const assignment = access.assignmentByJob.get(jobId)
+  if (assignment && (assignment.status === 'proposed' || assignment.status === 'working')) return true
+  if (assignment) return false
+  return access.assignedCompanyIds.has(companyId)
 }
 
 /**

@@ -92,7 +92,7 @@ export function DeskPalette({
       >
         <Command className="h-3.5 w-3.5" />
         Jump to a client or search
-        <kbd className={`ml-1 rounded border border-[#E7E7E0] px-1.5 py-0.5 font-sans text-[11px] ${META}`}>
+        <kbd className={`ml-1 rounded border border-[#E4E3DC] px-1.5 py-0.5 font-sans text-[11px] ${META}`}>
           {modifier}K
         </kbd>
       </button>

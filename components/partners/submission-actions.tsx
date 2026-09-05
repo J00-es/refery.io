@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import { FOCUS } from '@/lib/desk-ui'
-import { SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
+import { HM_RATINGS, SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
 
 /**
  * Moving a submission, or pulling it back.
@@ -29,6 +29,8 @@ export function SubmissionActions({
   const [open, setOpen] = useState(false)
   const [next, setNext] = useState<SubmissionStatus | null>(null)
   const [note, setNote] = useState('')
+  const [hmRating, setHmRating] = useState<number | null>(null)
+  const [hmNote, setHmNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,7 +41,12 @@ export function SubmissionActions({
       const res = await fetch(`/api/partners/submissions/${submissionId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: to, note: withNote?.trim() || undefined }),
+        body: JSON.stringify({
+          status: to,
+          note: withNote?.trim() || undefined,
+          hm_rating: hmRating ?? undefined,
+          hm_note: hmNote.trim() || undefined,
+        }),
       })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
@@ -49,6 +56,8 @@ export function SubmissionActions({
       setOpen(false)
       setNext(null)
       setNote('')
+      setHmRating(null)
+      setHmNote('')
       router.refresh()
     } finally {
       setBusy(false)
@@ -98,14 +107,46 @@ export function SubmissionActions({
                 rows={3}
                 value={note}
                 onChange={e => setNote(e.target.value)}
-                placeholder="A line back to the scout — optional, but it is why they keep sourcing."
+                placeholder={
+                  next === 'declined'
+                    ? 'Why, in one line. The partner reads this, and it is required.'
+                    : 'A line back to the partner. Optional, but it is why they keep sourcing.'
+                }
                 className={`mt-2 w-full resize-none rounded-[10px] border border-[#E4E3DC] px-2.5 py-2 text-[13px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
               />
+              {['sent_to_client', 'client_interview', 'offer', 'placed', 'declined'].includes(next) && (
+                <div className="mt-2.5">
+                  <p className="text-[12px] font-medium text-[#6E6E68]">The hiring manager&rsquo;s read, if you have it</p>
+                  <div className="mt-1.5 flex gap-1">
+                    {HM_RATINGS.map(r => (
+                      <button
+                        key={r.value}
+                        type="button"
+                        onClick={() => setHmRating(hmRating === r.value ? null : r.value)}
+                        className={`flex-1 rounded-full border px-1 py-1.5 text-[11.5px] font-semibold transition-colors ${FOCUS} ${
+                          hmRating === r.value
+                            ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                            : 'border-[#E4E3DC] bg-white text-[#6E6E68] hover:border-[#1F3A2F]'
+                        }`}
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={2}
+                    value={hmNote}
+                    onChange={e => setHmNote(e.target.value)}
+                    placeholder="Their words, lightly edited. Relayed to the partner."
+                    className={`mt-1.5 w-full resize-none rounded-[10px] border border-[#E4E3DC] px-2.5 py-2 text-[13px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                  />
+                </div>
+              )}
               {error && <p className="mt-1 text-[12px] text-[#A3423A]">{error}</p>}
               <div className="mt-2 flex items-center gap-1.5">
                 <button
                   type="button"
-                  disabled={busy}
+                  disabled={busy || (next === 'declined' && !note.trim())}
                   onClick={() => move(next, note)}
                   className={`inline-flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-full bg-[#1F3A2F] px-3 text-[12.5px] font-semibold text-white disabled:opacity-60 ${FOCUS}`}
                 >

@@ -14,6 +14,7 @@ import {
 import { REMOTE_LABELS, formatSalary, seniorityLabel } from '@/lib/job-ui'
 import { PRIORITY_META, slotsLeft, type PartnerRoleRow } from '@/lib/partners'
 import { feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
+import { StageStrip } from './stage-strip'
 
 /**
  * One live search.
@@ -73,15 +74,17 @@ export function RoleCard({
           <span className={`mt-0.5 block ${META}`}>{feeExplanation(fee)}</span>
         </span>
         <span className={`text-[13px] ${slots === 0 ? 'font-semibold text-[#9C3F37]' : MUTED}`}>
-          {detailLine(
-            slots === null
-              ? `${role.live_submission_count} in play`
-              : slots === 0
-                ? 'Full'
-                : `${slots} of ${role.submission_cap} slots`,
-            mySubmissions > 0 && `${mySubmissions} yours`,
-          )}
+          {detailLine(slots === 0 && 'Not taking more right now', mySubmissions > 0 && `${mySubmissions} yours in play`)}
         </span>
+      </div>
+
+      <div className="mt-4">
+        <StageStrip
+          stage={role.search_stage}
+          movedAt={role.stage_moved_at}
+          isOpen={role.is_live && role.job_status === 'open'}
+          compact
+        />
       </div>
 
       {role.brief_status === 'published' && (

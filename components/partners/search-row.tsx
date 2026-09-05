@@ -4,6 +4,7 @@ import { CARD_LINK, CHIP_BAD, CHIP_VALUE, CHIP_WARN, FOREST, H3, META, MUTED, RU
 import { REMOTE_LABELS, seniorityLabel, shortAge } from '@/lib/job-ui'
 import { feeExplanation, payoutAmount } from '@/lib/fees'
 import type { DeskSearch } from '@/lib/desk-filters'
+import { StageStrip } from './stage-strip'
 
 /**
  * One live search in the flat list.
@@ -26,6 +27,7 @@ import type { DeskSearch } from '@/lib/desk-filters'
 export function SearchRow({ search }: { search: DeskSearch }) {
   const payout = payoutAmount(search.fee)
   const full = search.slotsLeft === 0
+  const onIt = search.assignment === 'working' || search.assignment === 'proposed'
 
   return (
     <Link
@@ -69,28 +71,33 @@ export function SearchRow({ search }: { search: DeskSearch }) {
           </p>
 
           <p className={`mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 ${META}`}>
+            {search.assignment === 'proposed' && (
+              <span className={CHIP_WARN}>Proposed to you</span>
+            )}
+            {search.assignment === 'working' && (
+              <span className={CHIP_VALUE}>You are working this</span>
+            )}
             {search.myMatches > 0 && (
               <span className={`inline-flex items-center gap-1 font-semibold ${FOREST}`}>
                 <Sparkles className="h-3 w-3" />
                 {search.myMatches} of your candidates matched
               </span>
             )}
-            <span className={full ? 'font-semibold text-[#9C3F37]' : undefined}>
-              {search.submissionCap
-                ? full
-                  ? 'Full'
-                  : `${search.liveSubmissions} of ${search.submissionCap} slots taken`
-                : `${search.liveSubmissions} in play`}
-            </span>
-            {search.mySubmissions > 0 && <span>{search.mySubmissions} yours</span>}
+            {full && <span className="font-semibold text-[#9C3F37]">Not taking more right now</span>}
+            {search.mySubmissions > 0 && <span>{search.mySubmissions} yours in play</span>}
             {search.briefPublished && (
               <span className="inline-flex items-center gap-1">
                 <FileText className="h-3 w-3" />
                 Brief
               </span>
             )}
-            <span>on the desk {shortAge(search.addedAt)}</span>
+            {!onIt && <span>on the desk {shortAge(search.addedAt)}</span>}
           </p>
+        </div>
+
+        {/* How far it has got, in place of how many are on it. */}
+        <div className="sm:w-[210px] sm:shrink-0 sm:pt-0.5">
+          <StageStrip stage={search.stage} movedAt={search.stageMovedAt} isOpen={search.isOpen} compact />
         </div>
       </div>
     </Link>

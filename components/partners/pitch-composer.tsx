@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Loader2, Sparkles } from 'lucide-react'
 import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
 import { FOCUS } from '@/lib/desk-ui'
+import { SPOKEN_OPTIONS, WORK_AUTH_OPTIONS } from '@/lib/partners'
 
 /**
  * The "why them" step, shared by both routes into a submission — confirming a
@@ -55,6 +56,11 @@ export function PitchComposer({
   const [highlights, setHighlights] = useState<Record<string, string>>({})
   const [relationships, setRelationships] = useState<Record<string, string>>({})
   const [canIntro, setCanIntro] = useState<Record<string, boolean>>({})
+  const [workAuth, setWorkAuth] = useState<Record<string, string>>({})
+  const [currentBase, setCurrentBase] = useState<Record<string, string>>({})
+  const [targetBase, setTargetBase] = useState<Record<string, string>>({})
+  const [spoken, setSpoken] = useState<Record<string, string>>({})
+  const [fresh, setFresh] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PitchResult | null>(null)
@@ -83,6 +89,11 @@ export function PitchComposer({
             pitch: pitches[p.id]?.trim() ?? '',
             relationship: relationships[p.id]?.trim() ?? '',
             can_introduce: canIntro[p.id] === true,
+            work_authorization: workAuth[p.id] || null,
+            current_base: currentBase[p.id] || null,
+            target_base: targetBase[p.id] || null,
+            spoken_to_candidate: spoken[p.id] || null,
+            fresh_introduction: fresh[p.id] === true,
             highlights: (highlights[p.id] ?? '')
               .split('\n')
               .map(h => h.trim())
@@ -233,10 +244,90 @@ export function PitchComposer({
                   className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
                 />
                 <span className="text-[13px] leading-[1.5] text-[#3F3F3A]">
-                  I can introduce {person.name.split(' ')[0]} to the Refery team now.
+                  I can introduce {person.name?.split(' ')[0] ?? 'them'} to the Refery team now.
                   <span className="block text-[12.5px] text-[#8A8A82]">
                     Only submit people you actually know. Profiles nobody can introduce do
                     not hold their place.
+                  </span>
+                </span>
+              </label>
+
+              {/* The four things every client asks on the first read. Two taps
+                  and two numbers here save a round trip on every submission. */}
+              <div className="mt-3">
+                <span className="text-[13px] font-medium text-[#2A2A26]">US work authorisation</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {WORK_AUTH_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setWorkAuth(w => ({ ...w, [person.id]: opt.value }))}
+                      className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
+                        workAuth[person.id] === opt.value
+                          ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                          : 'border-[#D2D1C7] bg-white text-[#2A2A26] hover:border-[#1F3A2F]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="text-[13px] font-medium text-[#2A2A26]">Current base</span>
+                  <input
+                    inputMode="numeric"
+                    value={currentBase[person.id] ?? ''}
+                    onChange={e => setCurrentBase(c => ({ ...c, [person.id]: e.target.value }))}
+                    placeholder="$195,000"
+                    className={`mt-1.5 w-full rounded-[12px] border border-[#E4E3DC] px-3 py-2.5 text-[13.5px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-[13px] font-medium text-[#2A2A26]">Target base</span>
+                  <input
+                    inputMode="numeric"
+                    value={targetBase[person.id] ?? ''}
+                    onChange={e => setTargetBase(t => ({ ...t, [person.id]: e.target.value }))}
+                    placeholder="$210,000"
+                    className={`mt-1.5 w-full rounded-[12px] border border-[#E4E3DC] px-3 py-2.5 text-[13.5px] text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-3">
+                <span className="text-[13px] font-medium text-[#2A2A26]">Have you spoken to them about this search?</span>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {SPOKEN_OPTIONS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSpoken(s => ({ ...s, [person.id]: opt.value }))}
+                      className={`rounded-full border px-3 py-1.5 text-[12.5px] font-medium transition-colors ${FOCUS} ${
+                        spoken[person.id] === opt.value
+                          ? 'border-[#1F3A2F] bg-[#1F3A2F] text-white'
+                          : 'border-[#D2D1C7] bg-white text-[#2A2A26] hover:border-[#1F3A2F]'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={fresh[person.id] === true}
+                  onChange={e => setFresh(f => ({ ...f, [person.id]: e.target.checked }))}
+                  className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
+                />
+                <span className="text-[13px] leading-[1.5] text-[#2A2A26]">
+                  They have not applied to or been contacted by this company another way.
+                  <span className="block text-[12.5px] text-[#9C9C95]">
+                    Only fresh introductions are attributable. Asking now protects your referral.
                   </span>
                 </span>
               </label>

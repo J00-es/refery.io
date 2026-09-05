@@ -85,7 +85,7 @@ export function ViewAs() {
       </PopoverTrigger>
 
       <PopoverContent align="end" className="w-[300px] p-0">
-        <div className="border-b border-[#E7E7E0] p-3">
+        <div className="border-b border-[#E4E3DC] p-3">
           <p className="text-[13px] font-semibold text-[#161613]">See the desk as they see it</p>
           <p className={`mt-0.5 ${META}`}>
             Their assignments, their candidates, their submissions. Read-only.

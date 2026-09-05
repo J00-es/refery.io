@@ -59,7 +59,7 @@ export default async function AccessRequestsPage() {
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
-        Partners
+        Searches
       </Link>
 
       <header>

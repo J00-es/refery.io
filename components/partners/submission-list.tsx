@@ -4,10 +4,13 @@ import { BODY, CARD, FOCUS, H3, LEDE, META, MUTED, detailLine } from '@/lib/desk
 import { shortAge } from '@/lib/job-ui'
 import {
   SUBMISSION_TRACK,
+  hmRatingLabel,
   submissionStatus,
+  workAuthLabel,
   type SubmissionRow,
   type SubmissionStatus,
 } from '@/lib/partners'
+import { money } from '@/lib/fees'
 import { SubmissionActions } from './submission-actions'
 
 /**
@@ -106,6 +109,48 @@ export function SubmissionList({
             <Track status={submission.status} />
 
             <p className={`mt-3 whitespace-pre-line ${BODY}`}>{submission.pitch}</p>
+
+            {(submission.work_authorization || submission.current_base || submission.target_base || submission.spoken_to_candidate) && (
+              <p className={`mt-2.5 ${META}`}>
+                {detailLine(
+                  workAuthLabel(submission.work_authorization),
+                  submission.current_base ? `on ${money(submission.current_base)}` : null,
+                  submission.target_base ? `wants ${money(submission.target_base)}` : null,
+                  submission.spoken_to_candidate === 'interested'
+                    ? 'spoken to, interested'
+                    : submission.spoken_to_candidate === 'warm'
+                      ? 'warm, not pitched yet'
+                      : submission.spoken_to_candidate === 'not_yet'
+                        ? 'not spoken to yet'
+                        : null,
+                  submission.fresh_introduction === true && 'fresh introduction',
+                )}
+              </p>
+            )}
+
+            {(submission.hm_rating || submission.hm_note) && (
+              <div className="mt-3 rounded-[12px] border border-[#CFE0D6] bg-[#F7FBF8] px-4 py-3">
+                <p className="flex items-center gap-2 text-[13px] font-semibold text-[#161613]">
+                  The hiring manager&rsquo;s read
+                  {submission.hm_rating && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="flex gap-0.5" aria-hidden>
+                        {[1, 2, 3, 4].map(n => (
+                          <span
+                            key={n}
+                            className={`h-1.5 w-4 rounded-full ${n <= (submission.hm_rating ?? 0) ? 'bg-[#1F3A2F]' : 'bg-[#E4E3DC]'}`}
+                          />
+                        ))}
+                      </span>
+                      <span className="text-[#1F3A2F]">{hmRatingLabel(submission.hm_rating)}</span>
+                    </span>
+                  )}
+                </p>
+                {submission.hm_note && (
+                  <p className={`mt-1.5 ${BODY}`}>&ldquo;{submission.hm_note}&rdquo;</p>
+                )}
+              </div>
+            )}
 
             {!!submission.highlights?.length && (
               <ul className="mt-3 space-y-1">

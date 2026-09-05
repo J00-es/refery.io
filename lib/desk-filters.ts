@@ -28,7 +28,7 @@
 
 import { FUNCTIONS, LOCATIONS, REMOTE_LABELS, SENIORITY_LEVELS, seniorityLabel } from '@/lib/job-ui'
 import { PAYOUT_BANDS, type ResolvedFee } from '@/lib/fees'
-import type { RolePriority } from '@/lib/partners'
+import type { RolePriority, SearchAssignmentStatus, SearchStage } from '@/lib/partners'
 
 /** One live search, flattened for the list and the filters. */
 export interface DeskSearch {
@@ -57,6 +57,12 @@ export interface DeskSearch {
   mySubmissions: number
   briefPublished: boolean
   addedAt: string
+  /** How far the search has got. Shown instead of any count. */
+  stage: SearchStage
+  stageMovedAt: string | null
+  isOpen: boolean
+  /** This viewer's assignment on the search, if any. */
+  assignment: SearchAssignmentStatus | null
 }
 
 // ── facets ──────────────────────────────────────────────────────────────────
@@ -117,7 +123,7 @@ export const FACETS: Facet[] = [
 
 // ── toggles ─────────────────────────────────────────────────────────────────
 
-export type ToggleKey = 'mine' | 'room' | 'brief' | 'urgent' | 'open'
+export type ToggleKey = 'mine' | 'on' | 'brief' | 'urgent' | 'open'
 
 export interface Toggle {
   key: ToggleKey
@@ -135,15 +141,15 @@ export const TOGGLES: Toggle[] = [
     test: s => s.myMatches > 0,
   },
   {
-    key: 'room',
-    label: 'Has room',
-    hint: 'Hides searches that are full',
-    test: s => s.slotsLeft === null || s.slotsLeft > 0,
+    key: 'on',
+    label: 'On my list',
+    hint: 'Searches you are working, or have been proposed',
+    test: s => s.assignment === 'working' || s.assignment === 'proposed',
   },
   {
     key: 'open',
     label: 'Open to me',
-    hint: 'Only clients you are assigned to, so you can submit today',
+    hint: 'Only clients whose name and brief you can read',
     test: s => s.unlocked,
   },
   {
@@ -162,15 +168,11 @@ export const TOGGLES: Toggle[] = [
 
 // ── sorts ───────────────────────────────────────────────────────────────────
 
-export type SortKey = 'payout' | 'odds' | 'new' | 'urgent'
+export type SortKey = 'payout' | 'moving' | 'new' | 'urgent'
 
 export const SORTS: { key: SortKey; label: string; hint: string }[] = [
   { key: 'payout', label: 'Highest payout', hint: 'What you earn, best first' },
-  {
-    key: 'odds',
-    label: 'Best odds',
-    hint: 'Fewest candidates already in play — least competition for the slot',
-  },
+  { key: 'moving', label: 'Moving now', hint: 'Searches that changed stage most recently' },
   { key: 'urgent', label: 'Most urgent', hint: 'What the client is pushing on' },
   { key: 'new', label: 'Newest', hint: 'Most recently put on the desk' },
 ]
@@ -183,8 +185,8 @@ function compare(sort: SortKey, a: DeskSearch, b: DeskSearch): number {
       // A search with no salary recorded cannot be ranked on payout, so it sorts
       // last rather than as zero — it is unknown, not worthless.
       return (b.fee.payoutLow ?? -1) - (a.fee.payoutLow ?? -1)
-    case 'odds':
-      return a.liveSubmissions - b.liveSubmissions
+    case 'moving':
+      return new Date(b.stageMovedAt ?? b.addedAt).getTime() - new Date(a.stageMovedAt ?? a.addedAt).getTime()
     case 'urgent':
       return PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]
     case 'new':
@@ -205,7 +207,7 @@ export interface DeskQuery {
 const EMPTY_FACETS = (): Record<FacetKey, string[]> => ({ fn: [], mkt: [], lvl: [], rem: [], pay: [] })
 const EMPTY_TOGGLES = (): Record<ToggleKey, boolean> => ({
   mine: false,
-  room: false,
+  on: false,
   brief: false,
   urgent: false,
   open: false,

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
 import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
-import { ACTIVE_SUBMISSION_STATUSES } from '@/lib/partners'
+import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
 import { MIN_PITCH, qualifies, recordClaim } from '@/lib/submission-claims'
 
 interface Draft {
@@ -13,6 +13,22 @@ interface Draft {
   relationship: string
   /** They confirm they can introduce this person to us now. */
   can_introduce: boolean
+  /** The four things every client asks on the first read. */
+  work_authorization: string | null
+  current_base: number | null
+  target_base: number | null
+  spoken_to_candidate: string | null
+  /** Nobody else has introduced this person to the client another way. */
+  fresh_introduction: boolean | null
+}
+
+const WORK_AUTH = new Set<string>(WORK_AUTH_OPTIONS.map(o => o.value))
+const SPOKEN = new Set<string>(SPOKEN_OPTIONS.map(o => o.value))
+
+function money(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[,$\s]/g, ''))
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null
 }
 
 function readDrafts(raw: unknown): Draft[] {
@@ -27,6 +43,17 @@ function readDrafts(raw: unknown): Draft[] {
         pitch: o.pitch.trim(),
         relationship: typeof o.relationship === 'string' ? o.relationship.trim() : '',
         can_introduce: o.can_introduce === true,
+        work_authorization:
+          typeof o.work_authorization === 'string' && WORK_AUTH.has(o.work_authorization)
+            ? o.work_authorization
+            : null,
+        current_base: money(o.current_base),
+        target_base: money(o.target_base),
+        spoken_to_candidate:
+          typeof o.spoken_to_candidate === 'string' && SPOKEN.has(o.spoken_to_candidate)
+            ? o.spoken_to_candidate
+            : null,
+        fresh_introduction: typeof o.fresh_introduction === 'boolean' ? o.fresh_introduction : null,
         highlights: Array.isArray(o.highlights)
           ? o.highlights
               .filter((h): h is string => typeof h === 'string' && !!h.trim())
@@ -84,8 +111,11 @@ export async function POST(req: Request) {
   if (!role) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const companyId = role.company_id as string
-  const unlocked = access.seesEverything || access.assignedCompanyIds.has(companyId)
-  if (!unlocked) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  // Per search, not per client: being on the Arx FDE seat does not mean you
+  // are working the RL Environments seat. A legacy company grant still counts.
+  if (!canWorkSearch(access, jobId, companyId)) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
 
   if (!role.is_live || role.job_status !== 'open') {
     return NextResponse.json(
@@ -119,12 +149,7 @@ export async function POST(req: Request) {
   const cap = role.submission_cap as number | null
   let remaining = cap ? Math.max(0, cap - ((role.live_submission_count as number) ?? 0)) : Infinity
 
-  const accepted: {
-    candidate_id: string
-    pitch: string
-    highlights: string[]
-    relationship: string
-  }[] = []
+  const accepted: Draft[] = []
   const rejected: { candidate_id: string; reason: string }[] = []
 
   for (const draft of drafts) {
@@ -165,12 +190,7 @@ export async function POST(req: Request) {
       continue
     }
     remaining -= 1
-    accepted.push({
-      candidate_id: draft.candidate_id,
-      pitch: draft.pitch.slice(0, 4000),
-      highlights: draft.highlights,
-      relationship: draft.relationship,
-    })
+    accepted.push({ ...draft, pitch: draft.pitch.slice(0, 4000) })
   }
 
   if (!accepted.length) {
@@ -188,6 +208,11 @@ export async function POST(req: Request) {
         status: 'submitted',
         pitch: a.pitch,
         highlights: a.highlights,
+        work_authorization: a.work_authorization,
+        current_base: a.current_base,
+        target_base: a.target_base,
+        spoken_to_candidate: a.spoken_to_candidate,
+        fresh_introduction: a.fresh_introduction,
       })),
     )
     .select('id, candidate_id')
@@ -221,6 +246,21 @@ export async function POST(req: Request) {
         actor_user_id: access.appUser.id,
       })),
     )
+  }
+
+  // Submitting is the clearest possible yes, so a proposal the partner never
+  // pressed "I'll work this" on becomes working here rather than expiring.
+  const held = access.assignmentByJob.get(jobId)
+  if (held && held.status === 'proposed') {
+    await adminClient
+      .from('search_assignments')
+      .update({
+        status: 'working',
+        confirmed_at: claimedAt.toISOString(),
+        expires_at: null,
+        updated_at: claimedAt.toISOString(),
+      })
+      .eq('id', held.id)
   }
 
   return NextResponse.json({
