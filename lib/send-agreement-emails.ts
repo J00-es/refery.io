@@ -84,7 +84,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
 
           <!-- Header: wordmark + forest green rule -->
           <tr>
-            <td style="padding:0 0 8px 0; font-family:Georgia, 'Times New Roman', serif; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">
+            <td style="padding:0 0 8px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-weight:600; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.8px;">
               Refery<span style="font-style:italic;">.</span>
             </td>
           </tr>
@@ -329,7 +329,7 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
 
           <!-- Header: wordmark + forest green rule -->
           <tr>
-            <td style="padding:0 0 8px 0; font-family:Georgia, 'Times New Roman', serif; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">
+            <td style="padding:0 0 8px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-weight:600; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.8px;">
               Refery<span style="font-style:italic;">.</span>
             </td>
           </tr>
