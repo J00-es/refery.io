@@ -20,8 +20,10 @@ export const AGREEMENT_VERSIONS = {
   // promise we could not keep, so the document now names the real rule and
   // commits to showing the timing on the role.
   //
-  // Safe to edit in place: no one has signed v2.0. The seven partners on the
-  // legacy recruiter document are unaffected and keep their own text.
+  // v2.0 is frozen above, not edited in place: 28 partners accepted it. The
+  // clarification does not change anyone's economics (70%, day 90, 14 business
+  // days are all untouched), so no acceptance needed re-taking, but a v2.0
+  // acceptance still has to render the v2.0 body.
   partner: '2.1',
   partnerSubmission: '1.0',
   // Retained so historical acceptances still resolve to the text that was signed.
@@ -289,6 +291,53 @@ export function generateSigningToken(): string {
 }
 
 
+
+/**
+ * Partner Terms v2.0, frozen.
+ *
+ * 28 partners accepted this exact text between 13 Aug and 4 Sep 2026, so it
+ * has to keep resolving to what they saw. v2.1 clarifies the payout condition
+ * rather than changing it, so no acceptance needed re-taking, but a v2.0
+ * acceptance must never render the v2.1 body under the v2.0 label.
+ *
+ * Do not edit. Bump the version and add a new frozen copy instead.
+ */
+const PARTNER_TERMS_V2_0_TEXT = `# Partner Terms
+
+**v2.0** · Refery and you · The table below is the whole deal
+
+## The short version
+
+| | |
+|---|---|
+| **You earn** | 70% of the placement fee on every hire you source |
+| **You pay** | Nothing, ever. No fees, no minimums, no exclusivity |
+| **Your commitment** | None. Work with whoever else you like, leave whenever |
+| **What we ask** | Keep what you see inside Refery confidential |
+
+## The details
+
+**1. What you earn.** You keep 70% of the placement fee on every candidate you source who is hired and stays 90 days. Refery keeps 30% and handles the client, the contract, the invoice and the chasing. A role's fee is either a percentage of first year base salary, usually 10 to 20%, or a fixed amount. Either way it is shown on the role before you work it.
+
+**2. When you get paid.** Within 14 business days of the candidate completing 90 days, once we have collected from the client. We hold the money until then, so you will never face a clawback. If a placement does not last, no money changes hands in either direction.
+
+**3. Keep our clients confidential.** Everything inside Refery is confidential: company names, roles, hiring managers, pay and team detail. Many of these companies are in stealth. You can describe a role to a candidate in general terms, such as "a Series B fintech in New York", but please do not name or identify the company until that candidate has been vetted and signed our confidentiality terms. This one continues after you leave.
+
+**4. Please don't go around us.** We pay to bring these companies onto the platform. For 12 months after you last work on a client's roles, please don't place candidates with them outside Refery. Any relationship you already had before joining is yours, and is carved out.
+
+**5. You work for yourself.** You are an independent contractor, not an employee. No exclusivity, no non compete, no minimum activity, no set hours. You handle your own taxes, and we report payments where the law requires it.
+
+**6. How we use AI.** We use AI to read CVs and match people to roles, with providers like Anthropic, OpenAI and Google under confidentiality terms. We do not sell your data and we do not let it train public models. People make the final calls.
+
+**7. Leaving.** Either of us can end this at any time, in writing. Three things continue: confidentiality, the 12 month clause above, and your right to be paid on candidates you have already submitted.
+
+**8. The legal basics.** Delaware law. Disputes go to individual arbitration (AAA, remote, no class actions), though either of us can still use small claims court, and either of us can ask a court to stop a breach of confidentiality. Our liability is capped at what we have paid you over the last 12 months.
+
+## Accept
+
+When you submit your first candidate we will show you the submission terms, which cover how attribution works and what you are confirming about the candidate. Everything is readable any time at refery.xyz/partner-terms.
+
+Ticking the box and creating your account is a legally binding signature under the E-SIGN Act and UETA.`
 
 /**
  * Partner Terms v2.0, shown at sign-up to scouts and recruiters alike.
@@ -1102,8 +1151,12 @@ export function partnerAgreementTextForVersion(
   version: string,
   type: AgreementType,
 ): string {
-  // Match on the major line, not the exact string, so a v2.x bump doesn't drop
-  // earlier v2 signers onto the legacy scout/recruiter documents they never saw.
+  // Every version maps to the exact text it was. A partner opening their own
+  // agreement has to see what they accepted, not what the document says today.
+  //   2.0   28 acceptances, Aug-Sep 2026
+  //   1.2.0 18 scout and 22 recruiter acceptances, May-Aug 2026
+  if (version === AGREEMENT_VERSIONS.partner) return PARTNER_TERMS_TEXT
+  if (version === '2.0') return PARTNER_TERMS_V2_0_TEXT
   if (version.startsWith('2.')) return PARTNER_TERMS_TEXT
   return type === 'scout' ? SCOUT_AGREEMENT_TEXT : RECRUITER_AGREEMENT_TEXT
 }
