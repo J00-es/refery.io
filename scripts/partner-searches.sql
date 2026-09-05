@@ -329,3 +329,16 @@ alter table public.company_access_requests
   add column if not exists slack_channel_id text,
   add column if not exists slack_message_ts text,
   add column if not exists decided_via text;
+
+-- ── questions answered from Slack (2026-09-06) ──────────────────────────────
+-- Applied to prod as migration search_questions_slack_loop. A question is also
+-- a card in #refery-search-questions; Pep drafts in the thread (suggested_*),
+-- and :+1: on the draft or a typed thread reply publishes the answer.
+alter table public.search_questions
+  add column if not exists slack_channel_id   text,
+  add column if not exists slack_message_ts   text,
+  add column if not exists suggested_answer   text,
+  add column if not exists suggested_ts       text,
+  add column if not exists answered_via       text,
+  add column if not exists asker_notified_at  timestamptz,
+  add column if not exists updated_at         timestamptz not null default now();

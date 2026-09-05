@@ -74,9 +74,11 @@ export async function postThreadReply(
   channel: string,
   threadTs: string,
   text: string,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<{ ok: boolean; ts?: string; error?: string }> {
   const res = await call('chat.postMessage', { channel, thread_ts: threadTs, text })
-  return { ok: res.ok, error: res.error }
+  // `ts` is returned so a reply can itself be reacted to later, which is how
+  // Pep's draft under a question gets its :+1:.
+  return { ok: res.ok, ts: res.ts, error: res.error }
 }
 
 export async function addReaction(

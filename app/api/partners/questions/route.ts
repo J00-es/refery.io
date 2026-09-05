@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { canWorkSearch } from '@/lib/partners'
+import { announceQuestion } from '@/lib/search-questions'
+
+// The response returns at once; Pep's draft runs in `after()` and needs the
+// function to stay alive for the model call.
+export const maxDuration = 60
 
 /**
  * A partner's question on a search.
@@ -44,6 +50,15 @@ export async function POST(req: Request) {
     .select('id')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // The card in Slack and Pep's draft take a few seconds; the partner should
+  // not wait on either.
+  const questionId = data.id as string
+  after(() =>
+    announceQuestion(questionId).then(r => {
+      if (!r.sent) console.warn('[questions] slack card not sent:', r.error)
+    }),
+  )
 
   return NextResponse.json({ ok: true, id: data.id })
 }

@@ -13,7 +13,7 @@
 import { Resend } from 'resend'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
-const FROM = 'Refery <agreements@refery.io>'
+const FROM = 'Refery <hello@refery.io>'
 const REPLY_TO = 'lily@refery.io'
 
 const M = { green: '#1f3a2f', cream: '#f2f1eb', body: '#161613', muted: '#6e6e68', rule: '#e4e3dc' }

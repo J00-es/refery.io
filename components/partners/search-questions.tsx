@@ -15,6 +15,8 @@ export interface QuestionRow {
   is_visible: boolean
   /** True for the viewer's own question. Never who else asked. */
   mine: boolean
+  /** Pep's draft, admins only. Pre-fills the answer box until someone answers. */
+  suggested_answer?: string | null
 }
 
 /**
@@ -29,11 +31,14 @@ export function SearchQuestions({
   questions,
   canAsk,
   canManage,
+  canDelete = false,
 }: {
   jobId: string
   questions: QuestionRow[]
   canAsk: boolean
   canManage: boolean
+  /** Super admin only. An admin hides; deleting is for questions that should never have existed. */
+  canDelete?: boolean
 }) {
   const router = useRouter()
   const [asking, setAsking] = useState(false)
@@ -71,7 +76,7 @@ export function SearchQuestions({
             <span className={`ml-2 text-[15px] ${MUTED}`}>{visible.length}</span>
           </h2>
           <p className={`mt-1 ${LEDE}`}>
-            Ask here and the answer is added for everyone on the search. Lily replies inside a day.
+            Ask here and the answer is added for everyone on the search. Lily replies inside a day and you get an email when she does.
           </p>
         </div>
         {canAsk && !asking && (
@@ -114,7 +119,7 @@ export function SearchQuestions({
         <ul className={`mt-4 divide-y divide-[#E4E3DC] ${CARD} px-5`}>
           {visible.map(q => (
             <li key={q.id} className="py-4">
-              <QuestionItem q={q} canManage={canManage} />
+              <QuestionItem q={q} canManage={canManage} canDelete={canDelete} />
             </li>
           ))}
         </ul>
@@ -123,11 +128,15 @@ export function SearchQuestions({
   )
 }
 
-function QuestionItem({ q, canManage }: { q: QuestionRow; canManage: boolean }) {
+function QuestionItem({ q, canManage, canDelete }: { q: QuestionRow; canManage: boolean; canDelete: boolean }) {
   const router = useRouter()
-  const [answer, setAnswer] = useState(q.answer ?? '')
+  // Pep's draft starts in the box when nobody has answered yet, so answering
+  // from the page is the same one-look decision it is in Slack.
+  const [answer, setAnswer] = useState(q.answer ?? q.suggested_answer ?? '')
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const showsDraft = canManage && !q.answer && !!q.suggested_answer
 
   async function save(patch: Record<string, unknown>) {
     setBusy(true)
@@ -138,6 +147,13 @@ function QuestionItem({ q, canManage }: { q: QuestionRow; canManage: boolean }) 
     })
     setBusy(false)
     setEditing(false)
+    router.refresh()
+  }
+
+  async function remove() {
+    setBusy(true)
+    await fetch(`/api/partners/questions/${q.id}`, { method: 'DELETE' })
+    setBusy(false)
     router.refresh()
   }
 
@@ -165,8 +181,11 @@ function QuestionItem({ q, canManage }: { q: QuestionRow; canManage: boolean }) 
         <div className="flex flex-col gap-2">
           {editing || !q.answer ? (
             <>
+              {showsDraft && (
+                <p className={META}>Pep drafted this from the brief. Publish it as is, or change it first.</p>
+              )}
               <textarea
-                rows={2}
+                rows={showsDraft ? 4 : 2}
                 value={answer}
                 onChange={e => setAnswer(e.target.value)}
                 placeholder="The answer, once, for everyone on the search."
@@ -175,7 +194,7 @@ function QuestionItem({ q, canManage }: { q: QuestionRow; canManage: boolean }) 
               <div className="flex items-center gap-2">
                 <button type="button" disabled={busy || !answer.trim()} onClick={() => save({ answer })} className={`${BTN_PRIMARY} min-h-[36px] px-4 text-[13px]`}>
                   {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  {q.answer ? 'Update answer' : 'Answer'}
+                  {q.answer ? 'Update answer' : showsDraft ? 'Publish' : 'Answer'}
                 </button>
                 {q.answer && (
                   <button type="button" onClick={() => setEditing(false)} className={`min-h-[36px] px-2 text-[13px] text-[#6E6E68] ${FOCUS}`}>
@@ -185,13 +204,32 @@ function QuestionItem({ q, canManage }: { q: QuestionRow; canManage: boolean }) 
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={() => setEditing(true)} className={`text-[12.5px] font-medium text-[#6E6E68] hover:text-[#161613] ${FOCUS}`}>
                 Edit answer
               </button>
               <button type="button" onClick={() => save({ is_visible: !q.is_visible })} className={`text-[12.5px] font-medium text-[#6E6E68] hover:text-[#161613] ${FOCUS}`}>
                 {q.is_visible ? 'Hide from partners' : 'Show to partners'}
               </button>
+            </div>
+          )}
+          {canDelete && (
+            <div className="flex items-center gap-3">
+              {confirmDelete ? (
+                <>
+                  <span className={META}>Delete this question and its answer for everyone?</span>
+                  <button type="button" disabled={busy} onClick={remove} className={`text-[12.5px] font-semibold text-[#A3423A] ${FOCUS}`}>
+                    Yes, delete
+                  </button>
+                  <button type="button" onClick={() => setConfirmDelete(false)} className={`text-[12.5px] font-medium text-[#6E6E68] ${FOCUS}`}>
+                    Keep it
+                  </button>
+                </>
+              ) : (
+                <button type="button" onClick={() => setConfirmDelete(true)} className={`text-[12.5px] font-medium text-[#9C9C95] hover:text-[#A3423A] ${FOCUS}`}>
+                  Delete
+                </button>
+              )}
             </div>
           )}
         </div>

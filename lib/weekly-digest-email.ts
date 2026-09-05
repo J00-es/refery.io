@@ -14,7 +14,7 @@
 
 import { Resend } from 'resend'
 
-const FROM = 'Refery <agreements@refery.io>'
+const FROM = 'Refery <hello@refery.io>'
 const REPLY_TO = 'lily@refery.io'
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz'
 

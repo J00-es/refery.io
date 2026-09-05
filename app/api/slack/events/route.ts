@@ -13,6 +13,10 @@
  * An access-request card is the same gesture again: :+1: puts the partner on
  * the client and emails them, :-1: closes the request with a short email. See
  * handleAccessRequest and lib/access-requests.ts.
+ *
+ * A question card adds one more move: a typed reply in its thread publishes
+ * the answer to every partner on the search, :+1: on Pep's draft publishes the
+ * draft, :see_no_evil: hides the question. See lib/search-questions.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -23,6 +27,7 @@ import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/i
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 import { decideAccessRequest } from '@/lib/access-requests'
+import { HIDE_REACTIONS, publishAnswer, questionForSlackMessage, setQuestionVisibility } from '@/lib/search-questions'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.
@@ -56,6 +61,18 @@ interface ReactionEvent {
   item?: { type?: string; channel?: string; ts?: string }
 }
 
+/** A `message` event. Only thread replies from people are acted on. */
+interface MessageEvent {
+  type: string
+  subtype?: string
+  user?: string
+  bot_id?: string
+  channel?: string
+  ts?: string
+  thread_ts?: string
+  text?: string
+}
+
 export async function POST(req: NextRequest) {
   const raw = await req.text()
 
@@ -70,7 +87,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  let body: { type?: string; challenge?: string; event?: ReactionEvent }
+  let body: { type?: string; challenge?: string; event?: ReactionEvent | MessageEvent }
   try {
     body = JSON.parse(raw)
   } catch {
@@ -82,21 +99,59 @@ export async function POST(req: NextRequest) {
   }
 
   const event = body.event
-  if (event?.type === 'reaction_added' && event.item?.channel && event.item.ts) {
-    // Slack retries anything slower than 3s or non-2xx, and sending mail is
-    // well over that. Acknowledge now, decide afterwards; the handler itself is
-    // idempotent, so a duplicate delivery is harmless either way.
-    after(() => handleReaction(event))
+  if (event?.type === 'reaction_added') {
+    const r = event as ReactionEvent
+    if (r.item?.channel && r.item.ts) {
+      // Slack retries anything slower than 3s or non-2xx, and sending mail is
+      // well over that. Acknowledge now, decide afterwards; the handler itself is
+      // idempotent, so a duplicate delivery is harmless either way.
+      after(() => handleReaction(r))
+    }
+  } else if (event?.type === 'message') {
+    const m = event as MessageEvent
+    // A reply in a thread, typed by a person. Edits, deletions, joins and bot
+    // posts all carry a subtype or a bot_id and are ignored.
+    if (m.thread_ts && m.ts !== m.thread_ts && m.channel && m.user && !m.bot_id && !m.subtype && m.text?.trim()) {
+      after(() => handleThreadReply(m))
+    }
   }
 
   return NextResponse.json({ ok: true })
+}
+
+/**
+ * A typed reply in a question's thread becomes the published answer.
+ *
+ * Only threads rooted at a question card count; a reply on an access-request
+ * or intake card does nothing. A later reply replaces the earlier answer, which
+ * is how Lily edits from Slack. The bot echoes what was published and to how
+ * many partners, so a stray reply is caught the moment it lands.
+ */
+async function handleThreadReply(m: MessageEvent): Promise<void> {
+  const self = await botUserId()
+  if (!self || m.user === self) return
+
+  const q = await questionForSlackMessage(m.channel!, m.thread_ts!)
+  if (!q || q.kind !== 'card') return
+
+  const result = await publishAnswer({
+    id: q.id,
+    answer: m.text!,
+    answeredBy: null,
+    via: `slack:${m.user}`,
+    actorLabel: `<@${m.user}>`,
+  })
+  if (!result.ok) {
+    await postThreadReply(m.channel!, m.thread_ts!, `:warning: Could not publish that: ${result.error}`)
+  }
 }
 
 async function handleReaction(event: ReactionEvent): Promise<void> {
   const reaction = event.reaction ?? ''
   const approve = APPROVE.has(reaction)
   const reject = REJECT.has(reaction)
-  if (!approve && !reject) return
+  const hide = HIDE_REACTIONS.has(reaction)
+  if (!approve && !reject && !hide) return
 
   if (!event.user) return
 
@@ -118,6 +173,11 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
 
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
+
+  // Question cards and Pep's drafts: :+1: on a draft publishes it, :see_no_evil:
+  // on the card hides the question. Recognised by the message, not the channel.
+  if (await handleQuestionReaction(event, channel, ts, approve, hide)) return
+  if (hide) return
 
   // Access-request cards can share a channel with sign-ups or intake, so they
   // are recognised by the message itself rather than by where it was posted.
@@ -221,6 +281,48 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     ts,
     `:warning: Approved, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
   )
+}
+
+/**
+ * Reactions on a question card or on Pep's draft beneath it.
+ *
+ * Returns false when the message is neither, so the caller carries on. :+1: on
+ * the draft publishes the suggested answer word for word; :-1: on it is a
+ * no-op, because "not this" is what typing your own reply is for.
+ * :see_no_evil: on the card hides the question from partners.
+ */
+async function handleQuestionReaction(
+  event: ReactionEvent,
+  channel: string,
+  ts: string,
+  approve: boolean,
+  hide: boolean,
+): Promise<boolean> {
+  const q = await questionForSlackMessage(channel, ts)
+  if (!q) return false
+
+  if (q.kind === 'draft') {
+    if (!approve) return true
+    if (!q.suggestedAnswer) {
+      await postThreadReply(channel, ts, 'There is no draft to publish on this one. Reply in the thread instead.')
+      return true
+    }
+    const result = await publishAnswer({
+      id: q.id,
+      answer: q.suggestedAnswer,
+      answeredBy: null,
+      via: `slack-suggested:${event.user}`,
+      actorLabel: `<@${event.user}>`,
+    })
+    if (!result.ok) await postThreadReply(channel, ts, `:warning: Could not publish Pep's draft: ${result.error}`)
+    return true
+  }
+
+  if (hide) {
+    const result = await setQuestionVisibility({ id: q.id, visible: false, actorLabel: `<@${event.user}>` })
+    if (!result.ok) await postThreadReply(channel, ts, `:warning: Could not hide that: ${result.error}`)
+  }
+  return true
 }
 
 /**

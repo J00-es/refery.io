@@ -122,7 +122,7 @@ export default async function PartnerRolePage({
     unlocked
       ? adminClient
           .from('search_questions')
-          .select('id, question, answer, answered_at, created_at, is_visible, asked_by')
+          .select('id, question, answer, answered_at, created_at, is_visible, asked_by, suggested_answer')
           .eq('job_id', jobId)
           .order('created_at', { ascending: true })
       : Promise.resolve({ data: [] }),
@@ -136,6 +136,8 @@ export default async function PartnerRolePage({
     created_at: q.created_at as string,
     is_visible: q.is_visible as boolean,
     mine: q.asked_by === access.appUser.id,
+    // Pep's draft is for Refery's eyes; a partner never sees an unpublished answer.
+    suggested_answer: access.canManage ? ((q.suggested_answer as string | null) ?? null) : null,
   }))
 
   /*
@@ -663,7 +665,13 @@ export default async function PartnerRolePage({
           </section>
 
           <div id="questions">
-            <SearchQuestions jobId={jobId} questions={questions} canAsk={canWork && !closed} canManage={access.canManage} />
+            <SearchQuestions
+              jobId={jobId}
+              questions={questions}
+              canAsk={canWork && !closed}
+              canManage={access.canManage}
+              canDelete={access.realUser.isSuperAdmin}
+            />
           </div>
         </>
       )}
