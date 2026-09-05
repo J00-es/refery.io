@@ -1,5 +1,14 @@
 import Link from 'next/link'
 
+/**
+ * The date this page was last actually edited.
+ *
+ * It used to render `new Date()`, so the page claimed to have been updated
+ * today, every day, which is exactly the wrong property for a document someone
+ * may later need to prove the contents of on a given date.
+ */
+const LAST_UPDATED = '5 September 2026'
+
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-background">
@@ -13,13 +22,19 @@ export default function TermsPage() {
         <h1 className="text-4xl font-bold mb-8 text-foreground">Terms & Conditions</h1>
         
         <div className="prose prose-gray dark:prose-invert max-w-none space-y-6">
-          <p className="text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
+          <p className="text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-foreground">1. Acceptance of Terms</h2>
             <p className="text-foreground">
               By accessing and using Refery.io (&quot;the Platform&quot;), you agree to be bound by these Terms & Conditions. 
               If you do not agree to these terms, please do not use our services.
+            </p>
+            <p className="text-foreground">
+              These are the general platform terms. If you are a Refery partner you have also accepted the
+              Partner Terms, and the Submission Terms before your first submission. Where anything on this
+              page conflicts with those documents, <strong>the Partner Terms and Submission Terms
+              control</strong>.
             </p>
           </section>
 
@@ -62,8 +77,14 @@ export default function TermsPage() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-foreground">5. Referral Fees and Payments</h2>
             <p className="text-foreground">
-              Referral bonuses are paid according to the terms specified for each job posting. Payment terms, 
-              guarantee periods, and conditions are determined by the hiring company and communicated through the platform.
+              If you are a Refery partner, what you earn and when you are paid are set by the Partner Terms
+              you accepted, not by the hiring company. In short: you keep 70% of the placement fee, and you
+              are paid within 14 business days of both the hire passing 90 days and the client paying us.
+            </p>
+            <p className="text-foreground">
+              A role&apos;s fee is either a percentage of first-year base salary, usually 10 to 20%, or a
+              fixed amount, and it is shown on the role before you work it. Hiring companies agree their own
+              terms with Refery; those terms do not change what Refery owes you.
             </p>
           </section>
 
@@ -94,8 +115,13 @@ export default function TermsPage() {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-foreground">9. Changes to Terms</h2>
             <p className="text-foreground">
-              We may update these terms from time to time. Continued use of the platform after changes constitutes 
-              acceptance of the modified terms.
+              We may update these general platform terms from time to time, and continued use of the Platform
+              after a change means you accept the updated platform terms.
+            </p>
+            <p className="text-foreground">
+              The Partner Terms and Submission Terms work differently. They are versioned, and a new version
+              applies to you <strong>only once you accept it</strong>. Until then the version you accepted
+              stays in force, and continued use of the Platform does not change it.
             </p>
           </section>
 
