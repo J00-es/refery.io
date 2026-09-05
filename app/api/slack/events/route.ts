@@ -151,7 +151,10 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
 }
 
 async function handleReaction(event: ReactionEvent): Promise<void> {
-  const reaction = event.reaction ?? ''
+  // A thumbs up with a skin tone arrives as "+1::skin-tone-2". Same gesture,
+  // so the suffix is dropped before matching. Lily's first approval of an
+  // access request was ignored for exactly this reason (6 Sep 2026).
+  const reaction = (event.reaction ?? '').replace(/::skin-tone-\d$/, '')
   const approve = APPROVE.has(reaction)
   const reject = REJECT.has(reaction)
   const hide = HIDE_REACTIONS.has(reaction)
