@@ -154,6 +154,22 @@ export async function GET(request: NextRequest) {
       digest.moved.push({ lead: (s.candidate_name as string) ?? 'A candidate', text })
     }
 
+    // A search of theirs that ended this week belongs in "what moved" too, so
+    // they stop sourcing on it. This is the only place they hear it: Lily's
+    // call on 6 Sep 2026 was one Sunday email over same-day ones.
+    for (const a of mine) {
+      const r = roleById.get(a.job_id)
+      if (!r) continue
+      const stage = r.search_stage as string
+      const movedAt = r.stage_moved_at as string | null
+      if ((stage === 'filled' || stage === 'closed') && movedAt && movedAt >= since) {
+        digest.moved.unshift({
+          lead: `${r.headline || r.title} at ${r.company_name}`,
+          text: stage === 'filled' ? 'is filled. Nothing more to source there; anyone you submitted keeps their protection.' : 'is closed. The client paused or withdrew it; anyone you submitted keeps their protection.',
+        })
+      }
+    }
+
     // Needs you: proposals without an answer, and open submissions missing the
     // one field every client asks about.
     const pending = mine.filter(a => a.status === 'proposed')

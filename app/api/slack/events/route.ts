@@ -17,6 +17,9 @@
  * A question card adds one more move: a typed reply in its thread publishes
  * the answer to every partner on the search, and :see_no_evil: hides the
  * question. See lib/search-questions.ts.
+ *
+ * A submission card in #refery-desk: :+1: shortlists it. Declining stays on
+ * the page because it needs a reason. See lib/desk-notifications.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -27,6 +30,7 @@ import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/i
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 import { decideAccessRequest } from '@/lib/access-requests'
+import { declineNeedsPage, shortlistFromSlack, submissionForSlackMessage } from '@/lib/desk-notifications'
 import { HIDE_REACTIONS, publishAnswer, questionForSlackMessage, setQuestionVisibility } from '@/lib/search-questions'
 
 export const dynamic = 'force-dynamic'
@@ -178,6 +182,15 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   // by the message, not the channel.
   if (await handleQuestionReaction(event, channel, ts, hide)) return
   if (hide) return
+
+  // Submission cards in #refery-desk: :+1: shortlists, :-1: points at the page
+  // because a decline carries a reason the partner reads.
+  const sub = await submissionForSlackMessage(channel, ts)
+  if (sub) {
+    if (approve) await shortlistFromSlack({ id: sub.id, slackUser: event.user, channel, ts })
+    else await declineNeedsPage({ id: sub.id, channel, ts })
+    return
+  }
 
   // Access-request cards can share a channel with sign-ups or intake, so they
   // are recognised by the message itself rather than by where it was posted.

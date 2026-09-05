@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
 import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
 import { qualifies, recordClaim } from '@/lib/submission-claims'
 import { workAuthLabel } from '@/lib/partners'
+import { announceSubmission } from '@/lib/desk-notifications'
 
 interface Draft {
   candidate_id: string
@@ -274,6 +276,18 @@ export async function POST(req: Request) {
         updated_at: claimedAt.toISOString(),
       })
       .eq('id', held.id)
+  }
+
+  // One card per submission for the super admin, after the response so the
+  // partner is not waiting on Slack.
+  const newIds = (inserted ?? []).map(row => row.id as string)
+  if (newIds.length) {
+    after(async () => {
+      for (const id of newIds) {
+        const r = await announceSubmission(id)
+        if (!r.sent) console.warn('[submissions] slack card not sent:', r.error)
+      }
+    })
   }
 
   return NextResponse.json({

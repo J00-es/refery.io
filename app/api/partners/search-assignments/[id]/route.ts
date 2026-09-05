@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import type { SearchAssignmentStatus } from '@/lib/partners'
+import { noteProposalDeclined } from '@/lib/desk-notifications'
 
 /**
  * A partner answering a proposal, or an admin moving an assignment.
@@ -69,6 +71,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { error } = await adminClient.from('search_assignments').update(patch).eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // A partner saying no is one of the three things the super admin hears about
+  // at once: the search needs someone else, and the reason says where to look.
+  if (status === 'declined' && !access.canManage) {
+    after(() => noteProposalDeclined(id, reason))
+  }
 
   return NextResponse.json({ ok: true, status })
 }

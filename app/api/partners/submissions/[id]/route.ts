@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
+import { noteWithdrawal } from '@/lib/desk-notifications'
 
 const VALID = new Set(SUBMISSION_STATUSES.map(s => s.value))
 
@@ -123,6 +125,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .from('candidates')
       .update({ status: 'hired', updated_at: now })
       .eq('id', submission.candidate_id)
+  }
+
+  // A partner pulling someone who is already in front of the client is one of
+  // the three things the super admin hears about at once. Earlier withdrawals
+  // are not; noteWithdrawal decides from the previous status.
+  if (status === 'withdrawn' && !access.canManage) {
+    const from = submission.status as string
+    after(() => noteWithdrawal(id, from))
   }
 
   return NextResponse.json({ ok: true, status })
