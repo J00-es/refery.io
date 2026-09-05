@@ -67,6 +67,154 @@ function currentRole(candidate: Record<string, unknown>): string | null {
   return [t, c].filter(Boolean).join(' at ') || null
 }
 
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+
+/**
+ * Whether Lily already knows this person, from what is on record: an intro
+ * call (Granola transcript or a call note), emails and calendar invites that
+ * resolved to them, and any salary or availability note, which only exists
+ * after a conversation. Database reads only; nothing is fetched or generated.
+ */
+async function knownToYou(admin: SupabaseClient, candidateId: string): Promise<string> {
+  const [{ data: calls }, { data: notes }, { data: signals }] = await Promise.all([
+    admin
+      .from('candidate_activity_log')
+      .select('created_at, metadata')
+      .eq('candidate_id', candidateId)
+      .eq('activity_type', 'call_transcript')
+      .order('created_at', { ascending: false })
+      .limit(3),
+    admin
+      .from('recruiter_notes')
+      .select('note_type, created_at')
+      .eq('candidate_id', candidateId)
+      .in('note_type', ['call', 'salary', 'availability'])
+      .order('created_at', { ascending: false })
+      .limit(10),
+    admin
+      .from('ingested_signals')
+      .select('source, occurred_at')
+      .eq('entity_type', 'candidate')
+      .eq('entity_id', candidateId)
+      .in('source', ['gmail', 'calendar'])
+      .order('occurred_at', { ascending: false })
+      .limit(200),
+  ])
+
+  const parts: string[] = []
+
+  const callNotes = (notes ?? []).filter(n => n.note_type === 'call')
+  const latestCall = calls?.[0] ?? null
+  if (latestCall || callNotes.length) {
+    const meta = (latestCall?.metadata ?? {}) as { event_date?: string; source?: string; referred_by?: string }
+    const when = meta.event_date || (latestCall?.created_at as string | undefined) || (callNotes[0]?.created_at as string)
+    const via = meta.source === 'granola' ? 'Granola' : null
+    const intro = meta.referred_by ? `intro by ${meta.referred_by}` : null
+    const extra = [via, intro].filter(Boolean).join(', ')
+    parts.push(`intro call ${shortDate(when)}${extra ? ` (${extra})` : ''}`)
+  }
+
+  const now = Date.now()
+  const emails = (signals ?? []).filter(x => x.source === 'gmail')
+  if (emails.length) parts.push(`${emails.length} email${emails.length === 1 ? '' : 's'}, last ${shortDate(emails[0].occurred_at as string)}`)
+  const meetings = (signals ?? []).filter(x => x.source === 'calendar')
+  const upcoming = meetings.find(m => new Date(m.occurred_at as string).getTime() > now)
+  if (upcoming) parts.push(`meeting booked ${shortDate(upcoming.occurred_at as string)}`)
+  else if (meetings.length && !parts.some(p => p.startsWith('intro call'))) parts.push(`met ${shortDate(meetings[0].occurred_at as string)}`)
+
+  const talked = (notes ?? []).find(n => n.note_type === 'salary' || n.note_type === 'availability')
+  if (talked) parts.push(`${talked.note_type} note ${shortDate(talked.created_at as string)}`)
+
+  return parts.length ? `*Known to you:* ${esc(parts.join(' · '))}` : '*Known to you:* no call or email on record'
+}
+
+const k = (n: number) => `$${Math.round(n / 1000)}k`
+
+/**
+ * How the profile lines up with the role, from facts already on both records.
+ *
+ * Five checks, each marked ✓ or ⚠, plus the nightly matcher's tier and reason
+ * when it scored this pair. Deliberately mechanical: pay against the band,
+ * years against the ask, location against the remote policy, work
+ * authorisation against the requirement, skill overlap where the role lists
+ * skills. It does not judge the person; the panel's take above does that. No
+ * model call, so no cost.
+ */
+function fitLine(
+  c: Record<string, unknown>,
+  role: Record<string, unknown>,
+  matched: { match_score?: unknown; match_tier?: unknown; match_reason?: unknown } | null,
+  submittedWorkAuth: string | null,
+): string {
+  const checks: string[] = []
+
+  // Pay: what they ask against what the role pays.
+  const askMin = typeof c.salary_expectation_min === 'number' ? c.salary_expectation_min : null
+  const askMax = typeof c.salary_expectation_max === 'number' ? c.salary_expectation_max : askMin
+  const bandMin = typeof role.salary_min === 'number' ? role.salary_min : null
+  const bandMax = typeof role.salary_max === 'number' ? role.salary_max : null
+  if (askMin && (bandMin || bandMax)) {
+    const band = bandMin && bandMax ? `${k(bandMin)}–${k(bandMax)}` : k((bandMax ?? bandMin) as number)
+    const ask = askMax && askMax !== askMin ? `${k(askMin)}–${k(askMax)}` : k(askMin)
+    if (bandMax && askMin > bandMax) checks.push(`⚠ asks ${ask}, role pays ${band}`)
+    else if (bandMin && (askMax ?? askMin) < bandMin) checks.push(`✓ asks ${ask}, under the ${band} band`)
+    else checks.push(`✓ asks ${ask}, in the ${band} band`)
+  }
+
+  // Years against the ask.
+  const yrs = typeof c.experience_years === 'number' ? c.experience_years : null
+  const yMin = typeof role.experience_years_min === 'number' ? role.experience_years_min : null
+  const yMax = typeof role.experience_years_max === 'number' ? role.experience_years_max : null
+  if (yrs !== null && (yMin !== null || yMax !== null)) {
+    const ask = yMin !== null && yMax !== null ? `${yMin}–${yMax}` : yMin !== null ? `${yMin}+` : `up to ${yMax}`
+    if (yMin !== null && yrs < yMin) checks.push(`⚠ ${yrs} yrs, role asks ${ask}`)
+    else if (yMax !== null && yrs > yMax + 3) checks.push(`⚠ ${yrs} yrs, role asks ${ask} (may be over-senior)`)
+    else checks.push(`✓ ${yrs} yrs, role asks ${ask}`)
+  }
+
+  // Location against the remote policy.
+  const where = typeof c.location === 'string' ? c.location.trim() : ''
+  const jobWhere = typeof role.location === 'string' ? role.location.trim() : ''
+  const remote = typeof role.remote_policy === 'string' ? role.remote_policy : ''
+  if (where && (jobWhere || remote)) {
+    const firstWord = where.split(/[,\s]+/)[0]?.toLowerCase() ?? ''
+    const sameCity = firstWord.length > 2 && jobWhere.toLowerCase().includes(firstWord)
+    if (remote === 'remote') checks.push(`✓ ${where}; role is remote${jobWhere ? ` (${jobWhere})` : ''}`)
+    else if (sameCity) checks.push(`✓ ${where}, role in ${jobWhere}`)
+    else checks.push(`⚠ ${where}, role ${remote === 'hybrid' ? 'hybrid' : 'on site'} in ${jobWhere || 'an unstated location'}`)
+  }
+
+  // Work authorisation against the requirement.
+  const need = typeof role.visa_requirement === 'string' ? role.visa_requirement : ''
+  const auth = submittedWorkAuth || (typeof c.visa_status === 'string' ? c.visa_status : '')
+  if (need && auth) {
+    const needsAuth = /authori|citizen|no.?sponsor/i.test(need)
+    const hasAuth = /citizen|green|pr\b|authori|h1b|opt/i.test(auth)
+    const needsSponsor = /sponsor/i.test(auth) && !/no.?sponsor/i.test(auth)
+    if (needsAuth && needsSponsor) checks.push(`⚠ needs sponsorship; role wants ${need.replace(/_/g, ' ')}`)
+    else if (needsAuth && hasAuth) checks.push(`✓ work auth: ${workAuthLabel(auth) ?? auth}`)
+    else checks.push(`✓ work auth: ${workAuthLabel(auth) ?? auth} (role: ${need.replace(/_/g, ' ')})`)
+  }
+
+  // Skill overlap, only where the role lists skills.
+  const want = Array.isArray(role.skills_required) ? (role.skills_required as unknown[]).filter((x): x is string => typeof x === 'string') : []
+  const have = Array.isArray(c.skills) ? (c.skills as unknown[]).filter((x): x is string => typeof x === 'string') : []
+  if (want.length && have.length) {
+    const haveSet = new Set(have.map(x => x.toLowerCase()))
+    const hit = want.filter(w => haveSet.has(w.toLowerCase()) || have.some(h => h.toLowerCase().includes(w.toLowerCase())))
+    checks.push(`${hit.length >= Math.ceil(want.length / 2) ? '✓' : '⚠'} ${hit.length} of ${want.length} listed skills${hit.length ? `: ${hit.slice(0, 4).join(', ')}` : ''}`)
+  }
+
+  const matcher =
+    matched && (matched.match_tier || matched.match_score)
+      ? `Matcher: ${[matched.match_tier, typeof matched.match_score === 'number' ? `${Math.round(matched.match_score)}` : null].filter(Boolean).join(' · ')}${matched.match_reason ? `. ${String(matched.match_reason).slice(0, 200)}` : ''}`
+      : null
+
+  const body = checks.length ? esc(checks.join('  ·  ')) : 'not enough on either record to compare'
+  return `*Fit with the role:* ${body}${matcher ? `\n_${esc(matcher)}_` : ''}`
+}
+
 /**
  * One card per submission, posted right after the partner presses Submit.
  * Reads back everything the review needs so Lily can decide from Slack
@@ -81,16 +229,22 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
     .maybeSingle()
   if (!s) return { sent: false, error: 'submission not found' }
 
-  const [{ data: cand }, { data: role }, { data: claim }, { data: partner }] = await Promise.all([
+  const [{ data: cand }, { data: role }, { data: matched }, { data: claim }, { data: partner }, known] = await Promise.all([
     admin
       .from('candidates')
-      .select('linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email, panel_grade, recruiter_verdict, lily_verdict')
+      .select('linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email, panel_grade, recruiter_verdict, lily_verdict, skills, location, visa_status, salary_expectation_min, salary_expectation_max, experience_years')
       .eq('id', s.candidate_id)
       .maybeSingle(),
     admin
       .from('partner_roles_v')
-      .select('headline, search_stage, submission_cap, live_submission_count, hard_requirements, not_for, location, salary_min, salary_max')
+      .select('headline, search_stage, submission_cap, live_submission_count, hard_requirements, not_for, location, remote_policy, salary_min, salary_max, visa_requirement, skills_required, experience_years_min, experience_years_max')
       .eq('job_id', s.job_id)
+      .maybeSingle(),
+    admin
+      .from('job_candidate_pipeline')
+      .select('match_score, match_tier, match_reason')
+      .eq('job_id', s.job_id)
+      .eq('candidate_id', s.candidate_id)
       .maybeSingle(),
     admin
       .from('submission_claims')
@@ -102,6 +256,7 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
       .limit(1)
       .maybeSingle(),
     admin.from('users_admin').select('role').eq('email', s.submitted_by_email).maybeSingle(),
+    knownToYou(admin, s.candidate_id as string),
   ])
 
   const c = (cand ?? {}) as Record<string, unknown>
@@ -145,6 +300,8 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
     .filter(Boolean)
     .join('\n')
 
+  const fit = fitLine(c, role ?? {}, matched ?? null, s.work_authorization as string | null)
+
   const partnerLine = `${s.submitted_by_name || s.submitted_by_email}${partner?.role ? ` · ${String(partner.role).replace(/_/g, ' ')}` : ''}${s.acted_by_name ? ` (entered by ${String(s.acted_by_name).split(' ')[0]} for them)` : ''}`
 
   const wants = [
@@ -164,6 +321,8 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
     },
     ...(who ? [{ type: 'context', elements: [{ type: 'mrkdwn', text: esc(who) }] }] : []),
     { type: 'section', text: { type: 'mrkdwn', text: panelLine } },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: known }] },
+    { type: 'section', text: { type: 'mrkdwn', text: fit } },
     {
       type: 'section',
       fields: [

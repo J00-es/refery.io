@@ -33,6 +33,28 @@ export function SubmissionActions({
   const [hmNote, setHmNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [resent, setResent] = useState(false)
+
+  /** Post the Slack card again, for when it did not land or has since improved. */
+  async function resendCard() {
+    setBusy(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/partners/submissions/${submissionId}/announce`, { method: 'POST' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setError(body.error ?? 'Could not post the card.')
+        return
+      }
+      setResent(true)
+      setTimeout(() => {
+        setResent(false)
+        setOpen(false)
+      }, 1200)
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function move(to: SubmissionStatus, withNote?: string) {
     setBusy(true)
@@ -176,6 +198,18 @@ export function SubmissionActions({
                   </button>
                 </li>
               ))}
+              <li className="mt-1 border-t border-[#E4E3DC] pt-1">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={resendCard}
+                  className={`flex w-full min-h-[38px] items-center gap-2 rounded-[10px] px-2.5 text-left text-[13px] text-[#6E6E68] transition-colors hover:bg-[#EAE9E1] hover:text-[#161613] disabled:opacity-60 ${FOCUS}`}
+                >
+                  {busy && <Loader2 className="h-3 w-3 animate-spin" />}
+                  {resent ? 'Posted to Slack' : 'Resend the Slack card'}
+                </button>
+                {error && <p className="px-2.5 pb-1 text-[12px] text-[#A3423A]">{error}</p>}
+              </li>
             </ul>
           )}
         </div>
