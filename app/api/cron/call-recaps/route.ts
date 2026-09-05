@@ -32,6 +32,7 @@ import {
 } from '@/lib/granola'
 import { createDraft, draftUrl, findThread } from '@/lib/google'
 import { recapBlocks, summariseCall, RECAP_AFFORDANCES } from '@/lib/call-recap'
+import { loadBrainContext, logBrainRetrieval } from '@/lib/brain-knowledge'
 import { addReaction, postMessage } from '@/lib/slack-bot'
 
 export const dynamic = 'force-dynamic'
@@ -325,6 +326,13 @@ async function handleNote(
 
   const signalId = await mirrorSignal(admin, detail, resolved, occurredAt)
 
+  // Refery's own terms, read fresh from the Brain on every draft rather than
+  // carried in the prompt file. The skill file describes how Lily writes; what
+  // the company actually charges and owes belongs in a document she can edit
+  // without a deploy. Empty context is survivable: the prompt then forbids
+  // commercial claims outright instead of letting the model recall them.
+  const brain = await loadBrainContext(admin, 'call-recap')
+
   const { recap, model } = await summariseCall({
     personName: resolved.name,
     personEmail: resolved.email,
@@ -333,6 +341,16 @@ async function handleNote(
     occurredAt,
     transcript,
     summaryText: summaryText || null,
+    brainContext: brain.block,
+  })
+
+  // Which version of the terms wrote which email. Worth having the first time
+  // someone asks why a draft quoted the number it did.
+  await logBrainRetrieval(admin, brain, {
+    agent: 'call-recap',
+    granola_note_id: noteId,
+    person: resolved.name,
+    model,
   })
 
   // The draft is best-effort. A Gmail failure, most likely a refresh token

@@ -105,12 +105,13 @@ Close with the promise that keeps them warm without committing us:
 |---|---|---|
 | 1 | `Your side, as I noted it` | Their role, their network, geography, the specific people they named. |
 | 2 | `Next steps` | Account status, who to send, how to send them. |
-| 3 | terms | The one-line fee statement below. |
+| 3 | terms | One line on the split, taken from the reference. |
 
-Always include, near the end:
+Always include, near the end, a single sentence stating the scout's share of
+the placement fee. Take the number from the Refery reference, never from memory:
 
-> As discussed, scouts receive 70% of the placement fee when someone they refer
-> is hired.
+> As discussed, scouts receive {split} of the placement fee when someone they
+> refer is hired.
 
 ### C. Recruiter or agency partner
 
@@ -136,15 +137,31 @@ with what they want for themselves. Do not merge the two, and do not drop one.
 
 ## Facts that must be exact
 
-These recur, and a wrong number is a commercial problem, not a typo. Use them
-verbatim when the call covered them, and leave them out when it did not.
+Every commercial term in this email comes from the **Refery reference** supplied
+alongside this specification. It is the Refery Commercial Terms document, read
+from the Brain at the moment of writing, so it is current by construction.
+
+This file used to carry the numbers itself. That copy drifted: it told partners
+the company-introduction bonus was "10% of Refery's revenue" when the signed
+agreement says 10% of the placement fee, roughly three times larger. Numbers do
+not live here any more, and should never be added back.
+
+Rules for using the reference:
+
+- **Quote it, never recall it.** If a term is not in the reference, it does not
+  go in the email, however certain you feel about it.
+- **Only what the call covered.** The reference says what is true. It does not
+  say what to mention. A term the conversation never touched stays out.
+- **When the reference is silent** on something the call raised, write that Lily
+  will confirm it. Never estimate.
+- **Never mention when a partner gets paid.** Payment timing does not belong in
+  a first-call follow-up: it reads as a caveat before anyone has done any work.
+  If they ask directly, Lily answers it herself.
+
+Things this specification still fixes, because they are voice rather than
+commercial fact:
 
 - Refery is 100% contingency-based, also said as success-based.
-- The partner keeps **70%** of the placement fee. Refery keeps **30%**.
-- For any candidate they first introduce, they remain the referring partner for
-  **24 months** across future Refery matches.
-- If they introduce a founder or hiring manager who becomes a client, they
-  receive **10% of Refery's revenue** from successful hires at that company.
 - On a focused search we work with only **2 to 3 recruiters**.
 - We handle calibration, curation, the hiring-manager relationship, and the
   process end to end.
