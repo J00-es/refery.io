@@ -47,8 +47,8 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
   return (
     <div
       className={cn(
-        'border-t border-[rgba(16,15,15,0.06)] first:border-t-0 cursor-pointer transition-colors',
-        isOpen ? 'bg-[#F8F8F3]' : 'hover:bg-[#EAE9E1]'
+        'border-t border-[rgba(22,22,19,0.06)] first:border-t-0 cursor-pointer transition-colors',
+        isOpen ? 'bg-[#F2F1EB]' : 'hover:bg-[#E9E8E1]'
       )}
     >
       <div
@@ -57,31 +57,31 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
       >
         <span className={cn('w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full shrink-0', dotColors[urgency])} />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] sm:text-sm font-medium text-[#100F0F] leading-snug">{title}</p>
-          <p className="text-[11px] sm:text-xs text-[rgba(16,15,15,0.40)] mt-0.5 truncate">{meta}</p>
+          <p className="text-[13px] sm:text-sm font-medium text-[#161613] leading-snug">{title}</p>
+          <p className="text-[11px] sm:text-xs text-[rgba(22,22,19,0.40)] mt-0.5 truncate">{meta}</p>
         </div>
         <ChevronDown
           className={cn(
-            'h-4 sm:h-5 w-4 sm:w-5 text-[rgba(16,15,15,0.40)] transition-transform shrink-0',
+            'h-4 sm:h-5 w-4 sm:w-5 text-[rgba(22,22,19,0.40)] transition-transform shrink-0',
             isOpen && 'rotate-180'
           )}
         />
       </div>
 
       {isOpen && items.length > 0 && (
-        <div className="px-3 sm:px-[22px] pb-3 sm:pb-[18px] border-t border-dashed border-[rgba(16,15,15,0.06)]">
+        <div className="px-3 sm:px-[22px] pb-3 sm:pb-[18px] border-t border-dashed border-[rgba(22,22,19,0.06)]">
           <ul className="mt-2.5 sm:mt-3.5 space-y-2 sm:space-y-2.5">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-white border border-[rgba(16,15,15,0.06)] rounded-md"
+                className="flex items-center gap-2 sm:gap-3 px-2.5 sm:px-3.5 py-2 sm:py-2.5 bg-white border border-[rgba(22,22,19,0.06)] rounded-md"
               >
                 <CompanyLogo companyName={item.companyName} size="sm" className="hidden sm:flex" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-[12px] sm:text-[13px]">
                     <Link
                       href={`/candidates/${item.candidateId}`}
-                      className="font-medium text-[#100F0F] hover:underline truncate"
+                      className="font-medium text-[#161613] hover:underline truncate"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {item.candidateName}
@@ -90,7 +90,7 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
                       <LinkedInBadge url={item.candidateLinkedin} size="sm" />
                     )}
                   </div>
-                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5 truncate">
+                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(22,22,19,0.40)] mt-0.5 truncate">
                     {item.jobTitle} · {item.companyName}
                   </p>
                 </div>
@@ -113,8 +113,8 @@ interface ActionQueueCardProps {
 export function ActionQueueCard({ rows }: ActionQueueCardProps) {
   if (rows.length === 0) {
     return (
-      <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-[22px] py-12 text-center">
-        <p className="font-semibold text-[rgba(16,15,15,0.40)] italic text-lg">
+      <div className="bg-white border border-[rgba(22,22,19,0.10)] rounded-[10px] px-[22px] py-12 text-center">
+        <p className="font-semibold text-[rgba(22,22,19,0.40)] italic text-lg">
           All clear — nothing needs you right now.
         </p>
       </div>
@@ -122,7 +122,7 @@ export function ActionQueueCard({ rows }: ActionQueueCardProps) {
   }
 
   return (
-    <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] px-0 py-1">
+    <div className="bg-white border border-[rgba(22,22,19,0.10)] rounded-[10px] px-0 py-1">
       {rows.map((row, idx) => (
         <ActionQueueRow key={idx} {...row} />
       ))}

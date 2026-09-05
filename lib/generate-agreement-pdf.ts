@@ -16,7 +16,7 @@ import {
 } from '@react-pdf/renderer'
 
 const C = {
-  ink: '#100F0F',
+  ink: '#161613',
   ink2: '#3F3E3E',
   ink3: '#6B6B6B',
   green: '#1F3A2F',

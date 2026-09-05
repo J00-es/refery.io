@@ -30,14 +30,14 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
 
   if (!hasItems) {
     return (
-      <div className="bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] overflow-hidden opacity-60">
+      <div className="bg-white border border-[rgba(22,22,19,0.10)] rounded-[10px] overflow-hidden opacity-60">
         <div className="p-5">
-          <div className="w-8 h-8 rounded-md flex items-center justify-center mb-3 bg-[#EBF4EF] text-[#2A6B45]">
+          <div className="w-8 h-8 rounded-md flex items-center justify-center mb-3 bg-[#E7EDE9] text-[#1F3A2F]">
             {icon}
           </div>
-          <h3 className="text-sm font-semibold text-[#100F0F] mb-1">{title}</h3>
-          <p className="text-[12.5px] text-[rgba(16,15,15,0.64)] leading-relaxed">{subtitle}</p>
-          <p className="font-semibold text-xs text-[rgba(16,15,15,0.40)] italic mt-3">{emptyText}</p>
+          <h3 className="text-sm font-semibold text-[#161613] mb-1">{title}</h3>
+          <p className="text-[12.5px] text-[rgba(22,22,19,0.64)] leading-relaxed">{subtitle}</p>
+          <p className="font-semibold text-xs text-[rgba(22,22,19,0.40)] italic mt-3">{emptyText}</p>
         </div>
       </div>
     )
@@ -46,19 +46,19 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
   return (
     <div
       className={cn(
-        'bg-white border border-[rgba(16,15,15,0.10)] rounded-[10px] overflow-hidden cursor-pointer transition-all hover:border-[rgba(16,15,15,0.20)]',
+        'bg-white border border-[rgba(22,22,19,0.10)] rounded-[10px] overflow-hidden cursor-pointer transition-all hover:border-[rgba(22,22,19,0.20)]',
         isOpen && 'sm:col-span-3 cursor-default'
       )}
       onClick={() => !isOpen && setIsOpen(true)}
     >
       <div className="p-4 sm:p-5">
-        <div className="w-7 sm:w-8 h-7 sm:h-8 rounded-md flex items-center justify-center mb-2.5 sm:mb-3 bg-[#EBF4EF] text-[#2A6B45] text-base sm:text-lg">
+        <div className="w-7 sm:w-8 h-7 sm:h-8 rounded-md flex items-center justify-center mb-2.5 sm:mb-3 bg-[#E7EDE9] text-[#1F3A2F] text-base sm:text-lg">
           {icon}
         </div>
-        <h3 className="text-[13px] sm:text-sm font-semibold text-[#100F0F] mb-1">{title}</h3>
-        <p className="text-[11px] sm:text-[12.5px] text-[rgba(16,15,15,0.64)] leading-relaxed">{subtitle}</p>
+        <h3 className="text-[13px] sm:text-sm font-semibold text-[#161613] mb-1">{title}</h3>
+        <p className="text-[11px] sm:text-[12.5px] text-[rgba(22,22,19,0.64)] leading-relaxed">{subtitle}</p>
         {!isOpen && (
-          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-[#2A6B45] font-medium mt-2.5 sm:mt-3">
+          <div className="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-[#1F3A2F] font-medium mt-2.5 sm:mt-3">
             View {items.length} item{items.length !== 1 ? 's' : ''}
             <ChevronRight className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
           </div>
@@ -66,9 +66,9 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
       </div>
 
       {isOpen && (
-        <div className="border-t border-dashed border-[rgba(16,15,15,0.06)] p-3 sm:p-5 bg-[#F8F8F3]">
+        <div className="border-t border-dashed border-[rgba(22,22,19,0.06)] p-3 sm:p-5 bg-[#F2F1EB]">
           <div className="flex items-center justify-between mb-2.5 sm:mb-3">
-            <h4 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[rgba(16,15,15,0.40)]">
+            <h4 className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-[rgba(22,22,19,0.40)]">
               {items.length} item{items.length !== 1 ? 's' : ''}
             </h4>
             <button
@@ -76,7 +76,7 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
                 e.stopPropagation()
                 setIsOpen(false)
               }}
-              className="text-[10px] sm:text-xs text-[rgba(16,15,15,0.40)] hover:text-[#100F0F]"
+              className="text-[10px] sm:text-xs text-[rgba(22,22,19,0.40)] hover:text-[#161613]"
             >
               Collapse
             </button>
@@ -85,7 +85,7 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
             {items.map((item) => (
               <div
                 key={item.id}
-                className="bg-white border border-[rgba(16,15,15,0.06)] rounded-md p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3"
+                className="bg-white border border-[rgba(22,22,19,0.06)] rounded-md p-2.5 sm:p-3 flex items-center gap-2.5 sm:gap-3"
               >
                 <CompanyLogo companyName={item.title.split(' at ')[1] || item.title} size="sm" className="hidden sm:flex" />
                 <div className="flex-1 min-w-0">
@@ -93,13 +93,13 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
                     {item.link ? (
                       <Link
                         href={item.link}
-                        className="text-[12px] sm:text-[13px] font-medium text-[#100F0F] hover:underline truncate"
+                        className="text-[12px] sm:text-[13px] font-medium text-[#161613] hover:underline truncate"
                         onClick={(e) => e.stopPropagation()}
                       >
                         {item.title}
                       </Link>
                     ) : (
-                      <span className="text-[12px] sm:text-[13px] font-medium text-[#100F0F] truncate">
+                      <span className="text-[12px] sm:text-[13px] font-medium text-[#161613] truncate">
                         {item.title}
                       </span>
                     )}
@@ -107,12 +107,12 @@ export function HotOpportunityCard({ icon, title, subtitle, items, emptyText = '
                       <LinkedInBadge url={item.candidateLinkedin} size="sm" />
                     )}
                   </div>
-                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(16,15,15,0.40)] mt-0.5 truncate">
+                  <p className="text-[10px] sm:text-[11.5px] text-[rgba(22,22,19,0.40)] mt-0.5 truncate">
                     {item.subtitle}
                   </p>
                 </div>
                 {item.matchPct && (
-                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#2A6B45] bg-[#EBF4EF] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full shrink-0">
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#1F3A2F] bg-[#E7EDE9] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full shrink-0">
                     {item.matchPct}%
                   </span>
                 )}

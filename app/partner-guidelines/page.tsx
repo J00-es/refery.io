@@ -122,17 +122,17 @@ export default function PartnerGuidelinesPage() {
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         
         :root {
-          --bg: #F8F8F3;
-          --bg-2: #EAE9E1;
-          --bg-3: #E8E8E1;
-          --card: #FFFFFF;
-          --ink: #100F0F;
-          --ink-2: rgba(16,15,15,0.64);
-          --ink-3: rgba(16,15,15,0.40);
-          --ink-4: rgba(16,15,15,0.20);
-          --green: #2A6B45;
-          --green-bg: #EBF4EF;
-          --border: rgba(16,15,15,0.10);
+          --bg: #F2F1EB;
+          --bg-2: #E9E8E1;
+          --bg-3: #E4E3DC;
+          --card: #FAF9F5;
+          --ink: #161613;
+          --ink-2: rgba(22,22,19,0.64);
+          --ink-3: rgba(22,22,19,0.40);
+          --ink-4: rgba(22,22,19,0.20);
+          --green: #1F3A2F;
+          --green-bg: #E7EDE9;
+          --border: rgba(22,22,19,0.10);
           --r: 10px;
           --r-sm: 6px;
         }
@@ -140,7 +140,7 @@ export default function PartnerGuidelinesPage() {
         html { scroll-behavior: smooth; }
         body {
           background: var(--bg);
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
           color: var(--ink);
           line-height: 1.6;
           overflow-x: hidden;
@@ -196,13 +196,13 @@ export default function PartnerGuidelinesPage() {
       {/* NAV */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 100,
-        background: 'rgba(248,248,243,0.88)',
+        background: 'rgba(242,241,235,0.88)',
         backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 40px', height: 58
       }}>
-        <a href="/" style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 20, color: 'var(--ink)', textDecoration: 'none' }}>
+        <a href="/" style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 20, color: 'var(--ink)', textDecoration: 'none' }}>
           Refery<em style={{ fontStyle: 'italic' }}>.</em>
         </a>
         <div className="nav-links-desktop" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -262,7 +262,7 @@ export default function PartnerGuidelinesPage() {
         </span>
 
         <h1 style={{
-          fontFamily: "'Instrument Serif', Georgia, serif",
+          fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
           fontSize: 'clamp(46px, 6vw, 76px)',
           fontWeight: 400, lineHeight: 1.02, letterSpacing: '-0.02em',
           color: 'var(--ink)', marginBottom: 28
@@ -306,25 +306,25 @@ export default function PartnerGuidelinesPage() {
           background: 'var(--card)', overflow: 'hidden', marginTop: 56
         }}>
           <div className="hero-stat" style={{ flex: 1, padding: '24px 28px', borderRight: '1px solid var(--border)' }}>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
               <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>70%</em>
             </div>
             <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>of the placement fee is yours</div>
           </div>
           <div className="hero-stat" style={{ flex: 1, padding: '24px 28px', borderRight: '1px solid var(--border)' }}>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
               {counter}+
             </div>
             <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>VC-backed startups hiring</div>
           </div>
           <div className="hero-stat" style={{ flex: 1, padding: '24px 28px', borderRight: '1px solid var(--border)' }}>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
               <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>$0</em>
             </div>
             <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>cost to you — ever</div>
           </div>
           <div className="hero-stat" style={{ flex: 1, padding: '24px 28px' }}>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 36, lineHeight: 1, marginBottom: 6, color: 'var(--ink)' }}>
               Zero
             </div>
             <div style={{ fontSize: 14, color: 'var(--ink-3)' }}>BD, contracts, or admin work</div>
@@ -363,30 +363,30 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5FBF84' }} />
             The problem
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: '#F8F8F3', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: '#F2F1EB', marginBottom: 16 }}>
             {"You're too good to be"}<br />stuck doing <em style={{ fontStyle: 'italic', color: '#5FBF84' }}>BD.</em>
           </h2>
-          <p style={{ fontSize: 18, color: 'rgba(248,248,243,0.45)', lineHeight: 1.75, maxWidth: 580, marginBottom: 48 }}>
+          <p style={{ fontSize: 18, color: 'rgba(242,241,235,0.45)', lineHeight: 1.75, maxWidth: 580, marginBottom: 48 }}>
             {"You can find world-class talent. That's a rare and valuable skill. But right now, half your time is spent on everything that isn't recruiting."}
           </p>
           
           <div className="pain-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 48 }}>
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '28px 24px' }}>
-              <h4 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 23, fontWeight: 400, color: '#F8F8F3', marginBottom: 14, lineHeight: 1.2 }}>The agency trap</h4>
-              <p style={{ fontSize: 15, color: 'rgba(248,248,243,0.45)', lineHeight: 1.7 }}>{"You build the agency's book of business and take home 20–30% of the fee. They keep the clients. They keep the brand. You keep grinding."}</p>
+              <h4 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 23, fontWeight: 400, color: '#F2F1EB', marginBottom: 14, lineHeight: 1.2 }}>The agency trap</h4>
+              <p style={{ fontSize: 15, color: 'rgba(242,241,235,0.45)', lineHeight: 1.7 }}>{"You build the agency's book of business and take home 20–30% of the fee. They keep the clients. They keep the brand. You keep grinding."}</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '28px 24px' }}>
-              <h4 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 23, fontWeight: 400, color: '#F8F8F3', marginBottom: 14, lineHeight: 1.2 }}>The solo grind</h4>
-              <p style={{ fontSize: 15, color: 'rgba(248,248,243,0.45)', lineHeight: 1.7 }}>{"Go independent and suddenly you're a salesperson, an accountant, a contract negotiator, and a recruiter. Half your week is spent not recruiting."}</p>
+              <h4 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 23, fontWeight: 400, color: '#F2F1EB', marginBottom: 14, lineHeight: 1.2 }}>The solo grind</h4>
+              <p style={{ fontSize: 15, color: 'rgba(242,241,235,0.45)', lineHeight: 1.7 }}>{"Go independent and suddenly you're a salesperson, an accountant, a contract negotiator, and a recruiter. Half your week is spent not recruiting."}</p>
             </div>
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 10, padding: '28px 24px' }}>
-              <h4 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 23, fontWeight: 400, color: '#F8F8F3', marginBottom: 14, lineHeight: 1.2 }}>One shot per candidate</h4>
-              <p style={{ fontSize: 15, color: 'rgba(248,248,243,0.45)', lineHeight: 1.7 }}>{"You submit a candidate for one role at one company. If the timing isn't right, that great talent is wasted. Months of effort — gone on a single miss."}</p>
+              <h4 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 23, fontWeight: 400, color: '#F2F1EB', marginBottom: 14, lineHeight: 1.2 }}>One shot per candidate</h4>
+              <p style={{ fontSize: 15, color: 'rgba(242,241,235,0.45)', lineHeight: 1.7 }}>{"You submit a candidate for one role at one company. If the timing isn't right, that great talent is wasted. Months of effort — gone on a single miss."}</p>
             </div>
           </div>
 
-          <div style={{ fontSize: 20, lineHeight: 1.7, color: 'rgba(248,248,243,0.55)', fontWeight: 300, maxWidth: 640, borderLeft: '3px solid #5FBF84', paddingLeft: 24 }}>
-            <strong style={{ color: '#F8F8F3', fontWeight: 500 }}>What if you could keep 70% of every fee, never source a client again, and have every candidate you submit matched across hundreds of roles — automatically?</strong><br /><br />
+          <div style={{ fontSize: 20, lineHeight: 1.7, color: 'rgba(242,241,235,0.55)', fontWeight: 300, maxWidth: 640, borderLeft: '3px solid #5FBF84', paddingLeft: 24 }}>
+            <strong style={{ color: '#F2F1EB', fontWeight: 500 }}>What if you could keep 70% of every fee, never source a client again, and have every candidate you submit matched across hundreds of roles — automatically?</strong><br /><br />
             {"That's not a hypothetical. "}<em style={{ color: '#5FBF84', fontStyle: 'normal', fontWeight: 600 }}>{"That's Refery."}</em>
           </div>
         </div>
@@ -399,7 +399,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             The economics
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
             Do the math. Then do it <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>again.</em>
           </h2>
           <p style={{ fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.75, maxWidth: 580, marginBottom: 48 }}>
@@ -408,7 +408,7 @@ export default function PartnerGuidelinesPage() {
 
           {/* Earnings Banner */}
           <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(40px, 5.5vw, 60px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(40px, 5.5vw, 60px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
               <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>$24,500 – $49,000</em> per placement.
             </div>
             <div style={{ fontSize: 18, color: 'var(--ink-2)', marginBottom: 20 }}>
@@ -422,22 +422,22 @@ export default function PartnerGuidelinesPage() {
           </div>
           <div className="earn-scale" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 1, background: 'var(--border)', borderRadius: 6, overflow: 'hidden' }}>
             <div style={{ background: 'var(--bg)', padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$294K–$588K</div>
+              <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$294K–$588K</div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6 }}>per year</div>
               <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, fontWeight: 500 }}>1 / MONTH</div>
             </div>
             <div style={{ background: 'var(--bg)', padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$588K–$1.18M</div>
+              <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$588K–$1.18M</div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6 }}>per year</div>
               <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, fontWeight: 500 }}>2 / MONTH</div>
             </div>
             <div style={{ background: 'var(--ink)', padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: '#5FBF84', lineHeight: 1.15 }}>$882K–$1.76M</div>
-              <div style={{ fontSize: 13, color: 'rgba(248,248,243,0.5)', marginTop: 6 }}>per year</div>
-              <div style={{ fontSize: 11, color: 'rgba(248,248,243,0.3)', marginTop: 4, fontWeight: 500 }}>3 / MONTH</div>
+              <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 400, color: '#5FBF84', lineHeight: 1.15 }}>$882K–$1.76M</div>
+              <div style={{ fontSize: 13, color: 'rgba(242,241,235,0.5)', marginTop: 6 }}>per year</div>
+              <div style={{ fontSize: 11, color: 'rgba(242,241,235,0.3)', marginTop: 4, fontWeight: 500 }}>3 / MONTH</div>
             </div>
             <div style={{ background: 'var(--bg)', padding: '20px 16px', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$1.18M–$2.35M</div>
+              <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 400, color: 'var(--ink)', lineHeight: 1.15 }}>$1.18M–$2.35M</div>
               <div style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 6 }}>per year</div>
               <div style={{ fontSize: 11, color: 'var(--ink-4)', marginTop: 4, fontWeight: 500 }}>4 / MONTH</div>
             </div>
@@ -448,7 +448,7 @@ export default function PartnerGuidelinesPage() {
             marginTop: 48, 
             padding: '24px 28px', 
             background: 'var(--green-bg)', 
-            border: '1px solid rgba(42,107,69,0.15)', 
+            border: '1px solid rgba(31,58,47,0.15)', 
             borderRadius: 10,
             borderLeft: '3px solid var(--green)'
           }}>
@@ -485,7 +485,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             Our clients
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
             200+ <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>VC-backed</em> companies
           </h2>
           <p style={{ fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.75, maxWidth: 700, marginBottom: 48 }}>
@@ -516,7 +516,7 @@ export default function PartnerGuidelinesPage() {
                   <span key={loc} style={{
                     padding: '10px 18px',
                     background: 'var(--green-bg)',
-                    border: '1px solid rgba(42,107,69,0.15)',
+                    border: '1px solid rgba(31,58,47,0.15)',
                     borderRadius: 99,
                     fontSize: 14,
                     fontWeight: 500,
@@ -548,7 +548,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             {"What we're hiring for"}
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 48 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 48 }}>
             High-demand <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>roles</em>
           </h2>
 
@@ -658,7 +658,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             Candidate fit
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 48 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 48 }}>
             Who gets <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>matched</em>
           </h2>
 
@@ -720,7 +720,7 @@ export default function PartnerGuidelinesPage() {
                   height: 28,
                   borderRadius: '50%',
                   background: item.type === 'strong' ? 'var(--green-bg)' : '#FEF9E7',
-                  border: `1px solid ${item.type === 'strong' ? 'rgba(42,107,69,0.2)' : 'rgba(180,140,60,0.2)'}`,
+                  border: `1px solid ${item.type === 'strong' ? 'rgba(31,58,47,0.2)' : 'rgba(180,140,60,0.2)'}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -737,7 +737,7 @@ export default function PartnerGuidelinesPage() {
                   )}
                 </div>
                 <div style={{ flex: 1 }}>
-                  <h4 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 18, fontWeight: 400, color: 'var(--ink)', marginBottom: 8 }}>{item.title}</h4>
+                  <h4 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 18, fontWeight: 400, color: 'var(--ink)', marginBottom: 8 }}>{item.title}</h4>
                   <div style={{
                     display: 'inline-block',
                     fontSize: 10,
@@ -767,7 +767,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             How it works
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
             From submission to <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>payout.</em>
           </h2>
           <p style={{ fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.75, maxWidth: 580, marginBottom: 48 }}>
@@ -790,14 +790,14 @@ export default function PartnerGuidelinesPage() {
                   width: 30, height: 30, borderRadius: '50%',
                   background: 'var(--bg-2)', border: '1.5px solid var(--border)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontFamily: "'Instrument Serif', serif", fontSize: 13, fontWeight: 500, fontStyle: 'italic', color: 'var(--ink-3)'
+                  fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 13, fontWeight: 500, fontStyle: 'italic', color: 'var(--ink-3)'
                 }}>{step.num}</div>
                 <span style={{
                   display: 'inline-block', fontSize: 10, fontWeight: 600, letterSpacing: '0.12em',
                   textTransform: 'uppercase', color: 'var(--green)', background: 'var(--green-bg)',
-                  padding: '4px 10px', borderRadius: 99, marginBottom: 10, border: '1px solid rgba(42,107,69,0.15)'
+                  padding: '4px 10px', borderRadius: 99, marginBottom: 10, border: '1px solid rgba(31,58,47,0.15)'
                 }}>{step.time}</span>
-                <h4 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 22, fontWeight: 400, lineHeight: 1.25, color: 'var(--ink)', marginBottom: 6 }}>{step.title}</h4>
+                <h4 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 22, fontWeight: 400, lineHeight: 1.25, color: 'var(--ink)', marginBottom: 6 }}>{step.title}</h4>
                 <p style={{ fontSize: 15, color: 'var(--ink-2)', lineHeight: 1.75 }}>{step.desc}</p>
               </div>
             ))}
@@ -812,7 +812,7 @@ export default function PartnerGuidelinesPage() {
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
             {"Q&A"}
           </div>
-          <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
+          <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: 'var(--ink)', marginBottom: 16 }}>
             Every question, <em style={{ fontStyle: 'italic', color: 'var(--green)' }}>answered.</em>
           </h2>
           <p style={{ fontSize: 18, color: 'var(--ink-2)', lineHeight: 1.75, maxWidth: 580, marginBottom: 48 }}>
@@ -828,7 +828,7 @@ export default function PartnerGuidelinesPage() {
                   padding: '14px 0 10px', display: 'flex', alignItems: 'center', gap: 12
                 }}>
                   <span>{category.category}</span>
-                  <span style={{ flex: 1, height: 1, background: 'rgba(42,107,69,0.18)' }} />
+                  <span style={{ flex: 1, height: 1, background: 'rgba(31,58,47,0.18)' }} />
                 </div>
                 {category.items.map((item, itemIdx) => {
                   const globalIdx = catIdx * 100 + itemIdx
@@ -844,7 +844,7 @@ export default function PartnerGuidelinesPage() {
                         }}
                       >
                         <span style={{
-                          fontFamily: "'Instrument Serif', Georgia, serif",
+                          fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
                           fontSize: 19, fontWeight: 400, color: isOpen ? 'var(--green)' : 'var(--ink)', lineHeight: 1.3
                         }}>{item.q}</span>
                         <span style={{
@@ -876,20 +876,20 @@ export default function PartnerGuidelinesPage() {
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#5FBF84' }} />
               Join the network
             </div>
-            <h2 style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: '#F8F8F3', marginBottom: 16 }}>
+            <h2 style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 'clamp(32px, 4vw, 52px)', fontWeight: 400, lineHeight: 1.05, color: '#F2F1EB', marginBottom: 16 }}>
               Your next placement<br />starts <em style={{ fontStyle: 'italic', color: '#5FBF84' }}>here.</em>
             </h2>
-            <p style={{ fontSize: 17, color: 'rgba(248,248,243,0.45)', marginBottom: 28, lineHeight: 1.7 }}>
+            <p style={{ fontSize: 17, color: 'rgba(242,241,235,0.45)', marginBottom: 28, lineHeight: 1.7 }}>
               15-minute call to align on your expertise and the best-fit roles.<br />
               Then: full access, live deal flow, and a partnership built on placements.
             </p>
             <a href="https://cal.com/refery-lily/15" target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-flex', alignItems: 'center',
-              background: '#F8F8F3', color: 'var(--ink)',
+              background: '#F2F1EB', color: 'var(--ink)',
               fontSize: 16, fontWeight: 600, padding: '15px 32px', borderRadius: 6, textDecoration: 'none'
             }}>{"Apply to Join → Book a Call"}</a>
-            <div style={{ fontSize: 14, color: 'rgba(248,248,243,0.3)', marginTop: 16 }}>
-              or reach us directly — <a href="mailto:partners@refery.io" style={{ color: 'rgba(248,248,243,0.45)', textDecoration: 'none' }}>partners@refery.io</a>
+            <div style={{ fontSize: 14, color: 'rgba(242,241,235,0.3)', marginTop: 16 }}>
+              or reach us directly — <a href="mailto:partners@refery.io" style={{ color: 'rgba(242,241,235,0.45)', textDecoration: 'none' }}>partners@refery.io</a>
             </div>
           </div>
         </div>
@@ -899,37 +899,37 @@ export default function PartnerGuidelinesPage() {
       <footer style={{ background: 'var(--ink)', padding: '48px 40px 28px' }}>
         <div className="footer-top" style={{
           display: 'grid', gridTemplateColumns: '1.6fr 1fr 1fr 1fr', gap: 40,
-          paddingBottom: 40, borderBottom: '1px solid rgba(248,248,243,0.08)',
+          paddingBottom: 40, borderBottom: '1px solid rgba(242,241,235,0.08)',
           maxWidth: 900, margin: '0 auto'
         }}>
           <div>
-            <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 18, color: 'rgba(248,248,243,0.35)', marginBottom: 10 }}>
+            <div style={{ fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif", fontSize: 18, color: 'rgba(242,241,235,0.35)', marginBottom: 10 }}>
               Refery<em style={{ fontStyle: 'italic' }}>.</em>
             </div>
-            <div style={{ fontSize: 14, color: 'rgba(248,248,243,0.2)', lineHeight: 1.7, maxWidth: 190 }}>
+            <div style={{ fontSize: 14, color: 'rgba(242,241,235,0.2)', lineHeight: 1.7, maxWidth: 190 }}>
               {"Referral hiring for the world's best startups."}
             </div>
           </div>
           <div>
-            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,248,243,0.2)', marginBottom: 16 }}>Partners</h4>
+            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(242,241,235,0.2)', marginBottom: 16 }}>Partners</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <li><a href="https://cal.com/refery-lily/15" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>Apply to Join</a></li>
-              <li><a href="#how" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>How it Works</a></li>
-              <li><a href="#faq" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>{"Q&A"}</a></li>
+              <li><a href="https://cal.com/refery-lily/15" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>Apply to Join</a></li>
+              <li><a href="#how" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>How it Works</a></li>
+              <li><a href="#faq" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>{"Q&A"}</a></li>
             </ul>
           </div>
           <div>
-            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,248,243,0.2)', marginBottom: 16 }}>Startups</h4>
+            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(242,241,235,0.2)', marginBottom: 16 }}>Startups</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
               
-              <li><a href="mailto:hello@refery.io" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>hello@refery.io</a></li>
+              <li><a href="mailto:hello@refery.io" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>hello@refery.io</a></li>
             </ul>
           </div>
           <div>
-            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(248,248,243,0.2)', marginBottom: 16 }}>Company</h4>
+            <h4 style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(242,241,235,0.2)', marginBottom: 16 }}>Company</h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <li><a href="mailto:partners@refery.io" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>Contact</a></li>
-              <li><a href="https://www.linkedin.com/company/refery-io/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>LinkedIn</a></li>
+              <li><a href="mailto:partners@refery.io" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>Contact</a></li>
+              <li><a href="https://www.linkedin.com/company/refery-io/" target="_blank" rel="noopener noreferrer" style={{ fontSize: 14, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>LinkedIn</a></li>
             </ul>
           </div>
         </div>
@@ -937,12 +937,12 @@ export default function PartnerGuidelinesPage() {
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12,
           paddingTop: 24, maxWidth: 900, margin: '0 auto'
         }}>
-          <div style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)' }}>© 2026 Refery.io. All rights reserved.</div>
+          <div style={{ fontSize: 12, color: 'rgba(242,241,235,0.18)' }}>© 2026 Refery.io. All rights reserved.</div>
           <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            <a href="/terms" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Terms</a>
-            <a href="/privacy" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Privacy</a>
-            <a href="/partner-guidelines" style={{ fontSize: 12, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>Scout &amp; Partner Guidelines</a>
-            <a href="/partner-terms" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Partner Terms</a>
+            <a href="/terms" style={{ fontSize: 12, color: 'rgba(242,241,235,0.18)', textDecoration: 'none' }}>Terms</a>
+            <a href="/privacy" style={{ fontSize: 12, color: 'rgba(242,241,235,0.18)', textDecoration: 'none' }}>Privacy</a>
+            <a href="/partner-guidelines" style={{ fontSize: 12, color: 'rgba(242,241,235,0.35)', textDecoration: 'none' }}>Scout &amp; Partner Guidelines</a>
+            <a href="/partner-terms" style={{ fontSize: 12, color: 'rgba(242,241,235,0.18)', textDecoration: 'none' }}>Partner Terms</a>
           </div>
         </div>
       </footer>

@@ -60,7 +60,7 @@ export function CompanyLogo({ companyName, logoUrl, size = 'md', className }: Co
   return (
     <div
       className={cn(
-        'flex items-center justify-center rounded-md border border-[rgba(16,15,15,0.06)] bg-white p-0.5 overflow-hidden shrink-0',
+        'flex items-center justify-center rounded-md border border-[rgba(22,22,19,0.06)] bg-white p-0.5 overflow-hidden shrink-0',
         sizeClasses[size],
         className
       )}
