@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { format } from 'date-fns'
-import { AGREEMENT_TYPE_LABELS } from '@/lib/agreements'
+import { agreementTypeLabel } from '@/lib/agreements'
 import { AgreementContent } from '@/components/agreement-content'
 
 /* ----------------------------------------------------------------------------
@@ -168,7 +168,7 @@ export function AgreementSigningClient({ token }: { token: string }) {
       >
         <Hero
           version={agreement.agreement_version}
-          typeLabel={AGREEMENT_TYPE_LABELS[agreement.agreement_type]}
+          typeLabel={agreementTypeLabel(agreement.agreement_type, agreement.agreement_version)}
         />
 
         <RecipientCard agreement={agreement} />

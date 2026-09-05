@@ -1171,9 +1171,25 @@ export const AGREEMENT_STATUS_LABELS: Record<string, { label: string; color: str
 }
 
 // Agreement type labels for display
+// The names of the two documents partners signed before v2.0. Kept for
+// labelling those historical acceptances, not for anything current.
 export const AGREEMENT_TYPE_LABELS: Record<AgreementType, string> = {
   scout: 'Scout/Partner Agreement',
   recruiter: 'Recruiter Partner Agreement',
+}
+
+/**
+ * What to call a signature in the UI.
+ *
+ * Scouts and recruiters have signed one shared document, Partner Terms, since
+ * v2.0. Before that they signed two separately named ones. A signature has to
+ * be labelled with the document it actually was, so an acceptance on v1.2.0
+ * still reads "Scout/Partner Agreement" while everything on the v2 line reads
+ * "Partner Terms".
+ */
+export function agreementTypeLabel(type: AgreementType, version?: string | null): string {
+  if (version && version.startsWith('2.')) return 'Partner Terms'
+  return AGREEMENT_TYPE_LABELS[type]
 }
 
 // Client Agreement type label

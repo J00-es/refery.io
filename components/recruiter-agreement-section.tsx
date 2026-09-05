@@ -40,7 +40,7 @@ import {
   AgreementLink, 
   AgreementSignature,
   AGREEMENT_STATUS_LABELS, 
-  AGREEMENT_TYPE_LABELS,
+  agreementTypeLabel,
   getAgreementText 
 } from '@/lib/agreements'
 import { AgreementContent } from '@/components/agreement-content'
@@ -199,7 +199,7 @@ export function RecruiterAgreementSection({
                 <span className="text-sm font-medium text-emerald-800">Agreement Active</span>
               </div>
               <p className="text-xs text-emerald-700 mb-2">
-                {AGREEMENT_TYPE_LABELS[latestSignature.agreement_type as AgreementType]} v{latestSignature.agreement_version}
+                {agreementTypeLabel(latestSignature.agreement_type as AgreementType, latestSignature.agreement_version)} v{latestSignature.agreement_version}
               </p>
               <p className="text-xs text-emerald-600">
                 Signed {formatDistanceToNow(new Date(latestSignature.signed_at), { addSuffix: true })}
@@ -352,7 +352,7 @@ export function RecruiterAgreementSection({
                     onClick={() => setViewingSignature(sig)}
                   >
                     <div>
-                      <span className="font-medium">{AGREEMENT_TYPE_LABELS[sig.agreement_type as AgreementType]}</span>
+                      <span className="font-medium">{agreementTypeLabel(sig.agreement_type as AgreementType, sig.agreement_version)}</span>
                       <span className="text-muted-foreground ml-2">v{sig.agreement_version}</span>
                     </div>
                     <span className="text-muted-foreground">
@@ -372,7 +372,7 @@ export function RecruiterAgreementSection({
           <DialogHeader>
             <DialogTitle>Agreement Link Details</DialogTitle>
             <DialogDescription>
-              {viewingAgreement && AGREEMENT_TYPE_LABELS[viewingAgreement.agreement_type as AgreementType]} - 
+              {viewingAgreement && agreementTypeLabel(viewingAgreement.agreement_type as AgreementType, viewingAgreement.agreement_version)} - 
               v{viewingAgreement?.agreement_version}
             </DialogDescription>
           </DialogHeader>
@@ -466,7 +466,7 @@ export function RecruiterAgreementSection({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-emerald-700">Agreement Type</span>
-                    <span className="font-medium">{AGREEMENT_TYPE_LABELS[viewingSignature.agreement_type as AgreementType]}</span>
+                    <span className="font-medium">{agreementTypeLabel(viewingSignature.agreement_type as AgreementType, viewingSignature.agreement_version)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-emerald-700">Version</span>
