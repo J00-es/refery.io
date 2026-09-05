@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { normalizeBrief } from '@/lib/brief'
 import { importBriefHtml } from '@/lib/brief-import'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess } from '@/lib/partners-access'
 
 /**
  * Creating or replacing a scout brief.
@@ -20,8 +20,6 @@ export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const body = await req.json().catch(() => null)

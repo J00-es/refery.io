@@ -307,8 +307,7 @@ export function PitchComposer({
         <p className="mb-3 text-[12.5px] leading-relaxed text-[#6E6E68]">
           By submitting you confirm that you can introduce {people.length === 1 ? 'this person' : 'these people'} to
           Refery now, and that as far as you know they have not applied to or been contacted by this company
-          another way. Submitting timestamps your 24-month protection on {people.length === 1 ? 'them' : 'each of them'} with
-          this client.
+          another way.
         </p>
         <div className="flex items-center gap-2">
           {onBack && (

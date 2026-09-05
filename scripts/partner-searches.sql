@@ -300,9 +300,21 @@ select
   rs.fresh_introduction,
   rs.hm_rating,
   rs.hm_note,
-  rs.decline_reason
+  rs.decline_reason,
+  -- appended 2026-09-05 (migration desk_act_on_behalf)
+  rs.acted_by_user_id,
+  actor.full_name         as acted_by_name
 from public.role_submissions rs
   join public.candidates cand on cand.id = rs.candidate_id
   join public.jobs j on j.id = rs.job_id
   left join public.companies c on c.id = rs.company_id
-  left join public.users_admin u on u.user_id = rs.submitted_by_user_id;
+  left join public.users_admin u on u.user_id = rs.submitted_by_user_id
+  left join public.users_admin actor on actor.user_id = rs.acted_by_user_id;
+
+-- ── act on behalf (2026-09-05) ─────────────────────────────────────────────
+-- A super admin viewing the desk as a partner may act for them. The row stays
+-- the partner's; this column says who really pressed the button. Null when the
+-- partner acted themselves.
+alter table public.role_submissions   add column if not exists acted_by_user_id uuid references auth.users(id);
+alter table public.search_assignments add column if not exists acted_by_user_id uuid references auth.users(id);
+alter table public.search_questions   add column if not exists acted_by_user_id uuid references auth.users(id);

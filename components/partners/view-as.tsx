@@ -22,8 +22,8 @@ interface UserOption {
  * super-admin-only while it is being built, so this is currently the *only* way to
  * see the scout experience at all.
  *
- * Read-only, enforced server-side rather than by hiding buttons. See
- * `previewBlocked`.
+ * Not read-only: a super admin can act for the partner from there, and the
+ * server records both names. See `actingFor`.
  */
 export function ViewAs() {
   const router = useRouter()
@@ -88,7 +88,7 @@ export function ViewAs() {
         <div className="border-b border-[#E4E3DC] p-3">
           <p className="text-[13px] font-semibold text-[#161613]">See the desk as they see it</p>
           <p className={`mt-0.5 ${META}`}>
-            Their assignments, their candidates, their submissions. Read-only.
+            Their assignments, their candidates, their submissions. You can act for them from there.
           </p>
           <div className="relative mt-2.5">
             <Search

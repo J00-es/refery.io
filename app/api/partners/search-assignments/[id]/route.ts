@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import type { SearchAssignmentStatus } from '@/lib/partners'
 
 /**
@@ -16,8 +16,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const { id } = await params
   const body = await req.json().catch(() => null)
@@ -49,7 +47,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   const now = new Date().toISOString()
-  const patch: Record<string, unknown> = { status, updated_at: now }
+  const patch: Record<string, unknown> = { status, updated_at: now, acted_by_user_id: actingFor(access) }
   if (status === 'working') {
     patch.confirmed_at = now
     patch.expires_at = null
@@ -80,8 +78,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params

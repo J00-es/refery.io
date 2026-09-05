@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess } from '@/lib/partners-access'
 
 const PRIORITIES = new Set(['urgent', 'high', 'normal'])
 const EXCLUSIVITY = new Set(['exclusive', 'shared'])
@@ -28,8 +28,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { jobId } = await params
@@ -154,8 +152,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ jobI
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { jobId } = await params

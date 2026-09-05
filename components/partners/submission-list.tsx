@@ -86,6 +86,9 @@ export function SubmissionList({
                       : mine
                         ? 'yours'
                         : null,
+                    canManage && submission.acted_by_name
+                      ? `entered by ${submission.acted_by_name.split(' ')[0]} for them`
+                      : null,
                     `submitted ${shortAge(submission.created_at)}`,
                   )}
                 </p>

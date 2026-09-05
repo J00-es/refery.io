@@ -1,14 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess } from '@/lib/partners-access'
 
 /** Refery answering, or hiding, a question. Admin only. */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await params

@@ -15,9 +15,10 @@ import type { PartnerPreview } from '@/lib/partners'
  * so the state has to be impossible to lose track of, and leaving it has to be
  * one click from wherever they got to.
  *
- * It also states the read-only rule, because the buttons underneath are not
- * hidden: they are live for the persona and refused by the server. Better to say
- * why up front than to let someone hit the error.
+ * It also says that actions taken here count as the partner's. The buttons
+ * underneath are live: a submission made while viewing as Gina is Gina's
+ * submission, with the super admin's name on the trail. Better to say that up
+ * front than to have someone discover it afterwards.
  */
 export function PreviewBanner({ preview }: { preview: PartnerPreview }) {
   const router = useRouter()
@@ -39,7 +40,9 @@ export function PreviewBanner({ preview }: { preview: PartnerPreview }) {
       <p className="text-[13.5px]">
         Viewing the desk as{' '}
         <strong className="font-semibold">{preview.name}</strong>
-        <span className="text-[#B9CDC2]"> · {preview.role.replace(/_/g, ' ')} · read-only</span>
+        <span className="text-[#B9CDC2]">
+          {' '}· {preview.role.replace(/_/g, ' ')} · what you do here is recorded as theirs, with your name alongside
+        </span>
       </p>
       <button
         type="button"

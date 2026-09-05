@@ -448,6 +448,9 @@ export interface SubmissionRow {
   hm_rating: number | null
   hm_note: string | null
   decline_reason: string | null
+  /** Set when a super admin submitted for the partner while viewing as them. */
+  acted_by_user_id: string | null
+  acted_by_name: string | null
 }
 
 // ── access ──────────────────────────────────────────────────────────────────
@@ -473,7 +476,10 @@ export interface PartnerAccess {
    * privilege-escalation bugs.
    */
   realUser: AppUser
-  /** Non-null while previewing. Every write must refuse in that state. */
+  /**
+   * Non-null while previewing. Writes go through, credited to the persona and
+   * stamped with the real user; see `actingFor` in lib/partners-access.ts.
+   */
   preview: PartnerPreview | null
   /**
    * Whether this user may reach the desk at all. Gated by

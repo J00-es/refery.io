@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess } from '@/lib/partners-access'
 import { SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
 
 const VALID = new Set(SUBMISSION_STATUSES.map(s => s.value))
@@ -25,8 +25,6 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const { id } = await params
   const body = await req.json().catch(() => null)
@@ -100,7 +98,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     from_status: submission.status,
     to_status: status,
     note,
-    actor_user_id: access.appUser.id,
+    // The person who acted, which while a super admin is viewing as a partner
+    // is the super admin, not the partner the submission belongs to.
+    actor_user_id: access.realUser.id,
   })
 
   if (status === 'sent_to_client') {

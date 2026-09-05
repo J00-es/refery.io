@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { canWorkSearch } from '@/lib/partners'
 
 /**
@@ -14,8 +14,6 @@ export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const jobId = typeof body?.job_id === 'string' ? body.job_id : null
@@ -40,6 +38,7 @@ export async function POST(req: Request) {
       job_id: jobId,
       company_id: role.company_id,
       asked_by: access.appUser.id,
+      acted_by_user_id: actingFor(access),
       question,
     })
     .select('id')

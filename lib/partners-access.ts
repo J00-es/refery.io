@@ -144,15 +144,18 @@ async function resolvePreview(
 }
 
 /**
- * The guard every mutating handler needs.
+ * Who really pressed the button, when that is not the persona.
  *
- * A preview is strictly read-only. Without this, a super admin looking at the
- * desk as a scout could submit a candidate, and the row would be attributed to
- * that scout — a record of something they never did. Blocking at the handler is
- * the only place that holds, because the persona legitimately *has* permission to
- * submit; it is the previewer who does not.
+ * A super admin viewing the desk as a partner may act for them: submit a
+ * candidate, accept a proposal, ask a question. The row belongs to the partner
+ * (their credit, their protection, their fee), because that is the point of
+ * doing it on their behalf. But a record of something a person did not do is a
+ * lie, so every write made this way also stamps `acted_by_user_id` with the
+ * real user. Null when someone is acting as themselves.
+ *
+ * Lily asked for this on 5 Sep 2026, after the read-only preview refused a
+ * submission she wanted to make for Gina.
  */
-export function previewBlocked(access: PartnerAccess): string | null {
-  if (!access.preview) return null
-  return `You are viewing the desk as ${access.preview.name}. Previews are read-only — leave the preview to make changes.`
+export function actingFor(access: PartnerAccess): string | null {
+  return access.preview ? access.realUser.id : null
 }

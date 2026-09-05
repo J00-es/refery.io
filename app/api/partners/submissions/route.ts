@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
-import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
+import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
 import { qualifies, recordClaim } from '@/lib/submission-claims'
 import { workAuthLabel } from '@/lib/partners'
@@ -91,8 +91,6 @@ export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  const blocked = previewBlocked(access)
-  if (blocked) return NextResponse.json({ error: blocked }, { status: 403 })
 
   const body = await req.json().catch(() => null)
   const jobId = typeof body?.job_id === 'string' ? body.job_id : null
@@ -201,6 +199,7 @@ export async function POST(req: Request) {
         candidate_id: a.candidate_id,
         company_id: companyId,
         submitted_by_user_id: access.appUser.id,
+        acted_by_user_id: actingFor(access),
         status: 'submitted',
         pitch: a.pitch,
         highlights: a.highlights,
@@ -255,7 +254,9 @@ export async function POST(req: Request) {
         submission_id: row.id as string,
         from_status: null,
         to_status: 'submitted',
-        actor_user_id: access.appUser.id,
+        // The trail names who acted, which while previewing is the super admin
+        // and not the partner the row is credited to.
+        actor_user_id: access.realUser.id,
       })),
     )
   }
