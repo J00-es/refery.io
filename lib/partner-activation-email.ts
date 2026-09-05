@@ -7,7 +7,7 @@
  * says "you're in, here is what to do".
  *
  * Deliberately the same shell as the partner agreement email in
- * lib/send-agreement-emails.ts: cream ground, Georgia wordmark, forest rule,
+ * lib/send-agreement-emails.ts: cream ground, DM Sans wordmark, forest rule,
  * inline styles and table layout for the email clients that need them. The two
  * arrive days apart and should read as the same company writing twice.
  */
@@ -20,10 +20,11 @@ const REPLY_TO = 'lily@refery.io'
 /** Brand tokens, kept identical to the agreement emails. */
 const M = {
   green: '#1f3a2f',
-  cream: '#faf9f5',
-  body: '#2a2a2a',
-  muted: '#6b6b6b',
-  rule: '#e5e2d8',
+  cream: '#f2f1eb',
+  paper: '#faf9f5',
+  body: '#161613',
+  muted: '#6e6e68',
+  rule: '#e4e3dc',
 }
 
 export type PartnerRole = 'scout' | 'recruiter' | 'hiring_manager' | 'admin' | 'viewer' | string
@@ -78,8 +79,8 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
 
           <!-- Header: wordmark + forest green rule -->
           <tr>
-            <td style="padding:0 0 8px 0; font-family:Georgia, 'Times New Roman', serif; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">
-              Refery<span style="font-style:italic;">.</span>
+            <td style="padding:0 0 8px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-weight:600; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">
+              Refery
             </td>
           </tr>
           <tr>
@@ -90,17 +91,17 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
 
           <!-- Headline -->
           <tr>
-            <td style="padding:0 0 14px 0; font-family:Georgia, 'Times New Roman', serif; font-size:24px; line-height:1.25; color:${M.green};">
+            <td style="padding:0 0 14px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-weight:600; font-size:24px; line-height:1.25; color:${M.green};">
               You&rsquo;re approved, ${escapeHtml(greeting)}.
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 18px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               Your Refery ${escapeHtml(label)} account is active. You can sign in now and start introducing people.
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 28px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               You do not need an open role to refer someone. Introduce people you would personally vouch for, and we match them against the roles we are working on now and the ones that come next.
             </td>
           </tr>
@@ -111,7 +112,7 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
               <table role="presentation" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="background-color:${M.green}; border-radius:8px;">
-                    <a href="${escapeHtml(candidatesUrl)}" style="display:inline-block; padding:13px 26px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; font-weight:600; line-height:1; color:#ffffff; text-decoration:none;">
+                    <a href="${escapeHtml(candidatesUrl)}" style="display:inline-block; padding:13px 26px; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; font-weight:600; line-height:1; color:#ffffff; text-decoration:none;">
                       Introduce someone
                     </a>
                   </td>
@@ -125,12 +126,12 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
             <td style="padding:0 0 28px 0;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff; border:1px solid ${M.rule}; border-radius:8px;">
                 <tr>
-                  <td style="padding:20px 24px 8px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">
+                  <td style="padding:20px 24px 8px 24px; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">
                     Who we place
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:0 24px 20px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.65; color:${M.body};">
+                  <td style="padding:0 24px 20px 24px; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.65; color:${M.body};">
                     Hands-on builders and sellers, usually two to five years in, at the individual contributor level. Ex-founders and early startup operators. Engineering and go-to-market, in or moving to the role&rsquo;s city, mostly San Francisco and New York.
                     <br /><br />
                     <span style="color:${M.muted};">The full list, including what we cannot place, sits at the top of your candidates page.</span>
@@ -141,30 +142,30 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
           </tr>
 
           <tr>
-            <td style="padding:0 0 32px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 32px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               You can also email a CV straight to <a href="mailto:lily@refery.io" style="color:${M.green}; text-decoration:underline;">lily@refery.io</a>, copying <a href="mailto:candidates@refery.io" style="color:${M.green}; text-decoration:underline;">candidates@refery.io</a>, and it lands in your candidate list automatically.
             </td>
           </tr>
 
           <tr>
-            <td style="padding:0 0 32px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 32px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               Anything at all, just reply to this email.
             </td>
           </tr>
 
           <tr>
-            <td style="padding:0 0 6px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
+            <td style="padding:0 0 6px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
               Lily Joo
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 36px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
+            <td style="padding:0 0 36px 0; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
               Founding Partner, Refery
             </td>
           </tr>
 
           <tr>
-            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
+            <td style="border-top:1px solid ${M.rule}; padding-top:20px; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
               Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
             </td>
           </tr>

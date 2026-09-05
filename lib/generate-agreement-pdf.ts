@@ -17,10 +17,10 @@ import {
 
 const C = {
   ink: '#161613',
-  ink2: '#3F3E3E',
-  ink3: '#6B6B6B',
+  ink2: '#2A2A26',
+  ink3: '#6E6E68',
   green: '#1F3A2F',
-  border: '#E5E2D8',
+  border: '#E4E3DC',
   cream: '#FAF9F5',
 }
 
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
     marginBottom: 22,
   },
   h1: {
-    fontFamily: 'Times-Roman',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 22,
     color: C.ink,
     marginBottom: 16,
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   h2: {
-    fontFamily: 'Times-Roman',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 14,
     color: C.ink,
     marginTop: 24,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     paddingTop: 14,
   },
   h2First: {
-    fontFamily: 'Times-Roman',
+    fontFamily: 'Helvetica-Bold',
     fontSize: 14,
     color: C.ink,
     marginTop: 4,

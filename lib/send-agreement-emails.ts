@@ -2,8 +2,8 @@
  * Post-signing emails for the client Recruitment Services Agreement.
  *
  * Two emails are sent on a successful sign:
- *   A) Branded confirmation to the company signer (cream background, Georgia
- *      serif heading, forest green accent rule, table-based layout for broad
+ *   A) Branded confirmation to the company signer (cream background, DM Sans
+ *      heading, forest green accent rule, table-based layout for broad
  *      email-client support, inline styles only).
  *   B) Plain admin notification to lily@refery.io.
  *
@@ -341,7 +341,7 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
 
           <!-- Welcome headline -->
           <tr>
-            <td style="padding:0 0 14px 0; font-family:Georgia, 'Times New Roman', serif; font-size:24px; line-height:1.25; color:${M.green};">
+            <td style="padding:0 0 14px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-weight:600; font-size:24px; line-height:1.25; color:${M.green};">
               Welcome to Refery, ${escapeHtml(greeting)}.
             </td>
           </tr>
