@@ -308,12 +308,22 @@ export default async function PartnerRolePage({
               )}
             </p>
           </div>
-          {access.canManage && (
-            <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {unlocked && canWork && !closed && slots !== 0 && (
+              <>
+                <a href="#questions" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                  Ask a question
+                </a>
+                <SubmitCandidates jobId={jobId} roleTitle={`${role.title} · ${company.name}`} slotsLeft={slots} label="Submit a candidate" />
+              </>
+            )}
+            {access.canManage && (
               <Link href={`/partners/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 <Users className="h-4 w-4" />
                 Coverage
               </Link>
+            )}
+            {access.canManage && (
               <ManageRole
                 jobId={jobId}
                 jobTitle={`${role.title} · ${company.name}`}
@@ -339,8 +349,8 @@ export default async function PartnerRolePage({
                   decisionDays: role.decision_days,
                 }}
               />
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {!!headline.length && (
@@ -649,7 +659,9 @@ export default async function PartnerRolePage({
             </div>
           </section>
 
-          <SearchQuestions jobId={jobId} questions={questions} canAsk={canWork && !closed} canManage={access.canManage} />
+          <div id="questions">
+            <SearchQuestions jobId={jobId} questions={questions} canAsk={canWork && !closed} canManage={access.canManage} />
+          </div>
         </>
       )}
     </div>

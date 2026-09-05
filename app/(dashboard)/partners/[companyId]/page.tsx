@@ -30,6 +30,7 @@ import { CompanyLogo } from '@/components/partners/company-logo'
 import { ManageCompany } from '@/components/partners/manage-company'
 import { RequestAccess } from '@/components/partners/request-access'
 import { RoleCard } from '@/components/partners/role-card'
+import { BriefDocument } from '@/components/partners/brief-document'
 
 export const dynamic = 'force-dynamic'
 
@@ -271,7 +272,8 @@ export default async function PartnerCompanyPage({
           </div>
         )}
 
-        {!!closedRoles.length && (
+        {/* Closed searches are admin housekeeping. A partner reads the live list only. */}
+        {access.canManage && !!closedRoles.length && (
           <details className="group">
             <summary
               className={`inline-flex cursor-pointer list-none items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
@@ -299,6 +301,15 @@ export default async function PartnerCompanyPage({
         )}
       </section>
 
+      {/* The brief itself, in full, under the searches it covers. One page, not a
+          link and a second page; a partner reads the bar and submits from the
+          same scroll. */}
+      {brief && (
+        <section className="space-y-4 pt-4">
+          <h2 className={H2}>Partner brief</h2>
+          <BriefDocument content={brief.content} variant="embedded" />
+        </section>
+      )}
     </div>
   )
 }

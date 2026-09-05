@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake, type LucideIcon } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake, LayoutGrid, type LucideIcon } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,7 +55,10 @@ const navItems: NavItem[] = [
  * DESK_SUPER_ADMIN_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and
  * their API handlers actually enforce.
  */
-const superAdminLeadNavItems = [{ href: '/partners', label: 'Searches', icon: Handshake }]
+const superAdminLeadNavItems = [
+  { href: '/partners', label: 'Searches', icon: Handshake },
+  { href: '/partners/pipeline', label: 'Pipeline', icon: LayoutGrid },
+]
 const superAdminTrailNavItems = [{ href: '/briefs', label: 'Briefs', icon: Mail }]
 
 /**
