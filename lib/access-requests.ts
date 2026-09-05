@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Access requests: the card in Slack, the decision, the email.
  *
  * A partner presses "Request access" on an anonymised search. What happens next
@@ -19,31 +19,40 @@
  * fail because Slack did.
  */
 
-import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
 import { addReaction, esc, postMessage, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
+import { sendAccessDecisionEmail, type AccessDecision } from '@/lib/access-request-email'
+
+export { renderAccessDecisionEmail, sendAccessDecisionEmail, type AccessDecision } from '@/lib/access-request-email'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
-const FROM = 'Refery <agreements@refery.io>'
-const REPLY_TO = 'lily@refery.io'
 
 /** Seeded on every card so a decision is one click, never a search for the emoji. */
 const AFFORDANCES = ['+1', '-1']
 
 /**
- * Where the card goes. A dedicated channel if one is configured, otherwise the
- * partner sign-ups channel (same audience, same gesture), otherwise the scout
- * applications channel, which every environment with the bot has.
+ * #refery-search-access, the private channel Lily made for these cards on
+ * 5 Sep 2026. The bot has to be invited to it once (/invite @Refery Ops);
+ * until it is, chat.postMessage answers not_in_channel and the card falls
+ * through to the next channel below.
  */
-export function accessRequestChannel(): string {
-  return (
-    process.env.SLACK_CHANNEL_ACCESS_REQUESTS ||
-    partnerSignupChannel() ||
-    process.env.SLACK_CHANNEL_SCOUT_APPS ||
-    ''
-  )
+const SEARCH_ACCESS_CHANNEL = 'C0BV751LTJS'
+
+/**
+ * Where the card goes, in order of preference. The dedicated channel first
+ * (an env var can override the id), then the partner sign-ups channel (same
+ * audience, same gesture), then the scout applications channel, which every
+ * environment with the bot has. Posting tries each until one accepts.
+ */
+export function accessRequestChannels(): string[] {
+  const candidates = [
+    process.env.SLACK_CHANNEL_ACCESS_REQUESTS || SEARCH_ACCESS_CHANNEL,
+    partnerSignupChannel(),
+    process.env.SLACK_CHANNEL_SCOUT_APPS || '',
+  ]
+  return [...new Set(candidates.filter(Boolean))]
 }
 
 function truncate(s: string, n: number): string {
@@ -94,38 +103,45 @@ function cardBlocks(c: AccessRequestCard): SlackBlock[] {
  * configured, so the notification still arrives even if it cannot be acted on.
  */
 export async function announceAccessRequest(c: AccessRequestCard): Promise<{ sent: boolean; error?: string }> {
-  const channel = accessRequestChannel()
   const title = `${c.partnerName} asks to be put on ${c.companyName}`
 
-  if (!channel) {
+  let posted: Awaited<ReturnType<typeof postMessage>> | null = null
+  let lastError = 'no Slack channel configured'
+  for (const channel of accessRequestChannels()) {
+    const attempt = await postMessage(channel, title, cardBlocks(c))
+    if (attempt.ok && attempt.ts) {
+      posted = attempt
+      break
+    }
+    lastError = attempt.error || 'chat.postMessage returned no ts'
+  }
+
+  if (!posted?.ts || !posted.channel) {
+    // No bot channel took it. The webhook cannot be reacted to, but a card
+    // nobody sees is worse than one that has to be decided on the web.
     const res = await notifySlack({
       stream: 'partners',
       emoji: ':key:',
       title,
-      context: 'Approve or decline on /searches/requests.',
+      context: `Approve or decline on /searches/requests. (Bot post failed: ${lastError})`,
       body: c.message ?? undefined,
       links: [{ label: 'Open requests', url: `${APP_URL}/searches/requests` }],
     })
-    return { sent: res.sent, error: res.error }
+    return { sent: res.sent, error: res.error ?? lastError }
   }
-
-  const posted = await postMessage(channel, title, cardBlocks(c))
-  if (!posted.ok || !posted.ts) return { sent: false, error: posted.error || 'chat.postMessage returned no ts' }
 
   // Written before the affordances are seeded: the reaction handler refuses to
   // act on a card it cannot resolve.
   const admin = createAdminClient()
   const { error } = await admin
     .from('company_access_requests')
-    .update({ slack_channel_id: posted.channel ?? channel, slack_message_ts: posted.ts })
+    .update({ slack_channel_id: posted.channel, slack_message_ts: posted.ts })
     .eq('id', c.requestId)
   if (error) console.error('[access-requests] could not link slack message:', error.message)
 
-  for (const name of AFFORDANCES) await addReaction(posted.channel ?? channel, posted.ts, name)
+  for (const name of AFFORDANCES) await addReaction(posted.channel, posted.ts, name)
   return { sent: true }
 }
-
-export type AccessDecision = 'approved' | 'denied'
 
 export type DecideResult =
   | {
@@ -229,68 +245,5 @@ export async function noteDecisionInSlack(requestId: string, text: string): Prom
     .maybeSingle()
   if (data?.slack_channel_id && data?.slack_message_ts) {
     await postThreadReply(data.slack_channel_id as string, data.slack_message_ts as string, text)
-  }
-}
-
-// ── the email ────────────────────────────────────────────────────────────────
-
-const M = { green: '#1f3a2f', cream: '#f2f1eb', body: '#161613', muted: '#6e6e68', rule: '#e4e3dc' }
-const SANS = "'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif"
-const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-
-export function renderAccessDecisionEmail(input: {
-  fullName: string
-  decision: AccessDecision
-  companyName: string
-  companyId: string
-}): { subject: string; html: string } {
-  const first = input.fullName.trim().split(/\s+/)[0] || 'there'
-  const company = escapeHtml(input.companyName)
-  const approved = input.decision === 'approved'
-  const url = `${APP_URL}/searches/${input.companyId}`
-
-  const subject = approved ? `You are on ${input.companyName}` : `About ${input.companyName}`
-  const heading = approved ? `You are on ${company}, ${escapeHtml(first)}.` : `Not this one for now, ${escapeHtml(first)}.`
-  const body = approved
-    ? `The client&rsquo;s name, their brief and every live search under it are open to you now. Read the brief first: it says who they hire and who they do not, in the hiring manager&rsquo;s own words.`
-    : `We are keeping ${company} with the partners already on it. That is about coverage, not about you. Other searches are open to you on request, and we will keep proposing the ones that fit your network.`
-  const button = approved
-    ? `<tr><td style="padding:0 0 36px 0;"><a href="${escapeHtml(url)}" style="display:inline-block; padding:13px 26px; font-family:${SANS}; font-weight:600; font-size:15px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">Open the client</a></td></tr>`
-    : `<tr><td style="padding:0 0 36px 0;"><a href="${APP_URL}/searches" style="display:inline-block; padding:13px 26px; font-family:${SANS}; font-weight:600; font-size:15px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">See open searches</a></td></tr>`
-
-  const html = `<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>${escapeHtml(subject)}</title></head>
-<body style="margin:0; padding:0; background-color:${M.cream}; -webkit-font-smoothing:antialiased;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${M.cream};"><tr><td align="center" style="padding:32px 16px 48px 16px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:560px;">
-  <tr><td style="padding:0 0 8px 0; font-family:${SANS}; font-weight:600; font-size:28px; line-height:1; color:${M.green}; letter-spacing:-0.5px;">Refery</td></tr>
-  <tr><td style="padding:0 0 32px 0;"><div style="width:48px; height:2px; background-color:${M.green}; line-height:2px; font-size:0;">&nbsp;</div></td></tr>
-  <tr><td style="padding:0 0 14px 0; font-family:${SANS}; font-weight:600; font-size:24px; line-height:1.25; color:${M.green};">${heading}</td></tr>
-  <tr><td style="padding:0 0 28px 0; font-family:${SANS}; font-size:16px; line-height:1.65; color:${M.body};">${body}</td></tr>
-  ${button}
-  <tr><td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:${SANS}; font-size:12px; line-height:1.6; color:${M.muted};">Confidential. A client&rsquo;s name and brief are for you and not for candidates until they have signed Refery&rsquo;s confidentiality note. Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a></td></tr>
-</table></td></tr></table></body></html>`
-
-  return { subject, html }
-}
-
-export async function sendAccessDecisionEmail(input: {
-  to: string
-  fullName: string
-  decision: AccessDecision
-  companyName: string
-  companyId: string
-}): Promise<{ sent: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not set' }
-  if (!input.to) return { sent: false, error: 'No recipient' }
-  const { subject, html } = renderAccessDecisionEmail(input)
-  try {
-    const resend = new Resend(apiKey)
-    const { error } = await resend.emails.send({ from: FROM, to: input.to, replyTo: REPLY_TO, subject, html })
-    if (error) return { sent: false, error: error.message }
-    return { sent: true }
-  } catch (e) {
-    return { sent: false, error: e instanceof Error ? e.message : 'send failed' }
   }
 }
