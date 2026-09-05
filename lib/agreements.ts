@@ -12,7 +12,17 @@ export const AGREEMENT_VERSIONS = {
   // Attribution, candidate consent and indemnity describe rights that do not
   // exist until there is a candidate, so they bind at the first submission
   // instead (partnerSubmission below), when the partner is motivated to read.
-  partner: '2.0',
+  // v2.1 spells out the payout gate that v2.0 stated as a single date. A payout
+  // needs two things to be true, not one: the hire has passed day 90, and the
+  // client has actually paid. On the standard client terms the client pays on
+  // day 30, so day 90 is the only wait. A client on longer terms would have made
+  // v2.0's "within 14 business days of the candidate completing 90 days" a
+  // promise we could not keep, so the document now names the real rule and
+  // commits to showing the timing on the role.
+  //
+  // Safe to edit in place: no one has signed v2.0. The seven partners on the
+  // legacy recruiter document are unaffected and keep their own text.
+  partner: '2.1',
   partnerSubmission: '1.0',
   // Retained so historical acceptances still resolve to the text that was signed.
   scout: '1.2.0',
@@ -288,13 +298,14 @@ export function generateSigningToken(): string {
  */
 export const PARTNER_TERMS_TEXT = `# Partner Terms
 
-**v2.0** · Refery and you · The table below is the whole deal
+**v2.1** · Refery and you · The table below is the whole deal
 
 ## The short version
 
 | | |
 |---|---|
 | **You earn** | 70% of the placement fee on every hire you source |
+| **You get paid** | 14 business days after the client pays us, never before day 90 |
 | **You pay** | Nothing, ever. No fees, no minimums, no exclusivity |
 | **Your commitment** | None. Work with whoever else you like, leave whenever |
 | **What we ask** | Keep what you see inside Refery confidential |
@@ -303,7 +314,13 @@ export const PARTNER_TERMS_TEXT = `# Partner Terms
 
 **1. What you earn.** You keep 70% of the placement fee on every candidate you source who is hired and stays 90 days. Refery keeps 30% and handles the client, the contract, the invoice and the chasing. A role's fee is either a percentage of first year base salary, usually 10 to 20%, or a fixed amount. Either way it is shown on the role before you work it.
 
-**2. When you get paid.** Within 14 business days of the candidate completing 90 days, once we have collected from the client. We hold the money until then, so you will never face a clawback. If a placement does not last, no money changes hands in either direction.
+**2. When you get paid.** Two things have to be true: the person has passed 90 days in the job, and the client has paid us. Once both are true, your payout goes out within 14 business days.
+
+The 90 days is the guarantee we give the client. If the person leaves inside it, for any reason, we run a free replacement search for the client at no extra fee. Nothing is paid out to you on that placement and nothing is owed back either.
+
+On our standard client terms the client pays 30 days after the start date, so by day 90 the money is already with us and day 90 is the only thing you are waiting on. A few clients are on longer terms, and there your payout follows their payment instead. We show you that timing on the role before you work it.
+
+We hold the money until it is yours, so you will never face a clawback. If a placement does not last, no money changes hands in either direction.
 
 **3. Keep our clients confidential.** Everything inside Refery is confidential: company names, roles, hiring managers, pay and team detail. Many of these companies are in stealth. You can describe a role to a candidate in general terms, such as "a Series B fintech in New York", but please do not name or identify the company until that candidate has been vetted and signed our confidentiality terms. This one continues after you leave.
 
@@ -1085,7 +1102,9 @@ export function partnerAgreementTextForVersion(
   version: string,
   type: AgreementType,
 ): string {
-  if (version === AGREEMENT_VERSIONS.partner) return PARTNER_TERMS_TEXT
+  // Match on the major line, not the exact string, so a v2.x bump doesn't drop
+  // earlier v2 signers onto the legacy scout/recruiter documents they never saw.
+  if (version.startsWith('2.')) return PARTNER_TERMS_TEXT
   return type === 'scout' ? SCOUT_AGREEMENT_TEXT : RECRUITER_AGREEMENT_TEXT
 }
 

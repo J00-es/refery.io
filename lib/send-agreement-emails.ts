@@ -53,12 +53,15 @@ function firstName(full: string): string {
 }
 
 // Brand tokens for the signer email (kept identical to the spec).
+// Same cream palette as the app, so a signed agreement email and the page it
+// was signed on read as one product. Values mirror the tokens in globals.css.
 const M = {
   green: '#1f3a2f',
-  cream: '#faf9f5',
-  body: '#2a2a2a',
-  muted: '#6b6b6b',
-  rule: '#e5e2d8',
+  cream: '#f2f1eb',
+  paper: '#faf9f5',
+  body: '#161613',
+  muted: '#6e6e68',
+  rule: '#e4e3dc',
 }
 
 function signerEmailHtml(d: AgreementEmailData): string {
@@ -93,12 +96,12 @@ function signerEmailHtml(d: AgreementEmailData): string {
 
           <!-- Greeting + confirmation -->
           <tr>
-            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.6; color:${M.body};">
+            <td style="padding:0 0 18px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.6; color:${M.body};">
               Hi ${escapeHtml(greeting)},
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 28px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               Thanks for signing the Refery recruitment services agreement on behalf of <strong style="color:${M.body}; font-weight:600;">${escapeHtml(d.companyName)}</strong>. You&rsquo;re all set, and we&rsquo;re looking forward to getting started on your roles.
             </td>
           </tr>
@@ -106,9 +109,9 @@ function signerEmailHtml(d: AgreementEmailData): string {
           <!-- At a glance card -->
           <tr>
             <td style="padding:0 0 28px 0;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#ffffff; border:1px solid ${M.rule}; border-radius:8px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:${M.paper}; border:1px solid ${M.rule}; border-radius:8px;">
                 <tr>
-                  <td style="padding:18px 24px; border-bottom:1px solid ${M.rule}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+                  <td style="padding:18px 24px; border-bottom:1px solid ${M.rule}; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Fee</td>
@@ -118,7 +121,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:18px 24px; border-bottom:1px solid ${M.rule}; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+                  <td style="padding:18px 24px; border-bottom:1px solid ${M.rule}; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Payment</td>
@@ -128,7 +131,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:18px 24px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+                  <td style="padding:18px 24px; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Guarantee</td>
@@ -143,7 +146,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
 
           <!-- Signature details block -->
           <tr>
-            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+            <td style="padding:0 0 28px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="padding:0 0 8px 0; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">Signed by</td>
@@ -175,33 +178,33 @@ function signerEmailHtml(d: AgreementEmailData): string {
 
           <!-- PDF attachment note -->
           <tr>
-            <td style="padding:0 0 24px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.6; color:${M.muted};">
+            <td style="padding:0 0 24px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.6; color:${M.muted};">
               A signed PDF copy is attached to this email for your records.
             </td>
           </tr>
 
           <!-- Reply / contact line -->
           <tr>
-            <td style="padding:0 0 32px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 32px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.65; color:${M.body};">
               Any questions, reply to this email or reach <a href="mailto:legal@refery.io" style="color:${M.green}; text-decoration:underline;">legal@refery.io</a>.
             </td>
           </tr>
 
           <!-- Sign-off -->
           <tr>
-            <td style="padding:0 0 6px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
+            <td style="padding:0 0 6px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
               Lily Joo
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 36px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
+            <td style="padding:0 0 36px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
               Founding Partner, Refery
             </td>
           </tr>
 
           <!-- Footer hairline rule -->
           <tr>
-            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
+            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
               Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
             </td>
           </tr>
@@ -343,19 +346,19 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 18px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 18px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               You&rsquo;re officially a Refery <strong style="color:${M.body}; font-weight:600;">${escapeHtml(label)}</strong> partner, and we&rsquo;re genuinely glad to have you. Your agreement is signed and a countersigned PDF is attached for your records.
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 28px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:16px; line-height:1.65; color:${M.body};">
               From here, we handle the business side: clients, contracts, invoicing, and the guarantee. That leaves you free to focus on surfacing great people. Your candidate submissions are protected for 24 months, and you earn 70% on every successful placement.
             </td>
           </tr>
 
           <!-- Signature details block -->
           <tr>
-            <td style="padding:0 0 28px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
+            <td style="padding:0 0 28px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td style="padding:0 0 8px 0; font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600;">Signed by</td>
@@ -386,30 +389,30 @@ function partnerSignerEmailHtml(d: PartnerAgreementEmailData): string {
           </tr>
 
           <tr>
-            <td style="padding:0 0 24px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.6; color:${M.muted};">
+            <td style="padding:0 0 24px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.6; color:${M.muted};">
               A signed PDF copy is attached to this email for your records.
             </td>
           </tr>
 
           <tr>
-            <td style="padding:0 0 32px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.65; color:${M.body};">
+            <td style="padding:0 0 32px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:14px; line-height:1.65; color:${M.body};">
               Any questions, reply to this email or reach <a href="mailto:legal@refery.io" style="color:${M.green}; text-decoration:underline;">legal@refery.io</a>.
             </td>
           </tr>
 
           <tr>
-            <td style="padding:0 0 6px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
+            <td style="padding:0 0 6px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:15px; line-height:1.4; color:${M.body};">
               Lily Joo
             </td>
           </tr>
           <tr>
-            <td style="padding:0 0 36px 0; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
+            <td style="padding:0 0 36px 0; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:13px; line-height:1.4; color:${M.muted};">
               Founding Partner, Refery
             </td>
           </tr>
 
           <tr>
-            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
+            <td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
               Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
             </td>
           </tr>

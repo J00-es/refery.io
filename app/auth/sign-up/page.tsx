@@ -534,16 +534,12 @@ export default function Page() {
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">
-                    {selectedRole === 'hiring_manager'
-                      ? 'Almost done'
-                      : selectedRole === 'recruiter'
-                        ? 'Recruiting Partner Agreement'
-                        : 'Scout Partner Agreement'}
+                    {selectedRole === 'hiring_manager' ? 'Almost done' : 'Partner Terms'}
                   </CardTitle>
                   <CardDescription className="text-sm">
                     {selectedRole === 'hiring_manager'
                       ? "We'll review your account and reach out to you shortly."
-                      : `Review the agreement, then accept to finish creating your account.`}
+                      : 'About a minute to read. Accept to finish creating your account.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-6">
@@ -584,7 +580,7 @@ export default function Page() {
                           htmlFor="accept-agreement"
                           className={`text-sm leading-snug cursor-pointer ${!hasScrolledAgreement ? 'opacity-60' : ''}`}
                         >
-                          I have read and agree to the {selectedRole === 'recruiter' ? 'Recruiting Partner' : 'Scout'} Agreement.
+                          I have read and agree to the Partner Terms.
                           My click constitutes a legally binding electronic signature.
                         </label>
                       </div>

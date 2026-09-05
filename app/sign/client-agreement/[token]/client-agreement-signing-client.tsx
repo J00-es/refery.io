@@ -10,25 +10,29 @@ import { AgreementContent } from '@/components/agreement-content'
  * like a sibling document, not a different product.
  * -------------------------------------------------------------------------- */
 const C = {
-  bg: '#F8F8F3',
-  bg2: '#EAE9E1',
-  bg3: '#E8E8E1',
-  card: '#FFFFFF',
-  ink: '#100F0F',
-  ink2: 'rgba(16,15,15,0.64)',
-  ink3: 'rgba(16,15,15,0.40)',
-  ink4: 'rgba(16,15,15,0.20)',
-  green: '#2A6B45',
-  greenBg: '#EBF4EF',
-  greenBorder: 'rgba(42,107,69,0.20)',
-  border: 'rgba(16,15,15,0.10)',
-  borderSoft: 'rgba(16,15,15,0.06)',
+  bg: '#F2F1EB',
+  bg2: '#E9E8E1',
+  bg3: '#E4E3DC',
+  card: '#FAF9F5',
+  ink: '#161613',
+  ink2: 'rgba(22,22,19,0.64)',
+  ink3: 'rgba(22,22,19,0.40)',
+  ink4: 'rgba(22,22,19,0.20)',
+  green: '#1F3A2F',
+  greenBg: '#E7EDE9',
+  greenBorder: 'rgba(31,58,47,0.20)',
+  border: 'rgba(22,22,19,0.10)',
+  borderSoft: 'rgba(22,22,19,0.06)',
   red: '#B0413E',
   redBg: '#FBEAE9',
 }
 
-const SERIF = "'Instrument Serif', Georgia, 'Times New Roman', serif"
-const SANS = "'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+// The serif is retired platform-wide. Display and body are both DM Sans, which
+// layout.tsx already loads as --font-dm-sans, so display type earns its contrast
+// from weight and tracking rather than a second family. SERIF is kept as an alias
+// so every existing heading keeps pointing at the display face.
+const SANS = "var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
+const SERIF = SANS
 
 /* ----------------------------------------------------------------------------
  * Types
@@ -221,7 +225,7 @@ function JumpToSignBar() {
         bottom: 0,
         zIndex: 60,
         padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
-        background: 'rgba(248,248,243,0.94)',
+        background: 'rgba(242,241,235,0.94)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderTop: `1px solid ${C.border}`,
@@ -282,10 +286,10 @@ function BrandStyles() {
         transition: border-color 0.15s ease, box-shadow 0.15s ease;
       }
       .refery-input::placeholder { color: ${C.ink3}; }
-      .refery-input:hover { border-color: rgba(16,15,15,0.18); }
+      .refery-input:hover { border-color: rgba(22,22,19,0.18); }
       .refery-input:focus {
         border-color: ${C.green};
-        box-shadow: 0 0 0 3px rgba(42,107,69,0.12);
+        box-shadow: 0 0 0 3px rgba(31,58,47,0.12);
       }
       .refery-cta {
         background: ${C.ink};
@@ -325,7 +329,7 @@ function BrandStyles() {
         transform: rotate(45deg);
       }
       .refery-check:focus-visible {
-        box-shadow: 0 0 0 3px rgba(42,107,69,0.18);
+        box-shadow: 0 0 0 3px rgba(31,58,47,0.18);
       }
       .refery-jumpbar { display: none; }
       @media (max-width: 640px) {
@@ -353,7 +357,7 @@ function Nav() {
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        background: 'rgba(248,248,243,0.88)',
+        background: 'rgba(242,241,235,0.88)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderBottom: `1px solid ${C.border}`,
@@ -368,6 +372,8 @@ function Nav() {
         href="https://refery.io"
         style={{
           fontFamily: SERIF,
+          fontWeight: 600,
+          letterSpacing: '-0.02em',
           fontSize: 20,
           color: C.ink,
           textDecoration: 'none',
@@ -414,7 +420,7 @@ function Footer() {
       }}
     >
       <div>
-        <span style={{ fontFamily: SERIF, fontSize: 16, color: C.ink2 }}>
+        <span style={{ fontFamily: SERIF, fontWeight: 600, letterSpacing: '-0.02em', fontSize: 16, color: C.ink2 }}>
           Refery<em style={{ fontStyle: 'italic', color: C.green }}>.</em>
         </span>
         <span style={{ marginLeft: 12 }}>© {new Date().getFullYear()} Refery, Inc.</span>
@@ -465,10 +471,10 @@ function Hero({ version }: { version: string }) {
       <h1
         style={{
           fontFamily: SERIF,
-          fontWeight: 400,
+          fontWeight: 600,
           fontSize: 'clamp(40px, 5.5vw, 60px)',
           lineHeight: 1.04,
-          letterSpacing: '-0.02em',
+          letterSpacing: '-0.035em',
           color: C.ink,
           margin: '0 0 18px 0',
         }}
@@ -565,7 +571,7 @@ function DocumentCard({ content }: { content: string }) {
         borderRadius: 12,
         marginBottom: 28,
         overflow: 'hidden',
-        boxShadow: '0 1px 0 rgba(16,15,15,0.02)',
+        boxShadow: '0 1px 0 rgba(22,22,19,0.02)',
       }}
     >
       <div className="refery-doc-pad" style={{ padding: '52px 56px' }}>
@@ -606,10 +612,10 @@ function SignCard(props: {
         <h2
           style={{
             fontFamily: SERIF,
-            fontWeight: 400,
+            fontWeight: 600,
             fontSize: 'clamp(24px, 3vw, 30px)',
             lineHeight: 1.15,
-            letterSpacing: '-0.012em',
+            letterSpacing: '-0.025em',
             color: C.ink,
             margin: '0 0 6px 0',
           }}
@@ -863,10 +869,10 @@ function ShellError({ message }: { message: string }) {
         <h1
           style={{
             fontFamily: SERIF,
-            fontWeight: 400,
+            fontWeight: 600,
             fontSize: 'clamp(32px, 4vw, 42px)',
             lineHeight: 1.1,
-            letterSpacing: '-0.018em',
+            letterSpacing: '-0.03em',
             color: C.ink,
             margin: '0 0 14px 0',
           }}
