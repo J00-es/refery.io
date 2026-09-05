@@ -66,7 +66,9 @@ export default async function ClaimsPage() {
     Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 
   return (
-    <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
+    // No max-width here: the admin layout is already the container, and adding
+    // a second one centres this page against a full-width heading.
+    <div className="space-y-6 pb-10">
       <header>
         <h1 className="text-[30px] font-semibold leading-[1.15] tracking-[-0.025em] text-[#161613] sm:text-[36px]">
           Introductions owed
