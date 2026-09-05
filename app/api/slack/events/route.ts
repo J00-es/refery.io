@@ -9,6 +9,10 @@
  * A partner sign-up card is the same gesture over a different row: :+1: turns
  * the account active and emails them, :-1: leaves it inactive and sends
  * nothing. See handlePartnerSignup.
+ *
+ * An access-request card is the same gesture again: :+1: puts the partner on
+ * the client and emails them, :-1: closes the request with a short email. See
+ * handleAccessRequest and lib/access-requests.ts.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -18,6 +22,7 @@ import { botUserId, postThreadReply, verifySlackSignature } from '@/lib/slack-bo
 import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/intake-emails'
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
+import { decideAccessRequest } from '@/lib/access-requests'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.
@@ -113,6 +118,10 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
 
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
+
+  // Access-request cards can share a channel with sign-ups or intake, so they
+  // are recognised by the message itself rather than by where it was posted.
+  if (await handleAccessRequest(event, channel, ts, approve)) return
 
   // Partner sign-ups live in users_admin, not an intake table, and the decision
   // is an account status rather than a conversation. Different row, different
@@ -212,6 +221,58 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     ts,
     `:warning: Approved, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
   )
+}
+
+/**
+ * Approve or decline a partner's request to be put on a client.
+ *
+ * Returns false when the message is not an access-request card, so the caller
+ * can carry on to the other handlers. The decision itself lives in
+ * lib/access-requests.ts and is shared with the web buttons, which is what
+ * keeps the two surfaces from ever disagreeing.
+ */
+async function handleAccessRequest(
+  event: ReactionEvent,
+  channel: string,
+  ts: string,
+  approve: boolean,
+): Promise<boolean> {
+  const admin = createAdminClient()
+  const { data: row } = await admin
+    .from('company_access_requests')
+    .select('id, status')
+    .eq('slack_channel_id', channel)
+    .eq('slack_message_ts', ts)
+    .maybeSingle()
+  if (!row) return false
+
+  const result = await decideAccessRequest({
+    id: row.id as string,
+    decision: approve ? 'approved' : 'denied',
+    decidedBy: null,
+    via: `slack:${event.user}`,
+  })
+
+  if (!result.ok) {
+    if (result.reason === 'already_decided') {
+      await postThreadReply(channel, ts, `Already actioned (currently *${result.status}*), so nothing was sent this time.`)
+    } else if (result.reason === 'error') {
+      await postThreadReply(channel, ts, `:warning: Could not decide this one: ${result.error}. Try again from /searches/requests.`)
+    }
+    return true
+  }
+
+  const mail = result.emailed
+    ? `and has been emailed at ${result.partnerEmail}.`
+    : `but the email to ${result.partnerEmail} did not send: ${result.emailError ?? 'unknown'}. Worth sending by hand.`
+  await postThreadReply(
+    channel,
+    ts,
+    approve
+      ? `:+1: <@${event.user}> approved. *${result.partnerName}* is on ${result.companyName} ${mail}`
+      : `:-1: <@${event.user}> declined. *${result.partnerName}* stays off ${result.companyName} ${result.emailed ? 'and has been told.' : mail}`,
+  )
+  return true
 }
 
 /**

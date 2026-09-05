@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { PROPOSAL_DAYS, searchStageMeta, submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
+import { DESK_BETA_ONLY, PROPOSAL_DAYS, searchStageMeta, submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
 import { renderWeeklyDigest, sendWeeklyDigest, type WeeklyDigest } from '@/lib/weekly-digest-email'
 
 /**
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
 
   const [{ data: users }, { data: roles }, { data: submissions }, { data: events }, { data: answers }] =
     await Promise.all([
-      adminClient.from('users_admin').select('user_id, email, full_name, status').in('user_id', userIds),
+      adminClient.from('users_admin').select('user_id, email, full_name, status, is_beta').in('user_id', userIds),
       adminClient
         .from('partner_roles_v')
         .select('job_id, company_id, title, headline, company_name, search_stage, stage_moved_at, is_live, job_status')
@@ -115,6 +115,9 @@ export async function GET(request: NextRequest) {
 
   for (const user of users ?? []) {
     if (user.status !== 'active' || !user.email) continue
+    // Every link in the digest opens the desk. While the desk is in beta, a
+    // partner outside it would land on a 404, so they get no digest yet.
+    if (DESK_BETA_ONLY && !user.is_beta) continue
     if (only && user.email !== only) continue
     const uid = user.user_id as string
     const mine = assignments.filter(a => a.user_id === uid)

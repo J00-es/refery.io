@@ -34,28 +34,36 @@ interface NavItem {
   superAdminOnly?: boolean
 }
 
+/**
+ * The row, in the order a partner works.
+ *
+ * Searches and Pipeline lead (see betaNavItems): what to work, then where each
+ * submission stands. Candidates is the partner's own book, the thing they
+ * submit from, so it sits next. Dashboard is the reporting view you look at
+ * after the work, not before it, so it trails. Jobs and Companies are the
+ * sourced watchlist and are super-admin-only.
+ */
 const navItems: NavItem[] = [
+  { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
-  { href: '/candidates', label: 'Candidates', icon: Users },
   { href: '/companies', label: 'Companies', icon: Building2, superAdminOnly: true },
 ]
 
 /**
- * Surfaces still being built, super-admin-only for now.
+ * Surfaces in beta: shown to beta users and super admins.
  *
  * Two groups because they belong in different places, not because they differ in
- * permission. Partners leads the row: it is the handful of searches we are
+ * permission. Searches leads the row: it is the handful of searches we are
  * actually retained on, where Jobs is the 29k-role sourced watchlist, and putting
  * it after would send everyone to the noise first. Briefs is a review queue you
- * visit when there is something in it, so it trails — grouping both up front
- * pushed Dashboard into third place, which is not what anyone opens first.
+ * visit when there is something in it, so it trails.
  *
  * Hiding a link is not access control. These are kept in step with
- * DESK_SUPER_ADMIN_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and
- * their API handlers actually enforce.
+ * DESK_BETA_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and their
+ * API handlers actually enforce.
  */
-const superAdminLeadNavItems = [
+const betaNavItems = [
   { href: '/searches', label: 'Searches', icon: Handshake },
   { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
 ]
@@ -84,6 +92,8 @@ const adminMenuItems = [
 interface DashboardNavProps {
   user: User
   isAdmin?: boolean
+  /** Sees the beta surfaces (Searches, Pipeline). Super admins always do. */
+  isBeta?: boolean
   userRole?: string
   fullName?: string | null
 }
@@ -97,10 +107,11 @@ const roleLabels: Record<string, { label: string; color: string }> = {
   viewer: { label: 'Viewer', color: 'bg-gray-100 text-gray-700' },
 }
 
-export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullName }: DashboardNavProps) {
+export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole = 'viewer', fullName }: DashboardNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
+  const seesBeta = isBeta || isSuperAdmin
   // Hiding a link is not access control: /jobs and /companies are enforced by
   // their route layouts and by every handler under /api/jobs and
   // /api/companies. This only keeps the row honest.
@@ -134,7 +145,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
           
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {isSuperAdmin && superAdminLeadNavItems.map((item) => (
+            {seesBeta && betaNavItems.map((item) =>(
               <Link
                 key={item.href}
                 href={item.href}
@@ -270,7 +281,7 @@ export function DashboardNav({ user, isAdmin = false, userRole = 'viewer', fullN
 
             {/* Mobile Navigation */}
             <nav className="p-2">
-              {isSuperAdmin && superAdminLeadNavItems.map((item) => {
+              {seesBeta && betaNavItems.map((item) =>{
                 const Icon = item.icon
                 return (
                   <Link

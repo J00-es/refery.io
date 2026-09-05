@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
 import { Spinner } from '@/components/ui/spinner'
 import { UserAdmin } from '@/lib/types'
 import { Plus, Trash2, Shield, ShieldCheck, User, Eye, Building, Search, ChevronRight, RefreshCw } from 'lucide-react'
@@ -124,6 +125,28 @@ export default function AdminUsersPage() {
       await fetchUsers()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
+    }
+  }
+
+  /**
+   * Beta is a third switch next to role and status, not a role of its own: a
+   * scout in the beta is still a scout, they just see Searches and Pipeline
+   * before everyone else does.
+   */
+  async function handleUpdateBeta(userId: string, isBeta: boolean) {
+    setUsers(prev => prev.map(u => (u.id === userId ? { ...u, is_beta: isBeta } : u)))
+    try {
+      const res = await fetch(`/api/admin/users/${userId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_beta: isBeta }),
+      })
+
+      if (!res.ok) throw new Error('Failed to update beta access')
+      await fetchUsers()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      await fetchUsers()
     }
   }
 
@@ -307,12 +330,25 @@ export default function AdminUsersPage() {
                           }`}>
                             {user.status}
                           </span>
+                          {user.is_beta && (
+                            <span className="rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[10px] font-medium text-[#1F3A2F]">
+                              beta
+                            </span>
+                          )}
                         </div>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     </Link>
                     {isSuperAdmin && (
                       <div className="flex items-center gap-2 px-3 pb-3 pt-1 border-t">
+                        <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+                          <Switch
+                            checked={user.is_beta}
+                            onCheckedChange={checked => handleUpdateBeta(user.id, checked)}
+                            aria-label={`Beta access for ${user.full_name || user.email}`}
+                          />
+                          Beta
+                        </label>
                         <Select
                           value={user.role}
                           onValueChange={(value) => handleUpdateRole(user.id, value)}
@@ -361,7 +397,14 @@ export default function AdminUsersPage() {
                         <RoleIcon className="h-5 w-5" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="font-medium truncate">{user.full_name || user.email}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium truncate">{user.full_name || user.email}</span>
+                          {user.is_beta && (
+                            <span className="shrink-0 rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[10px] font-medium text-[#1F3A2F]">
+                              beta
+                            </span>
+                          )}
+                        </div>
                         <div className="text-sm text-muted-foreground truncate">
                           {user.full_name ? user.email : `Added ${new Date(user.created_at).toLocaleDateString()}`}
                         </div>
@@ -370,6 +413,17 @@ export default function AdminUsersPage() {
                     <div className="flex items-center gap-3 shrink-0">
                       {isSuperAdmin ? (
                         <>
+                          <label
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                            title="Sees Searches and Pipeline before they open to everyone"
+                          >
+                            <Switch
+                              checked={user.is_beta}
+                              onCheckedChange={checked => handleUpdateBeta(user.id, checked)}
+                              aria-label={`Beta access for ${user.full_name || user.email}`}
+                            />
+                            Beta
+                          </label>
                           <Select
                             value={user.role}
                             onValueChange={(value) => handleUpdateRole(user.id, value)}

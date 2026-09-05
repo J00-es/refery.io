@@ -31,7 +31,13 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardNav user={user} isAdmin={appUser.isAdmin} userRole={appUser.role} fullName={appUser.fullName} />
+      <DashboardNav
+        user={user}
+        isAdmin={appUser.isAdmin}
+        isBeta={appUser.isBeta}
+        userRole={appUser.role}
+        fullName={appUser.fullName}
+      />
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner className="h-8 w-8" /></div>}>
           {children}

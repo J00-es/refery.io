@@ -318,3 +318,14 @@ from public.role_submissions rs
 alter table public.role_submissions   add column if not exists acted_by_user_id uuid references auth.users(id);
 alter table public.search_assignments add column if not exists acted_by_user_id uuid references auth.users(id);
 alter table public.search_questions   add column if not exists acted_by_user_id uuid references auth.users(id);
+
+-- ── beta users and Slack-decided access requests (2026-09-05) ──────────────
+-- Applied to prod as migration beta_users_and_slack_access_requests.
+-- Beta is a per-user switch on /admin/users, orthogonal to role and status.
+alter table public.users_admin add column if not exists is_beta boolean not null default false;
+-- An access request is also a Slack card decided by reaction; remember where
+-- the card landed and how the decision was made ("web" or "slack:<user id>").
+alter table public.company_access_requests
+  add column if not exists slack_channel_id text,
+  add column if not exists slack_message_ts text,
+  add column if not exists decided_via text;

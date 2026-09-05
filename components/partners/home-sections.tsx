@@ -300,7 +300,8 @@ export function ThisWeek({ items }: { items: WeekItem[] }) {
   )
 }
 
-export function Numbers({ inPlay, interviewing, protectedCount, isAdmin }: { inPlay: number; interviewing: number; protectedCount: number; isAdmin: boolean }) {
+/** The viewer's own funnel, three figures deep: in play, interviewing, offers out. */
+export function Numbers({ inPlay, interviewing, offers }: { inPlay: number; interviewing: number; offers: number }) {
   return (
     <dl className={`grid grid-cols-3 gap-4 p-5 ${CARD}`}>
       <div>
@@ -312,8 +313,8 @@ export function Numbers({ inPlay, interviewing, protectedCount, isAdmin }: { inP
         <dd className={`mt-1.5 ${LABEL}`}>interviewing</dd>
       </div>
       <div>
-        <dt className={FIGURE}>{protectedCount}</dt>
-        <dd className={`mt-1.5 ${LABEL}`}>{isAdmin ? 'candidates protected' : 'candidates protected for you'}</dd>
+        <dt className={FIGURE}>{offers}</dt>
+        <dd className={`mt-1.5 ${LABEL}`}>{offers === 1 ? 'offer out' : 'offers out'}</dd>
       </div>
     </dl>
   )

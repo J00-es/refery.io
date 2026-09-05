@@ -10,7 +10,8 @@ export const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
  * partner-facing story for briefs is settled, nobody else sees the surface.
  *
  * One flag, honoured by the page, the nav link and both API handlers — flip it to
- * `false` to open it back up. Mirrors DESK_SUPER_ADMIN_ONLY in lib/partners.ts.
+ * `false` to open it back up. Compare DESK_BETA_ONLY in lib/partners.ts, which
+ * opens the desk to beta users rather than only the super admin.
  */
 export const BRIEFS_SUPER_ADMIN_ONLY = true
 
@@ -81,6 +82,13 @@ export interface AppUser {
    * two definitions in step.
    */
   canViewAllCandidates: boolean
+  /**
+   * Sees surfaces still in beta (the Searches desk, Pipeline) before they open
+   * to everyone. Toggled per user from /admin/users; super admins always are.
+   * Orthogonal to role and status, so a scout stays a scout and an active
+   * account stays active. Gates are `DESK_BETA_ONLY` in lib/partners.ts.
+   */
+  isBeta: boolean
   isActive: boolean
 }
 
@@ -108,7 +116,7 @@ export async function getAppUser(): Promise<AppUser | null> {
 
   let { data: row } = await adminClient
     .from('users_admin')
-    .select('id, role, status, full_name, user_id')
+    .select('id, role, status, full_name, user_id, is_beta')
     .eq('email', email)
     .maybeSingle()
 
@@ -127,7 +135,7 @@ export async function getAppUser(): Promise<AppUser | null> {
         role: 'viewer',
         status: 'pending',
       })
-      .select('id, role, status, full_name, user_id')
+      .select('id, role, status, full_name, user_id, is_beta')
       .maybeSingle()
     row = created ?? null
   }
@@ -149,6 +157,7 @@ export async function getAppUser(): Promise<AppUser | null> {
     isSuperAdmin,
     isAdmin: role === 'super_admin' || role === 'admin',
     canViewAllCandidates: role === 'super_admin',
+    isBeta: isSuperAdmin || Boolean(row?.is_beta),
     isActive: status === 'active',
   }
 }

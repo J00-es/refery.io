@@ -1,10 +1,9 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { Inbox, MessageCircle, UserPlus } from 'lucide-react'
+import { Inbox, UserPlus } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import { BTN_QUIET, CARD, FOCUS, H1, H2, LEDE, META, detailLine } from '@/lib/desk-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
-import { DEFAULT_FEE_PERCENTAGE, DEFAULT_SCOUT_SHARE } from '@/lib/fees'
 import {
   PRIORITY_ORDER,
   submissionStatus,
@@ -57,7 +56,7 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export default async function PartnersPage({ searchParams }: PageProps) {
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
-  // The desk is super-admin-only while it is being built — see DESK_SUPER_ADMIN_ONLY.
+  // The desk is in beta: super admins and beta users only. See DESK_BETA_ONLY.
   if (!access.canUseDesk) notFound()
 
   const sp = await searchParams
@@ -77,7 +76,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
   const companyIds = companies.map(c => c.company_id)
   const since = new Date(Date.now() - 7 * DAY_MS).toISOString()
 
-  const [{ data: roleRows }, { data: submissionRows }, { data: requestRows }, { data: matchRows }, claimsRes] =
+  const [{ data: roleRows }, { data: submissionRows }, { data: requestRows }, { data: matchRows }] =
     await Promise.all([
       companyIds.length
         ? adminClient.from('partner_roles_v').select('*').in('company_id', companyIds).eq('is_live', true).eq('job_status', 'open')
@@ -94,9 +93,6 @@ export default async function PartnersPage({ searchParams }: PageProps) {
         ? adminClient.from('company_access_requests').select('id').eq('status', 'pending')
         : Promise.resolve({ data: [] }),
       adminClient.from('partner_role_match_counts').select('job_id, match_count').eq('owner_user_id', access.appUser.id),
-      access.seesAllSubmissions
-        ? adminClient.from('submission_claims').select('id', { count: 'exact', head: true }).eq('status', 'active')
-        : adminClient.from('submission_claims').select('id', { count: 'exact', head: true }).eq('status', 'active').eq('holder_user_id', access.appUser.id),
     ])
 
   const roles = ((roleRows ?? []) as PartnerRoleRow[]).sort(
@@ -106,7 +102,6 @@ export default async function PartnersPage({ searchParams }: PageProps) {
   const views = companies.map(row => toCompanyView(row, access))
   const viewByCompany = new Map(views.map(v => [v.companyId, v]))
   const matchesByJob = new Map((matchRows ?? []).map(r => [r.job_id as string, r.match_count as number]))
-  const protectedCount = claimsRes.count ?? 0
 
   // Recent movement on the viewer's submissions, for the rail.
   const submissionIds = submissions.map(s => s.id as string)
@@ -227,6 +222,10 @@ export default async function PartnersPage({ searchParams }: PageProps) {
 
   const inPlay = submissions.filter(s => submissionStatus(s.status as string).category === 'in_progress').length
   const interviewing = submissions.filter(s => s.status === 'client_interview').length
+  // Offers, not "candidates protected": protection is a contract term the
+  // agreement already states, and a partner cannot act on the number. An offer
+  // out is the thing they are actually waiting on.
+  const offers = submissions.filter(s => s.status === 'offer').length
   const myCandidatesInPlay = inPlay
 
   const paletteTargets: PaletteTarget[] = [
@@ -294,9 +293,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           <h1 className={H1}>Searches</h1>
           <p className={`mt-2 ${LEDE}`}>
             The searches you are on, what moved this week, and what needs you. Every search is one role at a
-            client we are retained by, with a brief behind it and a person reading what you submit. Refery
-            charges the client {DEFAULT_FEE_PERCENTAGE}% of first-year base and pays you {DEFAULT_SCOUT_SHARE}% of
-            that, unless a search says otherwise.
+            client we are retained by, with a brief behind it and a person reading what you submit.
           </p>
           <p className={`mt-2.5 ${META}`}>{summary}</p>
         </div>
@@ -309,16 +306,10 @@ export default async function PartnersPage({ searchParams }: PageProps) {
               </Link>
             </>
           ) : (
-            <>
-              <Link href="/candidates/new" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
-                <UserPlus className="h-4 w-4" />
-                Add a candidate
-              </Link>
-              <a href="mailto:lily@refery.io?subject=Refery%20question" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
-                <MessageCircle className="h-4 w-4" />
-                Ask Refery
-              </a>
-            </>
+            <Link href="/candidates/new" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <UserPlus className="h-4 w-4" />
+              Add a candidate
+            </Link>
           )}
           <DeskPalette targets={paletteTargets} hasRequests={(requestRows ?? []).length > 0} />
         </div>
@@ -411,7 +402,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
 
         <aside className="space-y-4">
           <ThisWeek items={week} />
-          <Numbers inPlay={inPlay} interviewing={interviewing} protectedCount={protectedCount} isAdmin={access.canManage} />
+          <Numbers inPlay={inPlay} interviewing={interviewing} offers={offers} />
           {!access.canManage && <IntroduceCompany />}
           {access.canManage && (requestRows ?? []).length > 0 && (
             <Link href="/searches/requests" className={`flex items-center gap-2.5 rounded-[14px] bg-[#F5EEDD] px-4 py-3 text-[13.5px] font-medium text-[#8A6A1F] ${FOCUS}`}>

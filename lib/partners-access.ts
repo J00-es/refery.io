@@ -12,7 +12,7 @@ import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser, type AppUser } from '@/lib/current-user'
 import {
-  DESK_SUPER_ADMIN_ONLY,
+  DESK_BETA_ONLY,
   type PartnerAccess,
   type PartnerPreview,
   type SearchAssignmentRow,
@@ -80,11 +80,10 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
     preview: preview?.info ?? null,
     /*
       Reaching the desk is the real user's right, not the persona's. Checking the
-      persona here would 404 the moment a super admin previewed a scout, since
-      the desk is super-admin-only while it is being built — which is exactly
-      when previewing is most useful.
+      persona here would 404 the moment a super admin previewed a scout who is
+      not yet in the beta — which is exactly when previewing is most useful.
     */
-    canUseDesk: DESK_SUPER_ADMIN_ONLY ? realUser.isSuperAdmin : true,
+    canUseDesk: DESK_BETA_ONLY ? realUser.isBeta : true,
     canManage: appUser.isAdmin,
     seesEverything: appUser.isAdmin,
     seesAllSubmissions: appUser.isAdmin,
@@ -114,7 +113,7 @@ async function resolvePreview(
   const adminClient = createAdminClient()
   const { data: row } = await adminClient
     .from('users_admin')
-    .select('user_id, email, full_name, role, status')
+    .select('user_id, email, full_name, role, status, is_beta')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -133,6 +132,7 @@ async function resolvePreview(
       isSuperAdmin: false,
       isAdmin: role === 'admin',
       canViewAllCandidates: false,
+      isBeta: Boolean(row.is_beta),
       isActive: true,
     },
     info: {

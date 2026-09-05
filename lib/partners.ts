@@ -32,15 +32,17 @@ import type { AppUser } from '@/lib/current-user'
 import { stageLabel } from '@/lib/company-ui'
 
 /**
- * While the desk is still being built, only the super admin can reach it.
+ * While the desk is in beta, only beta users (and super admins) can reach it.
  *
- * Everything underneath is already written for the full audience — the
+ * Who is beta is a per-user switch on /admin/users (`users_admin.is_beta`), so
+ * Lily can let Gina in this week and three more partners next week without a
+ * deploy. Everything underneath is already written for the full audience — the
  * anonymised card, the assignment model, the per-viewer submission scoping — so
- * opening it up is flipping this one flag, not unpicking a special case. It is
- * here rather than inlined at each call site so there is exactly one thing to
- * change and nothing to miss.
+ * opening it to everyone is flipping this one flag, not unpicking a special
+ * case. It is here rather than inlined at each call site so there is exactly
+ * one thing to change and nothing to miss.
  */
-export const DESK_SUPER_ADMIN_ONLY = true
+export const DESK_BETA_ONLY = true
 
 // ── priority ────────────────────────────────────────────────────────────────
 
@@ -482,8 +484,8 @@ export interface PartnerAccess {
    */
   preview: PartnerPreview | null
   /**
-   * Whether this user may reach the desk at all. Gated by
-   * `DESK_SUPER_ADMIN_ONLY` while it is still being built.
+   * Whether this user may reach the desk at all. Gated by `DESK_BETA_ONLY`
+   * while it is in beta: super admins and beta users only.
    */
   canUseDesk: boolean
   /** Manage mandates, briefs, assignments and submission status. */

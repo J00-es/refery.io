@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/server'
+import { after } from 'next/server'
 import { resolvePartnerAccess } from '@/lib/partners-access'
+import { decideAccessRequest, noteDecisionInSlack } from '@/lib/access-requests'
 
 /**
- * Deciding an access request. Approving it grants the assignment in the same
- * step — an approved request that still required a second action would be a
- * reliable way to leave a scout waiting on nothing.
+ * Deciding an access request from the web.
+ *
+ * Same code path as a Slack reaction (lib/access-requests.ts): approving grants
+ * the assignment in the same step and emails the partner, so an approved request
+ * can never leave someone waiting on a second action nobody remembers to take.
+ * The card in Slack gets a thread note so the two surfaces never disagree.
  */
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
@@ -21,37 +25,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'status must be approved or denied' }, { status: 400 })
   }
 
-  const adminClient = createAdminClient()
-  const { data: request } = await adminClient
-    .from('company_access_requests')
-    .select('id, company_id, user_id, status')
-    .eq('id', id)
-    .maybeSingle()
+  const result = await decideAccessRequest({ id, decision, decidedBy: access.realUser.id, via: 'web' })
 
-  if (!request) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  if (request.status !== 'pending') {
-    return NextResponse.json({ error: 'That request has already been decided.' }, { status: 409 })
+  if (!result.ok) {
+    if (result.reason === 'not_found') return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (result.reason === 'already_decided') {
+      return NextResponse.json({ error: 'That request has already been decided.' }, { status: 409 })
+    }
+    return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
-  if (decision === 'approved') {
-    const { error } = await adminClient.from('company_assignments').upsert(
-      {
-        company_id: request.company_id,
-        user_id: request.user_id,
-        assigned_by: access.appUser.id,
-        note: 'Approved from an access request',
-      },
-      { onConflict: 'company_id,user_id', ignoreDuplicates: true },
-    )
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const who = access.realUser.fullName?.split(' ')[0] || 'Refery'
+  after(() =>
+    noteDecisionInSlack(
+      id,
+      result.decision === 'approved'
+        ? `:+1: ${who} approved on the web. ${result.partnerName} is on ${result.companyName}${result.emailed ? ' and has been emailed.' : `, but the email did not send: ${result.emailError ?? 'unknown'}.`}`
+        : `:-1: ${who} declined on the web.${result.emailed ? ` ${result.partnerName} has been told.` : ` The email to ${result.partnerName} did not send: ${result.emailError ?? 'unknown'}.`}`,
+    ),
+  )
 
-  const { error } = await adminClient
-    .from('company_access_requests')
-    .update({ status: decision, decided_by: access.appUser.id, decided_at: new Date().toISOString() })
-    .eq('id', id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ ok: true, status: decision })
+  return NextResponse.json({ ok: true, status: decision, emailed: result.emailed })
 }

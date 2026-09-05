@@ -127,6 +127,8 @@ export interface UserAdmin {
   linkedin_url: string | null
   company_id: string | null
   accepted_terms_at: string | null
+  /** Sees surfaces still in beta (Searches, Pipeline). Toggled on /admin/users. */
+  is_beta: boolean
 }
 
 export interface Company {
