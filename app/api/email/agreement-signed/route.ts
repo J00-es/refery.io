@@ -84,9 +84,9 @@ export async function POST(request: NextRequest) {
           <div style="background-color: #f0fdf4; border: 1px solid #d1fae5; border-radius: 8px; padding: 16px; margin: 24px 0;">
             <h4 style="margin: 0 0 8px 0; color: #059669; font-size: 14px;">Key Terms Reminder</h4>
             <ul style="margin: 0; padding-left: 20px; color: #065f46; font-size: 14px;">
-              <li>10% placement fee (half the industry standard)</li>
-              <li>30-day payment terms from candidate start date</li>
-              <li>100% refund guarantee if hire leaves within 90 days</li>
+              <li>10% placement fee</li>
+              <li>Invoiced on the start date, due 30 calendar days after it</li>
+              <li>One free replacement search if the hire leaves within 90 days</li>
             </ul>
           </div>
           

@@ -42,12 +42,12 @@ const AGREEMENT_SECTIONS = [
   {
     number: 4,
     title: "Payment",
-    content: "The placement fee is due within thirty (30) calendar days of the candidate's start date. If not paid within this period, a late fee of 1.5% per month accrues on the unpaid balance until paid in full. Refery may suspend services for balances overdue by more than 60 days."
+    content: "Refery invoices on the candidate's start date. The placement fee is due thirty (30) calendar days after that start date. A late fee of 1.5% per month accrues on any balance still unpaid from day 31 until it is paid in full. Refery may suspend services for balances overdue by more than 60 days."
   },
   {
     number: 5,
     title: "90-Day Guarantee",
-    content: "If a placed candidate leaves or is terminated for cause within 90 days of starting, Refery refunds 100% of the placement fee. Notify Refery within 7 business days of departure. This guarantee does not apply if: (a) the role was materially changed from the original listing; (b) compensation or conditions differ from what was described; or (c) the departure resulted from layoffs or restructuring."
+    content: "If a placed candidate's employment ends within 90 days of starting, for any reason, Refery runs a replacement search for the same role at no further placement fee. Notify Refery within 10 business days of the departure. The search begins within 5 business days of that notice and continues until the role is filled. One replacement per placement. If the role no longer exists, the guarantee carries over to the next role you hire for through Refery, for 12 months."
   },
   {
     number: 6,
@@ -67,7 +67,7 @@ const AGREEMENT_SECTIONS = [
   {
     number: 9,
     title: "Term & Termination",
-    content: "This agreement stays in effect until either party gives 30 days' written notice. Termination does not cancel: fees already owed, the 12-month introduction window for candidates already introduced, or active guarantee periods."
+    content: "This agreement stays in effect until either party gives 30 days' written notice. Termination does not cancel: fees already owed, any replacement search still owed, the 12-month introduction window for candidates already introduced, or active guarantee periods."
   },
   {
     number: 10,
@@ -317,19 +317,16 @@ export default function AgreementPage() {
               <div>
                 <div className="text-2xl md:text-3xl font-bold text-gray-900">10%</div>
                 <div className="text-xs md:text-sm text-gray-600">of first-year salary</div>
-                <span className="inline-block mt-1 text-[10px] md:text-xs bg-[#d1fae5] text-[#059669] px-2 py-0.5 rounded-full font-medium">
-                  Half the industry average
-                </span>
               </div>
               <div>
                 <div className="text-2xl md:text-3xl font-bold text-gray-900">30 days</div>
                 <div className="text-xs md:text-sm text-gray-600">to pay after start date</div>
               </div>
               <div>
-                <div className="text-2xl md:text-3xl font-bold text-gray-900">100%</div>
-                <div className="text-xs md:text-sm text-gray-600">refund guarantee</div>
+                <div className="text-2xl md:text-3xl font-bold text-gray-900">90 days</div>
+                <div className="text-xs md:text-sm text-gray-600">replacement guarantee</div>
                 <span className="inline-block mt-1 text-[10px] md:text-xs bg-[#d1fae5] text-[#059669] px-2 py-0.5 rounded-full font-medium">
-                  If hire leaves within 90 days
+                  Free replacement if they leave
                 </span>
               </div>
             </div>

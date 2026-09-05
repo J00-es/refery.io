@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const paymentTiming: ClientPaymentTiming = body.payment_timing ?? 'net10'
-  if (!['start', 'day90', 'net10'].includes(paymentTiming)) {
+  const paymentTiming: ClientPaymentTiming = body.payment_timing ?? 'net30'
+  if (!['start', 'day90', 'net10', 'net30', 'start30'].includes(paymentTiming)) {
     return NextResponse.json(
-      { error: "payment_timing must be 'net10', 'day90', or 'start'" },
+      { error: "payment_timing must be 'net30', 'net10', 'day90', 'start30', or 'start'" },
       { status: 400 },
     )
   }
@@ -123,8 +123,10 @@ export async function POST(request: NextRequest) {
       agreement_hash: hash,
       agreement_content: content,
       fee_percentage: feePercent,
-      // On the deferred models this counts business days from day 90, not
-      // calendar days from the start date. The agreement text is the authority.
+      // On the retired deferred models this counts business days from day 90,
+      // not calendar days from the start date. Everything on the current
+      // standard falls through to 30 calendar days from the start date. The
+      // agreement text is the authority either way.
       payment_window_days:
         paymentTiming === 'day90' ? 14 : paymentTiming === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,

@@ -62,7 +62,7 @@ const STEPS = [
   {
     k: '03',
     title: 'They start, you get paid',
-    body: 'We invoice the client and pay your share. If the hire leaves inside 90 days, we carry the refund, not you.',
+    body: 'We invoice the client and pay your share. If the hire leaves inside 90 days, we run the replacement search, not you.',
   },
 ]
 
@@ -72,7 +72,7 @@ const OURS = [
   'Screening, committee calls and references',
   'Presenting the candidate and chasing feedback',
   'Invoicing, collection and your payout',
-  'The 90-day guarantee, including the refund',
+  'The 90-day guarantee, including any replacement search',
 ]
 
 const YOURS = ['Knowing someone worth backing', 'Making the introduction']

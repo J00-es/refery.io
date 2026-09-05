@@ -17,12 +17,25 @@ export const AGREEMENT_VERSIONS = {
   // Retained so historical acceptances still resolve to the text that was signed.
   scout: '1.2.0',
   recruiter: '1.2.0',
-  // v2.7 is the current standard offer: pay 10 business days after the hire's
-  // 90th day, full-refund guarantee, cancel anytime, and no fee when someone
-  // reached the candidate before us (v2.7 widened that carve-out from the
-  // client's own pipeline to any earlier introduction, including a rival
-  // agency's, after Alcor Labs asked for first-in-time attribution).
-  client: '2.7',
+  // v2.8 is the current standard offer: pay 30 calendar days after the hire's
+  // start date, one free replacement search if they leave inside 90 days,
+  // cancel anytime, and no fee when someone reached the candidate before us
+  // (widened in v2.7 from the client's own pipeline to any earlier
+  // introduction, including a rival agency's, after Alcor Labs asked for
+  // first-in-time attribution).
+  //
+  // v2.8 pulls apart the two clocks that v2.6 and v2.7 had welded together.
+  // Those dated the invoice to day 90 itself, so the guarantee had nothing
+  // left to do, and a founder was asked to wait a full quarter before the
+  // first invoice, which reads as us doubting our own placements. Payment now
+  // sits at day 30 and the guarantee runs its own 90 days on top of it, which
+  // is the shape the rest of the market uses.
+  client: '2.8',
+  // v2.7: the previous standard (pay 10 business days after day 90, no fee at
+  // all if the hire left inside 90 days). Retained so the agreements already
+  // signed on it still render exactly what was signed. No new links issue on
+  // this line.
+  clientNet90: '2.7',
   // v2.5: negotiated deferred variant (Ergo, Aug 2026). Same shape as v2.6 but
   // a 14-business-day payment window. Kept as its own line so it is never
   // rewritten by a standard bump.
@@ -31,34 +44,37 @@ export const AGREEMENT_VERSIONS = {
   // payment terms they already agreed (30 days after start) and the
   // replacement-first guarantee with the 60-day cash backstop they proposed.
   clientStartPay: '2.7-A',
-  // v2.4: the previous standard (pay 30 days after start, replacement-search
-  // guarantee). No new links are issued on it; unsigned ones upgrade to v2.6.
+  // v2.4: an earlier standard (pay 30 days after start, replacement-search
+  // guarantee). No new links are issued on it; unsigned ones upgrade to v2.8.
   clientLegacy: '2.4',
 } as const
 
 // Which payment/guarantee model a client agreement uses.
+//   'net30' is v2.8, the current standard: fee due 30 calendar days after the
+//   start date, and one free replacement search if the hire leaves inside 90
+//   days. The two clocks are independent, which is what the market does.
 //   'start' is v2.4: fee due 30 days after the start date, replacement-search guarantee.
-//   'day90' is v2.5: fee due 14 business days after day 90, full-refund guarantee.
-//   'net10' is v2.6: fee due 10 business days after day 90, full-refund guarantee.
+//   'day90' is v2.5: fee due 14 business days after day 90, no fee if they leave inside 90 days.
+//   'net10' is v2.6/v2.7: fee due 10 business days after day 90, no fee if they leave inside 90 days.
+//   'start30' is v2.7-A: the v2.7 body on 30-days-after-start payment terms with
+//   a replacement-first guarantee backed by a 60-day cash refund, proposed by
+//   Alcor Labs themselves.
 //
-// 10 business days is not arbitrary. The signed partner agreements owe partners
-// their payout "within 14 business days after the candidate completes 90 days,
-// once Refery has collected", and recruiter §13 makes partner payment timing
-// consent-protected. Collecting on day ~104 keeps that promise intact without
-// renegotiating it.
-//   'start30' is v2.7-A: the v2.7 body on the older payment terms (fee due 30
-//   days after the start date) with a replacement-first guarantee backed by a
-//   60-day cash refund. Collecting on day 30 also restores, word for word, what
-//   the signed partner agreements describe: "the client pays Refery within 30
-//   days of the candidate's start date, and Refery holds these funds during the
-//   90-day guarantee period."
-export type ClientPaymentTiming = 'start' | 'day90' | 'net10' | 'start30'
+// Collecting on day 30 restores, word for word, what the signed partner and
+// recruiter agreements already describe: "the client pays Refery within 30 days
+// of the candidate's start date, and Refery holds these funds during the 90-day
+// guarantee period." Partner payout timing is unchanged and stays consent-
+// protected under recruiter section 13: partners are still paid 14 business
+// days after the hire's 90th day, out of money Refery has been holding since
+// day 30, so no partner is exposed to a clawback.
+export type ClientPaymentTiming = 'start' | 'day90' | 'net10' | 'start30' | 'net30'
 
 const TIMING_VERSION: Record<ClientPaymentTiming, string> = {
   start: AGREEMENT_VERSIONS.clientLegacy,
   day90: AGREEMENT_VERSIONS.clientDeferred,
-  net10: AGREEMENT_VERSIONS.client,
+  net10: AGREEMENT_VERSIONS.clientNet90,
   start30: AGREEMENT_VERSIONS.clientStartPay,
+  net30: AGREEMENT_VERSIONS.client,
 }
 
 export function clientAgreementVersion(timing: ClientPaymentTiming): string {
@@ -73,6 +89,7 @@ const CLIENT_VERSION_TIMING: Record<string, ClientPaymentTiming> = {
   '2.6': 'net10',
   '2.7': 'net10',
   '2.7-A': 'start30',
+  '2.8': 'net30',
 }
 
 export function clientPaymentTimingForVersion(version: string): ClientPaymentTiming | null {
@@ -101,6 +118,11 @@ export function clientUpgradeTarget(version: string): string | null {
 // must never be told terms that differ from what they signed.
 export function clientTermsSummary(version: string): { payment: string; guarantee: string } {
   switch (clientPaymentTimingForVersion(version)) {
+    case 'net30':
+      return {
+        payment: 'Invoiced on the start date, due 30 calendar days after it',
+        guarantee: 'One free replacement if they leave within 90 days',
+      }
     case 'net10':
       return {
         payment: '10 business days after the 90th day',
@@ -198,7 +220,9 @@ export const DEFAULT_CLIENT_TERMS: ClientAgreementTerms = {
   introValidityMonths: 12,
 }
 
-// Business days between the hire's 90th day and the payment due date on v2.6.
+// Business days between the hire's 90th day and the payment due date on the
+// retired v2.6/v2.7 line. The current standard (v2.8) invoices 30 calendar days
+// after the start date instead; see DEFAULT_CLIENT_TERMS.paymentWindowDays.
 export const STANDARD_PAYMENT_BUSINESS_DAYS = 10
 
 export interface AgreementLink {
@@ -683,21 +707,23 @@ export function formatFeePercent(pct: number): string {
 // scout/recruiter agreements (parsed by <AgreementContent />), plus a markdown
 // table for the "At a glance" block. Two configurable terms: the fee percent,
 // and the payment/guarantee model (see ClientPaymentTiming). Everything else —
-// 90-day guarantee, 12-month intro window — is baked into the text.
+// the 90-day guarantee and the 12-month intro window — is baked into the text.
 export function generateClientAgreementText(
   companyName: string,
   options: { feePercent?: number; paymentTiming?: ClientPaymentTiming } = {},
 ): string {
   const feePercent = options.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
-  const timing = options.paymentTiming ?? 'net10'
-  if (timing === 'net10' || timing === 'start30') {
+  const timing = options.paymentTiming ?? 'net30'
+  if (timing === 'net10' || timing === 'start30' || timing === 'net30') {
     return generateStandardClientAgreement(companyName, feePercent, timing)
   }
   return generateLegacyClientAgreement(companyName, feePercent, timing)
 }
 
 /**
- * v2.6 is the current standard offer.
+ * v2.8 is the current standard offer. This also renders the two older shapes
+ * built on the same body: v2.7 (retired, pay 10 business days after day 90) and
+ * the negotiated v2.7-A.
  *
  * Written to be signed by the one operator in the room rather than routed to
  * counsel: plain words, short sentences, the whole commercial deal visible in
@@ -708,36 +734,56 @@ export function generateClientAgreementText(
 function generateStandardClientAgreement(
   companyName: string,
   feePercent: number,
-  timing: 'net10' | 'start30' = 'net10',
+  timing: 'net10' | 'start30' | 'net30' = 'net30',
 ): string {
   const fee = formatFeePercent(feePercent)
   const onStart = timing === 'start30'
-  const version = onStart ? AGREEMENT_VERSIONS.clientStartPay : AGREEMENT_VERSIONS.client
+  const version = clientAgreementVersion(timing)
+
+  // Payment and guarantee are two independent clocks on v2.8. The invoice lands
+  // 30 days after the start date, and the guarantee runs its own 90 days from
+  // that same start date. v2.7 collapsed the two into one, which is why it had
+  // nothing left to promise beyond "you owe nothing".
+  const glancePayment =
+    timing === 'net10'
+      ? '10 business days after their 90th day with you'
+      : timing === 'net30'
+        ? 'Invoiced on their first day, due 30 days after it'
+        : '30 days after their start date'
 
   // Alcor Labs kept the payment terms they had already agreed and proposed the
-  // replacement-first guarantee themselves, so this variant mirrors their own
-  // wording rather than handing them the standard's straight refund.
-  const glancePayment = onStart
-    ? '30 days after their start date'
-    : '10 business days after their 90th day with you'
-  const glanceGuarantee = onStart
-    ? "Gone within 90 days? We replace them, or refund your fee in cash"
-    : "Gone within 90 days? You owe nothing, and anything paid comes back"
+  // replacement-first wording themselves, so that variant mirrors their own
+  // language rather than the standard's.
+  const glanceGuarantee =
+    timing === 'net30'
+      ? 'Gone within 90 days? We find their replacement, free'
+      : onStart
+        ? 'Gone within 90 days? We replace them, or refund your fee in cash'
+        : 'Gone within 90 days? You owe nothing, and anything paid comes back'
 
-  const section1 = onStart
-    ? `**1. You pay only when you hire.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due within 30 calendar days of their start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
-    : `**1. You only pay for a hire who stays.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
+  const section1 =
+    timing === 'net30'
+      ? `**1. You pay 30 days after they start.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. We invoice on their first day, and payment is due 30 calendar days after that start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Anything still unpaid from day 31 adds 1.5% a month.`
+      : onStart
+        ? `**1. You pay only when you hire.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due within 30 calendar days of their start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
+        : `**1. You only pay for a hire who stays.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due 10 business days after their 90th day. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
 
-  const section2 = onStart
-    ? `**2. If they leave within 90 days, we replace them or refund you.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Tell us within 10 business days and we'll run a replacement search at no further fee. If we haven't produced a replacement who accepts your offer within 60 days of that notice, we refund the fee in full, in cash, within 30 days.`
-    : `**2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.`
+  const section2 =
+    timing === 'net30'
+      ? `**2. If they leave within 90 days, we replace them free.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Tell us within 10 business days and we'll run a replacement search for the same role at no further placement fee. We start within 5 business days of hearing from you and stay on it until the seat is filled. That is one replacement per placement, and if the role itself has gone, we'll carry the guarantee over to the next role you hire for with us, for 12 months.`
+      : onStart
+        ? `**2. If they leave within 90 days, we replace them or refund you.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Tell us within 10 business days and we'll run a replacement search at no further fee. If we haven't produced a replacement who accepts your offer within 60 days of that notice, we refund the fee in full, in cash, within 30 days.`
+        : `**2. If they leave within 90 days, you owe nothing.** Any reason at all: they resign, it wasn't the right fit, the role changed, or you had to restructure. There are no exclusions. Anything already paid comes back within 30 days. Just tell us within 10 business days so we can start again for you.`
 
   // Alcor proposed 5 business days themselves; the standard offers 10.
   const flagWindow = onStart ? '5 business days' : '10 business days'
 
-  const survival = onStart
-    ? `Four things carry on: fees for anyone already hired, any replacement or refund we still owe you, the 12-month window on introductions already made, and confidentiality.`
-    : `Three things carry on: fees for anyone already hired, the 12-month window on introductions already made, and confidentiality.`
+  const survival =
+    timing === 'net30'
+      ? `Four things carry on: fees for anyone already hired, any replacement we still owe you, the 12-month window on introductions already made, and confidentiality.`
+      : onStart
+        ? `Four things carry on: fees for anyone already hired, any replacement or refund we still owe you, the 12-month window on introductions already made, and confidentiality.`
+        : `Three things carry on: fees for anyone already hired, the 12-month window on introductions already made, and confidentiality.`
 
   return `# Recruitment Services Agreement
 
