@@ -32,6 +32,9 @@ export interface MatchRow {
   matchReason: string | null
   /** True when the row belongs to someone else — super-admin view only. */
   ownerName: string | null
+  visaStatus?: string | null
+  currentBase?: number | null
+  targetBase?: number | null
 }
 
 export function MatchedCandidates({
@@ -62,7 +65,15 @@ export function MatchedCandidates({
   const chosen: PitchTarget[] = picked
     .map(id => matches.find(m => m.candidateId === id))
     .filter((m): m is MatchRow => Boolean(m))
-    .map(m => ({ id: m.candidateId, name: m.name, grade: m.grade, hint: m.matchReason }))
+    .map(m => ({
+      id: m.candidateId,
+      name: m.name,
+      grade: m.grade,
+      hint: m.matchReason,
+      visaStatus: m.visaStatus,
+      currentBase: m.currentBase,
+      targetBase: m.targetBase,
+    }))
 
   return (
     <>

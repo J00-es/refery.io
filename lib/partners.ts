@@ -147,6 +147,34 @@ export function workAuthLabel(value?: string | null): string | null {
   return WORK_AUTH_OPTIONS.find(o => o.value === value)?.label ?? null
 }
 
+/**
+ * Reads `candidates.visa_status` into one of the options above.
+ *
+ * The column is mostly free text written by a dozen hands ("U.S. Citizen",
+ * "Green Card (No VISA Required)", "f1_stem_opt", "VISA Required"), plus the
+ * labels this desk writes back. Keyword matching covers all of it; anything
+ * unrecognised returns null and the partner picks, once.
+ */
+export function workAuthFromVisaStatus(raw?: string | null): string | null {
+  if (!raw) return null
+  const byLabel = WORK_AUTH_OPTIONS.find(o => o.label.toLowerCase() === raw.trim().toLowerCase())
+  if (byLabel) return byLabel.value
+  // Underscores and hyphens are word characters to a regex, so "f1_stem_opt"
+  // and "h1b_transfer_required" would hide their words. Space them out first.
+  const s = raw.toLowerCase().replace(/[_\-/]+/g, ' ')
+  // Current status wins over what they will need later: "OPT, needs H-1B
+  // sponsorship in 2029" is OPT today.
+  if (/\b(opt|f ?1|stem)\b/.test(s)) return 'opt'
+  if (/\bh ?1b1?\b/.test(s)) return 'h1b_transfer'
+  if (
+    /(no visa required|no sponsorship|without sponsorship|citizen|green card|permanent resident|lawful|us authorized|authori[sz]ed to work|\bo ?1a?\b|\btn\b|\be ?3\b)/.test(s)
+  ) {
+    return 'citizen_or_pr'
+  }
+  if (/(sponsor|visa required|visa is the blocker|no us auth|\bj ?1\b)/.test(s)) return 'needs_sponsorship'
+  return null
+}
+
 /** The hiring manager's read, Paraform-style: 1 strong no to 4 strong yes. */
 export const HM_RATINGS: { value: number; label: string }[] = [
   { value: 1, label: 'Strong no' },

@@ -3,7 +3,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
 import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
-import { MIN_PITCH, qualifies, recordClaim } from '@/lib/submission-claims'
+import { qualifies, recordClaim } from '@/lib/submission-claims'
+import { workAuthLabel } from '@/lib/partners'
 
 interface Draft {
   candidate_id: string
@@ -166,13 +167,8 @@ export async function POST(req: Request) {
       rejected.push({ candidate_id: draft.candidate_id, reason: 'Already submitted to this role' })
       continue
     }
-    if (draft.pitch.length < MIN_PITCH) {
-      rejected.push({
-        candidate_id: draft.candidate_id,
-        reason: `Needs a reason of at least ${MIN_PITCH} characters`,
-      })
-      continue
-    }
+    // A pitch helps a candidate get read but is not required; Refery asks for
+    // what is missing. MIN_PITCH stays exported for the UI hint only.
     // What makes this a submission rather than an upload: a CV, a way to reach
     // them, how you know them, and that you can introduce them now. The last one
     // is the anti-hoarding rule, and it is why a claim can be reviewed later if
@@ -218,6 +214,22 @@ export async function POST(req: Request) {
     .select('id, candidate_id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Remember the answers on the candidate, so the next submission of the same
+  // person starts full. Only fields the partner actually gave are written; a
+  // blank never erases what the record already knows.
+  for (const a of accepted) {
+    const patch: Record<string, unknown> = {}
+    if (a.work_authorization) patch.visa_status = workAuthLabel(a.work_authorization)
+    if (a.current_base) patch.current_base = a.current_base
+    if (a.target_base) {
+      patch.salary_expectation_min = a.target_base
+      patch.salary_expectation_max = a.target_base
+    }
+    if (Object.keys(patch).length) {
+      await adminClient.from('candidates').update({ ...patch, updated_at: new Date().toISOString() }).eq('id', a.candidate_id)
+    }
+  }
 
   // The claim is the contractual right the submission creates, and it is
   // deliberately written after the submission rather than inside it: a failure

@@ -108,7 +108,7 @@ export function SubmissionList({
 
             <Track status={submission.status} />
 
-            <p className={`mt-3 whitespace-pre-line ${BODY}`}>{submission.pitch}</p>
+            {submission.pitch?.trim() && <p className={`mt-3 whitespace-pre-line ${BODY}`}>{submission.pitch}</p>}
 
             {(submission.work_authorization || submission.current_base || submission.target_base || submission.spoken_to_candidate) && (
               <p className={`mt-2.5 ${META}`}>

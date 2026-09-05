@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   let query = adminClient
     .from('candidates')
     .select(
-      'id, name, location, panel_grade, availability_status, journey_stage, experience_years, skills, updated_at',
+      'id, name, location, panel_grade, availability_status, journey_stage, experience_years, skills, updated_at, visa_status, current_base, salary_expectation_min, salary_expectation_max',
     )
     .order('updated_at', { ascending: false })
     .limit(60)

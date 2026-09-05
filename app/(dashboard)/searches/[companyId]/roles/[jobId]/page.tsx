@@ -173,7 +173,7 @@ export default async function PartnerRolePage({
     if (candidateIds.length) {
       const { data: people } = await adminClient
         .from('candidates')
-        .select('id, name, panel_grade, location, experience_years, owner_user_id')
+        .select('id, name, panel_grade, location, experience_years, owner_user_id, visa_status, current_base, salary_expectation_min, salary_expectation_max')
         .in('id', candidateIds)
       const byId = new Map((people ?? []).map(p => [p.id as string, p]))
 
@@ -206,6 +206,9 @@ export default async function PartnerRolePage({
               matchTier: row.match_tier as string | null,
               matchReason: row.match_reason as string | null,
               ownerName: isMine ? null : (ownerById.get(row.owner_user_id as string) ?? null),
+              visaStatus: (person.visa_status as string | null) ?? null,
+              currentBase: (person.current_base as number | null) ?? null,
+              targetBase: ((person.salary_expectation_min ?? person.salary_expectation_max) as number | null) ?? null,
             },
           ]
         })

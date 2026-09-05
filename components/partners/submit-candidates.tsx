@@ -33,6 +33,10 @@ interface CandidateOption {
   submitted: boolean
   submitted_by_me: boolean
   submitted_status: string | null
+  visa_status: string | null
+  current_base: number | null
+  salary_expectation_min: number | null
+  salary_expectation_max: number | null
 }
 
 export function SubmitCandidates({
@@ -99,7 +103,14 @@ export function SubmitCandidates({
   const chosen: PitchTarget[] = picked
     .map(id => byId.get(id))
     .filter((c): c is CandidateOption => Boolean(c))
-    .map(c => ({ id: c.id, name: c.name, grade: c.panel_grade }))
+    .map(c => ({
+      id: c.id,
+      name: c.name,
+      grade: c.panel_grade,
+      visaStatus: c.visa_status,
+      currentBase: c.current_base,
+      targetBase: c.salary_expectation_min ?? c.salary_expectation_max,
+    }))
 
   const overCap = slotsLeft !== null && picked.length > slotsLeft
 

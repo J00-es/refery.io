@@ -76,20 +76,12 @@ export function qualifies(candidate: ClaimCandidate, draft: ClaimDraft): Gate {
   if (!candidate.email && !candidate.phone && !candidate.linkedin_url) {
     return { ok: false, reason: 'Needs a way to reach them: email, phone or LinkedIn' }
   }
-  if (draft.relationship.trim().length < MIN_RELATIONSHIP) {
-    return {
-      ok: false,
-      reason: `Say how you know them, in at least ${MIN_RELATIONSHIP} characters`,
-    }
-  }
-  // The anti-hoarding rule. Submissions are for people you can actually put in
-  // front of us, not profiles parked to sit on the protection.
-  if (!draft.canIntroduce) {
-    return {
-      ok: false,
-      reason: 'Only submit people you can introduce to us now',
-    }
-  }
+  // How they know the person and that they can introduce them are stated
+  // above the Submit button rather than gated here: pressing Submit is the
+  // attestation. Lily's call on 5 Sep 2026, so a partner is never blocked by
+  // a box. `draft` stays in the signature so the record of what was attested
+  // travels with the claim.
+  void draft
   return { ok: true }
 }
 
@@ -143,7 +135,7 @@ export async function recordClaim(
       protected_through: addMonths(at, PROTECTION_MONTHS).toISOString(),
       partner_terms_version: AGREEMENT_VERSIONS.partner,
       submission_terms_version: AGREEMENT_VERSIONS.partnerSubmission,
-      relationship_note: input.relationship.slice(0, 2000),
+      relationship_note: input.relationship.trim() ? input.relationship.slice(0, 2000) : null,
       intro_attested_at: at.toISOString(),
       intro_due_by: addDays(at, INTRO_DUE_DAYS).toISOString(),
       status: 'active',
