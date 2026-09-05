@@ -37,7 +37,7 @@ const AGREEMENT_SECTIONS = [
   {
     number: 3,
     title: "Placement Fee",
-    content: "The placement fee is 10% of the hired candidate's first-year annual base salary. Bonuses, equity, commissions, and variable compensation are excluded from the calculation."
+    content: "The placement fee is a percentage of the hired candidate's first-year annual base salary, as agreed with your company and stated on your signed agreement. Bonuses, equity, commissions, and variable compensation are excluded from the calculation."
   },
   {
     number: 4,
@@ -315,8 +315,8 @@ export default function AgreementPage() {
           <div className="mx-6 md:mx-8 mt-6 p-4 bg-[#f0fdf4] border border-[#d1fae5] rounded-lg">
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-2xl md:text-3xl font-bold text-gray-900">10%</div>
-                <div className="text-xs md:text-sm text-gray-600">of first-year salary</div>
+                <div className="text-2xl md:text-3xl font-bold text-gray-900">Agreed fee</div>
+                <div className="text-xs md:text-sm text-gray-600">% of first-year salary</div>
               </div>
               <div>
                 <div className="text-2xl md:text-3xl font-bold text-gray-900">30 days</div>

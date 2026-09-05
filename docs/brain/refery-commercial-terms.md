@@ -74,8 +74,13 @@ as authoritative.
 
 Used when writing to a founder or hiring manager, not to a partner.
 
-- The fee is **10%** of the hire's first-year base salary, taken from the signed offer
-  letter. Bonuses, equity and commission are not counted. [Client Agreement v2.8 §1]
+- The fee is a percentage of the hire's first-year base salary, taken from the signed
+  offer letter. It is negotiated per client and is **usually 10% to 20%**. Every client
+  agreement states that client's own figure, and 10% is the current standard offer.
+  Bonuses, equity and commission are not counted. [Client Agreement v2.8 §1,
+  Partner Terms v2.1 §1]
+- **Never quote a fee percentage to a specific client or partner from this document.** It
+  gives the range, not their number. Their number is on their own agreement.
 - Refery **invoices on the hire's first day**, and payment is due **30 calendar days** after
   that start date. Anything unpaid from day 31 adds 1.5% a month. [Client Agreement v2.8 §1]
 - A client pays nothing unless they hire someone Refery introduced, within 12 months of the
