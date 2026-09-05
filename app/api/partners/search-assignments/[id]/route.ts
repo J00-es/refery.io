@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import type { SearchAssignmentStatus } from '@/lib/partners'
 import { noteProposalDeclined } from '@/lib/desk-notifications'
+import { sendSearchProposalEmail } from '@/lib/search-proposal-email'
 
 /**
  * A partner answering a proposal, or an admin moving an assignment.
@@ -21,6 +22,44 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const { id } = await params
   const body = await req.json().catch(() => null)
+
+  // A nudge re-sends the proposal email and nothing else. Admin only, and only
+  // while the row is still a proposal; a partner who said yes or no is done.
+  if (body?.action === 'nudge') {
+    if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const adminClient = createAdminClient()
+    const { data: row } = await adminClient
+      .from('search_assignments')
+      .select('id, job_id, company_id, user_id, status, why')
+      .eq('id', id)
+      .maybeSingle()
+    if (!row) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (row.status !== 'proposed') return NextResponse.json({ error: 'Only a proposal can be nudged.' }, { status: 409 })
+    const [{ data: role }, { data: partner }] = await Promise.all([
+      adminClient
+        .from('partner_roles_v')
+        .select('job_id, company_id, title, headline, company_name, salary_min, salary_max, fee_percentage, fee_flat, scout_payout, scout_share, location')
+        .eq('job_id', row.job_id)
+        .maybeSingle(),
+      adminClient.from('users_admin').select('email, full_name').eq('user_id', row.user_id).maybeSingle(),
+    ])
+    if (!role || !partner?.email) return NextResponse.json({ error: 'Could not find the search or the partner.' }, { status: 404 })
+    const sent = await sendSearchProposalEmail({
+      to: partner.email as string,
+      fullName: (partner.full_name as string) ?? '',
+      role,
+      why: (row.why as string | null) ?? '',
+      jobId: row.job_id as string,
+      companyId: row.company_id as string,
+    })
+    if (!sent.sent) return NextResponse.json({ error: sent.error ?? 'The email did not send.' }, { status: 502 })
+    await adminClient
+      .from('search_assignments')
+      .update({ nudged_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq('id', id)
+    return NextResponse.json({ ok: true, nudged: true })
+  }
+
   const status = body?.status as SearchAssignmentStatus | undefined
   const reason =
     typeof body?.reason === 'string' && body.reason.trim() ? body.reason.trim().slice(0, 500) : null

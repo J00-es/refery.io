@@ -20,10 +20,23 @@ export interface CoverageRow {
   confirmedAt: string | null
   declinedAt: string | null
   declinedReason: string | null
+  /** When the proposal email was last re-sent from this page. */
+  nudgedAt: string | null
   /** This partner's submissions on the search, by status label. */
   activity: string
   /** Days since their last submission on this search, or null if none. */
   silentDays: number | null
+}
+
+export interface SuggestedPartner {
+  userId: string
+  name: string
+  email: string
+  role: string
+  /** Candidates of theirs the matcher paired with this search. */
+  matches: number
+  /** Searches they are already working, as a load signal. */
+  workingElsewhere: number
 }
 
 interface UserOption {
@@ -47,7 +60,18 @@ const STATUS_CHIP: Record<SearchAssignmentStatus, { label: string; cls: string }
  * questions Lily asks every Sunday: who said yes, who has gone quiet, and who
  * should be proposed next.
  */
-export function CoverageTable({ jobId, rows }: { jobId: string; rows: CoverageRow[] }) {
+export function CoverageTable({
+  jobId,
+  rows,
+  suggested = [],
+  roleTitle = 'this search',
+}: {
+  jobId: string
+  rows: CoverageRow[]
+  /** Partners not yet on the search, best first. */
+  suggested?: SuggestedPartner[]
+  roleTitle?: string
+}) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [proposing, setProposing] = useState(false)
@@ -93,6 +117,33 @@ export function CoverageTable({ jobId, rows }: { jobId: string; rows: CoverageRo
     setBusyId(null)
     router.refresh()
   }
+
+  /** Send the proposal email again. The row keeps its status and its expiry. */
+  async function nudge(row: CoverageRow) {
+    setBusyId(row.id)
+    setMessage(null)
+    const res = await fetch(`/api/partners/search-assignments/${row.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'nudge' }),
+    })
+    const body = await res.json().catch(() => ({}))
+    setBusyId(null)
+    setMessage(res.ok ? `Nudged ${row.name.split(' ')[0]} by email.` : (body.error ?? 'Could not send the nudge.'))
+    router.refresh()
+  }
+
+  /** Open the propose panel with one suggested partner already ticked. */
+  function proposeOne(p: SuggestedPartner) {
+    setPicked(new Set([p.userId]))
+    setProposing(true)
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const checkInHref = (row: CoverageRow) =>
+    `mailto:${row.email}?subject=${encodeURIComponent(`${roleTitle}: anyone in mind?`)}&body=${encodeURIComponent(
+      `Hi ${row.name.split(' ')[0]},\n\nQuick check-in on ${roleTitle}. Anyone in your network worth a look this week? Even one name helps me tell the client where we are.\n\nLily`,
+    )}`
 
   async function propose() {
     setBusyId('propose')
@@ -226,10 +277,26 @@ export function CoverageTable({ jobId, rows }: { jobId: string; rows: CoverageRo
                 <p className={META}>{row.activity}</p>
                 <div className="flex flex-wrap items-center justify-end gap-1.5">
                   {row.status === 'proposed' && (
+                    <button
+                      type="button"
+                      disabled={busyId === row.id}
+                      onClick={() => nudge(row)}
+                      className={`${BTN_QUIET} min-h-[34px] px-3 text-[12.5px]`}
+                      title={row.nudgedAt ? `Last nudged ${shortAge(row.nudgedAt)}` : 'Send the proposal email again'}
+                    >
+                      {row.nudgedAt ? `Nudge again · ${shortAge(row.nudgedAt)}` : 'Nudge'}
+                    </button>
+                  )}
+                  {row.status === 'proposed' && (
                     <button type="button" disabled={busyId === row.id} onClick={() => move(row, 'working')} className={`${BTN_QUIET} min-h-[34px] px-3 text-[12.5px]`} title="They confirmed on a call">
                       <Check className="h-3.5 w-3.5" />
                       Confirm for them
                     </button>
+                  )}
+                  {quiet && (
+                    <a href={checkInHref(row)} className={`${BTN_QUIET} min-h-[34px] px-3 text-[12.5px]`}>
+                      Check in
+                    </a>
                   )}
                   {row.status === 'working' && (
                     <button type="button" disabled={busyId === row.id} onClick={() => move(row, 'paused')} className={`${BTN_QUIET} min-h-[34px] px-3 text-[12.5px]`}>
@@ -249,6 +316,37 @@ export function CoverageTable({ jobId, rows }: { jobId: string; rows: CoverageRo
             )
           })}
         </ul>
+      )}
+
+      {suggested.length > 0 && (
+        <section className="space-y-3 pt-2">
+          <div>
+            <h2 className="text-[17px] font-semibold leading-snug text-[#161613]">Suggested next partners</h2>
+            <p className={META}>
+              Ranked by how many of their candidates the matcher paired with this search, then by how little they already carry.
+            </p>
+          </div>
+          <ul className={`divide-y divide-[#E4E3DC] ${CARD}`}>
+            {suggested.slice(0, 8).map(p => (
+              <li key={p.userId} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-semibold text-[#161613]">{p.name}</p>
+                  <p className={`truncate ${META}`}>
+                    {p.role.replace(/_/g, ' ')}
+                    {' · '}
+                    {p.matches ? `${p.matches} candidate${p.matches === 1 ? '' : 's'} match` : 'no matches yet'}
+                    {' · '}
+                    {p.workingElsewhere ? `working ${p.workingElsewhere} other ${p.workingElsewhere === 1 ? 'search' : 'searches'}` : 'on no search yet'}
+                  </p>
+                </div>
+                <button type="button" onClick={() => proposeOne(p)} className={`${BTN_QUIET} min-h-[34px] px-3 text-[12.5px]`}>
+                  <Plus className="h-3.5 w-3.5" />
+                  Propose
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   )

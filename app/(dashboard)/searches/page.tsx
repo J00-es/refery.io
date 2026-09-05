@@ -301,6 +301,9 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           {access.canManage ? (
             <>
               {access.realUser.isSuperAdmin && !access.preview && <ViewAs />}
+              <Link href="/searches/coverage" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                Coverage
+              </Link>
               <Link href="/searches?view=clients" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 Clients
               </Link>

@@ -330,6 +330,10 @@ alter table public.company_access_requests
   add column if not exists slack_message_ts text,
   add column if not exists decided_via text;
 
+-- ── nudging a proposal from the coverage page (2026-09-06) ─────────────────
+-- Applied to prod as migration search_assignments_nudged_at.
+alter table public.search_assignments add column if not exists nudged_at timestamptz;
+
 -- ── submission cards in #refery-desk (2026-09-06) ───────────────────────────
 -- Applied to prod as migration role_submissions_slack_card. :+1: on the card
 -- shortlists the submission.

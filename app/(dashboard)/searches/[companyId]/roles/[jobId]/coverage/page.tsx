@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { FIGURE, FOCUS, H1, LABEL, LEDE, RULE } from '@/lib/desk-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
-import { CoverageTable, type CoverageRow } from '@/components/partners/coverage-table'
+import { CoverageTable, type CoverageRow, type SuggestedPartner } from '@/components/partners/coverage-table'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,10 +45,42 @@ export default async function CoveragePage({
 
   const assignments = (assignmentRows ?? []) as SearchAssignmentRow[]
   const userIds = [...new Set(assignments.map(a => a.user_id))]
-  const { data: users } = userIds.length
-    ? await adminClient.from('users_admin').select('user_id, full_name, email, role').in('user_id', userIds)
-    : { data: [] }
+  const onSearch = new Set(userIds)
+
+  // Everyone who could be proposed, with how many of their candidates the
+  // matcher paired with this search and how many searches they already work.
+  // Internal accounts (refery.io, 10kventures.co) are staff or tests, not
+  // partners, so they never appear as a suggestion.
+  const [{ data: users }, { data: partnerRows }, { data: matchRows }, { data: loadRows }] = await Promise.all([
+    userIds.length
+      ? adminClient.from('users_admin').select('user_id, full_name, email, role').in('user_id', userIds)
+      : Promise.resolve({ data: [] }),
+    adminClient
+      .from('users_admin')
+      .select('user_id, full_name, email, role')
+      .eq('status', 'active')
+      .in('role', ['scout', 'recruiter'])
+      .not('user_id', 'is', null),
+    adminClient.from('partner_role_match_counts').select('owner_user_id, match_count').eq('job_id', jobId),
+    adminClient.from('search_assignments').select('user_id').eq('status', 'working'),
+  ])
   const userById = new Map((users ?? []).map(u => [u.user_id as string, u]))
+  const matchesByUser = new Map((matchRows ?? []).map(m => [m.owner_user_id as string, m.match_count as number]))
+  const loadByUser = new Map<string, number>()
+  for (const l of loadRows ?? []) loadByUser.set(l.user_id as string, (loadByUser.get(l.user_id as string) ?? 0) + 1)
+
+  const suggested: SuggestedPartner[] = (partnerRows ?? [])
+    .filter(u => !onSearch.has(u.user_id as string))
+    .filter(u => !/@(refery\.io|10kventures\.co)$/i.test((u.email as string) ?? ''))
+    .map(u => ({
+      userId: u.user_id as string,
+      name: (u.full_name as string) || (u.email as string),
+      email: u.email as string,
+      role: (u.role as string) ?? 'partner',
+      matches: matchesByUser.get(u.user_id as string) ?? 0,
+      workingElsewhere: loadByUser.get(u.user_id as string) ?? 0,
+    }))
+    .sort((a, b) => b.matches - a.matches || a.workingElsewhere - b.workingElsewhere || a.name.localeCompare(b.name))
 
   const byUser = new Map<string, { counts: Map<string, number>; last: string | null }>()
   for (const s of submissionRows ?? []) {
@@ -81,6 +113,7 @@ export default async function CoveragePage({
       confirmedAt: a.confirmed_at,
       declinedAt: a.declined_at,
       declinedReason: a.declined_reason,
+      nudgedAt: (a as SearchAssignmentRow & { nudged_at?: string | null }).nudged_at ?? null,
       activity,
       silentDays,
     }
@@ -116,7 +149,7 @@ export default async function CoveragePage({
         <div><dt className={`${FIGURE} text-[#9C3F37]`}>{quiet}</dt><dd className={`mt-1.5 ${LABEL}`}>working but silent 14+ days</dd></div>
       </dl>
 
-      <CoverageTable jobId={jobId} rows={rows} />
+      <CoverageTable jobId={jobId} rows={rows} suggested={suggested} roleTitle={`${role.headline || role.title} at ${role.company_name}`} />
     </div>
   )
 }
