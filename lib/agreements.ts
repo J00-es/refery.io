@@ -24,6 +24,14 @@ export const AGREEMENT_VERSIONS = {
   // clarification does not change anyone's economics (70%, day 90, 14 business
   // days are all untouched), so no acceptance needed re-taking, but a v2.0
   // acceptance still has to render the v2.0 body.
+  //
+  // v2.1 also restores the two introduction bonus programmes, which existed
+  // only in the retired v1.2 document and had therefore quietly lapsed for
+  // everyone who joined after August. Edited into v2.1 rather than bumped
+  // again because v2.1 has no acceptances yet, and because the change only
+  // adds earnings: a partner who signed a moment before it landed is better
+  // off, not worse. Once v2.1 has its first acceptance this text freezes like
+  // v2.0 did.
   partner: '2.1',
   partnerSubmission: '1.0',
   // Retained so historical acceptances still resolve to the text that was signed.
@@ -354,6 +362,7 @@ export const PARTNER_TERMS_TEXT = `# Partner Terms
 | | |
 |---|---|
 | **You earn** | 70% of the placement fee on every hire you source |
+| **You also earn** | 10% of the fee on hires at a company you introduce, and $1,000 a hire for a partner you bring |
 | **You get paid** | 14 business days after the client pays us, never before day 90 |
 | **You pay** | Nothing, ever. No fees, no minimums, no exclusivity |
 | **Your commitment** | None. Work with whoever else you like, leave whenever |
@@ -382,6 +391,13 @@ We hold the money until it is yours, so you will never face a clawback. If a pla
 **7. Leaving.** Either of us can end this at any time, in writing. Three things continue: confidentiality, the 12 month clause above, and your right to be paid on candidates you have already submitted.
 
 **8. The legal basics.** Delaware law. Disputes go to individual arbitration (AAA, remote, no class actions), though either of us can still use small claims court, and either of us can ask a court to stop a breach of confidentiality. Our liability is capped at what we have paid you over the last 12 months.
+
+**9. Two more ways to earn.** Both stack on top of anything you already earn on a placement.
+
+- **Bring us a company.** Introduce a startup that becomes a Refery client and, for 24 months from that introduction, you earn an extra 10% of the placement fee on every hire that closes there. If you also sourced the person hired, you earn both.
+- **Bring us a partner.** Introduce a recruiter or scout who joins and makes a real submission within 30 days, and you earn $1,000 for every hire they close that lasts 90 days, up to $20,000 for any one person you introduce.
+
+Copy hello@refery.io into the introduction so it is on the record. If two people claim the same introduction the first confirmed one wins, and our timestamps settle it. Bonuses do not chain: if you introduce someone who introduces someone else, you earn on theirs and not on the third person's. We can pause either of these with 30 days' notice, and anything already earned, plus hires that close within 12 months of an introduction you made before then, is still paid.
 
 ## Accept
 

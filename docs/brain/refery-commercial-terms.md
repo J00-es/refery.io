@@ -39,7 +39,33 @@ as authoritative.
 - If two partners submit the same person, the first confirmed submission wins, and the
   timestamps settle it. [Submission Terms v1.0]
 
-## 3. The guarantee
+## 3. Introducing a company or a partner
+
+Both stack on top of anything a partner already earns on a placement.
+[Partner Terms v2.1 §9]
+
+- **A company they introduce.** Introduce a startup that becomes a Refery client, and for
+  **24 months** from that introduction the partner earns an extra **10% of the placement
+  fee** on every hire that closes there. If they also sourced the person hired, they earn
+  both. [Partner Terms v2.1 §9]
+- **A partner they introduce.** Introduce a recruiter or scout who joins and makes a real
+  submission within **30 days**, and the partner earns **$1,000** for every hire that
+  person closes and that lasts 90 days, up to **$20,000** for any one person introduced.
+  [Partner Terms v2.1 §9]
+- Copy hello@refery.io into the introduction so it is on the record. First confirmed
+  introduction wins a contested claim, and the timestamps settle it.
+  [Partner Terms v2.1 §9]
+- Bonuses do not chain. If A introduces B and B introduces C, A earns on B's hires and not
+  on C's. [Partner Terms v2.1 §9]
+- Refery may pause either programme with 30 days' notice. Anything already earned, plus
+  hires closing within 12 months of an introduction made before that notice, is still
+  paid. [Partner Terms v2.1 §9]
+
+Restored in Partner Terms v2.1 on 5 September 2026. They had existed only in the retired
+v1.2 agreement, so between August and that date a partner who joined on v2.0 had no
+written claim to either. Everyone is on the same programme now.
+
+## 4. The guarantee
 
 - Every client engagement carries a **90-day guarantee** running from the hire's first day.
   [Client Agreement v2.8 §2]
@@ -51,7 +77,7 @@ as authoritative.
 - If a hire does not last the 90 days, no payout is made to the partner, and **nothing is
   owed back either**. A partner never faces a clawback. [Partner Terms v2.1 §2]
 
-## 4. What a partner may say to a candidate
+## 5. What a partner may say to a candidate
 
 - Everything inside Refery is confidential: company names, roles, hiring managers, pay and
   team detail. Many of these companies are in stealth. [Partner Terms v2.1 §3]
@@ -59,7 +85,7 @@ as authoritative.
   York", but **must not name the company** until that candidate has been vetted and has
   signed Refery's confidentiality terms. [Partner Terms v2.1 §3]
 
-## 5. Working with us
+## 6. Working with us
 
 - Partners are independent contractors. No exclusivity, no non-compete, no minimum
   activity, no set hours. They handle their own taxes. [Partner Terms v2.1 §5]
@@ -70,7 +96,7 @@ as authoritative.
   confidentiality, the 12-month clause above, and the right to be paid on candidates
   already submitted. [Partner Terms v2.1 §7]
 
-## 6. Client-side terms
+## 7. Client-side terms
 
 Used when writing to a founder or hiring manager, not to a partner.
 
@@ -104,6 +130,7 @@ belong in one, and only when the call actually covered them.
 - That Refery handles the client, the contract, the invoicing and the chasing.
 - What a partner may and may not say to a candidate about a company.
 - On a focused search, that Refery works with only 2 to 3 recruiters.
+- The two introduction bonuses, when the call actually turned to them.
 
 **Must never be used in a recap email**
 
@@ -112,40 +139,13 @@ belong in one, and only when the call actually covered them.
   for. If someone asks directly, Lily answers it herself.
 - Anything the call did not cover. A recap email records what was said. A term that did not
   come up does not go in, however true it is.
-- The introduction bonuses, until the question in the next section is settled.
 
 ---
 
-## Needs a decision: the introduction bonuses
+## One correction to carry forward
 
-The retired Recruiting Partner Agreement v1.2 promised two bonus programmes:
-
-- **Company introductions.** Introduce a startup that becomes a client, and earn an extra
-  **10% of the placement fee** on every hire there for **24 months** from the confirmed
-  introduction. It stacks with a normal payout. [Recruiting Partner Agreement v1.2 §10a]
-- **Partner introductions.** Introduce a recruiter or scout who makes a qualified
-  submission within 30 days, and earn **$1,000 per hire** they close that clears the 90-day
-  guarantee, up to **$20,000** lifetime per person introduced.
-  [Recruiting Partner Agreement v1.2 §10b]
-
-**Neither programme appears in Partner Terms v2.1 or Submission Terms v1.0.** They exist
-only in the retired v1.2 document.
-
-That splits the partner base in two:
-
-| Signed | Document | Bonuses |
-|---|---|---|
-| 40 partners | Recruiting Partner / Scout Agreement v1.2 | Yes, both |
-| 28 partners | Partner Terms v2.0 and v2.1 | No |
-
-Until this is resolved, no agent should promise either bonus to anyone. Two ways forward,
-both Lily's call:
-
-1. **Reinstate them.** Add a bonus section to Partner Terms, bump the version, and this
-   document describes a programme everyone has.
-2. **Retire them.** Say so plainly here, and stop mentioning them in any email.
-
-A related correction: the recap email skill has been telling partners the company
-introduction bonus is *"10% of Refery's revenue"*. Refery's revenue is 30% of the fee, so
-that is roughly **a third** of the 10% of the placement fee the signed agreement promises.
-Whichever way the decision goes, that sentence should not be sent again.
+The recap email skill used to say the company introduction bonus was *"10% of Refery's
+revenue"*. Refery's revenue is 30% of the fee, so that was roughly **a third** of the 10%
+of the placement fee the agreement actually promises. The numbers have since been removed
+from the skill file entirely and now come from this document. If that sentence appears
+anywhere else, it is wrong and should be deleted.
