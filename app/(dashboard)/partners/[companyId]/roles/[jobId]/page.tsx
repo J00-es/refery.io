@@ -372,14 +372,14 @@ export default async function PartnerRolePage({
         </div>
         <div>
           <dt className={FIGURE}>
-            {role.decision_days ? `~${role.decision_days} days` : shortAge(role.added_at)}
+            {role.decision_days ? `~${role.decision_days} days` : targetStart ?? priority.label}
           </dt>
           <dd className={`mt-1.5 ${LABEL}`}>
             {role.decision_days
               ? 'from first call to a decision'
               : targetStart
-                ? `on the desk · starts ${targetStart}`
-                : 'on the desk'}
+                ? 'target start'
+                : 'priority for the client'}
           </dd>
           {role.decision_days && targetStart && (
             <dd className={`mt-1 ${META}`}>Target start {targetStart}</dd>

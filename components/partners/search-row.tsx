@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { FileText, Lock, Sparkles } from 'lucide-react'
 import { CARD_LINK, CHIP_BAD, CHIP_VALUE, CHIP_WARN, FOREST, H3, META, MUTED, RULE, detailLine } from '@/lib/desk-ui'
-import { REMOTE_LABELS, seniorityLabel, shortAge } from '@/lib/job-ui'
+import { REMOTE_LABELS, seniorityLabel } from '@/lib/job-ui'
 import { feeExplanation, payoutAmount } from '@/lib/fees'
 import type { DeskSearch } from '@/lib/desk-filters'
 import { StageStrip } from './stage-strip'
@@ -91,7 +91,6 @@ export function SearchRow({ search }: { search: DeskSearch }) {
                 Brief
               </span>
             )}
-            {!onIt && <span>on the desk {shortAge(search.addedAt)}</span>}
           </p>
         </div>
 

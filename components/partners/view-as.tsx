@@ -77,10 +77,10 @@ export function ViewAs() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border border-[#E0E0D7] bg-white/70 px-3 text-[13px] text-[#5F5F58] transition-colors hover:border-[#D2D2C8] hover:text-[#161613] ${FOCUS}`}
+          className={`inline-flex min-h-[36px] items-center gap-2 rounded-full border border-[#D2D1C7] bg-white px-3.5 text-[13px] font-semibold text-[#161613] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F] hover:text-[#161613] ${FOCUS}`}
         >
           <Eye className="h-3.5 w-3.5" />
-          View as
+          View as a partner
         </button>
       </PopoverTrigger>
 
