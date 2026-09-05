@@ -41,11 +41,18 @@ export function searchQuestionsChannel(): string {
 /** The reaction that hides a question from partners. Rare, so not seeded. */
 export const HIDE_REACTIONS = new Set(['see_no_evil', 'no_entry_sign'])
 
+/**
+ * Cheap on purpose. A draft is read by Lily before anyone else sees it, so the
+ * model only has to find the answer in the brief, not write the final word.
+ * Sonnet does that for a few cents a question; Opus would cost five times as
+ * much for the same yes-or-no from Lily. Set QUESTION_DRAFT_MODEL to trade up.
+ * The chain falls through on a retired id or a timeout, never on cost.
+ */
 const MODEL_CHAIN = [
   process.env.QUESTION_DRAFT_MODEL,
-  'anthropic/claude-opus-5',
   'anthropic/claude-sonnet-5',
   'google/gemini-3.6-flash',
+  'anthropic/claude-opus-5',
 ].filter((m): m is string => !!m)
 
 function truncate(s: string, n: number): string {
@@ -259,7 +266,9 @@ async function draftAnswer(admin: SupabaseClient, c: QuestionContext): Promise<{
   const briefText: string[] = []
   for (const b of briefs ?? []) {
     const parts: string[] = []
-    flattenStrings(b.content, parts, { left: 12_000 })
+    // 8,000 characters is a whole scout brief. Anything past it is the
+    // appendix, and every character here is paid for on every question.
+    flattenStrings(b.content, parts, { left: 8_000 })
     briefText.push(`## Brief: ${b.title}\n${parts.join('\n')}`)
   }
 
@@ -276,8 +285,8 @@ async function draftAnswer(admin: SupabaseClient, c: QuestionContext): Promise<{
         Array.isArray(role.interview_steps) && role.interview_steps.length && `Interview steps: ${JSON.stringify(role.interview_steps)}`,
         role.decision_days && `Decision within ${role.decision_days} days`,
         role.context && `Refery context: ${role.context}`,
-        role.requirements && `Requirements: ${String(role.requirements).slice(0, 3000)}`,
-        role.description && `Description: ${String(role.description).slice(0, 6000)}`,
+        role.requirements && `Requirements: ${String(role.requirements).slice(0, 2500)}`,
+        role.description && `Description: ${String(role.description).slice(0, 3500)}`,
       ]
         .filter(Boolean)
         .join('\n')
