@@ -297,9 +297,7 @@ export default function PartnerGuidelinesPage() {
 
         <p style={{ fontSize: 14, color: 'var(--ink-3)', marginTop: 20 }}>
           Read the full terms:{' '}
-          <a href="/recruiting-partner-agreement" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 500 }}>Recruiting Partner Agreement</a>
-          {' · '}
-          <a href="/scout-agreement" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 500 }}>Scout Partner Agreement</a>
+          <a href="/partner-terms" style={{ color: 'var(--green)', textDecoration: 'none', fontWeight: 500 }}>Partner Terms</a>
         </p>
 
         <div className="hero-stats reveal" style={{
@@ -944,7 +942,7 @@ export default function PartnerGuidelinesPage() {
             <a href="/terms" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Terms</a>
             <a href="/privacy" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Privacy</a>
             <a href="/partner-guidelines" style={{ fontSize: 12, color: 'rgba(248,248,243,0.35)', textDecoration: 'none' }}>Scout &amp; Partner Guidelines</a>
-            <a href="/recruiting-partner-agreement" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Recruiting Partner Agreement</a>
+            <a href="/partner-terms" style={{ fontSize: 12, color: 'rgba(248,248,243,0.18)', textDecoration: 'none' }}>Partner Terms</a>
           </div>
         </div>
       </footer>
