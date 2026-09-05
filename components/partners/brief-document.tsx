@@ -606,7 +606,8 @@ function Checklist({
   )
 }
 
-function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (ask: string) => React.ReactNode }) {
+/** One block. Exported so the client-brief page can fall back to it for the rare kinds. */
+export function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (ask: string) => React.ReactNode }) {
   switch (block.kind) {
     case 'lede':
       return (

@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
-import { ArrowLeft, ChevronDown, ExternalLink, FileText, Users } from 'lucide-react'
+import { ArrowLeft, ChevronDown, FileText, Users } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
 import {
   BODY,
   BTN_QUIET,
   BTN_TEXT,
   CARD,
-  CARD_LINK,
   CHIP,
   CHIP_BAD,
   CHIP_VALUE,
@@ -241,6 +240,14 @@ export default async function PartnerRolePage({
     : null
   const blurb = brief ? findBlurb(brief.content) : null
 
+  // Two things the canvas lifts out of the brief onto the search: the logistics
+  // table (comp, visa, travel, process) and the first two screening questions.
+  const briefBlocks = brief ? brief.content.sections.flatMap(s => s.blocks) : []
+  const factsBlock = briefBlocks.find(b => b.kind === 'facts')
+  const logistics: { label: string; value: string }[] = factsBlock && factsBlock.kind === 'facts' ? factsBlock.rows : []
+  const questionsBlock = briefBlocks.find(b => b.kind === 'questions')
+  const screening = questionsBlock && questionsBlock.kind === 'questions' ? questionsBlock.items : []
+
   const priority = PRIORITY_META[role.priority] ?? PRIORITY_META.normal
   const fee = resolveFee(role)
   const payout = payoutAmount(fee)
@@ -290,12 +297,15 @@ export default async function PartnerRolePage({
       */}
       <header className="mt-4">
         <div className="flex flex-wrap items-center gap-2">
+          {assignment?.status === 'working' && <span className={CHIP_VALUE}>You are working this search</span>}
+          {assignment?.status === 'proposed' && <span className={CHIP_WARN}>Proposed to you</span>}
           {role.priority !== 'normal' && (
             <span className={role.priority === 'urgent' ? CHIP_BAD : CHIP_WARN}>
               {priority.label}
             </span>
           )}
           {role.exclusivity === 'exclusive' && <span className={CHIP_VALUE}>Exclusive to Refery</span>}
+          {!role.submission_cap && !closed && <span className={CHIP}>Open-ended headcount</span>}
           {closed && <span className={CHIP}>Closed</span>}
         </div>
 
@@ -312,6 +322,12 @@ export default async function PartnerRolePage({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {unlocked && (
+              <Link href={`/searches/${companyId}`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                <FileText className="h-4 w-4" />
+                Client brief
+              </Link>
+            )}
             {unlocked && canWork && !closed && slots !== 0 && (
               <>
                 <a href="#questions" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
@@ -462,89 +478,12 @@ export default async function PartnerRolePage({
           )}
 
           {/*
-            The brief and the blurb are one row of two entry points, not two full
-            sections. The brief used to be rendered inline below everything else —
-            a nine-section document embedded under a page that already had seven
-            sections. A scout who has read it does not need it re-rendered under
-            every search; one who has not needs one obvious way in.
+            The canvas order (artboard 2): the bar for this seat first, because it
+            is what the reader came to check, then the logistics that decide
+            whether to approach someone, then the two screening questions, then
+            their own candidates and pipeline. The brief is one button in the
+            header; the blurb sits with the questions as the third card.
           */}
-          <div className="mt-7 grid gap-3 sm:grid-cols-2">
-            {brief ? (
-              <Link
-                href={`/searches/${companyId}/brief${brief.job_id ? `?job=${jobId}` : ''}`}
-                className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
-              >
-                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[#1F3A2F]" aria-hidden />
-                <span className="min-w-0">
-                  <span className="flex flex-wrap items-center gap-2 text-[14.5px] font-semibold text-[#161613]">
-                    {brief.job_id ? 'Brief for this search' : 'Scout brief'}
-                    {brief.status !== 'published' && <span className={CHIP_WARN}>Draft</span>}
-                  </span>
-                  <span className={`mt-0.5 block ${META}`}>
-                    The bar, the logistics, the screening questions, what to say to a candidate
-                  </span>
-                </span>
-              </Link>
-            ) : (
-              <p className={`p-4 ${CARD} ${LEDE}`}>
-                {access.canManage ? (
-                  <>
-                    No brief imported yet.{' '}
-                    <Link
-                      href={`/searches/${companyId}`}
-                      className={`font-semibold text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
-                    >
-                      Import one from the client setup panel
-                    </Link>
-                    .
-                  </>
-                ) : (
-                  'No scout brief published yet. Ask Refery for the detail before you approach anyone.'
-                )}
-              </p>
-            )}
-
-            {blurb ? (
-              <div className={`p-4 ${CARD}`}>
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-[14.5px] font-semibold text-[#161613]">
-                    What to say to a candidate
-                  </p>
-                  <CopyButton text={blurb.paragraphs.join('\n\n')} label="Copy" />
-                </div>
-                <p className={`mt-2 line-clamp-2 ${META}`}>{blurb.paragraphs[0]}</p>
-              </div>
-            ) : role.job_post_url ? (
-              <a
-                href={role.job_post_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`flex items-start gap-3 p-4 ${CARD_LINK}`}
-              >
-                <ExternalLink className="mt-0.5 h-4 w-4 shrink-0 text-[#8A8A82]" aria-hidden />
-                <span>
-                  <span className="block text-[14.5px] font-semibold text-[#161613]">
-                    The company’s own posting
-                  </span>
-                  <span className={`mt-0.5 block ${META}`}>How the role is advertised publicly</span>
-                </span>
-              </a>
-            ) : null}
-          </div>
-
-          {/* Intake detail behind a disclosure: read once, not on every visit. */}
-          {role.context && (
-            <details className="group mt-4">
-              <summary
-                className={`inline-flex cursor-pointer list-none items-center gap-1.5 ${BTN_TEXT}`}
-              >
-                What we know about this search
-                <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
-              </summary>
-              <p className={`mt-2.5 max-w-2xl whitespace-pre-line ${BODY}`}>{role.context}</p>
-            </details>
-          )}
-
           {(!!role.hard_requirements?.length || !!role.intake_notes?.length || role.not_for) && (
             <section className="mt-9">
               <h2 className={H2}>The bar for this seat</h2>
@@ -582,6 +521,87 @@ export default async function PartnerRolePage({
                   </p>
                 )}
               </div>
+            </section>
+          )}
+
+          {/* Logistics, from the brief: comp, visa, travel, process. Read before approaching anyone. */}
+          {logistics.length > 0 && (
+            <section className="mt-9">
+              <h2 className={H2}>Logistics</h2>
+              <div className={`mt-4 overflow-hidden ${CARD}`}>
+                <table className="hidden w-full border-collapse sm:table">
+                  <tbody>
+                    {logistics.map((r, i) => (
+                      <tr key={i} className="last:[&>*]:border-b-0">
+                        <th scope="row" className="w-[150px] border-b border-[#E9E8E1] bg-[#FAF9F5] px-4 py-3 text-left align-top text-[13.5px] font-semibold text-[#2A2A26]">{r.label}</th>
+                        <td className="border-b border-[#E9E8E1] px-4 py-3 align-top text-[14px] leading-relaxed text-[#2A2A26]">{r.value}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <dl className="divide-y divide-[#E9E8E1] sm:hidden">
+                  {logistics.map((r, i) => (
+                    <div key={i} className="px-4 py-3">
+                      <dt className="text-[12px] font-semibold text-[#6E6E68]">{r.label}</dt>
+                      <dd className={`mt-1 ${BODY}`}>{r.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            </section>
+          )}
+
+          {(screening.length > 0 || blurb || role.context) && (
+            <section className="mt-9">
+              <div className="flex flex-wrap items-baseline justify-between gap-3">
+                <h2 className={H2}>{screening.length ? 'Two questions to ask before you submit' : 'Before you approach anyone'}</h2>
+                {brief && screening.length > 0 && (
+                  <Link href={`/searches/${companyId}#screening`} className={BTN_TEXT}>
+                    Full screening guide →
+                  </Link>
+                )}
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {screening.slice(0, 2).map((q, i) => (
+                  <div key={i} className={`p-4 ${CARD}`}>
+                    <p className={`text-[12px] font-semibold tracking-[0.04em] ${MUTED}`}>{String(i + 1).padStart(2, '0')}</p>
+                    <p className="mt-1 text-[14.5px] font-semibold leading-snug text-[#161613]">{q.question}</p>
+                    {q.looking_for && (
+                      <p className={`mt-1.5 ${LEDE}`}>
+                        <span className={`font-semibold ${FOREST}`}>Looking for: </span>
+                        {q.looking_for}
+                      </p>
+                    )}
+                  </div>
+                ))}
+                {blurb && (
+                  <div className={`p-4 ${CARD} ${screening.length ? 'sm:col-span-2' : ''}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[14.5px] font-semibold text-[#161613]">What to say to a candidate</p>
+                      <CopyButton text={blurb.paragraphs.join('\n\n')} label="Copy" />
+                    </div>
+                    <p className={`mt-2 line-clamp-3 ${LEDE}`}>{blurb.paragraphs[0]}</p>
+                  </div>
+                )}
+                {role.context && (
+                  <details className={`group p-4 ${CARD} ${screening.length ? 'sm:col-span-2' : ''}`}>
+                    <summary className={`inline-flex cursor-pointer list-none items-center gap-1.5 ${BTN_TEXT}`}>
+                      What we know about this search
+                      <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                    </summary>
+                    <p className={`mt-2.5 whitespace-pre-line ${BODY}`}>{role.context}</p>
+                  </details>
+                )}
+              </div>
+              {!brief && (
+                <p className={`mt-3 ${META}`}>
+                  {access.canManage ? (
+                    <>No brief imported yet. <Link href={`/searches/${companyId}`} className={`font-semibold ${FOREST} underline underline-offset-2 ${FOCUS}`}>Import one from the client page</Link>.</>
+                  ) : (
+                    'No scout brief published yet. Ask Refery for the detail before you approach anyone.'
+                  )}
+                </p>
+              )}
             </section>
           )}
 
