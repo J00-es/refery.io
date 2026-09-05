@@ -3,14 +3,16 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
 import { previewBlocked, resolvePartnerAccess } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES } from '@/lib/partners'
-
-/** A pitch shorter than this is not a reason, it is a shrug. */
-const MIN_PITCH = 40
+import { MIN_PITCH, qualifies, recordClaim } from '@/lib/submission-claims'
 
 interface Draft {
   candidate_id: string
   pitch: string
   highlights: string[]
+  /** How the partner knows this person, in their own words. */
+  relationship: string
+  /** They confirm they can introduce this person to us now. */
+  can_introduce: boolean
 }
 
 function readDrafts(raw: unknown): Draft[] {
@@ -23,6 +25,8 @@ function readDrafts(raw: unknown): Draft[] {
       {
         candidate_id: o.candidate_id,
         pitch: o.pitch.trim(),
+        relationship: typeof o.relationship === 'string' ? o.relationship.trim() : '',
+        can_introduce: o.can_introduce === true,
         highlights: Array.isArray(o.highlights)
           ? o.highlights
               .filter((h): h is string => typeof h === 'string' && !!h.trim())
@@ -93,7 +97,9 @@ export async function POST(req: Request) {
   // Ownership, resolved in one query rather than per candidate.
   const { data: candidates } = await adminClient
     .from('candidates')
-    .select('id, name, owner_user_id, uploaded_by_user_id, user_id')
+    .select(
+      'id, name, owner_user_id, uploaded_by_user_id, user_id, email, phone, linkedin_url, resume_blob_pathname',
+    )
     .in(
       'id',
       drafts.map(d => d.candidate_id),
@@ -113,7 +119,12 @@ export async function POST(req: Request) {
   const cap = role.submission_cap as number | null
   let remaining = cap ? Math.max(0, cap - ((role.live_submission_count as number) ?? 0)) : Infinity
 
-  const accepted: { candidate_id: string; pitch: string; highlights: string[] }[] = []
+  const accepted: {
+    candidate_id: string
+    pitch: string
+    highlights: string[]
+    relationship: string
+  }[] = []
   const rejected: { candidate_id: string; reason: string }[] = []
 
   for (const draft of drafts) {
@@ -137,6 +148,18 @@ export async function POST(req: Request) {
       })
       continue
     }
+    // What makes this a submission rather than an upload: a CV, a way to reach
+    // them, how you know them, and that you can introduce them now. The last one
+    // is the anti-hoarding rule, and it is why a claim can be reviewed later if
+    // the introduction never happens.
+    const gate = qualifies(candidate, {
+      relationship: draft.relationship,
+      canIntroduce: draft.can_introduce,
+    })
+    if (!gate.ok) {
+      rejected.push({ candidate_id: draft.candidate_id, reason: gate.reason })
+      continue
+    }
     if (remaining <= 0) {
       rejected.push({ candidate_id: draft.candidate_id, reason: 'No submission slots left on this role' })
       continue
@@ -146,6 +169,7 @@ export async function POST(req: Request) {
       candidate_id: draft.candidate_id,
       pitch: draft.pitch.slice(0, 4000),
       highlights: draft.highlights,
+      relationship: draft.relationship,
     })
   }
 
@@ -169,6 +193,22 @@ export async function POST(req: Request) {
     .select('id, candidate_id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // The claim is the contractual right the submission creates, and it is
+  // deliberately written after the submission rather than inside it: a failure
+  // here must not lose the partner's work. One timestamp for the batch, so two
+  // candidates submitted together cannot be split by a millisecond.
+  const claimedAt = new Date()
+  for (const a of accepted) {
+    await recordClaim(adminClient, {
+      holderUserId: access.appUser.id,
+      originatingUserId: access.appUser.id,
+      candidateId: a.candidate_id,
+      clientCompanyId: companyId,
+      relationship: a.relationship,
+      at: claimedAt,
+    })
+  }
 
   // The trail starts at submission, so the scout can see the whole history
   // later without us reconstructing the first step from created_at.

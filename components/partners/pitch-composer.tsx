@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { MIN_RELATIONSHIP } from '@/lib/submission-claims'
 import { useRouter } from 'next/navigation'
 import { Check, Loader2, Sparkles } from 'lucide-react'
 import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
@@ -52,11 +53,21 @@ export function PitchComposer({
   const router = useRouter()
   const [pitches, setPitches] = useState<Record<string, string>>({})
   const [highlights, setHighlights] = useState<Record<string, string>>({})
+  const [relationships, setRelationships] = useState<Record<string, string>>({})
+  const [canIntro, setCanIntro] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PitchResult | null>(null)
 
-  const incomplete = people.filter(p => (pitches[p.id]?.trim().length ?? 0) < MIN_PITCH).length
+  // A submission is only a submission if you can put this person in front of us.
+  // The server enforces all three; the button just stops people submitting into
+  // a rejection they could have seen coming.
+  const incomplete = people.filter(
+    p =>
+      (pitches[p.id]?.trim().length ?? 0) < MIN_PITCH ||
+      (relationships[p.id]?.trim().length ?? 0) < MIN_RELATIONSHIP ||
+      !canIntro[p.id],
+  ).length
 
   async function submit() {
     setBusy(true)
@@ -70,6 +81,8 @@ export function PitchComposer({
           submissions: people.map(p => ({
             candidate_id: p.id,
             pitch: pitches[p.id]?.trim() ?? '',
+            relationship: relationships[p.id]?.trim() ?? '',
+            can_introduce: canIntro[p.id] === true,
             highlights: (highlights[p.id] ?? '')
               .split('\n')
               .map(h => h.trim())
@@ -192,6 +205,39 @@ export function PitchComposer({
                   {short
                     ? `${MIN_PITCH - value.trim().length} more characters needed`
                     : 'Good to go'}
+                </span>
+              </label>
+
+              <label className="mt-2 block">
+                <span className="text-[13px] font-medium text-[#3F3F3A]">
+                  How do you know them?
+                </span>
+                <textarea
+                  rows={2}
+                  value={relationships[person.id] ?? ''}
+                  onChange={e =>
+                    setRelationships(r => ({ ...r, [person.id]: e.target.value }))
+                  }
+                  placeholder="Worked together at Monzo for two years, still speak monthly"
+                  className={`mt-1.5 w-full resize-none rounded-[12px] border border-[#E4E3DC] px-3 py-2.5 text-[13.5px] leading-relaxed text-[#161613] placeholder:text-[#B8B8B0] ${FOCUS}`}
+                />
+              </label>
+
+              <label className="mt-2.5 flex cursor-pointer items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={canIntro[person.id] === true}
+                  onChange={e =>
+                    setCanIntro(c => ({ ...c, [person.id]: e.target.checked }))
+                  }
+                  className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
+                />
+                <span className="text-[13px] leading-[1.5] text-[#3F3F3A]">
+                  I can introduce {person.name.split(' ')[0]} to the Refery team now.
+                  <span className="block text-[12.5px] text-[#8A8A82]">
+                    Only submit people you actually know. Profiles nobody can introduce do
+                    not hold their place.
+                  </span>
                 </span>
               </label>
 
