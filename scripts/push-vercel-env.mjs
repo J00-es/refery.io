@@ -31,12 +31,28 @@ const TARGET = "production";
 const file = process.argv[2] ?? ".env.vercel-paste";
 const dryRun = process.argv.includes("--dry");
 
-const token = process.env.VERCEL_TOKEN;
-if (!token && !dryRun) {
-  console.error("VERCEL_TOKEN is not set.");
-  console.error("Create one at https://vercel.com/account/settings/tokens, then:");
-  console.error('  PowerShell:  $env:VERCEL_TOKEN = "..."');
-  process.exit(1);
+// Trim, because a token pasted from a browser often carries a stray space or
+// the quotes from the example command.
+const token = (process.env.VERCEL_TOKEN ?? "").trim().replace(/^["']|["']$/g, "");
+if (!dryRun) {
+  if (!token) {
+    console.error("VERCEL_TOKEN is not set in this window.");
+    console.error("Create one at https://vercel.com/account/settings/tokens, then, in THIS window:");
+    console.error('  $env:VERCEL_TOKEN = "your-real-token"');
+    console.error("Setting it in a different window does not carry over.");
+    process.exit(1);
+  }
+  // A placeholder reaches Vercel as a syntactically valid header and comes back
+  // as "missing an authentication token", which reads like the header was never
+  // sent. Catching it here says what actually went wrong.
+  if (/^[.\s]*$/.test(token) || token.length < 20) {
+    console.error(`VERCEL_TOKEN does not look like a real token (${token.length} characters).`);
+    console.error("It should be the value copied from https://vercel.com/account/settings/tokens,");
+    console.error('not the literal "..." from the example. Set it again in this window:');
+    console.error('  $env:VERCEL_TOKEN = "your-real-token"');
+    process.exit(1);
+  }
+  console.log(`token     ${token.length} characters`);
 }
 
 let raw;
