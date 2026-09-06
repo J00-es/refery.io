@@ -21,6 +21,9 @@ const nextConfig = {
     return [
       { source: '/partners', destination: '/searches', permanent: true },
       { source: '/partners/:path*', destination: '/searches/:path*', permanent: true },
+      // The candidate-brief review queue was retired on 6 Sep 2026; the client
+      // briefs on the desk replaced it. Old bookmarks land on Searches.
+      { source: '/briefs', destination: '/searches', permanent: true },
     ]
   },
 }

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Mail, Handshake, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -53,21 +53,17 @@ const navItems: NavItem[] = [
 /**
  * Surfaces in beta: shown to beta users and super admins.
  *
- * Two groups because they belong in different places, not because they differ in
- * permission. Searches leads the row: it is the handful of searches we are
- * actually retained on, where Jobs is the 29k-role sourced watchlist, and putting
- * it after would send everyone to the noise first. Briefs is a review queue you
- * visit when there is something in it, so it trails.
+ * Searches leads the row: it is the handful of searches we are actually
+ * retained on, where Jobs is the 29k-role sourced watchlist, and putting it
+ * after would send everyone to the noise first.
  *
  * Hiding a link is not access control. These are kept in step with
- * DESK_BETA_ONLY and BRIEFS_SUPER_ADMIN_ONLY, which is what the pages and their
- * API handlers actually enforce.
+ * DESK_BETA_ONLY, which is what the pages and their API handlers enforce.
  */
 const betaNavItems = [
   { href: '/searches', label: 'Searches', icon: Handshake },
   { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
 ]
-const superAdminTrailNavItems = [{ href: '/briefs', label: 'Briefs', icon: Mail }]
 
 /**
  * Admin destinations live in the Admin menu rather than the top row.
@@ -160,20 +156,6 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
               </Link>
             ))}
             {visibleNavItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActiveRoute(item.href)
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {isSuperAdmin && superAdminTrailNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -301,25 +283,6 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
                 )
               })}
               {visibleNavItems.map((item) => {
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                      isActiveRoute(item.href)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {item.label}
-                    <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
-                  </Link>
-                )
-              })}
-              {isSuperAdmin && superAdminTrailNavItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link

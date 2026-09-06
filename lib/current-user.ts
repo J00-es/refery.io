@@ -3,19 +3,6 @@ import { createClient, createAdminClient } from '@/lib/supabase/server'
 export const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
 /**
- * Candidate briefs are super-admin-only for now.
- *
- * The review queue is where a branded brief gets sent to a hiring contact, and
- * sending is the single irreversible step in the whole nightly pipeline. Until the
- * partner-facing story for briefs is settled, nobody else sees the surface.
- *
- * One flag, honoured by the page, the nav link and both API handlers — flip it to
- * `false` to open it back up. Compare DESK_BETA_ONLY in lib/partners.ts, which
- * opens the desk to beta users rather than only the super admin.
- */
-export const BRIEFS_SUPER_ADMIN_ONLY = true
-
-/**
  * The Jobs board is super-admin-only for now.
  *
  * /jobs is the sourced watchlist: tens of thousands of roles at companies we
@@ -24,8 +11,8 @@ export const BRIEFS_SUPER_ADMIN_ONLY = true
  * scout or recruiter should see, the whole surface stays with the super admin.
  *
  * One flag, honoured by the route layout, the nav link and every /api/jobs
- * handler - flip it to `false` to open it back up. Mirrors
- * BRIEFS_SUPER_ADMIN_ONLY above.
+ * handler - flip it to `false` to open it back up. Compare DESK_BETA_ONLY in
+ * lib/partners.ts, which opens the desk to beta users instead.
  */
 export const JOBS_SUPER_ADMIN_ONLY = true
 
