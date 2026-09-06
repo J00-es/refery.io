@@ -18,11 +18,21 @@ import { User, Search, Building, ArrowLeft, ArrowRight, Check } from 'lucide-rea
 import { PARTNER_TERMS_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { AgreementContent } from '@/components/agreement-content'
 
-type Role = 'scout' | 'recruiter' | 'hiring_manager'
+type Role = 'scout' | 'recruiter'
+/**
+ * What the person picks, which is not quite the same as the role stored.
+ *
+ * A firm's signer is a recruiter account like any other: the difference is the
+ * entity they bind and the addendum they accept, not their permissions. Keeping
+ * "firm" out of Role means nothing downstream has to learn a fourth role.
+ */
+type SignupKind = 'scout' | 'recruiter' | 'firm'
 type Step = 1 | 2 | 3
 
+const roleForKind = (k: SignupKind): Role => (k === 'firm' ? 'recruiter' : k)
+
 const ROLE_OPTIONS: Array<{
-  value: Role
+  value: SignupKind
   title: string
   description: string
   icon: typeof User
@@ -46,9 +56,9 @@ const ROLE_OPTIONS: Array<{
     fg: 'text-[#6A5636]',
   },
   {
-    value: 'hiring_manager',
-    title: 'Hiring Manager',
-    description: 'You want to hire talent for your company through our network.',
+    value: 'firm',
+    title: 'Recruiting Firm',
+    description: 'You sign once for your company and your colleagues join without their own agreement.',
     icon: Building,
     bg: 'bg-[#E5E9EE]',
     fg: 'text-[#3D5468]',
@@ -123,7 +133,16 @@ function track(step: TrackStep, data: Record<string, unknown> = {}) {
 export default function Page() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
-  const [selectedRole, setSelectedRole] = useState<Role | ''>('')
+  const [selectedKind, setSelectedKind] = useState<SignupKind | ''>('')
+  const selectedRole: Role | '' = selectedKind ? roleForKind(selectedKind) : ''
+  const isFirm = selectedKind === 'firm'
+  // The entity, collected in the same breath as the person who signs for it.
+  const [firmName, setFirmName] = useState('')
+  const [firmLegalName, setFirmLegalName] = useState('')
+  const [firmJurisdiction, setFirmJurisdiction] = useState('')
+  const [firmCompanyNumber, setFirmCompanyNumber] = useState('')
+  const [signerTitle, setSignerTitle] = useState('')
+  const [firmBillingEmail, setFirmBillingEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
@@ -142,11 +161,11 @@ export default function Page() {
 
   const handleNextFromRole = () => {
     setError(null)
-    if (!selectedRole) {
+    if (!selectedKind) {
       setError('Please select your role to continue')
       return
     }
-    track('role_selected', { role: selectedRole })
+    track('role_selected', { role: selectedKind })
     setStep(2)
   }
 
@@ -176,6 +195,14 @@ export default function Page() {
       setError('Passwords do not match')
       return
     }
+    if (isFirm && !firmName.trim()) {
+      setError('Please enter your firm name')
+      return
+    }
+    if (isFirm && !firmLegalName.trim()) {
+      setError('Please enter the registered legal entity you are signing for')
+      return
+    }
     const who = {
       role: selectedRole,
       email,
@@ -191,7 +218,7 @@ export default function Page() {
   const handleSubmit = async () => {
     setError(null)
 
-    if (selectedRole !== 'hiring_manager' && !acceptedAgreement) {
+    if (!acceptedAgreement) {
       setError('Please accept the agreement to continue')
       return
     }
@@ -204,6 +231,20 @@ export default function Page() {
         fullName,
         linkedinUrl,
         role: selectedRole,
+      }
+
+      // A firm is created by the sign-up handler itself. It cannot be done from
+      // the browser afterwards: sign-up sends a verification email and leaves no
+      // session, so there is nobody to authenticate a second call as.
+      if (isFirm) {
+        payload.firm = {
+          name: firmName,
+          legal_name: firmLegalName,
+          jurisdiction: firmJurisdiction,
+          company_number: firmCompanyNumber,
+          signer_title: signerTitle,
+          billing_email: firmBillingEmail,
+        }
       }
 
       if (agreement && acceptedAgreement) {
@@ -227,7 +268,7 @@ export default function Page() {
       }
 
       track('completed', {
-        role: selectedRole,
+        role: selectedKind,
         email,
         full_name: fullName,
         linkedin_url: linkedinUrl,
@@ -241,7 +282,7 @@ export default function Page() {
 
       router.push('/auth/sign-up-success')
     } catch (err: unknown) {
-      track('failed', { role: selectedRole, email })
+      track('failed', { role: selectedKind, email })
       setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
       setIsLoading(false)
@@ -302,12 +343,12 @@ export default function Page() {
                   <div className="grid gap-2.5">
                     {ROLE_OPTIONS.map((opt) => {
                       const Icon = opt.icon
-                      const active = selectedRole === opt.value
+                      const active = selectedKind === opt.value
                       return (
                         <button
                           key={opt.value}
                           type="button"
-                          onClick={() => setSelectedRole(opt.value)}
+                          onClick={() => setSelectedKind(opt.value)}
                           className={`flex items-start gap-3 rounded-lg border p-3 sm:p-4 text-left transition-colors ${
                             active ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
                           }`}
@@ -412,6 +453,93 @@ export default function Page() {
                         autoCorrect="off"
                       />
                     </div>
+                    {isFirm && (
+                      <>
+                        {/* The entity, asked for beside the person who signs for
+                            it, because those two facts are only meaningful
+                            together and splitting them across screens is how a
+                            signer forgets which one they are answering as. */}
+                        <div className="mt-1 border-t pt-4">
+                          <p className="text-sm font-medium">Your firm</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            You are signing on its behalf. Colleagues join by invitation afterwards.
+                          </p>
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="firmName" className="text-sm">Firm Name *</Label>
+                          <Input
+                            id="firmName"
+                            type="text"
+                            placeholder="Alder Talent"
+                            value={firmName}
+                            onChange={(e) => setFirmName(e.target.value)}
+                            className="h-11 sm:h-10 text-base sm:text-sm"
+                          />
+                        </div>
+                        <div className="grid gap-1.5">
+                          <Label htmlFor="firmLegalName" className="text-sm">Registered Legal Entity *</Label>
+                          <Input
+                            id="firmLegalName"
+                            type="text"
+                            placeholder="Alder Talent Ltd"
+                            value={firmLegalName}
+                            onChange={(e) => setFirmLegalName(e.target.value)}
+                            className="h-11 sm:h-10 text-base sm:text-sm"
+                          />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="firmJurisdiction" className="text-sm">Jurisdiction</Label>
+                            <Input
+                              id="firmJurisdiction"
+                              type="text"
+                              placeholder="Delaware, US"
+                              value={firmJurisdiction}
+                              onChange={(e) => setFirmJurisdiction(e.target.value)}
+                              className="h-11 sm:h-10 text-base sm:text-sm"
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="firmCompanyNumber" className="text-sm">Company Number</Label>
+                            <Input
+                              id="firmCompanyNumber"
+                              type="text"
+                              placeholder="09283711"
+                              value={firmCompanyNumber}
+                              onChange={(e) => setFirmCompanyNumber(e.target.value)}
+                              className="h-11 sm:h-10 text-base sm:text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="signerTitle" className="text-sm">Your Job Title</Label>
+                            <Input
+                              id="signerTitle"
+                              type="text"
+                              placeholder="Managing Director"
+                              value={signerTitle}
+                              onChange={(e) => setSignerTitle(e.target.value)}
+                              className="h-11 sm:h-10 text-base sm:text-sm"
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="firmBillingEmail" className="text-sm">Billing Email</Label>
+                            <Input
+                              id="firmBillingEmail"
+                              type="email"
+                              placeholder="accounts@aldertalent.com"
+                              value={firmBillingEmail}
+                              onChange={(e) => setFirmBillingEmail(e.target.value)}
+                              className="h-11 sm:h-10 text-base sm:text-sm"
+                              autoCapitalize="none"
+                              autoCorrect="off"
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t pt-4" />
+                      </>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                       <div className="grid gap-1.5">
                         <Label htmlFor="password" className="text-sm">Password *</Label>
@@ -471,11 +599,11 @@ export default function Page() {
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">
-                    {selectedRole === 'hiring_manager' ? 'Almost done' : 'Partner Terms'}
+                    {isFirm ? 'Partner Terms and Firm Addendum' : 'Partner Terms'}
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    {selectedRole === 'hiring_manager'
-                      ? "We'll review your account and reach out to you shortly."
+                    {isFirm
+                      ? 'You are accepting for your company. About a minute to read.'
                       : 'About a minute to read. Accept to finish creating your account.'}
                   </CardDescription>
                 </CardHeader>
@@ -517,8 +645,19 @@ export default function Page() {
                           htmlFor="accept-agreement"
                           className={`text-sm leading-snug cursor-pointer ${!hasScrolledAgreement ? 'opacity-60' : ''}`}
                         >
-                          I have read and agree to the Partner Terms.
-                          My click constitutes a legally binding electronic signature.
+                          {isFirm ? (
+                            <>
+                              I accept the Partner Terms, the Submission Terms and the Firm Addendum for{' '}
+                              <strong>{firmLegalName.trim() || 'my firm'}</strong>. In my individual capacity I
+                              confirm that I am authorised to bind it. My click constitutes a legally binding
+                              electronic signature.
+                            </>
+                          ) : (
+                            <>
+                              I have read and agree to the Partner Terms.
+                              My click constitutes a legally binding electronic signature.
+                            </>
+                          )}
                         </label>
                       </div>
                     </>
@@ -555,10 +694,7 @@ export default function Page() {
                     <Button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={
-                        isLoading ||
-                        (selectedRole !== 'hiring_manager' && !acceptedAgreement)
-                      }
+                      disabled={isLoading || !acceptedAgreement}
                       className="flex-1 h-11 sm:h-10 text-base sm:text-sm"
                     >
                       {isLoading

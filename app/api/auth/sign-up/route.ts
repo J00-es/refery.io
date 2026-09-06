@@ -9,6 +9,9 @@ import {
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
 import { normalizeEmail } from '@/lib/current-user'
+import { AGREEMENT_VERSIONS } from '@/lib/agreements'
+import { createFirm } from '@/lib/firms'
+import { announceFirmSignup, sendFirmReceipt } from '@/lib/firm-notify'
 
 // PDF rendering + email send adds a few seconds; give the function room.
 export const maxDuration = 60
@@ -107,6 +110,72 @@ export async function POST(req: Request) {
         if (linkError) {
           console.error('Failed to create user admin record:', adminError, linkError)
           // Don't fail the whole sign-up if admin record creation fails
+        }
+      }
+
+      /**
+       * Signing up as a firm.
+       *
+       * Done here rather than by the browser afterwards, because sign-up sends a
+       * verification email and leaves no session: there would be nobody to
+       * authenticate a second call as, and asking someone to verify their email
+       * before they can finish signing is how you lose the firm halfway.
+       *
+       * The signer's acceptance covers both capacities, which is what the
+       * checkbox on the last step says: the entity is bound, and they personally
+       * confirm they may bind it. The firm is created `pending` like the person,
+       * so nothing is live until the card in Slack is thumbed up.
+       *
+       * Best effort, deliberately. A firm that fails to create leaves a working
+       * recruiter account whose owner can set the firm up from /firm, which is a
+       * far better failure than a sign-up that rolls back at the last step.
+       */
+      if (body.firm?.name && body.firm?.legal_name) {
+        try {
+          // signer_user_id is the users_admin PK, not the auth id. Read it back
+          // by email so this works whether the row was inserted or relinked.
+          const { data: adminRow } = await adminClient
+            .from('users_admin')
+            .select('id')
+            .eq('email', email)
+            .single()
+
+          if (adminRow?.id) {
+            const created = await createFirm(adminClient, {
+              name: body.firm.name,
+              legalName: body.firm.legal_name,
+              jurisdiction: body.firm.jurisdiction,
+              companyNumber: body.firm.company_number,
+              billingEmail: body.firm.billing_email,
+              signerUserId: adminRow.id as string,
+              ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
+              userAgent: req.headers.get('user-agent'),
+            })
+
+            if (created.ok) {
+              const versions = {
+                partner: AGREEMENT_VERSIONS.partner,
+                submission: AGREEMENT_VERSIONS.partnerSubmission,
+                addendum: AGREEMENT_VERSIONS.firmAddendum,
+              }
+              await Promise.allSettled([
+                sendFirmReceipt(email, created.firm, fullName, versions),
+                announceFirmSignup({
+                  firm: created.firm,
+                  signerName: fullName,
+                  signerEmail: email,
+                  signerTitle: body.firm.signer_title,
+                  jurisdiction: body.firm.jurisdiction,
+                  companyNumber: body.firm.company_number,
+                  versions,
+                }),
+              ])
+            } else {
+              console.error('[sign-up] firm creation failed:', created.error)
+            }
+          }
+        } catch (firmErr) {
+          console.error('[sign-up] firm creation threw:', firmErr)
         }
       }
 
