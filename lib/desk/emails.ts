@@ -15,6 +15,7 @@ import { firstNameOf } from '@/lib/desk/people'
 import { directSubject } from '@/lib/desk/subjects'
 
 export const CAL_LINK = 'cal.com/refery-lily/15'
+const CAL = `[grab a slot here](https://${CAL_LINK})`
 
 export const PRECALL_QUESTIONS: Record<string, string> = {
   stage: 'What stage of startup are you most excited about, and why?',
@@ -45,7 +46,7 @@ export function calendarReply(input: {
     subject: directSubject(input.candidateName),
     body: `Hi ${first}, great to meet you!${input.referrerFirstName ? ` Thanks for the intro, ${input.referrerFirstName}.` : ''}
 
-Happy to chat. Please grab a slot here: ${CAL_LINK}${askBlock}
+Happy to chat. Please ${CAL}.${askBlock}
 
 Looking forward to it!
 Lily`,
@@ -70,7 +71,7 @@ export function candidateNudge(input: { candidateName: string }): string {
   const first = firstNameOf(input.candidateName)
   return `Hi ${first}, quick nudge in case this got buried :)
 
-The searches I mentioned are moving this month, so if you are still interested it would be great to get 15 minutes on the calendar: ${CAL_LINK}
+The searches I mentioned are moving this month, so if you are still interested it would be great to get 15 minutes on the calendar. Just ${CAL}.
 
 Best,
 Lily`
@@ -86,7 +87,7 @@ export function directAfterReferrer(input: { candidateName: string; referrerName
 ${input.referrerName} mentioned you to me and shared your background, and I wanted to reach out directly. I run Refery, a small referral network that places people into early-stage startups, and I think you could be a strong fit for ${input.seatLines.length === 1 ? 'a search' : 'a couple of searches'} we are running right now:
 ${input.seatLines.map(l => `• ${l}`).join('\n')}
 
-Would love a quick call to hear what you are looking for: ${CAL_LINK}
+Would love a quick call to hear what you are looking for, ${CAL}.
 
 Best,
 Lily`,
@@ -121,16 +122,35 @@ Lily`
 }
 
 /** Ask a partner the facts the record is missing. Appended to whichever email goes first. */
+/**
+ * What the record cannot answer today, in the order a founder asks. Read from
+ * the row at send time, never from the panel, so a fact the partner filled in
+ * an hour ago is not asked for again.
+ */
+export function missingFactsNow(c: Record<string, unknown>): string[] {
+  const p = (c.parsed_data ?? {}) as { work_authorization?: string | null; location?: string | null }
+  const out: string[] = []
+  if (!c.visa_status && !p.work_authorization) out.push('visa')
+  const cities = Array.isArray(c.allowed_locations) ? (c.allowed_locations as unknown[]) : []
+  if (!cities.length && !c.location && !p.location) out.push('location')
+  if (!c.salary_expectation_min && !c.salary_expectation_max) out.push('comp')
+  if (c.consent_told_candidate !== true) out.push('consent')
+  return out
+}
+
+/** The ask, only for what is missing, and only the two that matter most. */
 export function missingFactsAsk(missing: string[], candidateName: string, pageUrl?: string | null): string {
   const first = candidateName.split(/\s+/)[0]
-  const parts: string[] = []
-  if (missing.includes('visa')) parts.push('work authorisation in the US')
-  if (missing.includes('location')) parts.push('where they want to be (SF, NY, elsewhere)')
-  if (missing.includes('comp')) parts.push('the base range they are targeting')
-  if (missing.includes('consent')) parts.push(`whether ${first} knows you are sharing their profile`)
+  const wording: Record<string, string> = {
+    visa: 'work authorisation in the US',
+    location: 'where they want to be (SF, NY, elsewhere)',
+    comp: 'the base range they are targeting',
+    consent: `whether ${first} knows you are sharing their profile`,
+  }
+  const parts = ['visa', 'comp', 'location', 'consent'].filter(k => missing.includes(k)).slice(0, 2).map(k => wording[k])
   if (!parts.length) return ''
-  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-  const where = pageUrl ? ` It takes a minute on ${first}'s page: ${pageUrl}#facts` : ''
+  const list = parts.length === 1 ? parts[0] : `${parts[0]} and ${parts[1]}`
+  const where = pageUrl ? ` It takes a minute on [${first}'s page](${pageUrl}#facts).` : ''
   return `\n\nOne quick thing: ${first}'s profile is still missing ${list}. Founders ask for those first, so having them in makes the intro land faster.${where}`
 }
 

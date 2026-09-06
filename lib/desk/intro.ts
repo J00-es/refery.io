@@ -23,6 +23,7 @@ import { latestPanel } from '@/lib/desk/panel'
 import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
 import { loadOwner, properName, type Owner } from '@/lib/desk/people'
 import { postThreadReply } from '@/lib/slack-bot'
+import { esc, textToHtml } from '@/lib/desk/html'
 
 export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 export const DESK_FROM = 'lily@refery.io'
@@ -85,7 +86,7 @@ export function kitText(k: IntroKit): string {
   const lines = [
     `Everything you need for the intro:`,
     `- ${k.candidateFirst}: ${k.candidateEmail ?? 'no email on record'}${k.linkedin ? ` · ${k.linkedin}` : ''}`,
-    `- ${k.candidateFirst}'s page in Refery: ${k.pageUrl}`,
+    `- [${k.candidateFirst}'s page in Refery](${k.pageUrl})`,
     `- Forward this to ${k.candidateFirst} with me in copy, or write your own:`,
     `  "${k.forwardable}"`,
   ]
@@ -104,16 +105,6 @@ export function kitHtml(k: IntroKit): string {
 <div style="margin-top:10px;border-left:3px solid #D2D1C7;padding:8px 12px;background:#ffffff;border-radius:0 10px 10px 0;color:#2A2A26">Forward this to ${esc(k.candidateFirst)} with me in copy, or write your own:<br><br>“${esc(k.forwardable)}”</div>
 <div style="margin-top:10px">${k.mailto ? btn(k.mailto, 'Open a pre-filled intro email', true) : ''}${k.mailto && k.sendForMeUrl ? ' &nbsp; ' : ''}${k.sendForMeUrl ? btn(k.sendForMeUrl, 'Have Lily reach out, saying it came from you', false) : ''}</div>
 </div>`
-}
-
-/** Plain text to HTML paragraphs, with URLs made clickable. */
-export function textToHtml(text: string): string {
-  const linkified = esc(text).replace(/(https?:\/\/[^\s<]+|mailto:[^\s<]+)/g, m => `<a href="${m}" style="color:#1F3A2F">${m}</a>`)
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:14.5px;line-height:1.6;color:#161613">${linkified.replace(/\n/g, '<br>')}</div>`
-}
-
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
 /**

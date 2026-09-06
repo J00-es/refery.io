@@ -10,6 +10,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { sendMessage, threadMessages } from '@/lib/google'
+import { plainLinks, textToHtml } from '@/lib/desk/html'
 
 export interface OutboundInput {
   candidateId: string | null
@@ -51,7 +52,7 @@ export async function sendDeskEmail(admin: SupabaseClient, input: OutboundInput)
       to_email: input.to.toLowerCase(),
       cc_emails: (input.cc ?? []).map(x => x.toLowerCase()),
       subject: input.subject,
-      body: input.body,
+      body: plainLinks(input.body),
       gmail_thread_id: input.threadId ?? null,
       sent_by: input.sentBy,
       meta: input.meta ?? {},
@@ -71,8 +72,8 @@ export async function sendDeskEmail(admin: SupabaseClient, input: OutboundInput)
     toName: input.toName ?? null,
     cc: input.cc,
     subject: input.subject,
-    body: input.body,
-    html: input.html ?? null,
+    body: plainLinks(input.body),
+    html: input.html ?? textToHtml(input.body),
     thread,
   })
 

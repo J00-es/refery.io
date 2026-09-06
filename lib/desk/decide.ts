@@ -21,7 +21,7 @@ import { postThreadReply, esc } from '@/lib/slack-bot'
 import { latestPanel, recipientFor, type PanelRow } from '@/lib/desk/panel'
 import { loadOwner, properName, type Owner } from '@/lib/desk/people'
 import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
-import { missingFactsAsk } from '@/lib/desk/emails'
+import { missingFactsAsk, missingFactsNow } from '@/lib/desk/emails'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { suggestedLine } from '@/lib/desk/card'
 
@@ -180,7 +180,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       : await rewriteWithNote(draft, input.reasonLine.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
   }
   if (recipient === 'owner' && input.decision !== 'not_fit' && !input.bodyOverride) {
-    const ask = missingFactsAsk(p.missing_facts ?? [], name, `${APP_URL}/candidates/${c.id}`)
+    const ask = missingFactsAsk(missingFactsNow(c), name, `${APP_URL}/candidates/${c.id}`)
     if (ask && !draft.body.includes('One quick thing')) draft.body = draft.body.replace(/\n\nBest,\nLily\s*$/, `${ask}\n\nBest,\nLily`)
   }
 
@@ -201,7 +201,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
     draft.body = v.text
     html = v.html
   } else if (recipient === 'owner' && to && decided === 'bench') {
-    const line = `You can see where ${first} is any time on their page in Refery: ${APP_URL}/candidates/${c.id}`
+    const line = `You can see where ${first} is any time on [their page in Refery](${APP_URL}/candidates/${c.id}).`
     if (!draft.body.includes('/candidates/')) draft.body = /\n\nBest,\nLily\s*$/.test(draft.body) ? draft.body.replace(/\n\nBest,\nLily\s*$/, `\n\n${line}\n\nBest,\nLily`) : `${draft.body}\n\n${line}`
   }
   // Lily uploading her own sourced person and benching them is a filing, not an email.
