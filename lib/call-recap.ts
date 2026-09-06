@@ -19,25 +19,40 @@ import { generateText, Output } from 'ai'
 import { z } from 'zod'
 import { esc, type SlackBlock } from '@/lib/slack-bot'
 
-/**
- * Quality over pennies, deliberately.
- *
- * This writes an email that goes out over Lily's name to someone she just
- * spent half an hour with. A cheaper model saves roughly ten pence a call and
- * costs a relationship the first time it invents a detail. Set
- * CALL_RECAP_MODEL to 'google/gemini-3.6-flash' to trade the other way.
- *
- * The rest of the chain is what already serves this app, so a retired model id
- * degrades a run rather than ending it.
- */
-const MODEL_CHAIN = [
-  process.env.CALL_RECAP_MODEL,
-  'anthropic/claude-opus-5',
-  'openai/gpt-5.6-sol',
-  'google/gemini-3.6-flash',
-].filter((m): m is string => !!m)
+interface RecapModel {
+  id: string
+  /** Passed straight through to the provider behind the AI Gateway. */
+  options?: Record<string, Record<string, string | number | boolean>>
+}
 
-const ATTEMPT_TIMEOUT_MS = 120_000
+/**
+ * Sol first, at high reasoning effort.
+ *
+ * Lily writes these recaps by hand in ChatGPT and judged Opus's drafts weaker
+ * than her own, so the model matches the one she already trusts for this exact
+ * task rather than the one that reads best on a benchmark. Voice is the whole
+ * product here: the email goes out over her name to someone she spent half an
+ * hour with.
+ *
+ * Measured from the first live run of five calls on Opus 5: 51,003 input and
+ * 11,398 output tokens, $0.54 all in. The same tokens on Sol are $0.43, twenty
+ * per cent less, but high effort spends reasoning tokens that bill as output,
+ * so expect roughly break-even rather than a saving. That is the right trade
+ * when the alternative is a draft Lily rewrites.
+ *
+ * Opus stays as the first fallback, so a bad hour at one provider degrades a
+ * run rather than ending it.
+ */
+const MODEL_CHAIN: RecapModel[] = [
+  ...(process.env.CALL_RECAP_MODEL ? [{ id: process.env.CALL_RECAP_MODEL }] : []),
+  { id: 'openai/gpt-5.6-sol', options: { openai: { reasoningEffort: 'high' } } },
+  { id: 'anthropic/claude-opus-5' },
+  { id: 'google/gemini-3.6-flash' },
+]
+
+// High reasoning effort thinks before it writes, and the first live run was
+// already taking 26 to 33 seconds per call without it.
+const ATTEMPT_TIMEOUT_MS = 240_000
 
 /**
  * Transcripts run to about 36,000 characters. This is a generous ceiling that
@@ -202,27 +217,31 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
 
   let lastError: unknown
 
-  for (const model of MODEL_CHAIN) {
+  for (const candidate of MODEL_CHAIN) {
     const startedAt = Date.now()
     try {
       const { output, usage } = await generateText({
-        model,
+        model: candidate.id,
         output: Output.object({ schema: RecapSchema }),
         system,
-        maxOutputTokens: 4000,
+        // Reasoning tokens bill as output and are spent before the answer
+        // begins, so the ceiling has to clear both. 4000 was sized for a model
+        // that was not reasoning at high effort.
+        maxOutputTokens: 8000,
         maxRetries: 0,
         abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
+        ...(candidate.options ? { providerOptions: candidate.options } : {}),
         messages: [{ role: 'user', content: prompt }],
       })
 
       console.log(
-        `[call-recap] ok model=${model} ms=${Date.now() - startedAt} ` +
+        `[call-recap] ok model=${candidate.id} ms=${Date.now() - startedAt} ` +
           `in=${usage?.inputTokens ?? '?'} out=${usage?.outputTokens ?? '?'} type=${output.callType}`,
       )
-      return { recap: output, model }
+      return { recap: output, model: candidate.id }
     } catch (err) {
       lastError = err
-      console.error(`[call-recap] model=${model} failed after ${Date.now() - startedAt}ms:`, err)
+      console.error(`[call-recap] model=${candidate.id} failed after ${Date.now() - startedAt}ms:`, err)
     }
   }
 
@@ -239,6 +258,15 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
  * later trains everyone to ignore the ones that are there.
  */
 export const RECAP_AFFORDANCES = ['fire', '-1', 'zzz', 'email'] as const
+
+/**
+ * How much of the draft to show on the card.
+ *
+ * Slack caps a section at 3000 characters and the blockquote marker costs one
+ * per line, so this leaves room. A recap email runs to roughly 1200; anything
+ * longer is unusual enough that reading it in Gmail is the right answer.
+ */
+const DRAFT_PREVIEW_CHARS = 2400
 
 const TYPE_LABEL: Record<CallType, string> = {
   candidate: 'Candidate',
@@ -267,6 +295,12 @@ export interface CardInput {
   draftError?: string | null
   /** Set when the transcript could not be matched to anyone in the CRM. */
   unresolvedNote?: string | null
+  /**
+   * Whether :fire:, :-1: and :zzz: will do anything here. They write a verdict
+   * to a candidate record, so on a scout or recruiter call the card offers the
+   * draft alone instead of three reactions that answer "no verdict to set".
+   */
+  verdictsApply?: boolean
 }
 
 export function recapBlocks(input: CardInput): { text: string; blocks: SlackBlock[] } {
@@ -274,32 +308,18 @@ export function recapBlocks(input: CardInput): { text: string; blocks: SlackBloc
   const mins = minutesBetween(input.scheduledStart, input.scheduledEnd)
   const when = new Date(input.occurredAt)
 
+  // One line to identify the call, one to say who they are, the flags that
+  // change a decision, then the draft itself. The prose summaries were cut: a
+  // second summary sitting above the email it is summarising earns nothing,
+  // and this card is read in a lift.
   const heading =
     `:telephone_receiver: *${esc(input.personName)}*  ·  ${TYPE_LABEL[recap.callType]}` +
-    `${mins ? `, ${mins} min` : ''}  ·  <!date^${Math.floor(when.getTime() / 1000)}^{date_short_pretty} {time}|${input.occurredAt.slice(0, 16)}>`
+    `${mins ? `  ·  ${mins} min` : ''}  ·  <!date^${Math.floor(when.getTime() / 1000)}^{date_short_pretty}|${input.occurredAt.slice(0, 10)}>`
 
   const blocks: SlackBlock[] = [
     { type: 'section', text: { type: 'mrkdwn', text: heading } },
     { type: 'context', elements: [{ type: 'mrkdwn', text: esc(recap.headline) }] },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `*Who they are*\n${esc(recap.whoTheyAre)}` },
-    },
-    {
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*${recap.callType === 'candidate' ? 'What they want' : 'What they bring'}*\n${esc(recap.whatTheyWant)}`,
-      },
-    },
   ]
-
-  if (recap.quote) {
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: `>${esc(recap.quote).replace(/\n/g, '\n>')}` },
-    })
-  }
 
   if (recap.worthKnowing.length) {
     blocks.push({
@@ -311,18 +331,29 @@ export function recapBlocks(input: CardInput): { text: string; blocks: SlackBloc
     })
   }
 
-  // The draft is the point of the card, so its state is stated plainly whether
-  // it worked or not. A card that silently omits the line reads as "no draft
-  // was wanted" rather than "the draft failed".
-  if (input.draftUrl) {
+  // The draft in full, so the decision can be made here rather than in Gmail.
+  // Free: the body is already written and in hand, so this is characters in a
+  // message that was being posted anyway, not another model call.
+  const body = recap.emailBody.trim()
+  if (body) {
+    const shown = body.length > DRAFT_PREVIEW_CHARS ? `${body.slice(0, DRAFT_PREVIEW_CHARS)}…` : body
+    blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `:pencil: *Recap email drafted* and waiting in Gmail. Nothing has been sent.\n<${input.draftUrl}|Open the draft>`,
+        text: `*Draft reply, nothing sent*\n${esc(shown).split('\n').map(l => `>${l}`).join('\n')}`,
       },
     })
-  } else if (input.draftError) {
+    if (body.length > DRAFT_PREVIEW_CHARS) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: 'Cut here for length. The full draft is in Gmail.' }],
+      })
+    }
+  }
+
+  if (input.draftError) {
     blocks.push({
       type: 'section',
       text: {
@@ -339,15 +370,30 @@ export function recapBlocks(input: CardInput): { text: string; blocks: SlackBloc
     })
   }
 
-  const links = [
-    input.appUrl ? `<${input.appUrl}|Open in Refery>` : null,
-    input.granolaUrl ? `<${input.granolaUrl}|Granola note>` : null,
-    input.personEmail ? `<mailto:${esc(input.personEmail)}|${esc(input.personEmail)}>` : null,
-  ].filter(Boolean)
+  // What the pre-seeded reactions do, said on the card, because an emoji whose
+  // meaning has to be remembered is one nobody uses. The three verdicts write
+  // to a candidate record, so on a scout or recruiter call they are left off
+  // rather than offered and then refused.
+  blocks.push({
+    type: 'context',
+    elements: [
+      {
+        type: 'mrkdwn',
+        text: input.verdictsApply
+          ? ':fire: very strong   ·   :-1: not a fit   ·   :zzz: hold, off market   ·   :email: open the draft   ·   reply in thread to save a note'
+          : ':email: open the draft   ·   reply in thread to save a note   ·   verdict reactions apply on candidate calls',
+      },
+    ],
+  })
 
+  const links = [
+    input.draftUrl ? `<${input.draftUrl}|Open the draft>` : null,
+    input.appUrl ? `<${input.appUrl}|Their record>` : null,
+    input.granolaUrl ? `<${input.granolaUrl}|The transcript>` : null,
+  ].filter(Boolean)
   if (links.length) {
-    blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: links.join('  ·  ') }] })
+    blocks.push({ type: 'context', elements: [{ type: 'mrkdwn', text: links.join('   ·   ') }] })
   }
 
-  return { text: `Call recap: ${input.personName}`, blocks }
+  return { text: `${input.personName}: ${recap.headline}`, blocks }
 }

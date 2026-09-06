@@ -427,6 +427,10 @@ async function handleNote(
       resolved.entityType === 'unresolved'
         ? `Not in Refery yet. The draft is addressed to ${resolved.email ?? 'nobody'}, but nothing was linked to a record.`
         : null,
+    // The three verdict reactions write to a candidate record, so offering them
+    // on a scout or recruiter call would only earn a reply saying there is no
+    // verdict to set.
+    verdictsApply: resolved.entityType === 'candidate' && Boolean(resolved.entityId),
   })
 
   const sent = await postMessage(channel, card.text, card.blocks)
