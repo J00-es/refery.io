@@ -78,7 +78,7 @@ export function CompanyRelationshipStatus({ companyId, currentStatus }: CompanyR
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4">
           <Select value={status} onValueChange={handleStatusChange} disabled={isUpdating}>
             <SelectTrigger className="w-[200px]">
               <SelectValue />
@@ -98,8 +98,8 @@ export function CompanyRelationshipStatus({ companyId, currentStatus }: CompanyR
             </SelectContent>
           </Select>
           
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge className={currentOption.color}>
                 <Icon className="h-3 w-3 mr-1" />
                 {currentOption.label}
