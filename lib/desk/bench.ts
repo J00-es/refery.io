@@ -159,10 +159,16 @@ export async function processBenchQueue(admin: SupabaseClient, weekly: boolean):
         .upsert({ job_id: s.jobId, trigger: 'weekly', status: 'queued', attempts: 0, error: null, enqueued_at: new Date().toISOString(), finished_at: null }, { onConflict: 'job_id' })
     }
   }
+  // A worker that died mid-call leaves a row running forever. Give it back.
+  await admin
+    .from('search_match_queue')
+    .update({ status: 'queued' })
+    .eq('status', 'running')
+    .lt('enqueued_at', new Date(Date.now() - 8 * 60_000).toISOString())
   const { data } = await admin.from('search_match_queue').select('*').eq('status', 'queued').lt('attempts', 3).order('enqueued_at').limit(5)
   const out: Record<string, unknown>[] = []
   for (const q of data ?? []) {
-    await admin.from('search_match_queue').update({ status: 'running', attempts: (q.attempts as number) + 1 }).eq('job_id', q.job_id)
+    await admin.from('search_match_queue').update({ status: 'running', attempts: (q.attempts as number) + 1, enqueued_at: new Date().toISOString() }).eq('job_id', q.job_id)
     try {
       const r = await runBenchMatch(admin, q.job_id as string, q.trigger as string)
       await admin.from('search_match_queue').update({ status: 'done', error: r.error ?? null, finished_at: new Date().toISOString() }).eq('job_id', q.job_id)
