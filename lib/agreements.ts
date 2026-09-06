@@ -1146,13 +1146,13 @@ Section 3, section 13, and the parts of section 10 that apply to the Signer take
  */
 export const FIRM_USER_TERMS_TEXT = `# Team access terms
 
-**v1.0** · Between Refery, Inc. and you · One screen, once
+**v1.0** · Between Refery and you · One screen, once
 
 ## The short version
 
 | | |
 |---|---|
-| **Who you contract with** | Refery, Inc. Your firm has its own separate agreement |
+| **Who you contract with** | Refery Your firm has its own separate agreement |
 | **What you are owed by us** | Nothing. We pay your firm, and what you earn is between you and them |
 | **What we ask** | Keep what you see confidential, use your own account, do not route our placements around us |
 | **How long it lasts** | Confidentiality continues after your access ends |

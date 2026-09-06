@@ -352,7 +352,7 @@ export default function HomeClient() {
             <a href="mailto:lily@refery.io">Contact</a>
           </div>
           <div className="foot-note">
-            Refery, Inc. · Hiring for your own team?{' '}
+            Refery · Hiring for your own team?{' '}
             <a href="https://refery.io">refery.io</a>
           </div>
         </div>

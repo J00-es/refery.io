@@ -413,7 +413,7 @@ function Footer() {
         <span style={{ fontFamily: SERIF, fontWeight: 600, letterSpacing: '-0.02em', fontSize: 16, color: C.ink2 }}>
           Refery<em style={{ fontStyle: 'italic', color: C.green }}>.</em>
         </span>
-        <span style={{ marginLeft: 12 }}>© {new Date().getFullYear()} Refery, Inc.</span>
+        <span style={{ marginLeft: 12 }}>© {new Date().getFullYear()} Refery</span>
       </div>
 
       <div style={{ display: 'flex', gap: 20 }}>

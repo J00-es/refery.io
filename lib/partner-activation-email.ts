@@ -166,7 +166,7 @@ export function partnerActivationHtml(d: ActivationEmailData): string {
 
           <tr>
             <td style="border-top:1px solid ${M.rule}; padding-top:20px; 'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; font-size:11px; line-height:1.5; color:${M.muted};">
-              Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
+              Refery &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a>
             </td>
           </tr>
         </table>

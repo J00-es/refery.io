@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { FOCUS } from '@/lib/candidate-ui'
 import { AgreementContent } from '@/components/agreement-content'
 
@@ -36,18 +36,8 @@ export function SignFirmForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
-  // Same gate an individual partner passes: acceptance stays shut until the
-  // document has actually been in front of them.
-  const [scrolled, setScrolled] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
 
-  function onScroll() {
-    const el = scrollRef.current
-    if (!el) return
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolled(true)
-  }
-
-  const ready = name.trim().length > 1 && authorised && accepted && scrolled
+  const ready = name.trim().length > 1 && authorised && accepted
 
   async function submit() {
     setBusy(true)
@@ -97,9 +87,10 @@ export function SignFirmForm({
         Sign for {firmName}
       </p>
       <p className="mt-1 text-[13.5px] leading-[1.55] text-[#6E6E68]">
-        You are accepting on behalf of <b className="font-semibold text-[#161613]">{legalName}</b>.
-        This does not create an account for you.
+        You are accepting on behalf of <b className="font-semibold text-[#161613]">{legalName}</b>. It
+        takes a minute, and it does not create an account for you.
       </p>
+      <p className="mt-3 text-[13.5px] font-semibold text-[#161613]">In short</p>
 
       <ul className="mt-4 grid gap-1.5">
         {[
@@ -138,18 +129,25 @@ export function SignFirmForm({
         </a>
       </p>
 
-      <div
-        ref={scrollRef}
-        onScroll={onScroll}
-        className="mt-5 max-h-[340px] overflow-y-auto rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3"
-      >
-        <AgreementContent content={addendumText} density="compact" showEyebrow={false} />
-      </div>
-      {!scrolled && (
-        <p className="mt-2 text-[12.5px] text-[#9C9C95]">
-          Scroll to the end of the addendum to enable acceptance.
-        </p>
-      )}
+      {/* On the page, one tap away, and not in the way. Somebody who wants the
+          full text gets it without leaving; somebody who does not is not made
+          to scroll a contract to reach a button. */}
+      <details className="group mt-5 overflow-hidden rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5]">
+        <summary
+          className={`flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-[13.5px] font-semibold text-[#161613] ${FOCUS} [&::-webkit-details-marker]:hidden`}
+        >
+          Read the full Firm Addendum
+          <span
+            aria-hidden
+            className="shrink-0 text-[17px] leading-none text-[#9C9C95] transition-transform group-open:rotate-45"
+          >
+            +
+          </span>
+        </summary>
+        <div className="max-h-[320px] overflow-y-auto border-t border-[#E4E3DC] px-4 py-3">
+          <AgreementContent content={addendumText} density="compact" showEyebrow={false} />
+        </div>
+      </details>
 
       <label className="mt-5 block">
         <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
@@ -163,11 +161,10 @@ export function SignFirmForm({
         />
       </label>
 
-      <label className={`mt-4 flex cursor-pointer items-start gap-2.5 ${scrolled ? '' : 'opacity-60'}`}>
+      <label className="mt-4 flex cursor-pointer items-start gap-2.5">
         <input
           type="checkbox"
           checked={authorised}
-          disabled={!scrolled}
           onChange={e => setAuthorised(e.target.checked)}
           className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
         />
@@ -177,18 +174,15 @@ export function SignFirmForm({
         </span>
       </label>
 
-      <label className={`mt-3 flex cursor-pointer items-start gap-2.5 ${scrolled ? '' : 'opacity-60'}`}>
+      <label className="mt-3 flex cursor-pointer items-start gap-2.5">
         <input
           type="checkbox"
           checked={accepted}
-          disabled={!scrolled}
           onChange={e => setAccepted(e.target.checked)}
           className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
         />
         <span className="text-[13.5px] leading-[1.55] text-[#2A2A26]">
-          I accept the Partner Terms, the Submission Terms and the Firm Addendum on the company&rsquo;s
-          behalf. Typing my name and clicking below is a legally binding electronic signature under
-          the E-SIGN Act and UETA.
+          I accept the partner terms on the company&rsquo;s behalf. Typing my name is my signature.
         </span>
       </label>
 

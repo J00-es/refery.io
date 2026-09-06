@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
         
         <div style="text-align: center; padding: 20px; color: #6b7280; font-size: 12px;">
           <p style="margin: 0;">This is an automated confirmation email from Refery.</p>
-          <p style="margin: 8px 0 0 0;">&copy; ${new Date().getFullYear()} Refery, Inc. All rights reserved.</p>
+          <p style="margin: 8px 0 0 0;">&copy; ${new Date().getFullYear()} Refery All rights reserved.</p>
         </div>
       </body>
       </html>

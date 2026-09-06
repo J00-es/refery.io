@@ -170,7 +170,12 @@ export function candidateOwnershipFilter(userId: string): string {
  */
 export function candidateScopeFilter(userIds: string[]): string {
   const list = userIds.join(',')
-  return `owner_user_id.in.(${list}),uploaded_by_user_id.in.(${list}),user_id.in.(${list})`
+  // Ownership is the permission. `uploaded_by_user_id` and `user_id` record who
+  // put a record here and are kept for audit, but they are history and history
+  // is not a key: a person who uploaded a candidate, handed it on and then left
+  // a firm was still satisfying this predicate for ever, because removal moves
+  // ownership and cannot rewrite the past. Found by counsel, 6 Sep 2026.
+  return `owner_user_id.in.(${list})`
 }
 
 /**
@@ -188,12 +193,9 @@ export function candidateBelongsTo(
   } | null,
 ): boolean {
   if (!candidate) return false
-  return userIds.some(
-    id =>
-      candidate.owner_user_id === id ||
-      candidate.uploaded_by_user_id === id ||
-      candidate.user_id === id,
-  )
+  // Ownership only, and for the reason given on candidateScopeFilter: the other
+  // two columns are an audit trail, not a grant. Keep the two in step.
+  return userIds.some(id => candidate.owner_user_id === id)
 }
 
 /** True when `appUser` may read/modify this specific candidate row. */

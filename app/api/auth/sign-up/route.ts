@@ -132,22 +132,24 @@ export async function POST(req: Request) {
        */
       if (body.firm?.name && body.firm?.legal_name) {
         try {
-          // signer_user_id is the users_admin PK, not the auth id. Read it back
-          // by email so this works whether the row was inserted or relinked.
-          const { data: adminRow } = await adminClient
-            .from('users_admin')
-            .select('id')
-            .eq('email', email)
-            .single()
-
-          if (adminRow?.id) {
+          /**
+           * The auth id, not the users_admin primary key.
+           *
+           * Everything downstream keys on the auth id: partner_org_members.user_id,
+           * candidates.owner_user_id, and getMembership's lookup. An earlier
+           * version of this block read users_admin.id and would have left the
+           * person who created a firm with no membership in it, so the app would
+           * have offered to create them a second one. Never hit: no firm has
+           * signed up yet.
+           */
+          {
             const created = await createFirm(adminClient, {
               name: body.firm.name,
               legalName: body.firm.legal_name,
               jurisdiction: body.firm.jurisdiction,
               companyNumber: body.firm.company_number,
               billingEmail: body.firm.billing_email,
-              createdByUserId: adminRow.id as string,
+              createdByUserId: authData.user.id,
               signer:
                 body.firm.signer_self === false
                   ? {

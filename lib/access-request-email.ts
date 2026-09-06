@@ -55,7 +55,7 @@ export function renderAccessDecisionEmail(input: AccessDecisionEmailInput): { su
   <tr><td style="padding:0 0 14px 0; font-family:${SANS}; font-weight:600; font-size:24px; line-height:1.25; color:${M.green};">${heading}</td></tr>
   <tr><td style="padding:0 0 28px 0; font-family:${SANS}; font-size:16px; line-height:1.65; color:${M.body};">${body}</td></tr>
   <tr><td style="padding:0 0 36px 0;"><a href="${escapeHtml(url)}" style="display:inline-block; padding:13px 26px; font-family:${SANS}; font-weight:600; font-size:15px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">${button}</a></td></tr>
-  <tr><td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:${SANS}; font-size:12px; line-height:1.6; color:${M.muted};">Confidential. A client&rsquo;s name and brief are for you and not for candidates until they have signed Refery&rsquo;s confidentiality note. Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a></td></tr>
+  <tr><td style="border-top:1px solid ${M.rule}; padding-top:20px; font-family:${SANS}; font-size:12px; line-height:1.6; color:${M.muted};">Confidential. A client&rsquo;s name and brief are for you and not for candidates until they have signed Refery&rsquo;s confidentiality note. Refery &middot; <a href="https://refery.io" style="color:${M.muted}; text-decoration:none;">refery.io</a></td></tr>
 </table></td></tr></table></body></html>`
 
   return { subject, html }

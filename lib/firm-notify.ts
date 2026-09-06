@@ -19,6 +19,14 @@ import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 const FROM = 'Refery <agreements@refery.io>'
 const REPLY_TO = 'lily@refery.io'
 
+/**
+ * Where our own copy of a signed firm agreement lands.
+ *
+ * Note agreements@refery.io is also the From address. Partner agreements copy
+ * to lily@refery.io instead, so if these should sit together, set this to that.
+ */
+const AGREEMENTS_INBOX = process.env.AGREEMENTS_INBOX || 'agreements@refery.io'
+
 /** Brand tokens, identical to the other transactional emails. */
 const M = {
   green: '#1F3A2F',
@@ -59,7 +67,7 @@ function shell(headline: string, bodyHtml: string): string {
   <tr><td style="padding:0 0 6px 0;font-family:${SANS};font-size:15px;line-height:1.4;color:${M.body};">Lily Joo</td></tr>
   <tr><td style="padding:0 0 36px 0;font-family:${SANS};font-size:13px;line-height:1.4;color:${M.muted};">Founding Partner, Refery</td></tr>
   <tr><td style="border-top:1px solid ${M.rule};padding-top:20px;font-family:${SANS};font-size:11px;line-height:1.5;color:${M.muted};">
-    Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted};text-decoration:none;">refery.io</a>
+    Refery &middot; <a href="https://refery.io" style="color:${M.muted};text-decoration:none;">refery.io</a>
   </td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -252,6 +260,33 @@ export async function sendFirmSignedPdf(
       ],
     })
     if (res.error) return { sent: false, error: res.error.message || 'send failed' }
+
+    // Our own copy, sent separately rather than as a bcc so a bounce on one
+    // cannot silently take the other with it.
+    try {
+      await new Resend(apiKey).emails.send({
+        from: FROM,
+        to: AGREEMENTS_INBOX,
+        subject: `Signed: ${firm.legal_name} by ${signerName}`,
+        html: shell(
+          `${esc0(firm.legal_name)} is signed.`,
+          para(
+            `<b>${esc0(signerName)}</b> signed for ${esc0(firm.legal_name)} on ${esc0(when)}.`,
+          ) +
+            para(
+              `<span style="color:${M.muted};font-size:14px;">Signer ${esc0(to)}<br />Reference ${esc0(reference)}</span>`,
+            ) +
+            para(`The firm is now pending your approval in Slack.`),
+        ),
+        text: `${signerName} signed for ${firm.legal_name} on ${when}. Signer ${to}. Reference ${reference}. Pending approval in Slack.`,
+        attachments: [
+          { filename: `Refery-Firm-Agreement-${firm.slug}.pdf`, content: pdf },
+        ],
+      })
+    } catch (err) {
+      console.error('[firms] agreements copy failed:', err)
+    }
+
     return { sent: true }
   } catch (err) {
     return { sent: false, error: (err as Error).message }
@@ -744,9 +779,11 @@ export async function announceFirmSignup(opts: {
       elements: [
         {
           type: 'mrkdwn',
-          text: restricted
-            ? `:warning: *${esc(opts.jurisdiction || '')} is EU/UK.* Counsel's hold: activate only once the data-sharing terms, candidate privacy notice and AI assessment are signed off.`
-            : 'Firm and signer are pending. Colleagues join by invitation and accept their own terms.',
+          text: !opts.jurisdiction || !opts.jurisdiction.trim()
+            ? `:warning: *No jurisdiction given.* Ask before activating. An unanswered field is not a safe answer.`
+            : restricted
+              ? `:warning: *${esc(opts.jurisdiction)} is EU/UK.* Counsel's hold: activate only once the data-sharing terms, candidate privacy notice and AI assessment are signed off.`
+              : 'Firm and signer are pending. Colleagues join by invitation and accept their own terms.',
         },
       ],
     },

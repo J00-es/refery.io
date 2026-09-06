@@ -104,7 +104,11 @@ const RESTRICTED_JURISDICTIONS = [
 const RESTRICTED_RE = new RegExp(`\\b(${RESTRICTED_JURISDICTIONS.join('|')})\\b`, 'i')
 
 export function isRestrictedJurisdiction(jurisdiction?: string | null): boolean {
-  return RESTRICTED_RE.test(jurisdiction || '')
+  // Blank counts. Counsel's point: an unanswered field is not evidence of a
+  // safe answer, and treating silence as "not EU" is exactly how the one firm
+  // that should have been held gets waved through.
+  if (!jurisdiction || !jurisdiction.trim()) return true
+  return RESTRICTED_RE.test(jurisdiction)
 }
 
 /** URL-safe, collision-resistant enough for a name, and stable to read. */
@@ -511,13 +515,17 @@ export async function removeMember(
 
   const { data: target } = await admin
     .from('partner_org_members')
-    .select('org_role')
+    .select('org_role, joined_at')
     .eq('org_id', opts.firmId)
     .eq('user_id', opts.userId)
     .is('removed_at', null)
     .maybeSingle()
 
   if (!target) return { ok: false, error: 'They are not in this firm' }
+
+  // The window the firm has a claim over. Anything they owned before they
+  // walked in is theirs and goes with them.
+  const joinedAt = (target.joined_at as string) ?? new Date(0).toISOString()
 
   if (target.org_role === 'admin') {
     const { count } = await admin
@@ -552,6 +560,10 @@ export async function removeMember(
     .from('candidates')
     .update({ owner_user_id: opts.actorId })
     .eq('owner_user_id', opts.userId)
+    // Only what they took on while they were here. A partner who joined a firm
+    // with their own book keeps it: removal is the firm reclaiming its work,
+    // not the firm taking everything the person has ever owned.
+    .gte('created_at', joinedAt)
     .select('id')
 
   // Any open invitation to them is dead too.
