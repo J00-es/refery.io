@@ -81,7 +81,7 @@ export function SuggestedJobs({ candidateId }: { candidateId: string }) {
     <section className={`${CARD} p-4 sm:p-5`}>
       <header className="mb-4 flex items-center gap-2">
         <Sparkles className="h-4 w-4 shrink-0 text-[#1F3A2F]" />
-        <h2 className="font-semibold text-[18px] tracking-[-0.01em] text-[#161613]">Suggested roles</h2>
+        <h2 className="font-semibold text-[18px] tracking-[-0.01em] text-[#161613]">Suggested roles<span className="ml-2 inline-block rounded-full border border-[#E4E3DC] px-1.5 py-px align-middle text-[10.5px] font-medium tracking-wide text-[#9C9C95]" title="Only super admins see this section.">you only</span></h2>
       </header>
 
       {!suggestions ? (

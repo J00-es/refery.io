@@ -4,6 +4,7 @@ import { loadLiveSeats, seatBand } from '@/lib/desk/seats'
 import { tierWord } from '@/lib/desk/tiers'
 import { DeskDecisionButtons } from '@/components/candidates/desk-decision-buttons'
 import { PartnerIntroButtons } from '@/components/candidates/partner-intro-buttons'
+import { Audience } from '@/components/candidates/audience'
 import { forwardableIntro, mailtoFor } from '@/lib/desk/intro'
 import { properName } from '@/lib/desk/people'
 import { CARD } from '@/lib/candidate-ui'
@@ -76,7 +77,7 @@ export async function DeskAssessment({
   return (
     <section className={`${CARD} p-5`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-[15px] font-semibold text-[#161613]">Panel and desk</h2>
+        <h2 className="text-[15px] font-semibold text-[#161613]">Panel and desk<Audience show={isSuperAdmin} who="owner" /></h2>
         {panel && (
           <p className="text-[12px] text-[#9C9C95]">
             {fmt(panel.created_at)}{isSuperAdmin ? ` · ${panel.model.split('/')[1]}` : ''}

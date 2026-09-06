@@ -8,6 +8,7 @@ import { CandidateActions } from '@/components/candidate-actions'
 import { RecruiterNotes } from '@/components/recruiter-notes'
 import { CandidateActivityLog } from '@/components/candidate-activity-log'
 import { SuggestedJobs } from '@/components/candidates/suggested-jobs'
+import { Audience } from '@/components/candidates/audience'
 import { JobLink } from '@/components/jobs/job-link'
 import { CandidateOwnerAssignment } from '@/components/candidate-owner-assignment'
 import { Linkedin, Github, Globe, ArrowRight } from 'lucide-react'
@@ -303,7 +304,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               for most candidates. One subject, one card — and the AI section
               only exists when there is something in it. */}
           <section className={`${CARD} p-5`}>
-            <h2 className="text-[15px] font-semibold text-[#161613]">Assessment</h2>
+            <h2 className="text-[15px] font-semibold text-[#161613]">Assessment<Audience show={isSuperAdmin} who="owner" /></h2>
             <div className="mt-4 grid gap-5 sm:grid-cols-2">
               <div>
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
@@ -398,6 +399,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
                 In play with companies
                 <span className="ml-2 font-normal text-[#9C9C95]">{pipelineData.length}</span>
+                <Audience show={isSuperAdmin} who="owner" />
               </h2>
               <div className="mt-3">
                 {pipelineData.map(
@@ -447,6 +449,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
                 Protected
                 <span className="ml-2 font-normal text-[#9C9C95]">{claims.length}</span>
+                <Audience show={isSuperAdmin} who="you" />
               </h2>
               <div className="mt-3">
                 {claims.map(c => {
@@ -489,7 +492,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             a single line. Everything that is one fact now sits in one list. */}
         <div className="min-w-0 space-y-6 lg:col-start-3 lg:row-start-1 lg:row-span-2">
           <section className={`${CARD} p-5`}>
-            <h2 className="text-[15px] font-semibold text-[#161613]">At a glance</h2>
+            <h2 className="text-[15px] font-semibold text-[#161613]">At a glance<Audience show={isSuperAdmin} who="owner" /></h2>
             <dl className="mt-1 divide-y divide-[#E4E3DC]">
               <Fact label="Email">
                 {typedCandidate.email && (
@@ -568,7 +571,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
 
           {typedCandidate.skills && typedCandidate.skills.length > 0 && (
             <section className={`${CARD} p-5`}>
-              <h2 className="mb-3 text-[15px] font-semibold text-[#161613]">Skills</h2>
+              <h2 className="mb-3 text-[15px] font-semibold text-[#161613]">Skills<Audience show={isSuperAdmin} who="owner" /></h2>
               <div className="flex flex-wrap gap-1.5">
                 {typedCandidate.skills.map(s => (
                   <span key={s} className={CHIP} title={s}>
@@ -581,7 +584,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
 
           {parsedData?.certifications && parsedData.certifications.length > 0 && (
             <section className={`${CARD} p-5`}>
-              <h2 className="mb-2 text-[15px] font-semibold text-[#161613]">Certifications</h2>
+              <h2 className="mb-2 text-[15px] font-semibold text-[#161613]">Certifications<Audience show={isSuperAdmin} who="owner" /></h2>
               <ul className="space-y-1 text-[13.5px] text-[#161613]">
                 {parsedData.certifications.map((c, i) => (
                   <li key={i}>{c}</li>
@@ -604,7 +607,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           <CandidateActivityLog candidateId={id} />
 
           <section className={`${CARD} p-5`}>
-            <h2 className="text-[15px] font-semibold text-[#161613]">Résumé file</h2>
+            <h2 className="text-[15px] font-semibold text-[#161613]">Résumé file<Audience show={isSuperAdmin} who="owner" /></h2>
             <p className="mt-1 break-all text-[12.5px] text-[#6E6E68]">
               {typedCandidate.resume_filename}
             </p>
