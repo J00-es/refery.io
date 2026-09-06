@@ -309,6 +309,7 @@ export async function processIncomingEmail(args: {
         model: drafted.model,
         dryRun: config.dry_run || Boolean(args.email.fixture),
         version: 1,
+        incoming: args.email.body,
       });
       await args.db.from("brain_approvals").insert({
         draft_id: draft.id,
@@ -505,6 +506,7 @@ export async function regenerateFromFeedback(db: SupabaseClient, approvalId: str
     model: result.model,
     dryRun: false,
     version,
+    incoming: bundle.email.body,
   });
   const { data: next } = await db.from("brain_approvals").insert({
     draft_id: bundle.draft.id,

@@ -78,6 +78,7 @@ export async function postApproval(input: {
   model: string;
   dryRun: boolean;
   version: number;
+  incoming?: string | null;
 }): Promise<{ channel: string; ts: string; threadTs: string }> {
   const result = await slackApi("chat.postMessage", {
     channel: input.channel,

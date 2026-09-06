@@ -122,6 +122,16 @@ export function fixtureDraft(email: IncomingEmail, feedback?: string): DraftResu
   };
 }
 
+/**
+ * How much of the received email to show on the card.
+ *
+ * Slack caps a section at 3000 characters and the drafted reply already claims
+ * most of one, so this is the room left for the original without the card
+ * becoming a wall. Enough for a full intro email; a newsletter gets cut, which
+ * is the right way round.
+ */
+const INCOMING_PREVIEW_CHARS = 1400;
+
 export function slackApprovalBlocks(input: {
   draftId: string;
   from: string;
@@ -131,8 +141,22 @@ export function slackApprovalBlocks(input: {
   model: string;
   dryRun: boolean;
   version: number;
+  incoming?: string | null;
 }): unknown[] {
   const safeBody = input.body.length > 2900 ? `${input.body.slice(0, 2890)}…` : input.body;
+
+  // The email Lily is being asked to reply to, quoted on the card so the
+  // decision can be made in Slack instead of switching to Gmail to remember
+  // what was asked. Free: the body is already in hand from the message we
+  // just stored, so this adds no model call and no API call, only characters
+  // in a Slack message that was being posted anyway.
+  const received = (input.incoming ?? "").replace(/\r\n/g, "\n").trim();
+  const trimmed = received.length > INCOMING_PREVIEW_CHARS
+    ? `${received.slice(0, INCOMING_PREVIEW_CHARS)}…`
+    : received;
+  const quoted = trimmed
+    ? trimmed.split("\n").map((line) => `>${line}`).join("\n")
+    : null;
   return [
     { type: "header", text: { type: "plain_text", text: input.dryRun ? "Pep • TEST approval" : "Pep • Reply approval", emoji: true } },
     {
@@ -143,6 +167,12 @@ export function slackApprovalBlocks(input: {
       ],
     },
     { type: "context", elements: [{ type: "mrkdwn", text: `*Why:* ${input.reason}` }] },
+    ...(quoted
+      ? [
+        { type: "section", text: { type: "mrkdwn", text: `*What they wrote*\n${quoted}` } },
+        { type: "divider" },
+      ]
+      : []),
     { type: "section", text: { type: "mrkdwn", text: `*Suggested reply, v${input.version}*\n\n${safeBody}` } },
     {
       type: "actions",
