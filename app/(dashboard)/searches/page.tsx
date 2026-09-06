@@ -298,6 +298,9 @@ export default async function PartnersPage({ searchParams }: PageProps) {
           <p className={`mt-2.5 ${META}`}>{summary}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+          <Link href="/guide/searches-and-pipeline.html" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+            How it works
+          </Link>
           {access.canManage ? (
             <>
               {access.realUser.isSuperAdmin && !access.preview && <ViewAs />}

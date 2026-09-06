@@ -442,7 +442,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             </section>
           )}
 
-          {claims && claims.length > 0 && (
+          {isSuperAdmin && claims && claims.length > 0 && (
             <section className={`${CARD} overflow-hidden`}>
               <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
                 Protected

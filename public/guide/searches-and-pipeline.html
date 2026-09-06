@@ -1,0 +1,394 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Searches and Pipeline Walkthrough</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+:root{--ground:#F2F1EB;--surface:#FFFFFF;--well:#FAF9F5;--hair:#E4E3DC;--hair2:#D2D1C7;--ink:#161613;--muted:#6E6E68;--faint:#9C9C95;--green:#1F3A2F;--green-2:#2E9E6B;--green-soft:#E7EDE9;--amber:#8A6A1F;--amber-soft:#F5EEDD;--red:#A3423A;--red-soft:#FBEDEB;--blue:#3F5A70;--blue-soft:#E7EDF2;--shadow:0 1px 2px rgba(22,22,19,.06),0 10px 30px rgba(22,22,19,.08)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--ground:#17181A;--surface:#1F2023;--well:#232529;--hair:#2C2D31;--hair2:#3A3B40;--ink:#ECEBE5;--muted:#A4A39D;--faint:#77776F;--green:#7DB79A;--green-2:#5FC391;--green-soft:#1E2B25;--amber:#D9B45C;--amber-soft:#2E2818;--red:#E07A70;--red-soft:#33211F;--blue:#8FB0D1;--blue-soft:#1C2732;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35)}}
+:root[data-theme="dark"]{--ground:#17181A;--surface:#1F2023;--well:#232529;--hair:#2C2D31;--hair2:#3A3B40;--ink:#ECEBE5;--muted:#A4A39D;--faint:#77776F;--green:#7DB79A;--green-2:#5FC391;--green-soft:#1E2B25;--amber:#D9B45C;--amber-soft:#2E2818;--red:#E07A70;--red-soft:#33211F;--blue:#8FB0D1;--blue-soft:#1C2732;--shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35)}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:"DM Sans",system-ui,sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased}
+a{color:var(--green)}h1,h2,h3,h4{margin:0;text-wrap:balance;letter-spacing:-.015em;line-height:1.15}h1{font-size:40px;font-weight:600}h2{font-size:26px;font-weight:600}h3{font-size:16px;font-weight:600}h4{font-size:14px;font-weight:600}p{margin:0}
+.mono{font-family:"DM Mono",monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+nav.top{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--ground) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair)}
+nav.top .wrap{display:flex;gap:16px;align-items:center;height:46px;overflow-x:auto;white-space:nowrap}
+nav.top a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:500}nav.top a.brand{color:var(--ink);font-weight:700;margin-right:6px}nav.top a:hover{color:var(--ink)}
+header.hero{padding:52px 0 32px}header .lead{font-size:18px;color:var(--muted);max-width:62ch;margin-top:12px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-top:28px}
+.step{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px 18px}
+.step .n{font-family:"DM Mono",monospace;font-size:12px;color:var(--faint)}.step .t{font-weight:600;margin-top:4px}.step .s{font-size:13px;color:var(--muted);margin-top:4px}
+section{padding:44px 0;border-top:1px solid var(--hair)}
+section .head{display:grid;grid-template-columns:52px 1fr;gap:14px;align-items:start;margin-bottom:20px}
+.num{font-family:"DM Mono",monospace;font-size:13px;color:var(--faint);padding-top:8px}
+.head p{color:var(--muted);margin-top:6px;max-width:70ch}
+.grid2{display:grid;grid-template-columns:1.25fr .75fr;gap:22px;align-items:start}
+.grid2.even{grid-template-columns:1fr 1fr}
+@media (max-width:880px){.grid2,.grid2.even{grid-template-columns:1fr}}
+.note{background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:16px 18px}
+.note h4{margin-bottom:6px}.note+.note{margin-top:14px}
+ul.tight{margin:6px 0 0;padding-left:18px}ul.tight li{margin:5px 0}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--hair);border-radius:14px}
+table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:560px}th{text-align:left;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--hair2)}td{padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}tr:last-child td{border-bottom:0}
+/* screen mock */
+.screen{background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.screen .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--hair);background:var(--ground)}
+.screen .bar i{width:9px;height:9px;border-radius:50%;background:var(--hair2);display:inline-block}
+.screen .bar .url{margin-left:8px;font-family:"DM Mono",monospace;font-size:11.5px;color:var(--faint)}
+.screen .body{padding:18px 20px}
+.topnav{display:flex;gap:6px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--hair);font-size:13px}
+.topnav .logo{font-weight:700;margin-right:10px}.topnav span{padding:6px 12px;border-radius:999px;color:var(--muted)}.topnav span.on{background:var(--green-soft);color:var(--green);font-weight:600}
+.app-h1{font-size:24px;font-weight:600;letter-spacing:-.02em}.app-sub{font-size:13px;color:var(--muted);margin-top:4px;max-width:60ch}
+.h2s{font-size:17px;font-weight:600;margin-top:18px}.meta{font-size:12.5px;color:var(--faint)}
+.row{display:grid;grid-template-columns:2fr 1.4fr 1.2fr;gap:12px;padding:12px 0;border-top:1px solid var(--hair);font-size:13.5px;align-items:center}
+.row:first-of-type{border-top:0}.row .nm{font-weight:600}.row .sub{font-size:12.5px;color:var(--muted)}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--green-soft);color:var(--green)}
+.chip.warn{background:var(--amber-soft);color:var(--amber)}.chip.blue{background:var(--blue-soft);color:var(--blue)}.chip.quiet{background:transparent;color:var(--faint);border:1px solid var(--hair2);font-weight:500}.chip.bad{background:var(--red-soft);color:var(--red)}.chip.lock{background:var(--well);color:var(--muted);border:1px solid var(--hair)}
+.btn{display:inline-block;font-size:13px;font-weight:600;padding:8px 14px;border-radius:999px;border:1px solid var(--hair2);color:var(--ink)}.btn.p{background:var(--green);color:#fff;border-color:var(--green)}
+.card{border:1px solid var(--hair);border-radius:14px;padding:14px 16px;margin-top:12px;background:var(--surface)}
+.card.warm{border-color:#E4D9B8;background:#FFFDF7}
+:root[data-theme="dark"] .card.warm{background:#2A2718;border-color:#4A4020}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .card.warm{background:#2A2718;border-color:#4A4020}}
+.card .t{font-weight:600;font-size:14px}.card .s{font-size:12.5px;color:var(--muted);margin-top:3px}
+.track{display:flex;gap:6px;align-items:center;margin-top:12px}.track i{flex:1;height:4px;border-radius:2px;background:var(--hair)}.track i.on{background:var(--green)}
+.tl{font-size:12.5px;color:var(--muted);display:flex;justify-content:space-between;margin-top:6px}
+.field{border:1px solid var(--hair);border-radius:12px;padding:10px 12px;margin-top:10px;font-size:13px}.field .l{font-size:12px;font-weight:600;color:var(--ink)}.field .v{color:var(--faint);margin-top:2px}
+.opts{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.opts span{font-size:12.5px;padding:5px 11px;border-radius:999px;border:1px solid var(--hair2)}.opts span.on{background:var(--green-soft);border-color:var(--green);color:var(--green);font-weight:600}
+.timeline{list-style:none;margin:8px 0 0;padding:0;font-size:13px}.timeline li{display:grid;grid-template-columns:64px 1fr;gap:10px;padding:5px 0;border-top:1px solid var(--hair)}.timeline li:first-child{border-top:0}.timeline .t{font-family:"DM Mono",monospace;font-size:11.5px;color:var(--faint);padding-top:2px}
+.mail{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);font-size:13.5px}.mail .hd{display:grid;grid-template-columns:56px 1fr;gap:3px 10px;font-size:12.5px;color:var(--muted);padding-bottom:8px;border-bottom:1px solid var(--hair);margin-bottom:8px}.mail .hd b{color:var(--ink);font-weight:500}.mail .body{white-space:pre-wrap;line-height:1.5}
+.meter{height:6px;background:var(--hair);border-radius:3px;overflow:hidden;margin-top:6px}.meter i{display:block;height:100%;background:var(--green-2);width:58%}
+.callout{border-left:3px solid var(--green);padding:6px 0 6px 16px}.callout b{color:var(--green)}
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:14px}
+.legend .l{background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:12px 14px;font-size:13px}.legend .l b{display:block;font-size:13.5px}.legend .l span{color:var(--muted)}
+footer{padding:36px 0 60px;color:var(--faint);font-size:13px}
+</style>
+
+</head><body><nav class="top"><div class="wrap"><a class="brand" href="/searches">← Back to Searches</a><a href="#top" style="font-weight:600;color:var(--ink)">Searches and Pipeline</a><a href="#map">Where things are</a><a href="#searches">1 Searches</a><a href="#geton">2 Get on a search</a><a href="#seat">3 A search</a><a href="#submit">4 Submit</a><a href="#after">5 What happens next</a><a href="#pipeline">6 Pipeline</a><a href="#upload">7 Adding people</a><a href="#sunday">8 Sunday</a><a href="#rules">9 Rules</a><a href="#beta">10 Your beta week</a></div></nav>
+
+<header class="hero" id="top"><div class="wrap">
+  <p class="mono" style="font-size:12px;color:var(--faint)">Refery · how Searches and Pipeline work · September 2026</p>
+  <h1 style="margin-top:8px">Searches and Pipeline, in ten minutes.</h1>
+  <p class="lead">Two new tabs at refery.xyz. <b>Searches</b> is the live roles we are retained on, with the real bar behind each one. <b>Pipeline</b> is everyone you have put forward and exactly where they are. This page shows what you will see, what each word means, and what happens after you press Submit. Every screen below is a drawing of the real one; the clients and people are made up.</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div class="t">Read the searches</div><div class="s">Each one is a real seat with a brief: what clears, what does not, what to say.</div></div>
+    <div class="step"><div class="n">2</div><div class="t">Get on one</div><div class="s">Say yes to a proposal, or ask with one line on why you.</div></div>
+    <div class="step"><div class="n">3</div><div class="t">Submit from your book</div><div class="s">Pick a candidate you can introduce, say why they fit.</div></div>
+    <div class="step"><div class="n">4</div><div class="t">Watch it move</div><div class="s">Pipeline shows every step with the note that explains it. Sunday brings a recap.</div></div>
+  </div>
+</div></header>
+
+<section id="map"><div class="wrap">
+  <div class="head"><div class="num">0</div><div><h2>Where things are</h2><p>Three tabs. Candidates is your own book and has not moved. Searches and Pipeline are new and only beta partners see them.</p></div></div>
+  <div class="screen"><div class="topnav"><span class="logo">Refery.</span><span class="on">Candidates</span><span>Searches</span><span>Pipeline</span><span style="margin-left:auto;color:var(--ink)">You · Recruiter</span></div>
+    <div class="body">
+      <div class="legend">
+        <div class="l"><b>Candidates</b><span>Everyone you have referred. Upload a CV, answer three quick questions, see where each person is with us.</span></div>
+        <div class="l"><b>Searches</b><span>Live roles at clients we are retained by. Proposed to you, the ones you are working, and the ones open to you on request.</span></div>
+        <div class="l"><b>Pipeline</b><span>Everyone you have submitted to a search, across all searches, with the status and the reason behind every move.</span></div>
+      </div>
+    </div></div>
+</div></section>
+
+<section id="searches"><div class="wrap">
+  <div class="head"><div class="num">1</div><div><h2>Searches: three blocks, top to bottom</h2><p>Proposed to you first, because it needs an answer. Then the searches you are working, grouped by client. Then everything else, anonymised until you are on it.</p></div></div>
+  <div class="grid2">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">refery.xyz/searches</span></div><div class="body">
+      <p class="app-h1">Searches</p>
+      <p class="app-sub">The searches you are on, what moved this week, and what needs you. Every search is one role at a client we are retained by, with a brief behind it and a person reading what you submit.</p>
+      <p class="h2s">Proposed to you <span class="meta">1</span></p>
+      <p class="meta">We put you on a search when your bench fits it. Say yes only where you have real supply.</p>
+      <div class="card warm"><div class="t">Founding Backend Engineer · Client A</div><div class="s">Seed-stage AI company, San Francisco, onsite · $170k to $220k · "Your last three founding engineers were this shape." · lapses in 6 days</div><div style="margin-top:10px;display:flex;gap:8px"><span class="btn p">I'll work this</span><span class="btn">Not for me</span></div></div>
+      <p class="h2s">Working <span class="meta">2</span></p>
+      <p class="meta">Grouped by client. The brief is shared; the searches are yours one by one.</p>
+      <div class="card"><div class="t">Client B <span class="chip">on 2 of 3 searches</span></div><div class="s">Series A fintech, New York</div>
+        <div class="row"><div><span class="nm">Account Manager</span><div class="sub">NYC onsite · $130k to $175k · 4 to 8 yrs</div></div><div class="sub">Client interviewing</div><div><span class="chip blue">2 of yours in play</span></div></div>
+        <div class="row"><div><span class="nm">Operations Lead</span><div class="sub">NYC onsite · $180k to $220k</div></div><div class="sub">Sourcing</div><div><span class="chip quiet">nothing from you yet</span></div></div>
+      </div>
+      <p class="h2s">Open to you, on request <span class="meta">4</span></p>
+      <p class="meta">Client name and brief unlock once you are on any search there.</p>
+      <div class="card"><div class="t">Series B · Developer tools company <span class="chip lock">locked</span></div><div class="s">Applied AI Engineer · SF onsite · $200k to $300k · Sourcing</div></div>
+    </div></div>
+    <div>
+      <div class="note"><h4>What the words mean</h4>
+        <ul class="tight">
+          <li><b>Proposed to you.</b> We think your bench fits. One tap says yes or no; an unanswered proposal lapses after 7 days and can be re-proposed later.</li>
+          <li><b>Working.</b> You are on it. The client name, the full brief and Submit are open.</li>
+          <li><b>Open to you, on request.</b> Real seats, real facts (title, city, band, stage), but the client is described rather than named until you are on a search there.</li>
+          <li><b>The stage word</b> (Sourcing, Shortlisting, Client interviewing, Offer out, Filled) tells you how far the search has got. It never shows how many other partners are on it.</li>
+          <li><b>"2 of yours in play"</b> counts only your own submissions.</li>
+        </ul>
+      </div>
+      <div class="note"><h4>Stages, in order</h4>
+        <div class="track"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="tl"><span>Sourcing</span><span>Shortlisting</span><span>Client interviewing</span><span>Offer out</span><span>Filled</span></div>
+        <p style="font-size:13px;color:var(--muted);margin-top:8px"><b>Sourcing:</b> nobody is in front of the client yet, send as soon as you have conviction. <b>Offer out:</b> send only someone exceptional now. <b>Filled:</b> closed; anyone you submitted stays yours.</p>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section id="geton"><div class="wrap">
+  <div class="head"><div class="num">2</div><div><h2>Getting on a search</h2><p>Two ways in. Either way, one person reads it the same day.</p></div></div>
+  <div class="grid2 even">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">a search page, before you are on it</span></div><div class="body">
+      <p class="app-h1" style="font-size:20px">Applied AI Engineer</p>
+      <p class="app-sub">Series B · Developer tools company · SF onsite · $200k to $300k · Engineering</p>
+      <p class="h2s">Ask to be put on this client</p>
+      <p class="meta">Everything above is real. The company's name, the scout brief (what they actually want, what will not clear, what to say to a candidate) and submitting all open up once you are assigned.</p>
+      <div class="card"><div class="t">Ask to be put on this search</div><div class="s">Lily reads every request the same day. A line on why you is what gets it approved.</div>
+        <div class="field"><div class="v">e.g. I have three senior applied-ML people in SF who have shipped agents to production.</div></div>
+        <div style="margin-top:10px"><span class="btn p">Send request</span></div></div>
+    </div></div>
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">a search page, proposed to you</span></div><div class="body">
+      <p class="app-h1" style="font-size:20px">Founding Backend Engineer</p>
+      <p class="app-sub">Client A · Seed-stage AI company · SF onsite · $170k to $220k</p>
+      <div class="card warm"><div class="t">Refery put you on this search</div><div class="s">Read the bar and the brief, then tell us in one tap whether you will work it.</div>
+        <p style="font-size:13px;margin-top:8px"><i>"Your last three founding engineers were exactly this shape, and the founder wants to move this month."</i></p>
+        <div style="margin-top:10px;display:flex;gap:8px"><span class="btn p">I'll work this</span><span class="btn">Not for me</span></div></div>
+      <p class="meta" style="margin-top:12px">Submitting a candidate to a proposed search counts as yes.</p>
+    </div></div>
+  </div>
+  <div class="note" style="margin-top:22px"><h4>Two things to know</h4>
+    <ul class="tight">
+      <li>Being on one search at a client lets you <b>read</b> every search at that client. Submitting to another one there still needs us to put you on it; ask, and say what supply you have.</li>
+      <li>Decline freely. "Not for me" with a short reason helps us propose better next time, and it never counts against you.</li>
+    </ul>
+  </div>
+</div></section>
+
+<section id="seat"><div class="wrap">
+  <div class="head"><div class="num">3</div><div><h2>A search, once you are on it</h2><p>The page is the brief. Read the bar and the two questions before you approach anyone; it saves everyone a week.</p></div></div>
+  <div class="grid2">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">refery.xyz/searches/…/roles/…</span></div><div class="body">
+      <div style="display:flex;gap:6px;margin-bottom:8px"><span class="chip warn">Priority</span><span class="chip quiet">Open-ended headcount</span><span class="chip">You are working this search</span></div>
+      <p class="app-h1">Founding Backend Engineer</p>
+      <p class="app-sub">Client A · posted as "Senior Backend Engineer" · SF Bay Area · On-site · Mid-level · $170k to $220k · 2 to 6 yrs · Engineering</p>
+      <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><span class="btn">Client brief</span><span class="btn">Ask a question</span><span class="btn p">Submit a candidate</span></div>
+      <div class="row" style="margin-top:14px;border-top:1px solid var(--hair)"><div><span class="nm">Your payout on placement</span><div class="sub">shown here per seat, with the split you keep</div></div><div><span class="nm">Priority</span><div class="sub">for the client</div></div><div><span class="nm">Sourcing</span><div class="sub">nobody in front of the client yet</div></div></div>
+      <p class="h2s">The bar for this seat</p>
+      <div class="card"><div class="t" style="font-size:12.5px;color:var(--muted)">Hard requirements, from the JD</div><ul class="tight" style="font-size:13px"><li>Shipped a backend that real users depend on; owned the model or the data layer end to end</li><li>Has built agentic or retrieval features themselves, with evals</li><li>2 to 6 years; Bay Area, fully in person</li></ul>
+        <div class="t" style="font-size:12.5px;color:var(--amber);margin-top:10px">From the intake call</div><p style="font-size:13px">Not for: people who need a spec handed to them, or whose last three roles were at 1,000-person companies.</p></div>
+      <p class="h2s">Logistics</p><p style="font-size:13px">Onsite five days · US work authorisation required, no new sponsorship · start within 6 weeks preferred</p>
+      <p class="h2s">Two questions to ask before you submit</p>
+      <ol style="font-size:13px;margin:6px 0 0;padding-left:18px"><li>"Walk me through something you shipped end to end without a spec."</li><li>"Are you in the Bay Area now, and are you authorised to work in the US without sponsorship?"</li></ol>
+      <p class="h2s">How they interview</p><p style="font-size:13px">1 Intro call with a co-founder · 2 Technical stage, live coding or a take-home · 3 On-site with the team. Decision inside 10 days of the first call.</p>
+      <p class="h2s">Questions <span class="meta">2</span></p>
+      <div class="card"><div class="t" style="font-size:13.5px">Would they consider someone on an H-1B transfer?</div><div class="field"><div class="v" style="color:var(--ink)">Yes for a transfer, no for new sponsorship. Answered by Refery, 2 days ago.</div></div></div>
+    </div></div>
+    <div>
+      <div class="note"><h4>Reading the page</h4>
+        <ul class="tight">
+          <li><b>Posted as.</b> The public title differs from the real seat sometimes. Use the headline when you talk to candidates.</li>
+          <li><b>Hard requirements</b> come from the job description. <b>From the intake call</b> is what the founder said out loud, including what will not clear. That second list is the one that matters.</li>
+          <li><b>Two questions to ask.</b> If a candidate cannot answer both well, do not submit them yet.</li>
+          <li><b>Ask a question.</b> Anything unclear, ask here rather than by email. The answer is published to everyone on the search, so one question helps all of you.</li>
+          <li><b>Client brief</b> opens the longer document for the whole client: the company, the team, the story, how they decide.</li>
+          <li><b>Headcount and slots.</b> "Open-ended" means submit as many as clear the bar. A capped seat shows how many slots are left.</li>
+        </ul>
+      </div>
+      <p class="callout" style="margin-top:14px"><b>The one rule of thumb:</b> if you would not put your own name behind the person in a call with the founder, do not submit them. A small number of strong submissions is worth more to you here than volume.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="submit"><div class="wrap">
+  <div class="head"><div class="num">4</div><div><h2>Submitting a candidate</h2><p>Pick from your own book, then say why, one person at a time. Everything you type is read by a person and shown to the client when it goes forward.</p></div></div>
+  <div class="grid2">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">Submit a candidate · step 2 of 2</span></div><div class="body">
+      <p class="app-h1" style="font-size:20px">Maya R. → Founding Backend Engineer · Client A</p>
+      <p class="app-sub">Backend engineer, Series A fintech · SF · 5 yrs · <span class="chip">A-</span></p>
+      <div class="field"><div class="l">Why they fit</div><div class="v">Built the payments ledger from scratch at her current company and owns it in production. Shipped an internal agent for reconciliation with real evals. Wants a founding seat.</div></div>
+      <div class="field"><div class="l">How do you know them?</div><div class="v">I placed her three years ago and we have stayed in touch; she asked me about founding roles last month.</div></div>
+      <div class="field"><div class="l">Work authorisation</div><div class="opts"><span class="on">Citizen or green card</span><span>H-1B transfer</span><span>OPT</span><span>Needs sponsorship</span></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="field"><div class="l">Current base</div><div class="v">$185,000</div></div><div class="field"><div class="l">Target base</div><div class="v">$205,000</div></div></div>
+      <div class="field"><div class="l">Have you spoken to them about this search?</div><div class="opts"><span class="on">Yes, they are interested</span><span>Mentioned it</span><span>Not yet</span></div></div>
+      <div class="field"><div class="l">Highlights, one per line</div><div class="v">Owns the ledger that moves $40M a month<br>Open to onsite SF from October</div></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center"><span class="btn p">Submit 1 candidate</span><span class="meta">Submitting confirms you can introduce them now.</span></div>
+    </div></div>
+    <div>
+      <div class="note"><h4>What is required, and why</h4>
+        <ul class="tight">
+          <li><b>Your own candidate.</b> Someone in your Candidates book. Submitting from someone else's book would take credit for their sourcing.</li>
+          <li><b>A CV and a way to reach them</b> on the profile.</li>
+          <li><b>How you know them.</b> One honest sentence. This is what makes a marketplace worth reading.</li>
+          <li><b>You can introduce them now.</b> Submitting says so. If we ask for the intro and it never comes, we will ask you before anything else happens.</li>
+          <li><b>Work authorisation</b> is the first thing every client asks. If you leave it blank we will ask you for it.</li>
+          <li><b>Why they fit</b> is optional but it is the difference between a read and a skim.</li>
+        </ul>
+      </div>
+      <div class="note"><h4>Things the form protects you from</h4>
+        <ul class="tight">
+          <li>A person another partner already submitted to this seat shows as <b>taken</b>, without a name, so you do not waste an evening.</li>
+          <li>A closed or full seat will not accept a submission.</li>
+          <li>Your answers on comp and authorisation are remembered on the candidate, so the next submission starts full.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section id="after"><div class="wrap">
+  <div class="head"><div class="num">5</div><div><h2>What happens after you press Submit</h2><p>Within a minute, our panel reads the profile against every live seat. Lily decides the same day in most cases. You hear back on the page, in the profile timeline, and on Sunday.</p></div></div>
+  <div class="grid2 even">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">the candidate's profile, your view</span></div><div class="body">
+      <p class="app-h1" style="font-size:20px">Maya R. <span class="chip">A-</span></p>
+      <p class="app-sub">Backend engineer · SF · 5 yrs · Referred by you</p>
+      <div class="card warm"><div class="t">Lily asked you for a warm intro</div><div class="s">An email with the two of them on it is perfect. Or let Refery write to them and say it came from you.</div><div style="margin-top:10px;display:flex;gap:8px"><span class="btn p">I made the intro</span><span class="btn">Send the intro email for me</span></div></div>
+      <p class="h2s" style="font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)">Where we are <span style="float:right;text-transform:none;letter-spacing:0;color:var(--muted)">Intro asked</span></p>
+      <ul class="timeline">
+        <li><span class="t">Mon</span><span>Submitted to Founding Backend Engineer · Client A</span></li>
+        <li><span class="t">Mon</span><span>Panel read: strong for this seat</span></li>
+        <li><span class="t">Mon</span><span>Lily: intro now. Email to you: "[Refery] Maya R."</span></li>
+        <li><span class="t">Thu</span><span>Reminder to you, if nothing has landed</span></li>
+      </ul>
+    </div></div>
+    <div>
+      <div class="note"><h4>The three outcomes you will see</h4>
+        <ul class="tight">
+          <li><b>Intro asked.</b> The profile is strong for a live seat. You get an email asking for a warm introduction, naming the seat. Reply with an email that has Maya and Lily on it, or press <b>I made the intro</b>, or press <b>Send the intro email for me</b> and we write to her saying it came from you, with you cc'd. If nothing lands, we nudge you gently on day 3 and day 7; on day 12 we may reach out to her directly and say it came from you.</li>
+          <li><b>In the pool.</b> Strong profile, nothing live for them today. We keep them under your name and you hear first the moment a search opens that fits; we ask you for the intro then.</li>
+          <li><b>Not a fit</b> for what is live, with one honest line on why and what would fit better. They stay in the pool under your name.</li>
+        </ul>
+      </div>
+      <div class="note"><h4>After the call</h4><p style="font-size:13.5px">Once Lily has spoken to them you get a short update: the honest read, and what happens next (shared with founders, kept warm for the right seat, or not a fit after the call). Nothing about your candidate goes to a client before that call.</p></div>
+    </div>
+  </div>
+</div></section>
+
+<section id="pipeline"><div class="wrap">
+  <div class="head"><div class="num">6</div><div><h2>Pipeline: everyone you put forward, and where they are</h2><p>One page, every search. When something moves, the note that explains it moves with it.</p></div></div>
+  <div class="grid2">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">refery.xyz/searches/pipeline</span></div><div class="body">
+      <p class="app-h1">Pipeline</p>
+      <p class="app-sub">Everyone you have put forward, across every search, and exactly where they are.</p>
+      <p class="meta">3 in play · 1 placed · 2 closed · 1 missing work authorisation</p>
+      <div class="card"><div class="t">Sent to client <span class="meta">1</span></div><div class="s">In front of the hiring manager, waiting on their read.</div>
+        <div class="row"><div><span class="nm">Maya R.</span><div class="sub">Founding Backend Engineer · Client A</div></div><div class="sub">sent Tue · feedback expected inside 10 days</div><div><span class="chip">A-</span></div></div></div>
+      <div class="card"><div class="t">Interviewing <span class="meta">2</span></div><div class="s">In the company's own process.</div>
+        <div class="row"><div><span class="nm">Daniel K.</span><div class="sub">Account Manager · Client B</div></div><div class="sub">stage 2 of 3 · "Strong first call, team liked the ownership story."</div><div><span class="chip">A</span></div></div>
+        <div class="row"><div><span class="nm">Priya S.</span><div class="sub">Account Manager · Client B</div></div><div class="sub">stage 1 of 3 · <span class="chip warn">missing work authorisation</span></div><div><span class="chip">A-</span></div></div></div>
+      <div class="card"><div class="t">Placed <span class="meta">1</span></div><div class="s">Hired. Your payout is on its way.</div>
+        <div class="row"><div><span class="nm">Jonas W.</span><div class="sub">Operations Lead · Client B</div></div><div class="sub">started 1 Sep</div><div><span class="chip">A</span></div></div></div>
+      <div class="card"><div class="t">Closed <span class="meta">2</span></div>
+        <div class="row"><div><span class="nm">Elena T.</span><div class="sub">Founding Backend Engineer · Client A</div></div><div class="sub">not moving forward · "Wants remote; the seat is five days onsite."</div><div><span class="chip bad">Closed</span></div></div></div>
+    </div></div>
+    <div>
+      <div class="tbl"><table><thead><tr><th>Status</th><th>What it means</th></tr></thead><tbody>
+        <tr><td><b>Submitted</b></td><td>With the Refery team for review.</td></tr>
+        <tr><td><b>Shortlisted</b></td><td>We agree. Being packaged for the client.</td></tr>
+        <tr><td><b>Sent to client</b></td><td>In front of the hiring manager, waiting on their read. We chase them on your behalf.</td></tr>
+        <tr><td><b>Interviewing</b></td><td>In the company's own process. The hiring manager's read appears here after each step.</td></tr>
+        <tr><td><b>Offer</b></td><td>An offer is on the table.</td></tr>
+        <tr><td><b>Placed</b></td><td>Hired. Your payout is on its way.</td></tr>
+        <tr><td><b>Not moving forward</b></td><td>Passed on for this role, always with the reason. The person stays yours.</td></tr>
+        <tr><td><b>Withdrawn</b></td><td>You pulled them back. Do this from the search if they take another job.</td></tr>
+      </tbody></table></div>
+      <p class="callout" style="margin-top:14px"><b>Amber means you.</b> "Missing work authorisation" is the one field every client asks on the first read; add it from the candidate's profile and the row turns quiet.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="upload"><div class="wrap">
+  <div class="head"><div class="num">7</div><div><h2>Adding people well</h2><p>Three doors into your book, and three questions that make a profile matchable. None of them are mandatory; all of them change how fast we can move.</p></div></div>
+  <div class="grid2">
+    <div class="screen"><div class="bar"><i></i><i></i><i></i><span class="url">refery.xyz/candidates/new · after the CV is read</span></div><div class="body">
+      <p class="app-h1" style="font-size:20px">Maya R.</p>
+      <p class="app-sub">Résumé read, 92% of fields captured · Backend engineer, Series A fintech · SF · 5 years</p>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:14px"><b style="font-size:14px">Three things founders ask first</b><span class="meta">Match readiness <b style="color:var(--ink)">58%</b> → <b style="color:var(--green)">95%</b></span></div>
+      <div class="meter"><i></i></div>
+      <div class="field"><div class="l">Work authorisation in the US</div><div class="opts"><span class="on">US citizen or green card</span><span>H-1B, transfer needed</span><span>OPT or STEM OPT</span><span>Needs new sponsorship</span><span>Not US based</span></div></div>
+      <div class="field"><div class="l">Where they will work</div><div class="opts"><span class="on">SF Bay Area</span><span>New York</span><span>Other US hub</span><span>UK or Europe</span><span>Elsewhere</span><span class="on">Open to relocating</span></div></div>
+      <div class="field"><div class="l">Base salary they are targeting</div><div class="opts"><span>Under $120k</span><span>$120 to 160k</span><span>$160 to 200k</span><span class="on">$200 to 250k</span><span>$250k+</span></div></div>
+      <div class="field"><div class="l">Have you told them you are sharing their profile?</div><div class="opts"><span class="on">Yes, they know</span><span>Not yet</span></div></div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center"><span class="btn p">Create profile</span><span class="btn">Skip for now</span></div>
+    </div></div>
+    <div>
+      <div class="note"><h4>Three doors</h4>
+        <ul class="tight">
+          <li><b>Add candidate.</b> One PDF. We read it end to end, show you what we captured, ask the three questions, then create the profile.</li>
+          <li><b>Bulk upload.</b> Many PDFs at once. After they are read you get one table to fill the gaps, with "same for all" shortcuts.</li>
+          <li><b>Email.</b> Send a CV as a PDF attachment to <b>lily@refery.io</b> from the address you signed up with. It becomes a profile under your name automatically.</li>
+        </ul>
+      </div>
+      <div class="note"><h4>Why the three questions</h4>
+        <ul class="tight">
+          <li>Every live seat today needs US work authorisation. Without that answer, no seat can be evaluated. With it, most can.</li>
+          <li>Most seats are onsite in SF or New York. Cities and relocation decide half the matches.</li>
+          <li>The base band saves a round trip with the founder later.</li>
+          <li>Skip anything you do not know. The profile shows what is missing and you can answer any time; we will also ask you in the first email if it matters for a seat.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div></section>
+
+<section id="sunday"><div class="wrap">
+  <div class="head"><div class="num">8</div><div><h2>Sunday: one email, everything that moved</h2><p>You will not get same-day emails for routine moves. Sunday's recap has all of it, with reasons. Anything that needs you that week is also on the pages.</p></div></div>
+  <div class="grid2 even">
+    <div class="mail"><div class="hd"><span>From</span><b>Refery &lt;hello@refery.io&gt;</b><span>Subject</span><b>Your week on Refery · Sunday 14 September</b></div>
+      <div class="body">Hi Sam,
+
+What moved
+• Maya R. · sent to client · Founding Backend Engineer at Client A. The hiring manager's read: strong yes. "Exactly the ownership story we wanted."
+• Elena T. · is not moving forward at Client A. Reason: wants remote; the seat is five days onsite.
+• Priya S. · looks strong for a live search. We asked you for a warm intro; the nudges after that are automatic.
+
+Needs you
+• Priya S. is missing work authorisation on Account Manager at Client B. Clients ask on the first read.
+
+Your searches
+• Founding Backend Engineer at Client A · sourcing · still open · 1 of yours in play
+• Account Manager at Client B · client interviewing · still open · 2 of yours in play
+
+New this week
+• Q&A on Founding Backend Engineer: "Would they consider an H-1B transfer?" Yes for a transfer, no for new sponsorship.
+
+Best,
+Refery</div></div>
+    <div class="note"><h4>What is in it</h4>
+      <ul class="tight">
+        <li><b>What moved.</b> Every status change on your submissions, with the note and the hiring manager's read where there is one. Every decision on your candidates, with the reason.</li>
+        <li><b>Needs you.</b> Proposals waiting for an answer, submissions missing work authorisation.</li>
+        <li><b>Your searches.</b> One line each: stage, still open or not, how many of yours are in play.</li>
+        <li><b>New this week.</b> Answers published on your searches.</li>
+      </ul>
+      <p style="font-size:13.5px;margin-top:10px">Only partners on at least one search get the email. Nothing in it is generated; it is the same facts the pages show.</p>
+    </div>
+  </div>
+</div></section>
+
+<section id="rules"><div class="wrap">
+  <div class="head"><div class="num">9</div><div><h2>The rules that protect you</h2><p>Short version. The full terms are in your agreement.</p></div></div>
+  <div class="legend">
+    <div class="l"><b>Your candidates stay yours.</b><span>Once you have submitted someone, a second partner sending the same person sees "already submitted" and nothing more. The terms of your agreement cover the rest.</span></div>
+    <div class="l"><b>Introduce when asked.</b><span>Submitting says you can introduce them now. If we ask and it does not happen, we check with you before anything else. "Send the intro email for me" is always there.</span></div>
+    <div class="l"><b>Tell your candidates.</b><span>Say you are sharing their profile with Refery before you upload it. The upload asks; answer honestly.</span></div>
+    <div class="l"><b>Client names stay inside the desk.</b><span>Before you are on a search the client is described, not named. Once you are on it, the name and brief are for you and your candidate, not for public postings; abridged, unnamed versions are fine.</span></div>
+    <div class="l"><b>Withdraw, do not ghost.</b><span>If a person takes another job, withdraw them from the search. It keeps the client's read of you clean.</span></div>
+    <div class="l"><b>Ask in the search.</b><span>Questions asked on the search page are answered once and published to everyone on it, which is faster for you and fairer for all.</span></div>
+  </div>
+</div></section>
+
+<section id="beta"><div class="wrap">
+  <div class="head"><div class="num">10</div><div><h2>Your beta week</h2><p>Five things to try, and where to tell us what broke or what was confusing.</p></div></div>
+  <div class="grid2 even">
+    <div class="note"><h4>Try these</h4>
+      <ol style="margin:8px 0 0;padding-left:18px;font-size:14px;line-height:1.6">
+        <li>Open <b>Searches</b>. Answer any proposal. Ask to be put on one search that fits your bench, with one line on why.</li>
+        <li>Open one search you are on. Read the bar and the two questions. Ask a question if anything is unclear.</li>
+        <li>Add two people from your book, or email us two CVs. Answer the three questions on at least one.</li>
+        <li>Submit one person to one search, with "why they fit" and "how you know them" filled in.</li>
+        <li>Open <b>Pipeline</b> the next day. Check the status and the timeline on the person's profile. On Sunday, check the recap against what you saw.</li>
+      </ol>
+    </div>
+    <div class="note"><h4>Tell us</h4>
+      <ul class="tight" style="font-size:14px">
+        <li>Anything that was unclear, wrong, or slower than it should be. A screenshot and one line is enough.</li>
+        <li>Reply to any Refery email, or write to <b>lily@refery.io</b>. If you are in our Slack, use the channel you were invited to.</li>
+        <li>What you would want on Sunday that is not there yet.</li>
+      </ul>
+      <p class="callout" style="margin-top:12px"><b>Thank you.</b> You are the first partners on the desk. What you tell us this week is what the next version is built from.</p>
+    </div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">Refery · beta walkthrough · The screens on this page are drawings of the product; clients and people are illustrative. Your own view shows only your candidates, your searches and your submissions.</div></footer>
+</body></html>

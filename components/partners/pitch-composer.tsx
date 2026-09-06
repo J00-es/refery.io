@@ -121,7 +121,7 @@ export function PitchComposer({
             <p className="flex items-start gap-2 rounded-[12px] bg-[#E7EDE9] px-4 py-3 text-[14px] text-[#1F3A2F]">
               <Check className="mt-0.5 h-4 w-4 shrink-0" />
               <span>
-                {result.submitted} {result.submitted === 1 ? 'candidate' : 'candidates'} submitted and timestamped.
+                {result.submitted} {result.submitted === 1 ? 'candidate' : 'candidates'} submitted.
                 Refery reviews next; the stage moves on this page.
               </span>
             </p>

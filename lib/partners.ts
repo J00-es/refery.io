@@ -85,7 +85,7 @@ export const SEARCH_STAGE_META: Record<SearchStage, { label: string; blurb: stri
   shortlisting: { label: 'Shortlisting', blurb: 'Refery has agreed on at least one candidate and is packaging for the client.' },
   client_interviewing: { label: 'Client interviewing', blurb: 'At least one candidate is in the company’s own process. Still open.' },
   offer_out: { label: 'Offer out', blurb: 'An offer is on the table. Send only someone exceptional now.' },
-  filled: { label: 'Filled', blurb: 'Hired. The search is closed; protection on anyone you submitted still holds.' },
+  filled: { label: 'Filled', blurb: 'Hired. The search is closed; anyone you submitted stays yours.' },
   closed: { label: 'Closed', blurb: 'Off the desk. Nothing more can be submitted.' },
 }
 

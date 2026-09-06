@@ -246,7 +246,7 @@ export function SubmitCandidates({
                               <span className="mt-1 block text-[12px] font-medium text-[#8A6A1F]">
                                 {c.submitted_by_me
                                   ? `Already yours on this role — ${c.submitted_status}`
-                                  : 'Already submitted to this search. The first confirmed submission holds the protection.'}
+                                  : 'Already submitted to this search by someone else.'}
                               </span>
                             )}
                           </span>

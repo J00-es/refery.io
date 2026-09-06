@@ -292,7 +292,7 @@ export async function GET(request: NextRequest) {
       if ((stage === 'filled' || stage === 'closed') && movedAt && movedAt >= since) {
         digest.moved.unshift({
           lead: `${r.headline || r.title} at ${r.company_name}`,
-          text: stage === 'filled' ? 'is filled. Nothing more to source there; anyone you submitted keeps their protection.' : 'is closed. The client paused or withdrew it; anyone you submitted keeps their protection.',
+          text: stage === 'filled' ? 'is filled. Nothing more to source there; anyone you submitted stays yours.' : 'is closed. The client paused or withdrew it; anyone you submitted stays yours.',
         })
       }
     }

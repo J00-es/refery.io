@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
-import { CARD, FOCUS, H1, LEDE, META, detailLine } from '@/lib/desk-ui'
+import { BTN_QUIET, CARD, FOCUS, H1, LEDE, META, detailLine } from '@/lib/desk-ui'
 import { shortAge } from '@/lib/job-ui'
 import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
@@ -57,6 +57,11 @@ export default async function PipelinePage() {
           <p className={`mt-2.5 ${META}`}>
             {detailLine(`${inPlay} in play`, `${placed} placed`, `${closed.length} closed`, needsYou > 0 && `${needsYou} missing work authorisation`)}
           </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
+          <Link href="/guide/searches-and-pipeline.html" className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+            How it works
+          </Link>
         </div>
       </header>
 

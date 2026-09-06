@@ -799,7 +799,7 @@ export function ClientBrief(p: ClientBriefProps) {
           {working.length > 0 && !isAdmin && (
             <p className={`px-1 ${META}`}>
               <Check className="mr-1 inline h-3 w-3" />
-              Anyone you submit here keeps their protection with this client.
+              Anyone you submit here stays yours.
             </p>
           )}
         </aside>
