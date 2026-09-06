@@ -216,8 +216,8 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
       )}
 
       <p className="mt-4 text-[13px] text-[#6E6E68]">
-        <a href="/partner-terms" target="_blank" className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}>
-          Read the Partner Terms v{versions.partner}, Submission Terms v{versions.submission} and Firm Addendum v{versions.addendum}
+        <a href="/partner-terms#firm-addendum" target="_blank" className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}>
+          See the partner terms
         </a>
       </p>
 

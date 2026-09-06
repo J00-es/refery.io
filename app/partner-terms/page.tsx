@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { AgreementContent } from '@/components/agreement-content'
 import {
   AGREEMENT_VERSIONS,
+  FIRM_ADDENDUM_TEXT,
+  FIRM_USER_TERMS_TEXT,
   PARTNER_SUBMISSION_TERMS_TEXT,
   PARTNER_TERMS_TEXT,
 } from '@/lib/agreements'
@@ -17,7 +19,7 @@ import {
 export const metadata = {
   title: 'Partner Terms · Refery',
   description:
-    'The terms between Refery and its scouts and recruiting partners, including the submission terms that apply from your first candidate.',
+    'The terms between Refery and its scouts, recruiting partners and firms: the Partner Terms, the Submission Terms, the Firm Addendum and the Team access terms.',
 }
 
 const C = {
@@ -78,32 +80,71 @@ export default function PartnerTermsPage() {
             marginBottom: 20,
           }}
         >
-          Scouts and recruiting partners
+          Scouts, recruiting partners and firms
         </span>
 
-        <p style={{ fontSize: 15, lineHeight: 1.6, color: C.ink2, margin: '0 0 36px', maxWidth: '62ch' }}>
-          There are two parts. The Partner Terms apply from the moment you join. The Submission
-          Terms apply from your first candidate, and we show them to you again at that point.
+        <p style={{ fontSize: 15, lineHeight: 1.6, color: C.ink2, margin: '0 0 20px', maxWidth: '62ch' }}>
+          The Partner Terms apply from the moment you join. The Submission Terms apply from your
+          first candidate, and we show them to you again at that point. If you work as a firm, two
+          more apply, and they are here too.
         </p>
 
+        {/* A reader who followed a link from an acceptance screen came for one
+            of these four. Jumping straight to it beats scrolling past three. */}
+        <nav
+          aria-label="Documents on this page"
+          style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '0 0 36px' }}
+        >
+          {[
+            { href: '#partner-terms', label: 'Partner Terms' },
+            { href: '#submission-terms', label: 'Submission Terms' },
+            { href: '#firm-addendum', label: 'Firm Addendum' },
+            { href: '#team-access', label: 'Team access terms' },
+          ].map(l => (
+            <a
+              key={l.href}
+              href={l.href}
+              style={{
+                fontSize: 13,
+                fontWeight: 500,
+                color: C.green,
+                background: C.greenBg,
+                border: `1px solid ${C.greenLine}`,
+                borderRadius: 99,
+                padding: '7px 14px',
+                textDecoration: 'none',
+                minHeight: 36,
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              {l.label}
+            </a>
+          ))}
+        </nav>
+
         <section
+          id="partner-terms"
           style={{
             background: C.card,
             border: `1px solid ${C.border}`,
             borderRadius: 12,
             padding: '36px 34px',
+            scrollMarginTop: 24,
           }}
         >
           <AgreementContent content={PARTNER_TERMS_TEXT} density="comfortable" showEyebrow={false} />
         </section>
 
         <section
+          id="submission-terms"
           style={{
             background: C.card,
             border: `1px solid ${C.border}`,
             borderRadius: 12,
             padding: '36px 34px',
             marginTop: 20,
+            scrollMarginTop: 24,
           }}
         >
           <AgreementContent
@@ -111,6 +152,54 @@ export default function PartnerTermsPage() {
             density="comfortable"
             showEyebrow={false}
           />
+        </section>
+
+        {/* The two firm documents. Referenced by version on every firm
+            acceptance screen since 6 Sep 2026, and until now published
+            nowhere: the link said "in full" and did not reach them. */}
+        <p
+          style={{
+            fontSize: 10.5,
+            fontWeight: 650,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            color: C.green,
+            margin: '44px 0 14px',
+          }}
+        >
+          If you work as a firm
+        </p>
+        <p style={{ fontSize: 15, lineHeight: 1.6, color: C.ink2, margin: '0 0 20px', maxWidth: '62ch' }}>
+          One person signs the Firm Addendum for the company. Everyone else at the firm accepts the
+          Team access terms for themselves, which cover their own use rather than the company&rsquo;s
+          commercial position.
+        </p>
+
+        <section
+          id="firm-addendum"
+          style={{
+            background: C.card,
+            border: `1px solid ${C.border}`,
+            borderRadius: 12,
+            padding: '36px 34px',
+            scrollMarginTop: 24,
+          }}
+        >
+          <AgreementContent content={FIRM_ADDENDUM_TEXT} density="comfortable" showEyebrow={false} />
+        </section>
+
+        <section
+          id="team-access"
+          style={{
+            background: C.card,
+            border: `1px solid ${C.border}`,
+            borderRadius: 12,
+            padding: '36px 34px',
+            marginTop: 20,
+            scrollMarginTop: 24,
+          }}
+        >
+          <AgreementContent content={FIRM_USER_TERMS_TEXT} density="comfortable" showEyebrow={false} />
         </section>
 
         <p
@@ -122,9 +211,10 @@ export default function PartnerTermsPage() {
             borderTop: `1px solid ${C.border}`,
           }}
         >
-          Partner Terms v{AGREEMENT_VERSIONS.partner} and Submission Terms v
-          {AGREEMENT_VERSIONS.partnerSubmission}. Partners who joined before these came into effect
-          keep the version they accepted. Questions any time:{' '}
+          Partner Terms v{AGREEMENT_VERSIONS.partner}, Submission Terms v
+          {AGREEMENT_VERSIONS.partnerSubmission}, Firm Addendum v{AGREEMENT_VERSIONS.firmAddendum}{' '}
+          and Team access terms v{AGREEMENT_VERSIONS.firmUser}. Partners who joined before these came
+          into effect keep the version they accepted. Questions any time:{' '}
           <a href="mailto:legal@refery.io" style={{ color: C.green }}>
             legal@refery.io
           </a>

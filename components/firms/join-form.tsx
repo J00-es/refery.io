@@ -86,11 +86,11 @@ export function JoinForm({
 
       <p className="mt-2 text-[13px]">
         <a
-          href="/partner-terms"
+          href="/partner-terms#team-access"
           target="_blank"
           className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
         >
-          Read the Team access terms v{version} in full
+          See the team access terms
         </a>
       </p>
 

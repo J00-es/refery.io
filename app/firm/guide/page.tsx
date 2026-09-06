@@ -326,7 +326,7 @@ export default function FirmGuidePage() {
               Set up your firm
             </Link>
             <Link
-              href="/partner-terms"
+              href="/partner-terms#firm-addendum"
               className="inline-flex min-h-[46px] items-center justify-center rounded-[10px] border border-[#4B6B5C] px-5 text-[15px] font-semibold text-white transition-colors hover:bg-[#2A4A3C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             >
               Read the terms

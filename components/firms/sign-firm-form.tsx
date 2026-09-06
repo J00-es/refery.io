@@ -112,12 +112,11 @@ export function SignFirmForm({
 
       <p className="mt-2 text-[13px]">
         <a
-          href="/partner-terms"
+          href="/partner-terms#firm-addendum"
           target="_blank"
           className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
         >
-          Read the Partner Terms v{versions.partner}, Submission Terms v{versions.submission} and
-          Firm Addendum v{versions.addendum} in full
+          See the partner terms
         </a>
       </p>
 
