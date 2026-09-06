@@ -30,6 +30,8 @@ import { botUserId, postThreadReply, verifySlackSignature } from '@/lib/slack-bo
 import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/intake-emails'
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
+import { sendFirmActivated } from '@/lib/firm-notify'
+import type { Firm } from '@/lib/firms'
 import { decideAccessRequest } from '@/lib/access-requests'
 import { armDeclineFromSlack, declineFromThread, moveSubmissionFromSlack, submissionForSlackMessage } from '@/lib/desk-notifications'
 import { HIDE_REACTIONS, publishAnswer, questionForSlackMessage, setQuestionVisibility } from '@/lib/search-questions'
@@ -221,7 +223,12 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   // vocabulary, so it gets its own handler.
   const signups = partnerSignupChannel()
   if (signups && channel === signups) {
-    await handlePartnerSignup(event, channel, ts, approve)
+    // A firm card and a partner card live in the same channel, so the message
+    // timestamp decides which this is. Firms first: a firm row and a
+    // users_admin row can both exist for the same person, and only one of them
+    // carries this ts.
+    const handled = await handleFirmSignup(event, channel, ts, approve)
+    if (!handled) await handlePartnerSignup(event, channel, ts, approve)
     return
   }
 
@@ -498,4 +505,122 @@ async function handlePartnerSignup(
     ts,
     `:warning: ${who} is now *active*, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
   )
+}
+
+/**
+ * Approve or hold a firm.
+ *
+ * :+1: activates the firm and its signer, and nobody else. A pending invitee
+ * has accepted nothing yet, and activating them would be activating someone
+ * into obligations they have never seen.
+ *
+ * Returns false when this card is not a firm, so the caller can try the
+ * partner handler instead.
+ */
+async function handleFirmSignup(
+  event: ReactionEvent,
+  channel: string,
+  ts: string,
+  approve: boolean,
+): Promise<boolean> {
+  const admin = createAdminClient()
+
+  const { data: firm } = await admin
+    .from('partner_orgs')
+    .select('id, name, legal_name, slug, status, signer_user_id')
+    .eq('slack_channel_id', channel)
+    .eq('slack_message_ts', ts)
+    .maybeSingle()
+
+  if (!firm) return false
+
+  const { data: claimed, error: claimErr } = await admin
+    .from('partner_orgs')
+    .update({
+      status: approve ? 'active' : 'pending',
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: event.user,
+      activated_at: approve ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', firm.id)
+    .eq('status', 'pending')
+    .select('id')
+
+  if (claimErr) {
+    console.error(`[slack-events] firm claim failed for ${firm.id}:`, claimErr.message)
+    return true
+  }
+  if (!claimed?.length) {
+    await postThreadReply(
+      channel,
+      ts,
+      `Already actioned (${firm.name} is currently *${firm.status}*), so nothing was sent this time.`,
+    )
+    return true
+  }
+
+  if (!approve) {
+    await postThreadReply(
+      channel,
+      ts,
+      `:-1: <@${event.user}> left *${firm.name}* pending. No email sent, and nobody can join it yet.`,
+    )
+    return true
+  }
+
+  // The signer is the only account activated here. Their users_admin row has to
+  // be active too, or they would be approved as a firm and still bounced to the
+  // pending screen by the dashboard layout.
+  let signerEmail = ''
+  let signerName = ''
+  if (firm.signer_user_id) {
+    const { data: signer } = await admin
+      .from('users_admin')
+      .select('email, full_name')
+      .eq('user_id', firm.signer_user_id)
+      .maybeSingle()
+    signerEmail = (signer?.email as string) ?? ''
+    signerName = (signer?.full_name as string) || signerEmail
+
+    await admin
+      .from('users_admin')
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq('user_id', firm.signer_user_id)
+      .eq('status', 'pending')
+  }
+
+  const origin = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'https://refery.xyz'
+  ).replace(/\/$/, '')
+
+  if (signerEmail) {
+    const sent = await sendFirmActivated(signerEmail, firm as Firm, signerName, origin)
+    await admin
+      .from('partner_orgs')
+      .update(
+        sent.sent
+          ? { activation_email_sent_at: new Date().toISOString(), activation_email_error: null }
+          : { activation_email_error: sent.error ?? 'unknown' },
+      )
+      .eq('id', firm.id)
+
+    await postThreadReply(
+      channel,
+      ts,
+      sent.sent
+        ? `:+1: <@${event.user}> approved. *${firm.name}* is active and ${signerName} has been emailed at ${signerEmail}.`
+        : `:warning: *${firm.name}* is active, but the email to ${signerEmail} did not send: ${sent.error}. Worth sending by hand.`,
+    )
+  } else {
+    await postThreadReply(
+      channel,
+      ts,
+      `:+1: <@${event.user}> approved *${firm.name}*, but it has no signer on file so no email went out.`,
+    )
+  }
+
+  return true
 }
