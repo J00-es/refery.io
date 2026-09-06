@@ -2,6 +2,96 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { DESK_BETA_ONLY, PROPOSAL_DAYS, searchStageMeta, submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
 import { renderWeeklyDigest, sendWeeklyDigest, type WeeklyDigest } from '@/lib/weekly-digest-email'
+import { notifySlack } from '@/lib/slack'
+import { esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
+
+/**
+ * #refery-daily, where the super admin reads what went out. The bot has to
+ * be invited once; until then the recap falls back to the daily webhook.
+ */
+const DAILY_CHANNEL = process.env.SLACK_CHANNEL_DAILY || 'C0BPW4T3HEZ'
+
+interface RecipientRecap {
+  name: string
+  email: string
+  moved: number
+  needsYou: number
+  searches: number
+  fresh: number
+  sent: boolean
+  error?: string
+  /** The one line worth Lily's eye: the first "what moved" item, or the first need. */
+  headline: string | null
+}
+
+/**
+ * One card to Lily after the Sunday send: who got it, what each digest held,
+ * and anything she should act on. Built from the digests already assembled,
+ * so it costs nothing and never disagrees with what was sent.
+ */
+async function postDigestRecap(input: {
+  weekLabel: string
+  recipients: RecipientRecap[]
+  swept: number
+  skippedNotBeta: number
+  skippedNothingOn: number
+}): Promise<void> {
+  const { recipients } = input
+  const sent = recipients.filter(r => r.sent)
+  const failed = recipients.filter(r => !r.sent)
+  const title = sent.length
+    ? `Sunday digest went to ${sent.length} ${sent.length === 1 ? 'partner' : 'partners'}`
+    : 'Sunday digest: nobody to send to'
+
+  const lines = recipients.map(r => {
+    const counts = [
+      r.moved ? `${r.moved} moved` : null,
+      r.needsYou ? `${r.needsYou} needs them` : null,
+      `${r.searches} ${r.searches === 1 ? 'search' : 'searches'}`,
+      r.fresh ? `${r.fresh} new answers` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+    const status = r.sent ? '' : ` :warning: not sent: ${r.error ?? 'unknown'}`
+    return `• *${esc(r.name)}* — ${esc(counts)}${status}${r.headline ? `\n   _${esc(r.headline)}_` : ''}`
+  })
+
+  const notable: string[] = []
+  if (input.swept) notable.push(`${input.swept} unanswered ${input.swept === 1 ? 'proposal' : 'proposals'} lapsed after ${PROPOSAL_DAYS} days and dropped back to "on request".`)
+  const quiet = recipients.filter(r => r.sent && r.moved === 0)
+  if (quiet.length) notable.push(`${quiet.length} of the ${sent.length} had nothing move this week: ${quiet.map(r => r.name.split(' ')[0]).join(', ')}.`)
+  const needs = recipients.filter(r => r.needsYou > 0)
+  if (needs.length) notable.push(`${needs.length} ${needs.length === 1 ? 'has' : 'have'} something waiting on them (a proposal to answer or a missing work authorisation).`)
+  if (input.skippedNotBeta) notable.push(`${input.skippedNotBeta} ${input.skippedNotBeta === 1 ? 'partner is' : 'partners are'} on a search but not in the beta, so got nothing. Flip them on in Users when ready.`)
+  if (failed.length) notable.push(`${failed.length} ${failed.length === 1 ? 'email' : 'emails'} did not send. Worth a manual nudge.`)
+
+  const blocks: SlackBlock[] = [
+    { type: 'section', text: { type: 'mrkdwn', text: `:newspaper: *${esc(title)}*  ·  ${esc(input.weekLabel)}` } },
+    ...(lines.length ? [{ type: 'section', text: { type: 'mrkdwn', text: lines.join('\n').slice(0, 2900) } }] : []),
+    ...(notable.length
+      ? [{ type: 'section', text: { type: 'mrkdwn', text: `*Worth knowing*\n${notable.map(n => `• ${esc(n)}`).join('\n')}` } }]
+      : []),
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: 'What moved, what needs them, their searches, new answers. Each partner only ever sees their own work. Nothing in this card is generated.',
+        },
+      ],
+    },
+  ]
+
+  const posted = await postMessage(DAILY_CHANNEL, title, blocks)
+  if (posted.ok) return
+  // Bot not in the channel yet: the webhook still lands the words.
+  await notifySlack({
+    stream: 'daily',
+    emoji: ':newspaper:',
+    title: `${title} · ${input.weekLabel}`,
+    body: [...lines, ...(notable.length ? ['', 'Worth knowing:', ...notable.map(n => `• ${n}`)] : [])].join('\n'),
+  })
+}
 
 /**
  * Sunday: the partner digest, and the proposal sweep.
@@ -112,16 +202,25 @@ export async function GET(request: NextRequest) {
 
   const weekLabel = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
   const results: { to: string; sent: boolean; error?: string; subject?: string; html?: string }[] = []
+  const recap: RecipientRecap[] = []
+  let skippedNotBeta = 0
+  let skippedNothingOn = 0
 
   for (const user of users ?? []) {
     if (user.status !== 'active' || !user.email) continue
     // Every link in the digest opens the desk. While the desk is in beta, a
     // partner outside it would land on a 404, so they get no digest yet.
-    if (DESK_BETA_ONLY && !user.is_beta) continue
+    if (DESK_BETA_ONLY && !user.is_beta) {
+      skippedNotBeta += 1
+      continue
+    }
     if (only && user.email !== only) continue
     const uid = user.user_id as string
     const mine = assignments.filter(a => a.user_id === uid)
-    if (!mine.length) continue
+    if (!mine.length) {
+      skippedNothingOn += 1
+      continue
+    }
 
     const digest: WeeklyDigest = {
       to: user.email as string,
@@ -225,17 +324,38 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    let outcome: { sent: boolean; error?: string }
     if (dry) {
       const rendered = renderWeeklyDigest(digest)
       results.push({ to: digest.to, sent: false, subject: rendered.subject, html: rendered.html })
+      outcome = { sent: false, error: 'dry run' }
     } else {
-      const r = await sendWeeklyDigest(digest)
-      results.push({ to: digest.to, ...r })
+      outcome = await sendWeeklyDigest(digest)
+      results.push({ to: digest.to, ...outcome })
     }
+
+    const first = digest.moved[0] ?? digest.needsYou[0] ?? null
+    recap.push({
+      name: (user.full_name as string | null) || (user.email as string),
+      email: user.email as string,
+      moved: digest.moved.length,
+      needsYou: digest.needsYou.length,
+      searches: digest.searches.length,
+      fresh: digest.fresh.length,
+      sent: outcome.sent,
+      error: outcome.error,
+      headline: first ? `${first.lead} ${first.text}`.slice(0, 160) : null,
+    })
+  }
+
+  // The recap to Lily, only for a real send. A dry run is someone checking copy.
+  if (!dry && !only) {
+    await postDigestRecap({ weekLabel, recipients: recap, swept, skippedNotBeta, skippedNothingOn })
   }
 
   return NextResponse.json({
     swept,
+    skipped: { notBeta: skippedNotBeta, nothingOn: skippedNothingOn },
     sent: results.filter(r => r.sent).length,
     results: dry ? results : results.map(({ html: _html, ...rest }) => rest),
   })

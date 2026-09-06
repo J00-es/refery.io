@@ -107,6 +107,12 @@ export default async function DashboardPage() {
   if (!appUser) {
     redirect('/auth/login')
   }
+  // Super admin only while the dashboard is being redone (Lily, 6 Sep 2026).
+  // Everyone else lands on their candidates, which is also where the logo and
+  // the post-login redirect send them.
+  if (!appUser.isSuperAdmin) {
+    redirect('/candidates')
+  }
 
   // Candidate visibility follows canViewAllCandidates (super admin only), not
   // the broader admin-console capability. See lib/current-user.ts.

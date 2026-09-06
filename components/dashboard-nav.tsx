@@ -35,34 +35,27 @@ interface NavItem {
 }
 
 /**
- * The row, in the order a partner works.
+ * The row, in Lily's order (6 Sep 2026): Candidates first for everyone, then
+ * the beta surfaces for beta users, then the super admin's own pages.
  *
- * Searches and Pipeline lead (see betaNavItems): what to work, then where each
- * submission stands. Candidates is the partner's own book, the thing they
- * submit from, so it sits next. Dashboard is the reporting view you look at
- * after the work, not before it, so it trails. Jobs and Companies are the
- * sourced watchlist and are super-admin-only.
+ * Candidates is the partner's own book and the one page every role has. Searches
+ * and Pipeline are in beta and appear only for beta users (super admins always
+ * see them). Dashboard is super-admin-only until its revamp; Jobs and Companies
+ * are the sourced watchlist and always were.
+ *
+ * Hiding a link is not access control. Each page enforces its own gate:
+ * DESK_BETA_ONLY for the desk, the dashboard page itself, and the route
+ * layouts and API handlers for Jobs and Companies.
  */
-const navItems: NavItem[] = [
-  { href: '/candidates', label: 'Candidates', icon: Users },
-  { href: '/dashboard', label: 'Dashboard', icon: Home },
-  { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
-  { href: '/companies', label: 'Companies', icon: Building2, superAdminOnly: true },
-]
-
-/**
- * Surfaces in beta: shown to beta users and super admins.
- *
- * Searches leads the row: it is the handful of searches we are actually
- * retained on, where Jobs is the 29k-role sourced watchlist, and putting it
- * after would send everyone to the noise first.
- *
- * Hiding a link is not access control. These are kept in step with
- * DESK_BETA_ONLY, which is what the pages and their API handlers enforce.
- */
-const betaNavItems = [
+const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon: Users }
+const betaNavItems: NavItem[] = [
   { href: '/searches', label: 'Searches', icon: Handshake },
   { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
+]
+const superAdminNavItems: NavItem[] = [
+  { href: '/dashboard', label: 'Dashboard', icon: Home, superAdminOnly: true },
+  { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
+  { href: '/companies', label: 'Companies', icon: Building2, superAdminOnly: true },
 ]
 
 /**
@@ -108,10 +101,16 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
   const seesBeta = isBeta || isSuperAdmin
-  // Hiding a link is not access control: /jobs and /companies are enforced by
-  // their route layouts and by every handler under /api/jobs and
-  // /api/companies. This only keeps the row honest.
-  const visibleNavItems = navItems.filter(item => !item.superAdminOnly || isSuperAdmin)
+  // One ordered row. Hiding a link is not access control; each page enforces
+  // its own gate. This only keeps the row honest.
+  const visibleNavItems: NavItem[] = [
+    candidatesItem,
+    ...(seesBeta ? betaNavItems : []),
+    ...(isSuperAdmin ? superAdminNavItems : []),
+  ]
+  // The logo goes home. Home is the dashboard for the super admin and the
+  // candidates page for everyone else while the dashboard is being redone.
+  const home = isSuperAdmin ? '/dashboard' : '/candidates'
   const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -135,26 +134,12 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
       <div className="container mx-auto flex h-14 sm:h-16 items-center justify-between px-4">
         {/* Logo and Desktop Nav */}
         <div className="flex items-center gap-4 lg:gap-8">
-          <Link href="/dashboard" className="font-semibold text-lg sm:text-xl text-foreground">
+          <Link href={home} className="font-semibold text-lg sm:text-xl text-foreground">
             Refery<span className="text-green-500">.</span>
           </Link>
-          
+
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-1">
-            {seesBeta && betaNavItems.map((item) =>(
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'px-3 lg:px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  isActiveRoute(item.href)
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
-                )}
-              >
-                {item.label}
-              </Link>
-            ))}
             {visibleNavItems.map((item) => (
               <Link
                 key={item.href}
@@ -263,25 +248,6 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
 
             {/* Mobile Navigation */}
             <nav className="p-2">
-              {seesBeta && betaNavItems.map((item) =>{
-                const Icon = item.icon
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                      isActiveRoute(item.href)
-                        ? 'bg-accent text-accent-foreground'
-                        : 'text-foreground hover:bg-accent/50'
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    {item.label}
-                    <ChevronRight className="h-4 w-4 ml-auto text-muted-foreground" />
-                  </Link>
-                )
-              })}
               {visibleNavItems.map((item) => {
                 const Icon = item.icon
                 return (
