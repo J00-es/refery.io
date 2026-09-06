@@ -408,7 +408,7 @@ export default function Page() {
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">Your details</CardTitle>
                   <CardDescription className="text-sm">
-                    Use your full legal name — this is what we&apos;ll use on your agreement.
+                    Use your full legal name. This is what we&apos;ll use on your agreement.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-6">
