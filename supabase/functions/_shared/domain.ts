@@ -49,6 +49,50 @@ export function normalizePriority(value: unknown): Priority {
   return value === "low" || value === "high" || value === "urgent" ? value : "normal";
 }
 
+/**
+ * Whether this arrived as bulk mail, judged from the envelope rather than the
+ * words.
+ *
+ * The body is the one place that cannot answer this question. A newsletter is
+ * written to invite a reply, so a classifier reading it for permission to act
+ * will be talked into acting by anyone who writes the right sentence. That is
+ * exactly how Boardy's daily brief got a drafted reply: the model called it a
+ * routine automated brief, said no response was necessary, and set
+ * action_needed anyway because the mail says "Reply if you want a deeper prep".
+ *
+ * Boardy is also why List-Unsubscribe alone is not enough. It ships through
+ * Postmark's transactional pool with a personal From and a working Reply-To,
+ * and carries no List-*, Precedence or Auto-Submitted header at all. What it
+ * cannot hide is the feedback loop an ESP has to set to protect its sending
+ * reputation, so Feedback-ID and the complaints address are what catch it.
+ *
+ * Returns the header that decided it, so the outcome row can say why.
+ */
+export function bulkMailSignal(email: IncomingEmail): string | null {
+  const headers = new Map(
+    Object.entries(email.headers ?? {}).map(([key, value]) => [key.toLowerCase(), String(value ?? "")]),
+  );
+
+  // Mailing lists and announcement mail, RFC 2369.
+  for (const name of ["list-unsubscribe", "list-id", "list-post"]) {
+    if (headers.get(name)) return name;
+  }
+
+  // RFC 3834. "no" is what a human's mail asserts; anything else is machinery.
+  const autoSubmitted = (headers.get("auto-submitted") ?? "").toLowerCase();
+  if (autoSubmitted && autoSubmitted !== "no") return "auto-submitted";
+
+  const precedence = (headers.get("precedence") ?? "").toLowerCase();
+  if (["bulk", "list", "junk", "auto_reply"].includes(precedence)) return "precedence";
+
+  // The ESP feedback loop. No person's mail client sets any of these.
+  for (const name of ["feedback-id", "x-complaints-to", "x-csa-complaints", "x-report-abuse"]) {
+    if (headers.get(name)) return name;
+  }
+
+  return null;
+}
+
 export function fixtureClassification(email: IncomingEmail): Classification {
   const text = `${email.subject}\n${email.body}`.toLowerCase();
   const automated = /no[-_ ]?reply|unsubscribe|receipt|notification/.test(`${email.from} ${text}`);

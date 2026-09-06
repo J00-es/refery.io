@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.95.0";
-import { chooseDraftModel, extractAddress, extractDisplayName, extractDomain } from "./domain.ts";
+import { bulkMailSignal, chooseDraftModel, extractAddress, extractDisplayName, extractDomain } from "./domain.ts";
 import { gatherContext } from "./context.ts";
 import { classifyEmail, draftReply } from "./openai.ts";
 import { postApproval, postSlackMessage, replaceApprovalWithStatus } from "./slack.ts";
@@ -187,6 +187,21 @@ export async function processIncomingEmail(args: {
     const personId = await upsertSender(args.db, args.email);
     const companyId = await upsertCompany(args.db, args.email);
     const { conversationId, messageId } = await createConversationAndMessage(args.db, args.email, personId, companyId);
+    // Bulk mail is remembered but never drafted for. After the conversation
+    // row, so the Brain keeps the message and Lily can still read it. Before
+    // the classifier, so a newsletter costs nothing to skip and cannot argue
+    // its way past the gate with its own copy.
+    const bulk = bulkMailSignal(args.email);
+    if (bulk) {
+      await args.db.from("brain_outcomes").insert({
+        conversation_id: conversationId,
+        outcome_type: "no_action_needed",
+        details: { reason: "bulk mail, read only", bulk_signal: bulk, source_message_id: messageId },
+      });
+      await markEvent(args.db, event.id, "ignored", `Bulk mail (${bulk}), read only`);
+      return { ok: true, event_id: event.id, status: "bulk_ignored", bulk_signal: bulk };
+    }
+
     const classified = await classifyEmail({ db: args.db, settings: config, email: args.email, eventId: event.id });
 
     if (!classified.classification.action_needed) {
