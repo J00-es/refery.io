@@ -36,11 +36,11 @@ export async function DeskAssessment({
   ])
 
   const bySeat = new Map(seats.map(s => [s.jobId, s]))
-  const fits = (panel?.seat_fits ?? []).filter(f => bySeat.has(f.job_id))
+  const fits = (panel?.seat_fits ?? []).filter(f => bySeat.has(f.job_id) && f.fit !== 'no')
   const strong = fits.filter(f => f.fit === 'strong')
   const possible = fits.filter(f => f.fit === 'possible')
   const shown = [...strong, ...possible.slice(0, Math.max(0, 3 - strong.length))]
-  const others = fits.length - shown.length
+  const others = seats.length - shown.length
 
   const timeline: { at: string; text: string; tone?: 'warn' }[] = []
   for (const d of decisions ?? []) {

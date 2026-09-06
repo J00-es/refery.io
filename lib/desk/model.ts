@@ -66,6 +66,9 @@ const TIMEOUT: Record<DeskJob, number> = { panel: 110_000, bench: 110_000, class
  * the cache option for a model, the same call is retried without it: an option
  * is never allowed to turn a working call into a failed one.
  */
+/** Thinking depth per job. Output tokens are the cost driver on Opus, and grading a CV does not need `high`. */
+const EFFORT: Record<DeskJob, 'low' | 'medium' | 'high'> = { panel: 'medium', bench: 'medium', classify: 'low', draft: 'medium' }
+
 export async function structured<T>(
   job: DeskJob,
   input: { system: string; user: string; schema: z.ZodType<T>; maxOutputTokens?: number },
@@ -81,6 +84,7 @@ export async function structured<T>(
           maxOutputTokens: input.maxOutputTokens ?? 4000,
           maxRetries: 0,
           abortSignal: AbortSignal.timeout(TIMEOUT[job]),
+          ...(withCache && model.startsWith('anthropic/') ? { providerOptions: { anthropic: { effort: EFFORT[job] } } } : {}),
           messages: [
             {
               role: 'system',

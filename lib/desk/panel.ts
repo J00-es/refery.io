@@ -53,16 +53,16 @@ export const PanelSchema = z.object({
     .describe('Companies or schools on the CV that are notable and were NOT already tagged in the facts you were given (a YC batch, a top lab, a well-known startup). Empty when none.'),
   flags: z.array(z.string()).describe('Things Lily must know before deciding: visa, location, comp, seniority mismatch, gaps, contradictions with what the partner said. Blunt, one clause each. Empty when none.'),
   missing_facts: z.array(z.enum(['visa', 'location', 'comp', 'consent', 'email'])).describe('Facts not on record that a founder will ask first.'),
-  seat_fits: z.array(SeatFit).describe('One entry per SEAT given. Every seat, even the no ones.'),
+  seat_fits: z.array(SeatFit).describe('Only the seats rated strong or possible. Every seat you leave out is a no; do not list the no ones.'),
   suggested_decision: z.enum(['intro_now', 'bench', 'not_fit', 'route_elsewhere']),
   suggested_reason: z.string().describe('One sentence Lily reads to justify the suggestion. Name the seats when intro_now.'),
   drafts: z.object({
-    intro_now: Draft.describe('The first email for intro_now, to the recipient named in the brief.'),
-    bench: Draft.describe('The note for bench, to the recipient named in the brief.'),
-    not_fit: Draft.describe('The not-a-fit note, to the recipient named in the brief.'),
+    intro_now: Draft.describe('The complete first email for intro_now, to the recipient named in the brief. At least four sentences. Written even if you did not suggest intro_now.'),
+    bench: Draft.describe('The complete bench note, to the recipient named in the brief. At least three sentences. Written even if you did not suggest bench.'),
+    not_fit: Draft.describe('The complete not-a-fit note, to the recipient named in the brief. At least four sentences: thanks, the honest reason, what would fit better, kept in the pool. Written even if you did not suggest not_fit.'),
     not_fit_reason_line: z
       .string()
-      .describe('The single sentence inside drafts.not_fit.body that gives the reason, copied exactly, so Lily can replace it with her own line.'),
+      .describe('The single sentence inside drafts.not_fit.body that gives the reason, copied exactly, so Lily can replace it with her own line. Never a placeholder.'),
   }),
 })
 
@@ -78,7 +78,7 @@ GRADES. Grade against the bar for the seats Refery works, not against the genera
   pass  below that, or a profile Refery cannot place (wrong country with no path, career change with nothing to show yet).
 Calibrate to Lily's judgement: she cares about ownership, speed, shipping, customer contact, and AI-native work (agents, RAG, evals, ML in production). She discounts titles, pedigree without output, and long tenures with nothing shipped. Around 7 in 21 people she takes calls with are below A-, on purpose; when you give B+ to someone with an exact seat fit, say so in flags.
 
-SEAT FIT. For every SEAT: strong means Lily should ask for the intro today; possible means worth a look if the strong ones fall through; no otherwise. Blockers are facts, not opinions: a seat marked "us authorized" is a blocker for anyone needing new sponsorship (an H-1B transfer is a warning, not a blocker); an onsite seat is a blocker for someone who will not relocate; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. A person with a strong seat but a hard blocker is NOT intro_now; suggest bench and say why.
+SEAT FIT. Return only the seats rated strong or possible; every other seat is a no and is not listed. strong means Lily should ask for the intro today; possible means worth a look if the strong ones fall through. Blockers are facts, not opinions: a seat marked "us authorized" is a blocker for anyone needing new sponsorship (an H-1B transfer is a warning, not a blocker); an onsite seat is a blocker for someone who will not relocate; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. A person with a strong seat but a hard blocker is NOT intro_now; suggest bench and say why.
 
 SUGGESTED DECISION.
   intro_now       A- or better, at least one strong seat, no hard blocker.
@@ -102,7 +102,10 @@ Rules for the three drafts:
   bench: to the partner, or to the candidate if they came in directly. Strong, nothing live fits today, kept in the pool (under the partner's name when it is a partner), we come back first.
   not_fit: to the partner, or to the candidate if they came in directly. Thank them, one honest reason in one sentence (that sentence is not_fit_reason_line), what would fit better so the next referral lands, keep them in the pool. Never harsh, never vague.
   If a fact is missing (visa, location, comp) and the email goes to a partner, add one short line asking for it.
-Subject lines: partner emails "[Refery] <Candidate full name>"; candidate emails "<First name> / Lily @ Refery".`
+Subject lines: partner emails "[Refery] <Candidate full name>"; candidate emails "<First name> / Lily @ Refery".
+All three drafts are always written in full, whichever decision you suggest, because Lily may pick a different one. A draft that is only a greeting and a sign-off is a failure.
+
+LENGTH. Summary two or three sentences. Highlights three. Flags at most five, the ones that change the decision. Everything else short.`
 
 function cvText(parsed: Partial<ParsedResumeData> | null, fallback: Record<string, unknown>): string {
   if (!parsed) return ''
@@ -299,6 +302,7 @@ export async function runPanel(admin: SupabaseClient, ctx: PanelContext): Promis
 
   const call = await structured('panel', { system, user, schema: PanelSchema, maxOutputTokens: 5000 })
   const out = call.output
+  await repairDrafts(ctx, out)
 
   const logos: Logo[] = [
     ...ctx.logos,
@@ -368,6 +372,49 @@ export async function runPanel(admin: SupabaseClient, ctx: PanelContext): Promis
   })
 
   return row as PanelRow
+}
+
+/**
+ * The panel occasionally economises on the drafts it did not suggest. A draft
+ * that is a greeting and a sign-off is useless the day Lily picks it, so any
+ * thin one is rewritten by a focused second call before anything is saved.
+ */
+const DraftsRepair = z.object({
+  intro_now: Draft,
+  bench: Draft,
+  not_fit: Draft,
+  not_fit_reason_line: z.string(),
+})
+
+function thin(d: { body: string } | undefined): boolean {
+  return !d || d.body.replace(/\s+/g, ' ').trim().length < 160 || /placeholder|\[insert|\[name\]/i.test(d.body)
+}
+
+async function repairDrafts(ctx: PanelContext, out: PanelOutput): Promise<void> {
+  const d = out.drafts
+  const needs = thin(d.intro_now) || thin(d.bench) || thin(d.not_fit) || !d.not_fit_reason_line || /placeholder/i.test(d.not_fit_reason_line) || !d.not_fit.body.includes(d.not_fit_reason_line)
+  if (!needs) return
+  const strong = out.seat_fits.filter(f => f.fit === 'strong').map(f => f.job_id)
+  const system = RUBRIC.slice(RUBRIC.indexOf('EMAILS.'))
+  const user = [
+    `CANDIDATE: ${properName(ctx.candidate.name as string)}. Panel: ${out.grade}, ${out.positioning}. ${out.summary}`,
+    `Highlights: ${out.highlights.join(' | ')}`,
+    out.flags.length ? `Flags: ${out.flags.join(' | ')}` : '',
+    recipientBlock(ctx),
+    'SEAT LABELS TO USE (copy exactly):',
+    seatLabels(ctx),
+    strong.length ? `Strong seats for intro_now: ${strong.map(id => `SEAT ${id}`).join(', ')}` : 'No strong seat; the intro_now draft may still name the closest possible seat, or say a search is likely soon.',
+    'Write all three drafts in full, plus not_fit_reason_line copied exactly from the not_fit body.',
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  try {
+    const r = await structured('draft', { system, user, schema: DraftsRepair, maxOutputTokens: 2500 })
+    out.drafts = r.output
+    console.log(`[desk:panel] drafts repaired for ${ctx.candidate.id} via ${r.model} ($${r.costUsd.toFixed(3)})`)
+  } catch (err) {
+    console.warn('[desk:panel] draft repair failed:', err instanceof Error ? err.message : err)
+  }
 }
 
 export async function latestPanel(admin: SupabaseClient, candidateId: string): Promise<PanelRow | null> {

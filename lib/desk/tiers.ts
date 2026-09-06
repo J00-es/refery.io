@@ -70,7 +70,9 @@ function find(rows: TierRow[], raw: string): TierRow | null {
   if (!n) return null
   for (const r of rows) {
     const keys = [r.normalized_name ?? '', r.name, ...(r.aliases ?? [])].map(norm).filter(Boolean)
-    if (keys.some(k => k === n || (k.length > 3 && (n === k || n.startsWith(`${k} `) || n.endsWith(` ${k}`))))) return r
+    // Exact only. "eastern illinois" must not inherit "illinois urbana champaign"
+    // through a shared word; a false tier on a card is worse than none.
+    if (keys.some(k => k === n)) return r
   }
   return null
 }

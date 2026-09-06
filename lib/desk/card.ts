@@ -92,11 +92,11 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
     .slice(0, 6)
     .map(l => `${l.kind === 'school' ? '' : ''}*${esc(l.name)}*${l.tier ? ` (${tierWord(l.tier) ?? l.tier})` : l.source === 'model' ? ' (notable)' : ''}`)
   const bySeat = new Map(seats.map(s => [s.jobId, s]))
-  const fits = (panel.seat_fits ?? []).filter(f => bySeat.has(f.job_id))
+  const fits = (panel.seat_fits ?? []).filter(f => bySeat.has(f.job_id) && f.fit !== 'no')
   const strong = fits.filter(f => f.fit === 'strong')
   const possible = fits.filter(f => f.fit === 'possible')
   const shown = [...strong, ...(strong.length < 3 ? possible.slice(0, 3 - strong.length) : [])]
-  const others = fits.length - shown.length
+  const others = seats.length - shown.length
 
   const seatLines = shown.map(f => {
     const s = bySeat.get(f.job_id)!
@@ -106,7 +106,7 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
     return `${dot} *${esc(seatName(s))}*${meta ? ` (${esc(meta)})` : ''} · ${f.fit} · ${esc(f.reason)}${block}`
   })
 
-  const flags = (panel.flags ?? []).map(f => `:warning: ${esc(f)}`).join('   ')
+  const flags = (panel.flags ?? []).slice(0, 5).map(f => `:warning: ${esc(f)}`).join('   ')
   const missing = (panel.missing_facts ?? []).filter(m => m !== 'email')
   const missingLine = missing.length ? `:grey_question: not on record: ${missing.join(', ')}` : null
 
