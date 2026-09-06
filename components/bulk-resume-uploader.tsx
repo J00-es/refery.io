@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -22,8 +22,14 @@ interface FileUploadState {
   completeness?: number
 }
 
+export interface CreatedProfile {
+  id: string
+  name: string
+  parsed: ParsedResumeData | null
+}
+
 interface BulkResumeUploaderProps {
-  onAllComplete?: (results: { successful: number; failed: number; duplicates: number }) => void
+  onAllComplete?: (results: { successful: number; failed: number; duplicates: number; created: CreatedProfile[] }) => void
 }
 
 /**
@@ -41,6 +47,9 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024
 export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
   const [files, setFiles] = useState<FileUploadState[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  // Profiles created in this run, for the facts table that follows. A ref
+  // rather than state because the queue closes over a stale `files`.
+  const createdRef = useRef<CreatedProfile[]>([])
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     const newFiles: FileUploadState[] = acceptedFiles.map(file => {
@@ -147,6 +156,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
         candidateId: createData.candidate!.id,
         candidateName: createData.candidate!.name,
       })
+      createdRef.current.push({ id: createData.candidate!.id, name: createData.candidate!.name, parsed })
       return 'created'
     } catch (error) {
       updateFileStatus(index, {
@@ -179,6 +189,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       successful: tally.created,
       failed: tally.failed,
       duplicates: tally.duplicate,
+      created: createdRef.current.splice(0),
     })
   }
 

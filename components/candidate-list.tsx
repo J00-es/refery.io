@@ -51,10 +51,16 @@ type ViewMode = 'card' | 'row'
  * construction, and each carries a sentence saying what is in it. If the counts
  * do not sum to the total, something is being hidden and the design is wrong.
  */
-const STATUS_TABS: { key: StatusKey; label: string; blurb: string }[] = [
-  { key: 'all', label: 'Everyone', blurb: '' },
-  ...JOURNEY_BUCKETS.map(b => ({ key: b.key as StatusKey, label: b.label, blurb: b.blurb })),
-]
+function statusTabs(viewerIsAdmin: boolean): { key: StatusKey; label: string; blurb: string }[] {
+  return [
+    { key: 'all', label: 'Everyone', blurb: '' },
+    ...JOURNEY_BUCKETS.map(b => ({
+      key: b.key as StatusKey,
+      label: viewerIsAdmin ? b.label : b.partnerLabel,
+      blurb: viewerIsAdmin ? b.blurb : b.partnerBlurb,
+    })),
+  ]
+}
 type StatusKey = 'all' | JourneyBucket
 
 /**
@@ -290,7 +296,7 @@ export function CandidateList({
   // Status counts come off the full set so the tab numbers do not move as you
   // filter — they are a stable map of the whole pipeline.
   const statusCounts = useMemo(() => {
-    const c = Object.fromEntries(STATUS_TABS.map(t => [t.key, 0])) as Record<StatusKey, number>
+    const c = Object.fromEntries(statusTabs(canViewAll).map(t => [t.key, 0])) as Record<StatusKey, number>
     for (const cand of candidates) {
       const bucket = journeyBucket(cand)
       c[bucket]++
@@ -299,7 +305,7 @@ export function CandidateList({
     return c
   }, [candidates])
 
-  const activeTabBlurb = STATUS_TABS.find(t => t.key === status)?.blurb
+  const activeTabBlurb = statusTabs(canViewAll).find(t => t.key === status)?.blurb
 
   const filtered = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase()
@@ -455,7 +461,7 @@ export function CandidateList({
               and "Needs you" are always shown so the row does not shift under
               the reader, and the selected tab is never hidden from underneath
               them. */}
-          {STATUS_TABS.filter(
+          {statusTabs(canViewAll).filter(
             t =>
               t.key === 'all' ||
               t.key === 'needs_you' ||

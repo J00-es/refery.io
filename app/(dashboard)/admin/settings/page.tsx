@@ -2,10 +2,12 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Settings, Bell, Mail, Database } from 'lucide-react'
+import { DeskSettings } from '@/components/admin/desk-settings'
 
 export default function AdminSettingsPage() {
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
+      <DeskSettings />
       <Card>
         <CardHeader className="px-4 sm:px-6">
           <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">

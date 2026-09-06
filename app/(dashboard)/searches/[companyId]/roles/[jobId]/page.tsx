@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BenchBlock } from '@/components/searches/bench-block'
 import { notFound, redirect } from 'next/navigation'
 import { ArrowLeft, ChevronDown, FileText, Users } from 'lucide-react'
 import { createAdminClient } from '@/lib/supabase/server'
@@ -626,6 +627,8 @@ export default async function PartnerRolePage({
               )}
             </section>
           )}
+
+          <BenchBlock jobId={jobId} viewerId={access.appUser.id} canManage={access.canManage} />
 
           {/* The queue you can act on, then the record of what you already did. */}
           <section className="mt-9">

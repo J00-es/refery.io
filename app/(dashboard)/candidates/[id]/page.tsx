@@ -16,6 +16,8 @@ import { ResumeBodySections, LanguagesSection } from '@/components/candidates/pa
 import { ReanalyzeResume } from '@/components/candidates/reanalyze-resume'
 import { PARSER_VERSION } from '@/lib/resume-parser'
 import { JourneyStrip } from '@/components/candidates/journey-strip'
+import { DeskAssessment } from '@/components/candidates/desk-assessment'
+import { ThreeFacts } from '@/components/candidates/three-facts'
 import { getStageLabel, stageDisplayName } from '@/lib/pipeline-stages'
 import {
   CARD,
@@ -355,6 +357,35 @@ export default async function CandidateDetailPage({ params }: PageProps) {
               </div>
             )}
           </section>
+
+          {/* ── the desk: panel read, seat fits, decisions, timeline ────── */}
+          <DeskAssessment
+            candidateId={id}
+            journeyStage={typedCandidate.journey_stage}
+            isSuperAdmin={isSuperAdmin}
+            isOwner={typedCandidate.owner_user_id === appUser.id}
+          />
+
+          {/* The three facts founders ask first, only the unanswered ones.
+              Saving re-runs the panel with the new facts. */}
+          {(isSuperAdmin || typedCandidate.owner_user_id === appUser.id) && (
+            <section className={`${CARD} p-5`}>
+              <ThreeFacts
+                candidateId={id}
+                compact
+                title="Missing facts"
+                initial={{
+                  visa_status: typedCandidate.visa_status ?? null,
+                  allowed_locations: ((candidate as Record<string, unknown>).allowed_locations as string[] | null) ?? [],
+                  relocation_ok: ((candidate as Record<string, unknown>).relocation_ok as boolean | null) ?? null,
+                  salary_expectation_min: typedCandidate.salary_expectation_min ?? null,
+                  salary_expectation_max: typedCandidate.salary_expectation_max ?? null,
+                  consent_told_candidate: ((candidate as Record<string, unknown>).consent_told_candidate as boolean | null) ?? null,
+                  other_city: '',
+                }}
+              />
+            </section>
+          )}
 
           {/* ── roles ────────────────────────────────────────────────────
               Stage names follow the same rule as the job board: the team sees

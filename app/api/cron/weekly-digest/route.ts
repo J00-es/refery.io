@@ -192,6 +192,16 @@ export async function GET(request: NextRequest) {
         .gte('answered_at', since),
     ])
 
+  // What the desk decided about their people this week, with the reason.
+  // Roger's ask: never hear "not a fit" without why. Partners with no live
+  // search still get nothing here, which is the standing rule for the digest.
+  const { data: deskDecisions } = await adminClient
+    .from('candidate_decisions')
+    .select('candidate_id, decision, reason, created_at, candidates!inner(name, owner_user_id, recruiter_verdict)')
+    .in('candidates.owner_user_id', userIds)
+    .gte('created_at', since)
+    .order('created_at', { ascending: true })
+
   const roleById = new Map((roles ?? []).map(r => [r.job_id as string, r]))
   const eventsBySubmission = new Map<string, { to_status: string; note: string | null; created_at: string }[]>()
   for (const e of events ?? []) {
@@ -251,6 +261,24 @@ export async function GET(request: NextRequest) {
         text += ` The hiring manager's read${read ? `: ${read}` : ''}${s.hm_note ? `. "${s.hm_note}"` : '.'}`
       }
       digest.moved.push({ lead: (s.candidate_name as string) ?? 'A candidate', text })
+    }
+
+    for (const d of (deskDecisions ?? []) as { candidate_id: string; decision: string; reason: string | null; candidates: { name: string; owner_user_id: string; recruiter_verdict: string | null } | { name: string; owner_user_id: string; recruiter_verdict: string | null }[] }[]) {
+      const cand = Array.isArray(d.candidates) ? d.candidates[0] : d.candidates
+      if (!cand || cand.owner_user_id !== uid) continue
+      const text =
+        d.decision === 'intro_now'
+          ? 'looks strong for a live search. We asked you for a warm intro; the nudges after that are automatic.'
+          : d.decision === 'bench'
+            ? 'is a strong profile with nothing live for them today. Kept in the pool under your name; you hear first when a search opens.'
+            : d.decision === 'not_fit'
+              ? `is not a fit for what is live.${d.reason ? ` Reason: ${d.reason}` : cand.recruiter_verdict ? ` ${cand.recruiter_verdict.split('. ').slice(0, 2).join('. ')}.` : ''}`
+              : d.decision === 'verdict_very_strong' || d.decision === 'verdict_strong'
+                ? 'spoke with Lily and is warm. Being matched to open seats, founders first.'
+                : d.decision === 'verdict_not_fit'
+                  ? 'spoke with Lily and it was not a fit. Kept in the pool under your name.'
+                  : null
+      if (text) digest.moved.push({ lead: cand.name, text })
     }
 
     // A search of theirs that ended this week belongs in "what moved" too, so

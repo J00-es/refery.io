@@ -6,13 +6,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { BulkResumeUploader } from '@/components/bulk-resume-uploader'
+import { BulkFactsTable, type CreatedRow } from '@/components/candidates/bulk-facts-table'
 
 export default function BulkUploadPage() {
   const router = useRouter()
   const [results, setResults] = useState<{ successful: number; failed: number; duplicates: number } | null>(null)
+  const [created, setCreated] = useState<CreatedRow[]>([])
 
-  const handleAllComplete = (data: { successful: number; failed: number; duplicates: number }) => {
+  const handleAllComplete = (data: { successful: number; failed: number; duplicates: number; created?: CreatedRow[] }) => {
     setResults(data)
+    if (data.created?.length) setCreated(prev => [...prev, ...data.created!.filter(c => !prev.some(p => p.id === c.id))])
   }
 
   return (
@@ -62,6 +65,12 @@ export default function BulkUploadPage() {
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {created.length > 0 && (
+        <div className="mb-6">
+          <BulkFactsTable rows={created} />
+        </div>
       )}
 
       <Card className="mb-6">

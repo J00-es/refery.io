@@ -16,6 +16,7 @@ import {
   JOURNEY_STAGES,
   JOURNEY_STRIP,
   journeyConfig,
+  stripIndexOf,
   type JourneyStage,
 } from '@/lib/journey'
 
@@ -51,7 +52,7 @@ export function JourneyStrip({
   const [error, setError] = useState<string | null>(null)
 
   const current = journeyConfig(stage)
-  const currentIndex = JOURNEY_STRIP.findIndex(s => s.value === stage)
+  const currentIndex = stripIndexOf(stage)
   const isClosed = current.category === 'closed'
 
   async function move(next: JourneyStage) {

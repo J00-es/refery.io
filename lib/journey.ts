@@ -14,6 +14,11 @@
  * at the same moment, so per-role progress can never collapse into a field on
  * the person. `warm` is the handoff: reaching it is what licenses matching.
  *
+ * Since 6 Sep 2026 the desk drives Journey A: the panel runs at the door and
+ * puts the person at `decision_pending`; Lily's reaction moves them to
+ * `intro_requested` (we asked the referrer), `intro_sent` (we wrote to the
+ * person), `bench` (strong, no live seat) or `not_fit`. See lib/desk/.
+ *
  * See lib/pipeline-stages.ts for Journey B's scout-facing display buckets.
  */
 
@@ -22,7 +27,10 @@
 export type JourneyStage =
   | 'uploaded'
   | 'calibrating'
+  | 'decision_pending'
   | 'ready_for_intro'
+  | 'bench'
+  | 'intro_requested'
   | 'intro_sent'
   | 'committee_call'
   | 'warm'
@@ -45,6 +53,8 @@ export interface JourneyStageConfig {
   category: 'in_progress' | 'vouched' | 'closed'
   /** Position on the journey strip. Closed states sit off the strip entirely. */
   order: number
+  /** Shown on the strip. Holding states (bench) and closed states are not steps. */
+  onStrip: boolean
 }
 
 export const JOURNEY_STAGES: JourneyStageConfig[] = [
@@ -54,6 +64,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: "They're in. We're reading the résumé.",
     category: 'in_progress',
     order: 1,
+    onStrip: true,
   },
   {
     value: 'calibrating',
@@ -61,20 +72,47 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: "We're reviewing them against the bar.",
     category: 'in_progress',
     order: 2,
+    onStrip: false,
+  },
+  {
+    value: 'decision_pending',
+    label: 'In review',
+    blurb: 'The panel has read them. Waiting on Lily to decide the next step.',
+    category: 'in_progress',
+    order: 2,
+    onStrip: true,
   },
   {
     value: 'ready_for_intro',
-    label: 'Ready for intro',
-    blurb: 'They cleared the bar and are waiting on a warm introduction.',
+    label: 'In review',
+    blurb: 'They cleared the bar. Waiting on Lily to decide the next step.',
+    category: 'in_progress',
+    order: 2,
+    onStrip: false,
+  },
+  {
+    value: 'bench',
+    label: 'On the bench',
+    blurb: 'Strong profile, no live search for them today. Re-matched the moment one opens.',
+    category: 'in_progress',
+    order: 2,
+    onStrip: false,
+  },
+  {
+    value: 'intro_requested',
+    label: 'Intro asked',
+    blurb: "We've asked whoever referred them for a warm introduction.",
     category: 'in_progress',
     order: 3,
+    onStrip: true,
   },
   {
     value: 'intro_sent',
     label: 'Intro sent',
-    blurb: "Intro made. Waiting to hear back from them.",
+    blurb: "We've written to them. Waiting for them to book a call.",
     category: 'in_progress',
     order: 4,
+    onStrip: true,
   },
   {
     value: 'committee_call',
@@ -82,6 +120,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: 'A call with our talent committee is on the calendar.',
     category: 'in_progress',
     order: 5,
+    onStrip: true,
   },
   {
     value: 'warm',
@@ -89,6 +128,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: "We've met them and vouch for them. We're matching them to open roles.",
     category: 'vouched',
     order: 6,
+    onStrip: true,
   },
   {
     value: 'placed',
@@ -96,6 +136,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: 'They took a role.',
     category: 'vouched',
     order: 7,
+    onStrip: false,
   },
   {
     value: 'not_fit',
@@ -103,6 +144,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: 'Not a match for the kinds of roles we work on.',
     category: 'closed',
     order: 90,
+    onStrip: false,
   },
   {
     value: 'post_committee_not_fit',
@@ -110,6 +152,7 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: "We spoke with them, and it wasn't a fit.",
     category: 'closed',
     order: 91,
+    onStrip: false,
   },
   {
     value: 'dormant',
@@ -117,13 +160,12 @@ export const JOURNEY_STAGES: JourneyStageConfig[] = [
     blurb: "We lost touch. Worth another try if you know them.",
     category: 'closed',
     order: 92,
+    onStrip: false,
   },
 ]
 
-/** The steps drawn on the journey strip, in order. Closed states are not steps. */
-export const JOURNEY_STRIP: JourneyStageConfig[] = JOURNEY_STAGES.filter(
-  s => s.category !== 'closed' && s.value !== 'placed'
-).sort((a, b) => a.order - b.order)
+/** The steps drawn on the journey strip, in order. */
+export const JOURNEY_STRIP: JourneyStageConfig[] = JOURNEY_STAGES.filter(s => s.onStrip).sort((a, b) => a.order - b.order)
 
 export function journeyConfig(stage: JourneyStage): JourneyStageConfig {
   return JOURNEY_STAGES.find(s => s.value === stage) ?? JOURNEY_STAGES[0]
@@ -131,6 +173,14 @@ export function journeyConfig(stage: JourneyStage): JourneyStageConfig {
 
 export function journeyLabel(stage: JourneyStage): string {
   return journeyConfig(stage).label
+}
+
+/** Where a stage sits on the strip; holding states map to the step they wait at. */
+export function stripIndexOf(stage: JourneyStage): number {
+  const cfg = journeyConfig(stage)
+  const idx = JOURNEY_STRIP.findIndex(s => s.value === stage)
+  if (idx >= 0) return idx
+  return JOURNEY_STRIP.findIndex(s => s.order === cfg.order)
 }
 
 // ── the A− bar ───────────────────────────────────────────────────────────────
@@ -149,13 +199,13 @@ export function meetsBar(grade: PanelGrade | null): boolean {
 }
 
 /**
- * The stage the panel result implies. Returns `calibrating` for an ungraded
- * candidate — including the ones whose `recruiter_verdict` is prose rather than
- * a verdict value, which need re-panelling rather than a guess.
+ * The stage the panel result implies when nobody has decided yet. The desk
+ * now puts everyone at `decision_pending` and lets Lily choose; this remains
+ * for the nightly automation and for backfills.
  */
 export function stageForGrade(grade: PanelGrade | null): JourneyStage {
   if (grade === null) return 'calibrating'
-  return meetsBar(grade) ? 'ready_for_intro' : 'not_fit'
+  return meetsBar(grade) ? 'decision_pending' : 'not_fit'
 }
 
 // ── next action ──────────────────────────────────────────────────────────────
@@ -195,7 +245,7 @@ export function nextActionFor(candidate: {
   if (candidate.availability_status === 'off_market') return null
 
   switch (candidate.journey_stage) {
-    case 'ready_for_intro':
+    case 'intro_requested':
       return { label: 'Make the intro', tone: 'do' }
     case 'intro_sent':
       return daysSince(candidate.journey_stage_at) >= NUDGE_AFTER_DAYS
@@ -208,7 +258,7 @@ export function nextActionFor(candidate: {
   }
 }
 
-function daysSince(iso: string | null): number {
+export function daysSince(iso: string | null): number {
   if (!iso) return 0
   return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000)
 }
@@ -219,13 +269,17 @@ function daysSince(iso: string | null): number {
  * The coarse groups the product speaks in: the candidate list tabs, and the
  * dashboard's "where everyone is". Defined once here so the two cannot drift
  * into describing the same people differently.
+ *
+ * Each bucket has two labels: what Lily reads (the queue is hers) and what a
+ * partner reads (the same people, from their side of the table).
  */
 export type JourneyBucket =
-  | 'needs_you'
   | 'in_review'
+  | 'needs_you'
   | 'intro_sent'
   | 'committee_call'
   | 'warm'
+  | 'bench'
   | 'on_hold'
   | 'not_fit'
   | 'benchmark'
@@ -233,7 +287,9 @@ export type JourneyBucket =
 export interface BucketConfig {
   key: JourneyBucket
   label: string
+  partnerLabel: string
   blurb: string
+  partnerBlurb: string
   /** Legend / progress-bar colour. */
   dot: string
   order: number
@@ -241,65 +297,100 @@ export interface BucketConfig {
 
 export const JOURNEY_BUCKETS: BucketConfig[] = [
   {
-    key: 'needs_you',
-    label: 'Needs you',
-    blurb: 'Waiting on a warm introduction from you. Longest wait first.',
-    dot: '#1F3A2F',
+    key: 'in_review',
+    label: 'Your decision',
+    partnerLabel: 'In review',
+    blurb: 'The panel has read them and the card is in Slack. Oldest first.',
+    partnerBlurb: "We're reading them and grading them against the bar.",
+    dot: '#C79A2E',
     order: 1,
   },
   {
-    key: 'in_review',
-    label: 'In review',
-    blurb: "We're reading them and grading them against the bar.",
-    dot: '#C9D9CF',
+    key: 'needs_you',
+    label: 'Waiting on referrer',
+    partnerLabel: 'Needs you',
+    blurb: "We asked the referrer for a warm intro. Nudges go out on their own; you're told on day 12.",
+    partnerBlurb: 'Waiting on a warm introduction from you. Longest wait first.',
+    dot: '#1F3A2F',
     order: 2,
   },
   {
     key: 'intro_sent',
-    label: 'Intro sent',
-    blurb: 'The introduction has gone out. Waiting to hear back from them.',
+    label: 'Waiting on candidate',
+    partnerLabel: 'Intro sent',
+    blurb: "We've written to them with the calendar link. Waiting for a booking.",
+    partnerBlurb: 'The introduction has gone out. Waiting to hear back from them.',
     dot: '#7C93A8',
     order: 3,
   },
   {
     key: 'committee_call',
     label: 'Call booked',
-    blurb: 'A call with our talent committee is on the calendar.',
+    partnerLabel: 'Call booked',
+    blurb: 'A call is on the calendar.',
+    partnerBlurb: 'A call with our talent committee is on the calendar.',
     dot: '#5E8571',
     order: 4,
   },
   {
     key: 'warm',
     label: 'Warm',
-    blurb: "We've met them and vouch for them. We're matching them to open roles.",
+    partnerLabel: 'Warm',
+    blurb: "Met and vouched for. Matched to open seats, founders first.",
+    partnerBlurb: "We've met them and vouch for them. We're matching them to open roles.",
     dot: '#2E9E6B',
     order: 5,
   },
   {
+    key: 'bench',
+    label: 'Bench',
+    partnerLabel: 'In the pool',
+    blurb: 'Strong, no live seat for them today. Re-matched the moment one opens.',
+    partnerBlurb: "Strong profile, nothing live fits today. You'll hear first when a search opens for them.",
+    dot: '#9C9C95',
+    order: 6,
+  },
+  {
     key: 'on_hold',
     label: 'On hold',
+    partnerLabel: 'On hold',
     blurb: "Off the market right now, so there's nothing to do until that changes.",
+    partnerBlurb: "Off the market right now, so there's nothing to do until that changes.",
     dot: '#C79A2E',
-    order: 6,
+    order: 7,
   },
   {
     key: 'not_fit',
     label: 'Not a fit',
-    blurb: 'Not a match for the kinds of roles we work on.',
+    partnerLabel: 'Not a fit',
+    blurb: 'Not a match for the kinds of roles we work on. The reason is on each profile.',
+    partnerBlurb: 'Not a match for the kinds of roles we work on. The reason is on each profile.',
     dot: '#C2544B',
-    order: 7,
+    order: 8,
   },
   {
     key: 'benchmark',
     label: 'Benchmarks',
+    partnerLabel: 'Benchmarks',
     blurb: 'Profiles sourced to calibrate a search. Not people we are placing.',
+    partnerBlurb: 'Profiles sourced to calibrate a search. Not people we are placing.',
     dot: '#B8B8B0',
-    order: 8,
+    order: 9,
   },
 ]
 
 export function bucketConfig(key: JourneyBucket): BucketConfig {
   return JOURNEY_BUCKETS.find(b => b.key === key) ?? JOURNEY_BUCKETS[0]
+}
+
+export function bucketLabel(key: JourneyBucket, viewerIsAdmin: boolean): string {
+  const b = bucketConfig(key)
+  return viewerIsAdmin ? b.label : b.partnerLabel
+}
+
+export function bucketBlurb(key: JourneyBucket, viewerIsAdmin: boolean): string {
+  const b = bucketConfig(key)
+  return viewerIsAdmin ? b.blurb : b.partnerBlurb
 }
 
 /**
@@ -314,19 +405,21 @@ export function journeyBucket(c: {
   intake_source?: string | null
 }): JourneyBucket {
   if (c.intake_source === 'calibration') return 'benchmark'
-  if (nextActionFor(c) !== null) return 'needs_you'
 
   const s = c.journey_stage
 
   // A closed outcome is the whole story, so it wins over availability: someone
   // off the market *and* not a fit is simply not a fit.
-  if (s === 'not_fit' || s === 'post_committee_not_fit' || s === 'dormant') return 'not_fit'
+  if (s === 'not_fit' || s === 'post_committee_not_fit') return 'not_fit'
+  if (s === 'dormant') return 'needs_you'
 
   // Otherwise being off the market is the reason nothing is happening, and
   // saying so beats filing them under a stage they are not progressing through.
   if (c.availability_status === 'off_market') return 'on_hold'
 
   switch (s) {
+    case 'intro_requested':
+      return 'needs_you'
     case 'warm':
     case 'placed':
       return 'warm'
@@ -334,6 +427,8 @@ export function journeyBucket(c: {
       return 'committee_call'
     case 'intro_sent':
       return 'intro_sent'
+    case 'bench':
+      return 'bench'
     default:
       return 'in_review'
   }

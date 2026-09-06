@@ -13,6 +13,8 @@ import { readJsonResponse } from '@/lib/api-client'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { ParsedResumeData } from '@/lib/types'
 import { SubmissionTermsDialog } from '@/components/submission-terms-dialog'
+import { ThreeFacts, emptyFacts, type FactValues } from '@/components/candidates/three-facts'
+import { BASE_BANDS, cityFromText, visaFromText } from '@/lib/desk/facts'
 
 interface UploadResult {
   pathname: string
@@ -26,6 +28,7 @@ export default function NewCandidatePage() {
   const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [isCreating, setIsCreating] = useState(false)
+  const [facts, setFacts] = useState<FactValues>(emptyFacts())
 
   const handleUploadComplete = (data: { pathname: string; filename: string; parsed_data: Record<string, unknown> }) => {
     setUploadResult(data as unknown as UploadResult)
@@ -77,6 +80,24 @@ export default function NewCandidatePage() {
           setDuplicate(data.candidate)
         }
         throw new Error(data.error || 'Failed to create candidate')
+      }
+
+      // The three facts ride along right after the create, before the panel
+      // (which runs within the minute) reads the person.
+      const cities = [...facts.allowed_locations, ...(facts.other_city.trim() ? [facts.other_city.trim()] : [])]
+      if (facts.visa_status || cities.length || facts.salary_expectation_min || facts.consent_told_candidate !== null || facts.relocation_ok !== null) {
+        await fetch(`/api/candidates/${data.candidate!.id}/facts`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visa_status: facts.visa_status,
+            allowed_locations: cities,
+            relocation_ok: facts.relocation_ok,
+            salary_expectation_min: facts.salary_expectation_min,
+            salary_expectation_max: facts.salary_expectation_max,
+            consent_told_candidate: facts.consent_told_candidate,
+          }),
+        }).catch(() => undefined)
       }
 
       router.push(`/candidates/${data.candidate!.id}`)
@@ -231,6 +252,19 @@ export default function NewCandidatePage() {
               )}
             </CardContent>
           </Card>
+
+          <ThreeFacts
+            key={uploadResult.pathname}
+            initial={{
+              ...emptyFacts(),
+              visa_status: visaFromText(parsed.work_authorization),
+              allowed_locations: cityFromText(parsed.location) ? [cityFromText(parsed.location)!] : [],
+              relocation_ok: parsed.willing_to_relocate ?? null,
+              salary_expectation_min: parsed.salary_expectation_min ?? null,
+              salary_expectation_max: parsed.salary_expectation_max ?? (parsed.salary_expectation_min ? BASE_BANDS.find(b => (parsed.salary_expectation_min ?? 0) >= b.min && (parsed.salary_expectation_min ?? 0) < b.max)?.max ?? parsed.salary_expectation_min : null),
+            }}
+            onChange={setFacts}
+          />
 
           <LanguagesSection parsed={parsed} />
           <ResumeBodySections parsed={parsed} />
