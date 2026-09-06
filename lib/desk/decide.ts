@@ -170,8 +170,11 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       ? input.bodyOverride.trim()
       : await rewriteWithNote(draft, input.bodyOverride.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
   } else if (input.decision === 'not_fit' && input.reasonLine?.trim()) {
-    const line = p.drafts?.not_fit_reason_line ?? ''
-    draft.body = line && draft.body.includes(line) ? draft.body.replace(line, input.reasonLine.trim()) : `${draft.body}\n\n${input.reasonLine.trim()}`
+    // A reason typed on the profile or in the card thread is a note too, so
+    // it is folded into the draft in Lily's voice, never pasted in raw.
+    draft.body = looksLikeEmail(input.reasonLine)
+      ? input.reasonLine.trim()
+      : await rewriteWithNote(draft, input.reasonLine.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
   }
   if (recipient === 'owner' && input.decision !== 'not_fit' && !input.bodyOverride) {
     const ask = missingFactsAsk(p.missing_facts ?? [], name)
