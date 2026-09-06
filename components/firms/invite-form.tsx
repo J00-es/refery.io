@@ -19,7 +19,7 @@ const ROLES = [
   { value: 'coordinator', label: 'Coordinator', help: 'Only candidates assigned to them, cannot submit' },
 ] as const
 
-export function InviteForm({ disabled }: { disabled?: boolean }) {
+export function InviteForm({ disabled, reason }: { disabled?: boolean; reason?: string }) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<string>('recruiter')
@@ -60,7 +60,9 @@ export function InviteForm({ disabled }: { disabled?: boolean }) {
     <div className="rounded-[14px] border border-[#E4E3DC] bg-white p-5">
       <p className="text-[15px] font-semibold text-[#161613]">Invite a colleague</p>
       <p className="mt-1 text-[13px] text-[#6E6E68]">
-        They accept short access terms of their own, then they are in. No separate approval needed.
+        {/* A disabled box with no explanation reads as broken. Say which of the
+            two waits they are in, since one of them they can chase. */}
+        {reason ?? 'They accept short access terms of their own, then they are in. No separate approval needed.'}
       </p>
 
       <div className="mt-4 flex flex-col gap-2.5 sm:flex-row">

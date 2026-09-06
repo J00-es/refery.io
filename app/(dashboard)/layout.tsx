@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
+import { createAdminClient } from '@/lib/supabase/server'
+import { getMembership } from '@/lib/firms'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { Suspense } from 'react'
 import { Spinner } from '@/components/ui/spinner'
@@ -29,12 +31,18 @@ export default async function DashboardLayout({
     redirect('/auth/pending-approval')
   }
 
+  // The Firm tab is only meaningful to somebody who has one. A solo scout or
+  // recruiter reaches firm accounts through sign-up or the guide, not through a
+  // tab pointing at a page that would just offer to create something.
+  const membership = await getMembership(createAdminClient(), appUser.id)
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav
         user={user}
         isAdmin={appUser.isAdmin}
         isBeta={appUser.isBeta}
+        inFirm={Boolean(membership)}
         userRole={appUser.role}
         fullName={appUser.fullName}
       />

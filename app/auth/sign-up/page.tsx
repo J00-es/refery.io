@@ -406,6 +406,21 @@ export default function Page() {
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
 
+                  {/* Asked here rather than only at the acceptance screen: the
+                      person weighing up "are we a firm?" is weighing it now. */}
+                  {isFirm && (
+                    <div className="mt-3 text-center">
+                      <Link
+                        href="/firm/guide"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-primary underline underline-offset-4"
+                      >
+                        See how firm accounts work
+                      </Link>
+                    </div>
+                  )}
+
                   <div className="mt-4 text-center text-sm text-muted-foreground">
                     Already have an account?{' '}
                     <Link
@@ -478,7 +493,15 @@ export default function Page() {
                         <div className="mt-1 border-t pt-4">
                           <p className="text-sm font-medium">Your firm</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            You are signing on its behalf. Colleagues join by invitation afterwards.
+                            You are signing on its behalf. Colleagues join by invitation afterwards.{' '}
+                            <Link
+                              href="/firm/guide"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-medium text-primary underline underline-offset-2"
+                            >
+                              How this works
+                            </Link>
                           </p>
                         </div>
                         <div className="grid gap-1.5">

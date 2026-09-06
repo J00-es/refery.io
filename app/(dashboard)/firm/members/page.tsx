@@ -4,6 +4,7 @@ import { getAppUser } from '@/lib/current-user'
 import { firmsEnabled, getMembership } from '@/lib/firms'
 import { InviteForm } from '@/components/firms/invite-form'
 import { RemoveMember } from '@/components/firms/remove-member'
+import { GuideLink } from '@/components/firms/guide-link'
 import { CARD } from '@/lib/candidate-ui'
 
 /**
@@ -49,7 +50,23 @@ export default async function FirmMembersPage() {
 
   const { firm, role } = membership
   const isAdmin = role === 'admin'
-  const pendingFirm = firm.status !== 'active'
+  const live = firm.status === 'active'
+  // Three states, not two. "Waiting on your colleague to sign" and "waiting on
+  // us to review" feel identical from the inside and are not: only one of them
+  // is something the reader can chase.
+  const awaitingSignature = firm.status === 'awaiting_signature'
+  const pendingFirm = !live
+
+  // Only needed while unsigned, so it is not worth a join on the common path.
+  const { data: firmRow } = awaitingSignature
+    ? await admin
+        .from('partner_orgs')
+        .select('signer_name, signer_email')
+        .eq('id', firm.id)
+        .single()
+    : { data: null }
+  const signerLabel =
+    (firmRow?.signer_name as string) || (firmRow?.signer_email as string) || ''
 
   const [{ data: members }, { data: invites }] = await Promise.all([
     admin
@@ -83,10 +100,20 @@ export default async function FirmMembersPage() {
           {firm.name}
         </h1>
         <p className="mt-2 text-[14px] text-[#6E6E68] sm:text-[15px]">
-          {pendingFirm ? (
+          {awaitingSignature ? (
             <>
-              <b className="font-semibold text-[#8A6A17]">Being reviewed.</b> We look at every firm by
-              hand. You can invite your colleagues once it is active.
+              <b className="font-semibold text-[#8A6A17]">Waiting for a signature.</b> We have emailed{' '}
+              {signerLabel ? (
+                <b className="font-semibold text-[#161613]">{signerLabel}</b>
+              ) : (
+                'the person you named'
+              )}{' '}
+              to sign for {firm.legal_name}. Nothing else happens until they do.
+            </>
+          ) : pendingFirm ? (
+            <>
+              <b className="font-semibold text-[#8A6A17]">Being reviewed.</b> Signed and with us. We
+              look at every firm by hand, usually the same day, and will email you when it is done.
             </>
           ) : (
             <>
@@ -95,9 +122,21 @@ export default async function FirmMembersPage() {
             </>
           )}
         </p>
+        <GuideLink className="mt-3" newTab={false} />
       </header>
 
-      {isAdmin && <InviteForm disabled={pendingFirm} />}
+      {isAdmin && (
+        <InviteForm
+          disabled={pendingFirm}
+          reason={
+            awaitingSignature
+              ? 'You can invite your colleagues once the agreement is signed.'
+              : pendingFirm
+                ? 'You can invite your colleagues once we have reviewed the firm.'
+                : undefined
+          }
+        />
+      )}
 
       <section className={`${CARD} overflow-hidden`}>
         <h2 className="px-5 pt-5 text-[15px] font-semibold text-[#161613]">
@@ -111,7 +150,7 @@ export default async function FirmMembersPage() {
             return (
               <div
                 key={m.user_id as string}
-                className="flex items-center gap-3 border-t border-[#E4E3DC] px-5 py-3.5"
+                className="flex items-center gap-3 border-t border-[#E4E3DC] px-4 py-3.5 sm:px-5"
               >
                 <span
                   aria-hidden
@@ -126,9 +165,18 @@ export default async function FirmMembersPage() {
                       ? `Accepted ${when(m.accepted_user_terms_at as string)}`
                       : person?.email ?? ''}
                   </span>
+                  {/* On a phone the role sits under the name. Four things on one
+                      360px row means the name truncates to nothing. */}
+                  <span
+                    className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.05em] sm:hidden ${
+                      ROLE_TINT[m.org_role as string] ?? ROLE_TINT.recruiter
+                    }`}
+                  >
+                    {ROLE_LABEL[m.org_role as string] ?? m.org_role}
+                  </span>
                 </span>
                 <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] ${
+                  className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.05em] sm:inline-block ${
                     ROLE_TINT[m.org_role as string] ?? ROLE_TINT.recruiter
                   }`}
                 >
@@ -144,7 +192,7 @@ export default async function FirmMembersPage() {
           })}
 
           {(invites ?? []).map(i => (
-            <div key={i.id as string} className="flex items-center gap-3 border-t border-[#E4E3DC] px-5 py-3.5">
+            <div key={i.id as string} className="flex items-center gap-3 border-t border-[#E4E3DC] px-4 py-3.5 sm:px-5">
               <span
                 aria-hidden
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-[9px] bg-[#F4F0E4] text-[11px] font-semibold text-[#8A6A17]"

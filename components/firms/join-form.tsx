@@ -76,6 +76,16 @@ export function JoinForm({
 
       <p className="mt-4 text-[13px]">
         <a
+          href="/firm/guide"
+          target="_blank"
+          className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}
+        >
+          How firm accounts work
+        </a>
+      </p>
+
+      <p className="mt-2 text-[13px]">
+        <a
           href="/partner-terms"
           target="_blank"
           className={`text-[#1F3A2F] underline underline-offset-2 ${FOCUS}`}

@@ -53,9 +53,10 @@ const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon
  * find is a page nobody uses: until this link existed you had to be sent the
  * URL. /firm decides for itself whether that means "set one up" or "run yours".
  *
- * Shown to recruiters and scouts only. Not to the super admin, whose row is
- * already six items and measured 1,377px in a 1,051px viewport the last time it
- * grew; she can reach /firm directly.
+ * Shown to people who actually have a firm, plus the super admin who needs to
+ * see what they see. A solo scout or recruiter gets nothing: a tab that only
+ * ever offers to create something is noise on a row they use every day, and
+ * firm accounts are reached from sign-up and the guide instead.
  */
 const firmItem: NavItem = { href: '/firm', label: 'Firm', icon: Building2 }
 const betaNavItems: NavItem[] = [
@@ -93,6 +94,8 @@ interface DashboardNavProps {
   isAdmin?: boolean
   /** Sees the beta surfaces (Searches, Pipeline). Super admins always do. */
   isBeta?: boolean
+  /** Belongs to a recruiting firm. Gates the Firm tab. */
+  inFirm?: boolean
   userRole?: string
   fullName?: string | null
 }
@@ -106,18 +109,18 @@ const roleLabels: Record<string, { label: string; color: string }> = {
   viewer: { label: 'Viewer', color: 'bg-gray-100 text-gray-700' },
 }
 
-export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole = 'viewer', fullName }: DashboardNavProps) {
+export function DashboardNav({ user, isAdmin = false, isBeta = false, inFirm = false, userRole = 'viewer', fullName }: DashboardNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
   const seesBeta = isBeta || isSuperAdmin
   // One ordered row. Hiding a link is not access control; each page enforces
   // its own gate. This only keeps the row honest.
-  const isPartner = userRole === 'recruiter' || userRole === 'scout'
+  const seesFirm = inFirm || isSuperAdmin
   const visibleNavItems: NavItem[] = [
     candidatesItem,
     ...(seesBeta ? betaNavItems : []),
-    ...(isPartner ? [firmItem] : []),
+    ...(seesFirm ? [firmItem] : []),
     ...(isSuperAdmin ? superAdminNavItems : []),
   ]
   // The logo goes home. Home is the dashboard for the super admin and the

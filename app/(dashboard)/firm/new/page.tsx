@@ -4,6 +4,7 @@ import { getAppUser } from '@/lib/current-user'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { firmsEnabled, getMembership } from '@/lib/firms'
 import { CreateFirmForm } from '@/components/firms/create-firm-form'
+import { GuideLink } from '@/components/firms/guide-link'
 
 /**
  * Turning an account into a firm.
@@ -32,9 +33,11 @@ export default async function NewFirmPage() {
           Work as a firm
         </h1>
         <p className="mt-2 text-[14px] text-[#6E6E68] sm:text-[15px]">
-          One person accepts for the company, colleagues join without negotiating anything, and the
-          firm holds the submissions and gets paid.
+          One person signs for the company, colleagues join without negotiating anything, and the firm
+          holds the submissions and gets paid. If you are not the person who can sign, you can name
+          them instead.
         </p>
+        <GuideLink className="mt-3" newTab={false} />
       </header>
 
       <CreateFirmForm
