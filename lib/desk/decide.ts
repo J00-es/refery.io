@@ -132,8 +132,14 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   // ── the email ──────────────────────────────────────────────────────────────
   const p = panel as PanelRow
   const draft = { ...(p.drafts?.[input.decision] ?? { subject: '', body: '' }) }
-  if (input.bodyOverride?.trim()) draft.body = input.bodyOverride.trim()
-  else if (input.decision === 'not_fit' && input.reasonLine?.trim()) {
+  if (input.bodyOverride?.trim()) {
+    // A whole email replaces the body. A line or two is a note: the draft is
+    // rewritten around it, in Lily's voice, so "not a great fit, and does he
+    // have a visa?" comes out as a complete email rather than going as-is.
+    draft.body = looksLikeEmail(input.bodyOverride)
+      ? input.bodyOverride.trim()
+      : await rewriteWithNote(draft, input.bodyOverride.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
+  } else if (input.decision === 'not_fit' && input.reasonLine?.trim()) {
     const line = p.drafts?.not_fit_reason_line ?? ''
     draft.body = line && draft.body.includes(line) ? draft.body.replace(line, input.reasonLine.trim()) : `${draft.body}\n\n${input.reasonLine.trim()}`
   }
@@ -203,6 +209,30 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
         : `${first} is *not a fit*. ${recipient === 'owner' ? `${owner?.firstName ?? 'The owner'} reads the reason on their page and in Sunday's digest.` : ''}`
 
   return { ok: true, emailed, error: emailError ?? undefined, message: `${sentLine} ${next}` }
+}
+
+export function looksLikeEmail(text: string): boolean {
+  const t = text.trim()
+  return t.length > 280 || (/^(hi|hey|hello|dear)\b/i.test(t) && /\b(best|thanks|cheers|regards),?\s*\n?\s*lily\s*$/i.test(t))
+}
+
+/** Fold Lily's note into the drafted email. On any failure the note goes in as the reason line. */
+async function rewriteWithNote(draft: { subject: string; body: string }, note: string, recipientFirst: string, candidateName: string): Promise<string> {
+  const { structured } = await import('@/lib/desk/model')
+  const { z } = await import('zod')
+  try {
+    const r = await structured('draft', {
+      system:
+        'You rewrite one short email for Lily Joo at Refery. Keep her voice: short, warm, plain, a smiley where she would put one, never an em dash, never a placeholder, signed "Best,\nLily". Keep the greeting and the sign-off of the draft. Fold the note in as the substance, in her words, not quoted. Any question in the note becomes a real question to the recipient. Return only the body.',
+      user: `Recipient first name: ${recipientFirst}. About: ${candidateName}.\n\nDRAFT:\n${draft.body}\n\nLILY'S NOTE (what she actually wants to say):\n${note}`,
+      schema: z.object({ body: z.string() }),
+      maxOutputTokens: 1500,
+    })
+    return r.output.body.trim()
+  } catch (err) {
+    console.warn('[desk:decide] rewrite failed, using the note as the reason:', err instanceof Error ? err.message : err)
+    return draft.body.replace(/\n\nBest,\nLily\s*$/, `\n\n${note}\n\nBest,\nLily`)
+  }
 }
 
 export function strongSeatIds(panel: PanelRow, seats: Seat[]): string[] {
@@ -281,7 +311,13 @@ export async function handleDecisionThreadReply(
   if (edit) {
     const body = edit[1].trim()
     await admin.from('candidates').update({ desk_draft_override: body }).eq('id', c.id)
-    await postThreadReply(input.channel, input.ts, `:pencil2: Got it. This replaces the email body when you react:\n>${esc(body).replace(/\n/g, '\n>')}`)
+    await postThreadReply(
+      input.channel,
+      input.ts,
+      looksLikeEmail(body)
+        ? `:pencil2: Got it. This replaces the email body when you react:\n>${esc(body).replace(/\n/g, '\n>')}`
+        : `:pencil2: Got it. I will fold that into the email in your voice when you react (a full email here would replace the draft outright):\n>${esc(body).replace(/\n/g, '\n>')}`,
+    )
     return
   }
 
