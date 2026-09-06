@@ -98,7 +98,8 @@ export async function structured<T>(
         })
         const tokensIn = usage?.inputTokens ?? 0
         const tokensOut = usage?.outputTokens ?? 0
-        const cached = (usage as { cachedInputTokens?: number } | undefined)?.cachedInputTokens ?? 0
+        const u = usage as { cachedInputTokens?: number; inputTokenDetails?: { cacheReadTokens?: number } } | undefined
+        const cached = u?.inputTokenDetails?.cacheReadTokens ?? u?.cachedInputTokens ?? 0
         const latencyMs = Date.now() - startedAt
         console.log(`[desk:${job}] ok model=${model} ms=${latencyMs} in=${tokensIn} cached=${cached} out=${tokensOut}`)
         return { output, model, tokensIn, tokensOut, cachedTokens: cached, costUsd: costOf(model, tokensIn, tokensOut, cached), latencyMs }
