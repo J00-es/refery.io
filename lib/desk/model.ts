@@ -67,7 +67,7 @@ const TIMEOUT: Record<DeskJob, number> = { panel: 110_000, bench: 110_000, class
  * is never allowed to turn a working call into a failed one.
  */
 /** Thinking depth per job. Output tokens are the cost driver on Opus, and grading a CV does not need `high`. */
-const EFFORT: Record<DeskJob, 'low' | 'medium' | 'high'> = { panel: 'medium', bench: 'medium', classify: 'low', draft: 'medium' }
+const EFFORT: Record<DeskJob, 'low' | 'medium' | 'high'> = { panel: 'medium', bench: 'low', classify: 'low', draft: 'medium' }
 
 export async function structured<T>(
   job: DeskJob,

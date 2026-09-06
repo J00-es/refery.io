@@ -28,11 +28,11 @@ const BenchSchema = z.object({
   results: z.array(
     z.object({
       candidate_id: z.string(),
-      fit: z.enum(['strong', 'possible', 'no']),
+      fit: z.enum(['strong', 'possible']),
       reason: z.string().describe('One clause a founder would repeat. Under 140 characters.'),
       blockers: z.array(z.string()).describe('Hard facts against it. Empty when none.'),
     }),
-  ),
+  ).describe('Only the people rated strong or possible. Everyone else is a no and is not listed.'),
 })
 
 interface BenchPerson {
@@ -103,10 +103,11 @@ export async function runBenchMatch(admin: SupabaseClient, jobId: string, trigge
   const pool = bench.filter(b => !seen.has(b.id))
   if (!pool.length) return { posted: false, checked: bench.length, strong: 0, error: 'nobody new' }
 
-  const system = `You match people on a recruiting bench to one open seat. Facts first: a seat marked "us authorized" excludes anyone who needs new sponsorship (an H-1B transfer is a warning, not a blocker); an onsite seat excludes anyone unwilling to be in that city; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. "strong" means the founder would take the call today. Be strict: at most a handful strong. Grade is a hint, not a rule: a B+ with an exact fit can be strong, and say so in the reason.\n\nTHE SEAT\n${seatBrief(seat)}`
+  const system = `You match people on a recruiting bench to one open seat. Facts first: a seat marked "us authorized" excludes anyone who needs new sponsorship (an H-1B transfer is a warning, not a blocker); an onsite seat excludes anyone unwilling to be in that city; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. "strong" means the founder would take the call today. Be strict: at most a handful strong. Return only strong and possible; everyone else is a no and is not listed. Grade is a hint, not a rule: a B+ with an exact fit can be strong, and say so in the reason.\n\nTHE SEAT\n${seatBrief(seat)}`
   const user = pool.map(p => `CANDIDATE ${p.id}\n${p.name} · ${p.grade ?? 'ungraded'} · ${p.facts}\n${p.summary}`).join('\n\n')
 
-  const call = await structured('bench', { system, user, schema: BenchSchema, maxOutputTokens: 4000 })
+  // Thinking tokens count against this on adaptive models, so it is generous.
+  const call = await structured('bench', { system, user, schema: BenchSchema, maxOutputTokens: 12000 })
   const byId = new Map(pool.map(p => [p.id, p]))
   const results = call.output.results.filter(r => byId.has(r.candidate_id))
   const strong = results.filter(r => r.fit === 'strong')

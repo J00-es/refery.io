@@ -300,7 +300,8 @@ export async function runPanel(admin: SupabaseClient, ctx: PanelContext): Promis
     cv || '(no résumé text on record; grade from the facts above and say so in flags)',
   ].join('\n')
 
-  const call = await structured('panel', { system, user, schema: PanelSchema, maxOutputTokens: 5000 })
+  // Thinking tokens count against this on adaptive models, so it is generous.
+  const call = await structured('panel', { system, user, schema: PanelSchema, maxOutputTokens: 12000 })
   const out = call.output
   await repairDrafts(ctx, out)
 
