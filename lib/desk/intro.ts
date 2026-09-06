@@ -48,7 +48,7 @@ export interface IntroKit {
 /** The three lines. Focus comes from the first strong seat's headline, never a client name. */
 export function forwardableIntro(candidateName: string, focusHeadline: string | null): string {
   const first = properName(candidateName).split(/\s+/)[0]
-  const focus = focusHeadline ? `on a ${focusHeadline} search` : 'on a few early-stage searches'
+  const focus = focusHeadline ? `on the ${focusHeadline} search` : 'on a few early-stage searches'
   return `${first}, meet Lily from Refery. Lily works with a few early-stage teams ${focus} and asked about you after I shared your background. Lily, ${first} is the one I mentioned. I will let you two take it from here.`
 }
 
