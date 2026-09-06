@@ -121,14 +121,17 @@ Lily`
 }
 
 /** Ask a partner the facts the record is missing. Appended to whichever email goes first. */
-export function missingFactsAsk(missing: string[], candidateName: string): string {
+export function missingFactsAsk(missing: string[], candidateName: string, pageUrl?: string | null): string {
   const first = candidateName.split(/\s+/)[0]
   const parts: string[] = []
-  if (missing.includes('visa')) parts.push('whether they need US sponsorship')
+  if (missing.includes('visa')) parts.push('work authorisation in the US')
   if (missing.includes('location')) parts.push('where they want to be (SF, NY, elsewhere)')
   if (missing.includes('comp')) parts.push('the base range they are targeting')
+  if (missing.includes('consent')) parts.push(`whether ${first} knows you are sharing their profile`)
   if (!parts.length) return ''
-  return `\n\nOne quick thing: do you know ${parts.join(', ')} for ${first}? It helps me match faster.`
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
+  const where = pageUrl ? ` It takes a minute on ${first}'s page: ${pageUrl}#facts` : ''
+  return `\n\nOne quick thing: ${first}'s profile is still missing ${list}. Founders ask for those first, so having them in makes the intro land faster.${where}`
 }
 
 /** The auto-reply when a CV arrives by email from someone we do not know. */

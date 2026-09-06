@@ -369,7 +369,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           {/* The three facts founders ask first, only the unanswered ones.
               Saving re-runs the panel with the new facts. */}
           {(isSuperAdmin || typedCandidate.owner_user_id === appUser.id) && (
-            <section className={`${CARD} p-5`}>
+            <section id="facts" className={`${CARD} scroll-mt-24 p-5`}>
               <ThreeFacts
                 candidateId={id}
                 compact

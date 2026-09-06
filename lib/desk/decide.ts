@@ -180,7 +180,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       : await rewriteWithNote(draft, input.reasonLine.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
   }
   if (recipient === 'owner' && input.decision !== 'not_fit' && !input.bodyOverride) {
-    const ask = missingFactsAsk(p.missing_facts ?? [], name)
+    const ask = missingFactsAsk(p.missing_facts ?? [], name, `${APP_URL}/candidates/${c.id}`)
     if (ask && !draft.body.includes('One quick thing')) draft.body = draft.body.replace(/\n\nBest,\nLily\s*$/, `${ask}\n\nBest,\nLily`)
   }
 

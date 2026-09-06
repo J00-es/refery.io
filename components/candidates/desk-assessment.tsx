@@ -79,7 +79,7 @@ export async function DeskAssessment({
         <h2 className="text-[15px] font-semibold text-[#161613]">Panel and desk</h2>
         {panel && (
           <p className="text-[12px] text-[#9C9C95]">
-            {fmt(panel.created_at)} · {panel.model.split('/')[1]}
+            {fmt(panel.created_at)}{isSuperAdmin ? ` · ${panel.model.split('/')[1]}` : ''}
             {isSuperAdmin && panel.cost_usd != null ? ` · $${Number(panel.cost_usd).toFixed(2)}` : ''}
           </p>
         )}
@@ -120,7 +120,7 @@ export async function DeskAssessment({
                 ))}
             </div>
           )}
-          {panel.flags?.length > 0 && (
+          {isSuperAdmin && panel.flags?.length > 0 && (
             <p className="mt-3 text-[12.5px] text-[#8A6A1F]">{panel.flags.map(f => `⚠ ${f}`).join('   ')}</p>
           )}
 
@@ -150,7 +150,7 @@ export async function DeskAssessment({
                     </div>
                   )
                 })}
-                {others > 0 && <p className="text-[12.5px] text-[#9C9C95]">{others} other seat{others === 1 ? '' : 's'}: no.</p>}
+                {isSuperAdmin && others > 0 && <p className="text-[12.5px] text-[#9C9C95]">{others} other seat{others === 1 ? '' : 's'}: no.</p>}
               </div>
             )}
           </div>
