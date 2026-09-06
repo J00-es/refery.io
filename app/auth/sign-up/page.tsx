@@ -120,67 +120,6 @@ function track(step: TrackStep, data: Record<string, unknown> = {}) {
   }
 }
 
-interface PreviewRole {
-  title: string
-  location: string | null
-  compensation: string | null
-}
-
-/**
- * Shows what a partner would actually be working on, before they hand anything
- * over. Renders nothing unless there is real inventory to show: the endpoint
- * returns an empty list below its own threshold, and a thin list would read
- * worse than none at all.
- */
-function RolePreview({ role }: { role: Role | null }) {
-  const [roles, setRoles] = useState<PreviewRole[]>([])
-  const [total, setTotal] = useState(0)
-
-  useEffect(() => {
-    if (role !== 'scout' && role !== 'recruiter') return
-    let cancelled = false
-    fetch('/api/roles/preview', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (cancelled || !d) return
-        setRoles(d.roles ?? [])
-        setTotal(d.total ?? 0)
-      })
-      .catch(() => {
-        /* the preview is a bonus, never block sign-up on it */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [role])
-
-  if (roles.length === 0) return null
-
-  return (
-    <div className="mt-5 rounded-lg border bg-muted/30 p-3 sm:p-4">
-      <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2.5">
-        Open on Refery right now
-      </div>
-      <ul className="flex flex-col gap-2">
-        {roles.map((r, i) => (
-          <li key={i} className="text-sm leading-snug">
-            <span className="font-medium">{r.title}</span>
-            {r.location ? <span className="text-muted-foreground"> · {r.location}</span> : null}
-            {r.compensation ? (
-              <span className="text-muted-foreground"> · {r.compensation}</span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {total > roles.length && (
-        <div className="mt-2.5 text-xs text-muted-foreground">
-          plus {total - roles.length} more once you are in
-        </div>
-      )}
-    </div>
-  )
-}
-
 export default function Page() {
   const router = useRouter()
   const [step, setStep] = useState<Step>(1)
@@ -409,8 +348,6 @@ export default function Page() {
                     Continue
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-
-                  <RolePreview role={selectedRole || null} />
 
                   <div className="mt-4 text-center text-sm text-muted-foreground">
                     Already have an account?{' '}

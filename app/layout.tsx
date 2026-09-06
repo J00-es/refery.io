@@ -12,9 +12,9 @@ const dmSans = DM_Sans({
 })
 
 export const metadata: Metadata = {
-  title: 'Refery.io - Partner Recruiter Network',
+  title: 'Refery. The recruiting partner network',
   description:
-    'Refer great talent, earn while you sleep. Partner with Refery.io to monetize your network with 200+ VC-backed companies.',
+    'Introduce people you already know to roles at VC-backed companies, and earn when they are hired. Refery is where scouts and recruiting partners work.',
   generator: 'v0.app',
   icons: {
     icon: [
