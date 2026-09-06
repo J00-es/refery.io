@@ -191,6 +191,73 @@ export function sendFirmSignedNotice(
   )
 }
 
+/**
+ * The countersigned record, to the person who signed.
+ *
+ * An individual partner has always received this: their name, the time, the IP
+ * and a reference number, on a PDF they can keep. The firm signer, who binds a
+ * company rather than themselves, was getting a receipt and nothing to file.
+ */
+export async function sendFirmSignedPdf(
+  to: string,
+  firm: Firm,
+  signerName: string,
+  signedAtIso: string,
+  reference: string,
+  pdf: Buffer,
+) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not set' }
+
+  const when = new Date(signedAtIso).toUTCString().replace(' GMT', ' UTC')
+  const html = shell(
+    `Signed. Here is your copy.`,
+    para(
+      `Thank you, ${esc0(firstName(signerName))}. You accepted the Partner Terms, the Submission Terms and the Firm Addendum on behalf of <b>${esc0(firm.legal_name)}</b>.`,
+    ) +
+      para(
+        `The signed agreement is attached. It carries your name, the exact time you signed, the address you signed from and a reference number, which together are the record of the signature.`,
+      ) +
+      para(
+        `<b>This is a receipt, not an activation.</b> We review every firm by hand, and your colleague will hear from us shortly.`,
+      ) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">Signed ${esc0(when)}<br />Reference ${esc0(reference)}</span>`,
+      ),
+  )
+
+  try {
+    const res = await new Resend(apiKey).emails.send({
+      from: FROM,
+      to,
+      replyTo: REPLY_TO,
+      subject: `Signed: ${firm.name} on Refery`,
+      html,
+      text: [
+        `Signed. Here is your copy.`,
+        '',
+        `You accepted the Partner Terms, Submission Terms and Firm Addendum on behalf of ${firm.legal_name}.`,
+        '',
+        `Signed ${when}. Reference ${reference}.`,
+        '',
+        'This is a receipt, not an activation. We review every firm by hand.',
+        '',
+        'Lily Joo, Founding Partner, Refery',
+      ].join('\n'),
+      attachments: [
+        {
+          filename: `Refery-Firm-Agreement-${firm.slug}.pdf`,
+          content: pdf,
+        },
+      ],
+    })
+    if (res.error) return { sent: false, error: res.error.message || 'send failed' }
+    return { sent: true }
+  } catch (err) {
+    return { sent: false, error: (err as Error).message }
+  }
+}
+
 /** 2 · The firm is live. */
 export function sendFirmActivated(to: string, firm: Firm, signerName: string, appUrl: string) {
   const html = shell(

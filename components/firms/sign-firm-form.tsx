@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { FOCUS } from '@/lib/candidate-ui'
+import { AgreementContent } from '@/components/agreement-content'
 
 /**
  * The signature that binds the firm.
@@ -20,12 +21,14 @@ export function SignFirmForm({
   legalName,
   suggestedName,
   versions,
+  addendumText,
 }: {
   token: string
   firmName: string
   legalName: string
   suggestedName: string
   versions: { partner: string; submission: string; addendum: string }
+  addendumText: string
 }) {
   const [name, setName] = useState(suggestedName)
   const [authorised, setAuthorised] = useState(false)
@@ -33,8 +36,18 @@ export function SignFirmForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [done, setDone] = useState(false)
+  // Same gate an individual partner passes: acceptance stays shut until the
+  // document has actually been in front of them.
+  const [scrolled, setScrolled] = useState(false)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
-  const ready = name.trim().length > 1 && authorised && accepted
+  function onScroll() {
+    const el = scrollRef.current
+    if (!el) return
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) setScrolled(true)
+  }
+
+  const ready = name.trim().length > 1 && authorised && accepted && scrolled
 
   async function submit() {
     setBusy(true)
@@ -64,7 +77,12 @@ export function SignFirmForm({
         </p>
         <p className="mt-2 text-[14px] leading-[1.6] text-[#6E6E68]">
           {legalName} is now with Refery for review. We look at every firm by hand, and your
-          colleague will hear from us shortly. A copy of what you accepted is on its way to you.
+          colleague will hear from us shortly.
+        </p>
+        <p className="mt-3 text-[14px] leading-[1.6] text-[#6E6E68]">
+          <b className="font-semibold text-[#161613]">A signed PDF is on its way to you</b>, with your
+          name, the time you signed and a reference number on it. Keep it: it is the countersigned
+          record of what you agreed.
         </p>
         <p className="mt-4 text-[13px] text-[#9C9C95]">
           You do not have an account and do not need one. Nothing else is required from you.
@@ -120,6 +138,19 @@ export function SignFirmForm({
         </a>
       </p>
 
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="mt-5 max-h-[340px] overflow-y-auto rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3"
+      >
+        <AgreementContent content={addendumText} density="compact" showEyebrow={false} />
+      </div>
+      {!scrolled && (
+        <p className="mt-2 text-[12.5px] text-[#9C9C95]">
+          Scroll to the end of the addendum to enable acceptance.
+        </p>
+      )}
+
       <label className="mt-5 block">
         <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">
           Your full legal name
@@ -132,10 +163,11 @@ export function SignFirmForm({
         />
       </label>
 
-      <label className="mt-4 flex cursor-pointer items-start gap-2.5">
+      <label className={`mt-4 flex cursor-pointer items-start gap-2.5 ${scrolled ? '' : 'opacity-60'}`}>
         <input
           type="checkbox"
           checked={authorised}
+          disabled={!scrolled}
           onChange={e => setAuthorised(e.target.checked)}
           className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
         />
@@ -145,10 +177,11 @@ export function SignFirmForm({
         </span>
       </label>
 
-      <label className="mt-3 flex cursor-pointer items-start gap-2.5">
+      <label className={`mt-3 flex cursor-pointer items-start gap-2.5 ${scrolled ? '' : 'opacity-60'}`}>
         <input
           type="checkbox"
           checked={accepted}
+          disabled={!scrolled}
           onChange={e => setAccepted(e.target.checked)}
           className={`mt-0.5 h-4 w-4 shrink-0 rounded border-[#D2D1C7] text-[#1F3A2F] ${FOCUS}`}
         />

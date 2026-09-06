@@ -1,13 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getRequestContext } from '@/lib/request-context'
-import { AGREEMENT_VERSIONS } from '@/lib/agreements'
+import {
+  AGREEMENT_VERSIONS,
+  FIRM_ADDENDUM_TEXT,
+  PARTNER_TERMS_TEXT,
+  generateAgreementHash,
+} from '@/lib/agreements'
+import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { findFirmAwaitingSignature, signFirmAgreement } from '@/lib/firms'
 import {
   announceFirmSignup,
   sendFirmReceipt,
   sendFirmSignedNotice,
+  sendFirmSignedPdf,
 } from '@/lib/firm-notify'
+
+// Rendering the PDF adds a few seconds. Give it room, as sign-up does.
+export const maxDuration = 60
 
 /**
  * A nominated signer binds the firm.
@@ -61,6 +71,45 @@ export async function POST(req: NextRequest) {
     addendum: AGREEMENT_VERSIONS.firmAddendum,
   }
 
+  /**
+   * The evidence, in the order it has to happen.
+   *
+   * The acceptance row first, because its id is the reference printed on the
+   * PDF. Then the PDF. Then the email carrying it. Each step is allowed to fail
+   * without undoing the signature, which is already recorded on the firm.
+   */
+  const signedAt = new Date().toISOString()
+  // What was actually accepted: the Partner Terms as modified by the Addendum.
+  // Hashing them together is what makes "this exact text" provable later.
+  const acceptedText = `${PARTNER_TERMS_TEXT}\n\n${FIRM_ADDENDUM_TEXT}`
+  const termsHash = await generateAgreementHash(acceptedText)
+
+  let acceptanceId = firm.id
+  try {
+    const { data: acceptance } = await admin
+      .from('agreement_acceptances')
+      .insert({
+        // Null: a firm signer binds a company without holding an account.
+        user_id: null,
+        partner_org_id: firm.id,
+        user_email: firm.signer_email ?? '',
+        user_name: name,
+        company_name: firm.legal_name,
+        ip_address: ctx.ip,
+        user_agent: ctx.userAgent,
+        agreement_version: AGREEMENT_VERSIONS.firmAddendum,
+        agreement_hash: termsHash,
+        acceptance_method: 'clickwrap_typed_name_and_button',
+        agreement_type: 'firm_addendum',
+        accepted_at: signedAt,
+      })
+      .select('id')
+      .single()
+    if (acceptance?.id) acceptanceId = acceptance.id as string
+  } catch (err) {
+    console.error('[firms/sign] acceptance row failed:', err)
+  }
+
   // The full row, for the jurisdiction on the card and the person who has been
   // waiting for this to happen.
   const { data: full } = await admin
@@ -83,8 +132,30 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  let pdfBuffer: Buffer | null = null
+  try {
+    pdfBuffer = await generateAgreementPdf({
+      kind: 'firm',
+      content: acceptedText,
+      companyName: firm.legal_name,
+      signerName: name,
+      signerTitle: (full?.signer_title as string) ?? null,
+      signerEmail: firm.signer_email ?? '',
+      signedAt,
+      version: AGREEMENT_VERSIONS.firmAddendum,
+      termsHash,
+      agreementLinkId: acceptanceId,
+      ipAddress: ctx.ip,
+    })
+  } catch (err) {
+    // A missing PDF must never cost somebody their signature.
+    console.error('[firms/sign] pdf failed:', err)
+  }
+
   await Promise.allSettled([
-    sendFirmReceipt(firm.signer_email ?? '', firm, name, versions),
+    pdfBuffer
+      ? sendFirmSignedPdf(firm.signer_email ?? '', firm, name, signedAt, acceptanceId, pdfBuffer)
+      : sendFirmReceipt(firm.signer_email ?? '', firm, name, versions),
     creatorEmail ? sendFirmSignedNotice(creatorEmail, firm, name) : Promise.resolve(),
     announceFirmSignup({
       firm,

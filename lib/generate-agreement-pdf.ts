@@ -343,7 +343,24 @@ export interface PartnerAgreementPdfData extends AgreementPdfBase {
   partnerType: 'scout' | 'recruiter' | null
 }
 
-export type AgreementPdfData = ClientAgreementPdfData | PartnerAgreementPdfData
+/**
+ * A firm's signature: a named person binding a named company.
+ *
+ * Shares the client shape rather than the partner one, because the signer and
+ * the counterparty are different entities and the record has to show both. The
+ * signer's title is on the page for the same reason it is on a client
+ * agreement: it is the first thing anybody checks when authority is questioned.
+ */
+export interface FirmAgreementPdfData extends AgreementPdfBase {
+  kind: 'firm'
+  companyName: string
+  signerTitle: string | null
+}
+
+export type AgreementPdfData =
+  | ClientAgreementPdfData
+  | PartnerAgreementPdfData
+  | FirmAgreementPdfData
 
 function partnerLabel(t: PartnerAgreementPdfData['partnerType']): string {
   if (t === 'scout') return 'Scout Partner'
@@ -355,6 +372,9 @@ function documentTitle(data: AgreementPdfData): string {
   if (data.kind === 'client') {
     return `Refery Recruitment Services Agreement: ${data.companyName}`
   }
+  if (data.kind === 'firm') {
+    return `Refery Partner Agreement and Firm Addendum: ${data.companyName}`
+  }
   return `Refery ${partnerLabel(data.partnerType)} Agreement: ${data.signerName}`
 }
 
@@ -362,13 +382,16 @@ function footerLabel(data: AgreementPdfData): string {
   if (data.kind === 'client') {
     return `Refery · Recruitment Services Agreement · v${data.version}`
   }
+  if (data.kind === 'firm') {
+    return `Refery · Firm Addendum · v${data.version}`
+  }
   return `Refery · ${partnerLabel(data.partnerType)} Agreement · v${data.version}`
 }
 
 function AgreementDocument(data: AgreementPdfData) {
   const blocks = parse(data.content)
   let h2Seen = 0
-  const showTitleField = data.kind === 'client'
+  const showTitleField = data.kind === 'client' || data.kind === 'firm'
 
   return React.createElement(
     Document,
@@ -494,7 +517,8 @@ function AgreementDocument(data: AgreementPdfData) {
                 React.createElement(
                   Text,
                   { style: styles.sigValue },
-                  (data as ClientAgreementPdfData).signerTitle || 'Not given',
+                  (data as ClientAgreementPdfData | FirmAgreementPdfData).signerTitle ||
+                    'Not given',
                 ),
               )
             : React.createElement(View, { style: styles.sigField }),

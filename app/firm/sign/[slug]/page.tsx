@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
-import { AGREEMENT_VERSIONS } from '@/lib/agreements'
+import { AGREEMENT_VERSIONS, FIRM_ADDENDUM_TEXT } from '@/lib/agreements'
 import { findFirmAwaitingSignature } from '@/lib/firms'
 import { SignFirmForm } from '@/components/firms/sign-firm-form'
 
@@ -95,6 +95,7 @@ export default async function SignFirmPage({
           submission: AGREEMENT_VERSIONS.partnerSubmission,
           addendum: AGREEMENT_VERSIONS.firmAddendum,
         }}
+        addendumText={FIRM_ADDENDUM_TEXT}
       />
     </Shell>
   )
