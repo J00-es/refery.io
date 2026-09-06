@@ -38,7 +38,7 @@ export function deskChannels(): string[] {
 const money = (n: unknown) =>
   typeof n === 'number' && Number.isFinite(n) ? `$${Math.round(n).toLocaleString('en-US')}` : null
 
-async function postToDesk(text: string, blocks?: SlackBlock[]): Promise<{ ok: boolean; ts?: string; channel?: string; error?: string }> {
+export async function postToDesk(text: string, blocks?: SlackBlock[]): Promise<{ ok: boolean; ts?: string; channel?: string; error?: string }> {
   let last: { ok: boolean; ts?: string; channel?: string; error?: string } = { ok: false, error: 'no channel' }
   for (const channel of deskChannels()) {
     last = await postMessage(channel, text, blocks ?? [{ type: 'section', text: { type: 'mrkdwn', text } }])
@@ -76,7 +76,7 @@ const shortDate = (iso: string) =>
  * resolved to them, and any salary or availability note, which only exists
  * after a conversation. Database reads only; nothing is fetched or generated.
  */
-async function knownToYou(admin: SupabaseClient, candidateId: string): Promise<string> {
+export async function knownToYou(admin: SupabaseClient, candidateId: string): Promise<string> {
   const [{ data: calls }, { data: notes }, { data: signals }] = await Promise.all([
     admin
       .from('candidate_activity_log')

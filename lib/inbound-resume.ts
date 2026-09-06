@@ -6,8 +6,10 @@ import { candidateRowFromParsed, toText } from '@/lib/resume'
 import { embedCandidate } from '@/lib/embeddings'
 import { normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
 import { getSubmissionTermsStatus } from '@/lib/submission-terms'
-import { candidateHighlights } from '@/lib/candidate-highlights'
-import { notifySlack } from '@/lib/slack'
+import { postToDesk } from '@/lib/desk-notifications'
+import { sendDeskEmail } from '@/lib/desk/outbound'
+import { inboundCvAck } from '@/lib/desk/emails'
+import { esc } from '@/lib/slack-bot'
 import type { ParsedResumeData } from '@/lib/types'
 
 /**
@@ -505,19 +507,9 @@ export async function ingestInboundResume(
         detail: `already in the database as ${duplicate.match.name}`,
       })
 
-      await notifySlack({
-        stream: 'candidates',
-        emoji: ':twisted_rightwards_arrows:',
-        title: `${name} was emailed in again — already in the database`,
-        context: 'Nothing was created. Open the existing profile to add the new résumé if it is more recent.',
-        fields: [
-          { label: 'Sent by', value: senderLabel(email) },
-          { label: 'Existing profile', value: duplicate.match.name },
-          { label: 'Matched on', value: duplicate.match.email ? 'Email address' : 'LinkedIn' },
-          { label: 'Attachment', value: attachment.filename },
-        ],
-        links: [{ label: 'Open existing profile', url: `${email.origin}/candidates/${duplicate.match.id}` }],
-      })
+      await postToDesk(
+        `:twisted_rightwards_arrows: *${esc(name)}* was emailed in again by ${esc(senderLabel(email))}; already on file as *${esc(duplicate.match.name)}*. Nothing created.  ·  <${email.origin}/candidates/${duplicate.match.id}|open the existing profile>`,
+      )
 
       return { outcome: 'duplicate', duplicateOf: duplicate.match.id }
     }
@@ -570,47 +562,29 @@ export async function ingestInboundResume(
       }
     }
 
-    const h = candidateHighlights(parsed, {
-      name,
-      linkedin_url: toText(derived.linkedin_url),
-      location: toText(derived.location),
-    })
-
-    const ownerNote =
-      owner.reason === 'partner'
-        ? `Referred by ${owner.ownerLabel}, who now owns the profile.`
-        : owner.reason === 'self'
-          ? 'Sent by the candidate themselves, so it is assigned to you.'
-          : owner.reason === 'internal'
-            ? 'Forwarded from your own address, so it is assigned to you.'
-            : 'Sender is not a registered partner, so it is assigned to you.'
-
-    await notifySlack({
-      stream: 'candidates',
-      emoji: ':email:',
-      title: `${name} arrived by email from ${email.fromName || email.fromEmail}`,
-      context: [ownerNote, termsWarning, h.headline ? `Currently ${h.headline}.` : null]
-        .filter(Boolean)
-        .join(' '),
-      fields: [
-        { label: 'Sent by', value: senderLabel(email) },
-        { label: 'Owner', value: owner.ownerLabel },
-        { label: 'Intake', value: owner.intakeSource },
-        { label: 'Subject', value: email.subject || '(no subject)' },
-        ...(h.linkedin ? [{ label: 'LinkedIn', value: h.linkedin }] : []),
-        ...(h.points.length ? [{ label: 'Highlights', value: h.points.join(' · ') }] : []),
-        ...(outcome === 'possible_duplicate'
-          ? [{ label: ':warning: Possible duplicate', value: `Same name as an existing profile — check before working it` }]
-          : []),
-      ],
-      body: h.summary || undefined,
-      links: [
-        { label: 'Open profile', url: `${email.origin}/candidates/${candidate.id}` },
-        ...(outcome === 'possible_duplicate' && duplicate
-          ? [{ label: 'Open the same-name profile', url: `${email.origin}/candidates/${duplicate.match.id}` }]
-          : []),
-      ],
-    })
+    // The insert trigger has queued the panel; the decision card follows
+    // within a minute. What this path adds: a sender we do not know gets an
+    // acknowledgement with the three questions, so the record fills in before
+    // Lily decides. Partners get nothing here; their page shows the state.
+    if (owner.reason === 'unknown' && email.fromEmail) {
+      const ack = inboundCvAck({ senderFirstName: (email.fromName ?? '').split(/\s+/)[0] || 'there', candidateName: name })
+      await sendDeskEmail(admin, {
+        candidateId: candidate.id,
+        kind: 'inbound_ack',
+        to: email.fromEmail,
+        toName: email.fromName ?? null,
+        subject: email.subject ? `Re: ${email.subject}` : ack.subject,
+        body: ack.body,
+        sentBy: 'desk',
+        meta: { sender: email.fromEmail },
+      })
+    }
+    if (termsWarning) {
+      await postToDesk(`:warning: *${esc(name)}* arrived by email from ${esc(owner.ownerLabel)}. ${esc(termsWarning)}`)
+    }
+    if (outcome === 'possible_duplicate' && duplicate) {
+      await postToDesk(`:grey_question: *${esc(name)}* arrived by email and shares a name with an existing profile. Check before working it.  ·  <${email.origin}/candidates/${duplicate.match.id}|the same-name profile>`)
+    }
 
     return { outcome, candidateId: candidate.id, duplicateOf: duplicate?.match.id }
   } catch (err) {
@@ -619,17 +593,9 @@ export async function ingestInboundResume(
 
     await recordEvent(admin, email, attachment, { outcome: 'error', detail: detail.slice(0, 500) })
 
-    await notifySlack({
-      stream: 'candidates',
-      emoji: ':warning:',
-      title: `Could not ingest ${attachment.filename} from ${email.fromEmail}`,
-      context: 'The email is in your inbox — this one needs uploading by hand.',
-      fields: [
-        { label: 'Sent by', value: senderLabel(email) },
-        { label: 'Subject', value: email.subject || '(no subject)' },
-        { label: 'Reason', value: detail.slice(0, 300) },
-      ],
-    })
+    await postToDesk(
+      `:warning: Could not ingest *${esc(attachment.filename)}* from ${esc(senderLabel(email))}: ${esc(detail.slice(0, 300))}. The email is in your inbox; this one needs uploading by hand.`,
+    )
 
     return { outcome: 'error', detail }
   }

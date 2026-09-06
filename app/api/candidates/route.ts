@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse, after } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { candidateScopeFilter, getAppUser } from '@/lib/current-user'
 import { scopeUserIds } from '@/lib/firms'
@@ -6,9 +6,6 @@ import { candidateRowFromParsed, sanitizeCandidateInput, toText } from '@/lib/re
 import { embedCandidate } from '@/lib/embeddings'
 import type { ParsedResumeData } from '@/lib/types'
 import { getSubmissionTermsStatus } from '@/lib/submission-terms'
-import { candidateHighlights } from '@/lib/candidate-highlights'
-import { getRequestContext } from '@/lib/request-context'
-import { notifySlack } from '@/lib/slack'
 
 export async function GET(request: NextRequest) {
   try {
@@ -187,38 +184,10 @@ export async function POST(request: NextRequest) {
     // Non-fatal by design — see embedCandidate.
     const embedded = parsed ? await embedCandidate(candidate.id, parsed, name) : false
 
-    // Tell the admin who just submitted whom, with enough of the profile to
-    // judge it without opening anything. Runs after the response so a slow
-    // webhook never delays the uploader.
-    const ctx = getRequestContext(request)
-    after(async () => {
-      try {
-        const h = candidateHighlights(parsed, {
-          name,
-          linkedin_url: toText(row.linkedin_url),
-          location: toText(row.location),
-        })
-        const origin = request.nextUrl.origin
-
-        await notifySlack({
-          stream: 'candidates',
-          emoji: ':inbox_tray:',
-          title: `${appUser.fullName || appUser.email} submitted ${name}`,
-          context: h.headline ? `Currently ${h.headline}.` : undefined,
-          fields: [
-            { label: 'Submitted by', value: `${appUser.fullName || 'Unknown'} (${appUser.email})` },
-            { label: 'Role', value: appUser.role },
-            ...(h.linkedin ? [{ label: 'LinkedIn', value: h.linkedin }] : []),
-            ...(h.points.length ? [{ label: 'Highlights', value: h.points.join(' · ') }] : []),
-            { label: 'From', value: ctx.location || 'Unknown' },
-          ],
-          body: h.summary || undefined,
-          links: [{ label: 'Open profile', url: `${origin}/candidates/${candidate.id}` }],
-        })
-      } catch (err) {
-        console.error('[candidates] slack notify failed:', err)
-      }
-    })
+    // The insert trigger has already queued the panel; within a minute a
+    // decision card with the grade, the seat fits and the drafted email lands
+    // in #refery-desk. The old webhook card carried none of that and arrived a
+    // night before the grade, so it is gone.
 
     return NextResponse.json({ candidate, embedded })
   } catch (error) {

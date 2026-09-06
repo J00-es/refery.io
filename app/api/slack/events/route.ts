@@ -35,6 +35,11 @@ import type { Firm } from '@/lib/firms'
 import { decideAccessRequest } from '@/lib/access-requests'
 import { armDeclineFromSlack, declineFromThread, moveSubmissionFromSlack, submissionForSlackMessage } from '@/lib/desk-notifications'
 import { HIDE_REACTIONS, publishAnswer, questionForSlackMessage, setQuestionVisibility } from '@/lib/search-questions'
+import { candidateForSlackMessage } from '@/lib/desk/card'
+import { handleDecisionReaction, handleDecisionThreadReply } from '@/lib/desk/decide'
+import { handleEscalationReaction } from '@/lib/desk/followups'
+import { handleBenchReaction } from '@/lib/desk/bench'
+import { handleDraftReaction, handleRecapReaction, handleRecapThreadReply } from '@/lib/desk/verdict'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.
@@ -44,6 +49,8 @@ const APPROVE = new Set(['+1', 'thumbsup', 'thumbsup_all'])
 const REJECT = new Set(['-1', 'thumbsdown'])
 /** On a submission card only: the candidate has gone to the client. */
 const SEND_TO_CLIENT = new Set(['outbox_tray'])
+/** Everything the candidate desk understands, on any of its cards. */
+const DESK_REACTIONS = new Set(['fire', 'raising_hand', 'zzz', 'white_check_mark', 'email', 'one', 'two', 'three', 'four', 'five', 'six'])
 
 /**
  * Both tables already had a status vocabulary, so triage reuses it instead of
@@ -140,6 +147,16 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
   const self = await botUserId()
   if (!self || m.user === self) return
 
+  // Candidate desk: a decision card's thread ("edit: ...", the not-a-fit reason,
+  // "send") and a recap card's thread (Lily's note on the record).
+  const deskAdmin = createAdminClient()
+  const deskCandidate = await candidateForSlackMessage(deskAdmin, m.channel!, m.thread_ts!)
+  if (deskCandidate) {
+    await handleDecisionThreadReply(deskAdmin, { candidate: deskCandidate, text: m.text!, slackUser: m.user!, channel: m.channel!, ts: m.thread_ts! })
+    return
+  }
+  if (await handleRecapThreadReply(deskAdmin, { text: m.text!, slackUser: m.user!, channel: m.channel!, threadTs: m.thread_ts! })) return
+
   // A submission card with a decline armed: this reply is the reason. Without
   // the :-1: first, a reply on a submission card is just conversation.
   const sub = await submissionForSlackMessage(m.channel!, m.thread_ts!)
@@ -174,7 +191,8 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const reject = REJECT.has(reaction)
   const hide = HIDE_REACTIONS.has(reaction)
   const send = SEND_TO_CLIENT.has(reaction)
-  if (!approve && !reject && !hide && !send) return
+  const deskReaction = DESK_REACTIONS.has(reaction)
+  if (!approve && !reject && !hide && !send && !deskReaction) return
 
   if (!event.user) return
 
@@ -196,6 +214,21 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
 
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
+
+  // Candidate desk, recognised by the message. In order: a decision card, an
+  // escalation line in a card thread, a draft awaiting :+1:, a bench card, a
+  // recap card. Each returns false when the message is not its own.
+  const deskAdmin = createAdminClient()
+  const deskCandidate = await candidateForSlackMessage(deskAdmin, channel, ts)
+  if (deskCandidate) {
+    await handleDecisionReaction(deskAdmin, { candidate: deskCandidate, reaction, slackUser: event.user, channel, ts })
+    return
+  }
+  if (await handleEscalationReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
+  if (await handleDraftReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
+  if (await handleBenchReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
+  if (await handleRecapReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
+  if (!approve && !reject && !hide && !send) return
 
   // Question cards: :see_no_evil: hides the question from partners. Recognised
   // by the message, not the channel.
