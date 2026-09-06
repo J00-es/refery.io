@@ -74,6 +74,17 @@ export async function POST(req: NextRequest) {
   })
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 500 })
 
+  // The firm was approved once, and that is the point of a firm: its people do
+  // not each need approving again. Joining an active firm activates the person,
+  // or they would accept the terms and still land on the pending screen.
+  if (invite.firm.status === 'active') {
+    await admin
+      .from('users_admin')
+      .update({ status: 'active', updated_at: new Date().toISOString() })
+      .eq('user_id', appUser.id)
+      .eq('status', 'pending')
+  }
+
   const origin = (
     process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://refery.xyz'
   ).replace(/\/$/, '')
