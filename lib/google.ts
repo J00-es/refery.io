@@ -259,6 +259,8 @@ export interface SendInput {
   cc?: string[]
   subject: string
   body: string
+  /** An HTML rendering of the same body. When set the message is multipart/alternative. */
+  html?: string | null
   /** Reply into this thread. Subject is normalised to Re: on its own. */
   thread?: { threadId: string; messageId: string | null; subject?: string | null } | null
 }
@@ -279,18 +281,34 @@ function rawMessage(input: SendInput): { raw: string; subject: string } {
     : input.subject
 
   const to = input.toName ? `${encodeHeader(input.toName)} <${input.to}>` : input.to
-  const headers = [
-    `To: ${to}`,
-    ...(input.cc?.length ? [`Cc: ${input.cc.join(', ')}`] : []),
-    `Subject: ${encodeHeader(subject)}`,
-    'MIME-Version: 1.0',
-    'Content-Type: text/plain; charset="UTF-8"',
-    'Content-Transfer-Encoding: 8bit',
-  ]
+  const headers = [`To: ${to}`, ...(input.cc?.length ? [`Cc: ${input.cc.join(', ')}`] : []), `Subject: ${encodeHeader(subject)}`, 'MIME-Version: 1.0']
   if (thread?.messageId) {
     headers.push(`In-Reply-To: ${thread.messageId}`, `References: ${thread.messageId}`)
   }
-  const raw = Buffer.from(`${headers.join('\r\n')}\r\n\r\n${input.body}`, 'utf8').toString('base64url')
+  let message: string
+  if (input.html) {
+    const boundary = `refery_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
+    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`)
+    message = [
+      `${headers.join('\r\n')}`,
+      '',
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      input.body,
+      `--${boundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      'Content-Transfer-Encoding: 8bit',
+      '',
+      input.html,
+      `--${boundary}--`,
+    ].join('\r\n')
+  } else {
+    headers.push('Content-Type: text/plain; charset="UTF-8"', 'Content-Transfer-Encoding: 8bit')
+    message = `${headers.join('\r\n')}\r\n\r\n${input.body}`
+  }
+  const raw = Buffer.from(message, 'utf8').toString('base64url')
   return { raw, subject }
 }
 

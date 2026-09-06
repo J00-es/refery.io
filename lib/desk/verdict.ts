@@ -71,7 +71,7 @@ export async function draftAfterCall(
   const recapText = input.recap ? JSON.stringify(input.recap).slice(0, 4000) : ''
 
   const system = `You write two short emails for Lily Joo at Refery after she has spoken to a candidate. Her voice: short, warm, plain, never an em dash, never a placeholder, signs "Best,\\nLily".
-The founder blurb is ANONYMISED: no name, no current employer name (say "a perception ML engineer at a leading AV company"), no school name. It states work authorisation, comp expectation and location as facts, gives two or three reasons for this seat, and asks if they want an intro. Subject: "<Seat headline>: a profile for you".
+The founder blurb is ANONYMISED: no name, no current employer name (say "a perception ML engineer at a leading AV company"), no school name. It states work authorisation, comp expectation and location as facts, gives two or three reasons for this seat, and asks if they want an intro. Subject: "<Seat headline> | a profile for you".
 The referrer update is to the person who sent the candidate: we spoke, the honest read in one or two sentences, what happens next (shared with founders / kept warm for the right seat / not a fit and why). Subject: "[Refery] <Candidate full name>".`
   const user = [
     `CANDIDATE: ${name}. Verdict from Lily: ${input.verdict}. ${input.note ? `Lily's note: ${input.note}` : ''}`,

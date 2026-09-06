@@ -21,6 +21,13 @@ export async function introLanded(candidateEmail: string, sinceMs: number): Prom
   return hit ?? null
 }
 
+/** A delivery failure for this address since `sinceMs`: Gmail's own bounce, or a postmaster's. */
+export async function bounced(toEmail: string, sinceMs: number): Promise<GmailMessageMeta | null> {
+  const q = `(from:mailer-daemon@googlemail.com OR from:mailer-daemon OR from:postmaster OR subject:"Delivery Status Notification" OR subject:"Undeliverable") "${toEmail}" newer_than:${daysAgo(sinceMs)}d`
+  const { messages } = await searchMessages(q, 5)
+  return messages.find(m => m.internalDate >= sinceMs) ?? null
+}
+
 /** The candidate wrote to us (any thread) since `sinceMs`. */
 export async function candidateWrote(candidateEmail: string, sinceMs: number): Promise<GmailMessageMeta | null> {
   const { messages } = await searchMessages(`from:${candidateEmail} newer_than:${daysAgo(sinceMs)}d`, 5)

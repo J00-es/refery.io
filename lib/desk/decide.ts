@@ -13,6 +13,9 @@
  * lands exactly once and sends exactly one email.
  */
 
+import { decisionSubject } from '@/lib/desk/subjects'
+import { APP_URL, buildIntroKit, withKit } from '@/lib/desk/intro'
+import { syncSubmissions } from '@/lib/desk/submissions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { postThreadReply, esc } from '@/lib/slack-bot'
 import { latestPanel, recipientFor, type PanelRow } from '@/lib/desk/panel'
@@ -183,6 +186,24 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
 
   const to = recipient === 'owner' ? owner?.email ?? null : (c.email as string | null)
   const toName = recipient === 'owner' ? owner?.name ?? null : name
+  const decided = input.decision as 'intro_now' | 'bench' | 'not_fit'
+  const subject = decisionSubject(decided, recipient, name)
+  const chosenSeatIds = input.jobIds?.length ? input.jobIds : strongSeatIds(p, seats)
+
+  // To a partner, the intro request carries the kit: email, LinkedIn, the
+  // page, a forwardable intro, a pre-filled mailto and the "have Lily reach
+  // out" link. The bench note carries the page link, so "kept in the pool"
+  // is something they can open.
+  let html: string | null = null
+  if (recipient === 'owner' && to && decided === 'intro_now') {
+    const kit = await buildIntroKit(admin, c, { withLink: true, ownerUserId: (c.owner_user_id as string) ?? null, strongSeats: seats.filter(s => chosenSeatIds.includes(s.jobId)) })
+    const v = withKit(draft.body, kit)
+    draft.body = v.text
+    html = v.html
+  } else if (recipient === 'owner' && to && decided === 'bench') {
+    const line = `You can see where ${first} is any time on their page in Refery: ${APP_URL}/candidates/${c.id}`
+    if (!draft.body.includes('/candidates/')) draft.body = /\n\nBest,\nLily\s*$/.test(draft.body) ? draft.body.replace(/\n\nBest,\nLily\s*$/, `\n\n${line}\n\nBest,\nLily`) : `${draft.body}\n\n${line}`
+  }
   // Lily uploading her own sourced person and benching them is a filing, not an email.
   const skipEmail = recipient === 'candidate' && owner?.isUs && c.intake_source !== 'inbound' && input.decision !== 'intro_now'
 
@@ -197,10 +218,11 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
         kind: `decision_${input.decision}`,
         to,
         toName,
-        subject: draft.subject || (recipient === 'owner' ? `[Refery] ${name}` : `${first} / Lily @ Refery`),
+        subject,
         body: draft.body,
+        html,
         sentBy: input.by,
-        meta: { decision: input.decision, recipient, job_ids: input.jobIds ?? strongSeatIds(p, seats) },
+        meta: { decision: input.decision, recipient, job_ids: chosenSeatIds },
       })
       emailed = sent.ok
       emailError = sent.error ?? null
@@ -208,7 +230,19 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
     }
   }
 
-  if (!resend) await record({ job_ids: input.jobIds ?? strongSeatIds(p, seats) })
+  if (!resend) await record({ job_ids: chosenSeatIds })
+
+  // The same decision, reflected on every search they were submitted to, so
+  // Searches and Pipeline say what the candidate page says.
+  if (!resend) {
+    await syncSubmissions(admin, {
+      candidateId: c.id,
+      decision: decided,
+      jobIds: chosenSeatIds,
+      reason: input.reasonLine?.trim() || p.drafts?.not_fit_reason_line || null,
+      by: input.via === 'auto' ? 'the desk' : 'Lily',
+    })
+  }
 
   // ── what happens next ──────────────────────────────────────────────────────
   if (input.decision === 'intro_now') {

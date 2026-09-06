@@ -80,3 +80,15 @@ numbered card, 1️⃣..6️⃣ act on one, 🔥 all strong, 💤 dismiss
 ## Cost
 
 Opus 5 per panel with a cached prefix: about $0.05. Sonnet 5 per bench seat: about $0.12. Haiku 4.5 per reply read: under a cent. `candidate_panels.cost_usd` and `search_match_runs.cost_usd` hold the real numbers.
+
+## Subjects, the intro kit, and the link (7 September 2026)
+
+Every subject the desk writes comes from `lib/desk/subjects.ts`, never from the model: to a partner `[Refery] <Full name> | <step>`, to a candidate `[Refery] <First name> / Lily | <step>`. The steps are `warm intro request`, `kept in the pool`, `passing, with the reason` for partners and `15 min this week?`, `keeping you in mind`, `a candid note` for candidates. Nudges and replies stay in the thread, so the step is on every reminder. Updates to a partner with no thread use `call booked`, `I reached out directly`, `parked for now`.
+
+The intro request to a partner carries the **intro kit** under the ask (`lib/desk/intro.ts`): the person's email and LinkedIn, their page in Refery, a three-line intro the partner can forward as-is, a pre-filled `mailto:` with lily@refery.io in copy, and one link that has Lily reach out herself. The email goes as multipart (plain text plus HTML) so the two buttons render; every other desk email stays plain text. The bench note to a partner carries the page link.
+
+**Have Lily reach out** is one action with three doors: the button on the candidate page, the link in the email (`/intro/<token>`), and the :raising_hand: reaction on an escalation. All three call `sendIntroForPartner`: Lily's direct email to the candidate with the partner cc'd, the person moves to `intro_sent`, referrer timers stop, candidate timers start, one line in the card thread. The emailed link is a single-use row in `desk_links`, 30 days, dead the moment the person leaves `intro_requested`; opening the page changes nothing (mail scanners prefetch links), only the confirm button posts. Nothing about it is scheduled, so there is nothing to maintain; a stale link can only say "already handled". Lily sees the partner's block on the candidate page as a preview.
+
+A decision is reflected on every search the person was submitted to (`lib/desk/submissions.ts`): `not_fit` declines open submissions with the reason line the partner already read, `intro_now` shortlists the seats Lily named, `bench` leaves them. The submission card in Slack gets the line, so Searches, Pipeline, the candidate page and Sunday's digest say the same thing.
+
+Two watchers ride the half-hourly run: replies on bench and not-a-fit threads are summarised into the card thread (no timer covers those), and anything sent in the last three days is checked once for a bounce, which marks the email failed and says so in the thread. Once a day the run mints a Gmail token and posts to the desk channel if it cannot.

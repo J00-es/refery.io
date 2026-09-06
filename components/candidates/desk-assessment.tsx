@@ -4,6 +4,8 @@ import { loadLiveSeats, seatBand } from '@/lib/desk/seats'
 import { tierWord } from '@/lib/desk/tiers'
 import { DeskDecisionButtons } from '@/components/candidates/desk-decision-buttons'
 import { PartnerIntroButtons } from '@/components/candidates/partner-intro-buttons'
+import { forwardableIntro, mailtoFor } from '@/lib/desk/intro'
+import { properName } from '@/lib/desk/people'
 import { CARD } from '@/lib/candidate-ui'
 import { journeyConfig, type JourneyStage } from '@/lib/journey'
 
@@ -27,12 +29,13 @@ export async function DeskAssessment({
   isOwner: boolean
 }) {
   const admin = createAdminClient()
-  const [panel, seats, { data: emails }, { data: decisions }, { data: followups }] = await Promise.all([
+  const [panel, seats, { data: emails }, { data: decisions }, { data: followups }, { data: person }] = await Promise.all([
     latestPanel(admin, candidateId),
     loadLiveSeats(admin),
     admin.from('candidate_emails').select('kind, to_email, subject, sent_at, error, created_at, meta').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(30),
     admin.from('candidate_decisions').select('decision, reason, via, created_at').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(10),
     admin.from('candidate_followups').select('kind, due_at, status').eq('candidate_id', candidateId).in('status', ['pending', 'escalated']).order('due_at').limit(5),
+    admin.from('candidates').select('name, email, phone, linkedin_url').eq('id', candidateId).maybeSingle(),
   ])
 
   const bySeat = new Map(seats.map(s => [s.jobId, s]))
@@ -161,7 +164,24 @@ export async function DeskAssessment({
       )}
 
       {isSuperAdmin && <DeskDecisionButtons candidateId={candidateId} journeyStage={journeyStage} hasPanel={!!panel} />}
-      {!isSuperAdmin && isOwner && journeyStage === 'intro_requested' && <PartnerIntroButtons candidateId={candidateId} />}
+      {(isSuperAdmin || isOwner) && journeyStage === 'intro_requested' && person && (() => {
+        const name = properName(person.name as string)
+        const email = ((person.email as string | null) ?? '').trim().toLowerCase() || null
+        const focus = strong[0] ? bySeat.get(strong[0].job_id) : undefined
+        const forwardable = forwardableIntro(name, focus ? focus.headline || focus.title : null)
+        return (
+          <PartnerIntroButtons
+            candidateId={candidateId}
+            first={name.split(/\s+/)[0]}
+            email={email}
+            phone={((person.phone as string | null) ?? '').trim() || null}
+            linkedin={((person.linkedin_url as string | null) ?? '').trim() || null}
+            forwardable={forwardable}
+            mailto={email ? mailtoFor(email, name, forwardable) : null}
+            preview={isSuperAdmin}
+          />
+        )
+      })()}
 
       <div className="mt-4 border-t border-[#E4E3DC] pt-4">
         <div className="flex items-baseline justify-between">

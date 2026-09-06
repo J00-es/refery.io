@@ -14,6 +14,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
+import { SUBJECT_RULE } from '@/lib/desk/subjects'
 import { structured } from '@/lib/desk/model'
 import { loadLiveSeats, seatBrief, seatLabel, seatBand, type Seat } from '@/lib/desk/seats'
 import { lookupLogos, tierWord, type Logo } from '@/lib/desk/tiers'
@@ -102,7 +103,7 @@ Rules for the three drafts:
   bench: to the partner, or to the candidate if they came in directly. Strong, nothing live fits today, kept in the pool (under the partner's name when it is a partner), we come back first.
   not_fit: to the partner, or to the candidate if they came in directly. Thank them, one honest reason in one sentence (that sentence is not_fit_reason_line), what would fit better so the next referral lands, keep them in the pool. Never harsh, never vague.
   If a fact is missing (visa, location, comp) and the email goes to a partner, add one short line asking for it.
-Subject lines: partner emails "[Refery] <Candidate full name>"; candidate emails "<First name> / Lily @ Refery".
+${SUBJECT_RULE}
 All three drafts are always written in full, whichever decision you suggest, because Lily may pick a different one. A draft that is only a greeting and a sign-off is a failure.
 
 LENGTH. Summary two or three sentences. Highlights three. Flags at most five, the ones that change the decision. Everything else short.`

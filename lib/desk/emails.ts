@@ -12,6 +12,7 @@
  */
 
 import { firstNameOf } from '@/lib/desk/people'
+import { directSubject } from '@/lib/desk/subjects'
 
 export const CAL_LINK = 'cal.com/refery-lily/15'
 
@@ -41,7 +42,7 @@ export function calendarReply(input: {
       ? `\n\nAnd if you can share ${needCv ? 'your CV and ' : ''}${asks.length ? 'the answers below' : ''} before the call, that helps me check which roles fit you:${asks.length ? `\n${asks.join('\n')}` : ''}`
       : ''
   return {
-    subject: `${first} / Lily @ Refery`,
+    subject: directSubject(input.candidateName),
     body: `Hi ${first}, great to meet you!${input.referrerFirstName ? ` Thanks for the intro, ${input.referrerFirstName}.` : ''}
 
 Happy to chat. Please grab a slot here: ${CAL_LINK}${askBlock}
@@ -79,7 +80,7 @@ Lily`
 export function directAfterReferrer(input: { candidateName: string; referrerName: string; seatLines: string[] }): { subject: string; body: string } {
   const first = firstNameOf(input.candidateName)
   return {
-    subject: `${first} / Lily @ Refery`,
+    subject: directSubject(input.candidateName),
     body: `Hi ${first},
 
 ${input.referrerName} mentioned you to me and shared your background, and I wanted to reach out directly. I run Refery, a small referral network that places people into early-stage startups, and I think you could be a strong fit for ${input.seatLines.length === 1 ? 'a search' : 'a couple of searches'} we are running right now:

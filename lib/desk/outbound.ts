@@ -19,6 +19,8 @@ export interface OutboundInput {
   cc?: string[]
   subject: string
   body: string
+  /** HTML version of the body, for emails that carry links and buttons. */
+  html?: string | null
   /** Reply into this Gmail thread when set. */
   threadId?: string | null
   sentBy: string
@@ -70,6 +72,7 @@ export async function sendDeskEmail(admin: SupabaseClient, input: OutboundInput)
     cc: input.cc,
     subject: input.subject,
     body: input.body,
+    html: input.html ?? null,
     thread,
   })
 

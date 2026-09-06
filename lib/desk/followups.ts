@@ -18,7 +18,9 @@ import { addReaction, esc, postThreadReply } from '@/lib/slack-bot'
 import { deskChannels } from '@/lib/desk-notifications'
 import { postMessage } from '@/lib/slack-bot'
 import { calendarReply, candidateNudge, referrerNudge, referrerOutcome } from '@/lib/desk/emails'
-import { bookingFound, candidateWrote, classifyReply, introLanded, repliesSince } from '@/lib/desk/signals'
+import { bookingFound, bounced, candidateWrote, classifyReply, introLanded, repliesSince } from '@/lib/desk/signals'
+import { directSubject, partnerSubject, partnerUpdateSubject } from '@/lib/desk/subjects'
+import { sendIntroForPartner } from '@/lib/desk/intro'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { loadOwner, properName } from '@/lib/desk/people'
 import { latestPanel } from '@/lib/desk/panel'
@@ -120,7 +122,7 @@ export async function onBooked(admin: SupabaseClient, c: Record<string, unknown>
       kind: 'referrer_update_booked',
       to: owner.email,
       toName: owner.name,
-      subject: `[Refery] ${properName(c.name as string)}`,
+      subject: partnerUpdateSubject(properName(c.name as string), 'booked'),
       body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'booked' }),
       sentBy: by,
     })
@@ -221,7 +223,7 @@ async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string
     kind: `referrer_nudge_${attempt}`,
     to: f.to_email,
     toName: owner.name,
-    subject: `[Refery] ${properName(c.name as string)}`,
+    subject: partnerSubject(properName(c.name as string), 'warm intro request'),
     body: referrerNudge({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), attempt }),
     threadId: f.gmail_thread_id,
     sentBy: 'desk',
@@ -274,7 +276,7 @@ async function candidateStep(admin: SupabaseClient, f: Followup, c: Record<strin
     kind: 'candidate_nudge',
     to: c.email as string,
     toName: properName(c.name as string),
-    subject: `${first} / Lily @ Refery`,
+    subject: directSubject(properName(c.name as string)),
     body: candidateNudge({ candidateName: properName(c.name as string) }),
     threadId: f.gmail_thread_id,
     sentBy: 'desk',
@@ -423,7 +425,83 @@ export async function runFollowups(admin: SupabaseClient): Promise<Record<string
   }
 
   const swept = await sweep(admin)
-  return { processed: results.length, results, swept }
+  const watched = await watchThreads(admin)
+  const gmail = await googleHealth(admin)
+  return { processed: results.length, results, swept, ...watched, gmail }
+}
+
+/**
+ * Two things no timer covers. A reply on a bench or not-a-fit thread ("he has
+ * a green card, actually") is posted into the card thread so it is seen. And
+ * anything sent in the last three days is checked once for a bounce, which
+ * marks the email failed and says so in the thread; the timers otherwise
+ * assume the email landed.
+ */
+async function watchThreads(admin: SupabaseClient): Promise<{ replies: number; bounces: number }> {
+  const since = new Date(Date.now() - 14 * 86_400_000).toISOString()
+  const { data: emails } = await admin
+    .from('candidate_emails')
+    .select('id, candidate_id, kind, to_email, sent_at, gmail_thread_id, meta')
+    .gte('sent_at', since)
+    .not('gmail_thread_id', 'is', null)
+    .order('sent_at', { ascending: false })
+    .limit(60)
+  let replies = 0
+  let bounces = 0
+  const now = new Date().toISOString()
+  for (const e of emails ?? []) {
+    const meta = (e.meta ?? {}) as Record<string, unknown>
+    const sentMs = ms(e.sent_at as string)
+    const age = Date.now() - sentMs
+    try {
+      if (!meta.bounce_checked_at && !meta.bounced && age > 10 * 60_000 && age < 3 * 86_400_000) {
+        const b = await bounced(e.to_email as string, sentMs)
+        if (b) {
+          bounces++
+          await admin.from('candidate_emails').update({ error: 'bounced', meta: { ...meta, bounced: true, bounce_checked_at: now } }).eq('id', e.id)
+          const c = e.candidate_id ? await candidateOf(admin, e.candidate_id as string) : null
+          if (c) {
+            await logActivity(admin, c.id as string, 'signal_seen', `The ${String(e.kind).replace(/_/g, ' ')} email to ${e.to_email} bounced.`, { source: 'gmail' })
+            await threadNote(c, `:rotating_light: The ${String(e.kind).replace(/_/g, ' ')} email to ${esc(e.to_email as string)} *bounced*. Fix the address on the profile, then resend from there.`)
+          }
+        } else if (age > 2 * 86_400_000) {
+          await admin.from('candidate_emails').update({ meta: { ...meta, bounce_checked_at: now } }).eq('id', e.id)
+        }
+      }
+      if (['decision_bench', 'decision_not_fit'].includes(String(e.kind)) && e.candidate_id) {
+        const lastSeen = ms(meta.last_reply_at as string) || sentMs
+        const rs = await repliesSince(e.gmail_thread_id as string, lastSeen)
+        const last = rs[rs.length - 1]
+        if (last) {
+          replies++
+          const c = await candidateOf(admin, e.candidate_id as string)
+          await admin.from('candidate_emails').update({ meta: { ...meta, last_reply_at: new Date(last.at).toISOString() } }).eq('id', e.id)
+          if (c) {
+            const read = await classifyReply({ who: 'referrer', text: last.text, candidateName: properName(c.name as string) })
+            await logActivity(admin, c.id as string, 'signal_seen', `Reply on the ${String(e.kind).replace(/_/g, ' ')} email from ${last.from}: ${read.summary}`, { source: 'gmail' })
+            await threadNote(c, `:speech_balloon: ${esc(last.from)} replied on the *${String(e.kind).replace('decision_', '').replace(/_/g, ' ')}* email: "${esc(read.summary)}". Needs your reply in Gmail; change the decision on the profile if it changes anything.`)
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`[desk:followups] watch ${e.id} threw:`, err)
+    }
+  }
+  return { replies, bounces }
+}
+
+/** Once a day: can the desk still mint a Gmail token? If not, say so in the desk channel, loudly, before anyone presses send. */
+async function googleHealth(admin: SupabaseClient): Promise<'ok' | 'down' | 'skipped'> {
+  const last = await deskSetting<string | null>(admin, 'google_health_checked_at', null)
+  if (last && Date.now() - ms(last) < 20 * 3_600_000) return 'skipped'
+  const { accessToken } = await import('@/lib/google')
+  const ok = Boolean(await accessToken())
+  await admin.from('desk_settings').upsert({ key: 'google_health_checked_at', value: new Date().toISOString() as never, updated_at: new Date().toISOString() }, { onConflict: 'key' })
+  if (!ok) {
+    const text = ':rotating_light: The desk cannot reach Gmail: the Google connection failed its daily check. Nothing sends until it is reconnected at refery.xyz/admin/settings (one button).'
+    for (const ch of deskChannels()) await postMessage(ch, text, [{ type: 'section', text: { type: 'mrkdwn', text } }])
+  }
+  return ok ? 'ok' : 'down'
 }
 
 /**
@@ -503,7 +581,7 @@ export async function handleEscalationReaction(
         kind: 'referrer_update_dormant',
         to: owner.email,
         toName: owner.name,
-        subject: `[Refery] ${properName(c.name as string)}`,
+        subject: partnerUpdateSubject(properName(c.name as string), 'dormant'),
         body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'dormant' }),
         threadId: f.gmail_thread_id as string,
         sentBy: input.slackUser,
@@ -516,23 +594,13 @@ export async function handleEscalationReaction(
   if (input.reaction === 'raising_hand') {
     await finish(`taken by ${input.slackUser}`)
     if (String(c.journey_stage) === 'intro_requested' && c.email) {
-      // Go direct, in Lily's words: "saying it came from you".
-      const { directAfterReferrer } = await import('@/lib/desk/emails')
-      const panel = await latestPanel(admin, c.id as string)
-      const { loadLiveSeats, seatLabel } = await import('@/lib/desk/seats')
-      const seats = await loadLiveSeats(admin)
-      const by = new Map(seats.map(s => [s.jobId, s]))
-      const lines = (panel?.seat_fits ?? []).filter(x => x.fit === 'strong' && by.has(x.job_id)).map(x => seatLabel(by.get(x.job_id)!, false))
-      const mail = directAfterReferrer({ candidateName: properName(c.name as string), referrerName: owner?.name ?? owner?.firstName ?? 'A mutual contact', seatLines: lines.length ? lines : ['a couple of early-stage searches in SF and NY'] })
-      const sent = await sendDeskEmail(admin, { candidateId: c.id as string, kind: 'direct_after_referrer', to: c.email as string, toName: properName(c.name as string), subject: mail.subject, body: mail.body, sentBy: input.slackUser })
-      await moveJourney(admin, c.id as string, 'intro_sent', 'Went direct after the referrer did not connect.', { by: input.slackUser })
-      const days = await deskSetting<number[]>(admin, 'candidate_nudge_days', [4, 10])
-      await scheduleFollowup(admin, { candidateId: c.id as string, kind: 'candidate_book_nudge', inDays: days[0] ?? 4, toEmail: c.email as string, threadId: sent.threadId })
-      await scheduleFollowup(admin, { candidateId: c.id as string, kind: 'candidate_book_escalate', inDays: days[1] ?? 10, toEmail: c.email as string, threadId: sent.threadId })
-      if (owner && !owner.isUs) {
-        await sendDeskEmail(admin, { candidateId: c.id as string, kind: 'referrer_update_direct', to: owner.email, toName: owner.name, subject: `[Refery] ${properName(c.name as string)}`, body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'went_direct' }), threadId: f.gmail_thread_id as string, sentBy: input.slackUser })
+      // Go direct, in Lily's words: "saying it came from you". The partner is
+      // cc'd on that email, and gets one line in the old thread as well.
+      const r = await sendIntroForPartner(admin, c, { by: input.slackUser, via: 'slack' })
+      if (r.ok && owner && !owner.isUs) {
+        await sendDeskEmail(admin, { candidateId: c.id as string, kind: 'referrer_update_direct', to: owner.email, toName: owner.name, subject: partnerUpdateSubject(properName(c.name as string), 'went_direct'), body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'went_direct' }), threadId: f.gmail_thread_id as string, sentBy: input.slackUser })
       }
-      await postThreadReply(input.channel, input.ts, sent.ok ? `:email: <@${input.slackUser}> went direct. Emailed ${first}${owner && !owner.isUs ? ` and told ${owner.firstName}` : ''}. *Intro sent.*` : `:warning: Could not email ${first}: ${sent.error}`)
+      await postThreadReply(input.channel, input.ts, r.ok ? `:email: <@${input.slackUser}> went direct. Emailed ${first}${owner && !owner.isUs ? ` with ${owner.firstName} cc'd, and told them in the old thread` : ''}. *Intro sent.*` : `:warning: Could not email ${first}: ${r.error}`)
       return true
     }
     await postThreadReply(input.channel, input.ts, `:raising_hand: <@${input.slackUser}> is handling ${first} by hand. Timers stopped; I will check again in a week.`)
