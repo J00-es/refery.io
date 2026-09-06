@@ -8,7 +8,16 @@ export async function GET() {
   const appUser = await getAppUser()
   if (!appUser?.isSuperAdmin) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   const { data } = await createAdminClient().from('desk_settings').select('key, value, updated_at')
-  return NextResponse.json({ settings: Object.fromEntries((data ?? []).map(r => [r.key, r.value])) })
+  const rows = (data ?? []).filter(r => r.key !== 'google_refresh_token')
+  const settings = Object.fromEntries(rows.map(r => [r.key, r.value])) as Record<string, unknown>
+  // Whether the desk can send at all: a token in the database, or one in the environment.
+  const hasDbToken = (data ?? []).some(r => r.key === 'google_refresh_token' && typeof r.value === 'string' && r.value.length > 0)
+  settings.google_status = {
+    configured: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+    connected: hasDbToken,
+    env_token: Boolean(process.env.GOOGLE_REFRESH_TOKEN),
+  }
+  return NextResponse.json({ settings })
 }
 
 export async function PATCH(request: NextRequest) {

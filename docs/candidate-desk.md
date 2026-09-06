@@ -75,7 +75,7 @@ numbered card, 1️⃣..6️⃣ act on one, 🔥 all strong, 💤 dismiss
 
 1. The Google refresh token behind `GOOGLE_REFRESH_TOKEN` needs `gmail.send` and `gmail.readonly` in addition to `gmail.compose`. Until it does, every send answers 403 and the card thread says so.
 2. The Refery Ops bot must be in `#refery-desk` (it is) and `SLACK_CHANNEL_CALLS` set for recap cards.
-3. Optional: the nightly automation's panel step can be switched off; the guard trigger makes it harmless either way.
+3. The nightly automation does not re-panel. A candidate is panelled once, at upload or submission, and the desk owns the grade from then on. The nightly job's only work on candidates is the embedding used by the GTM matcher, and the guard trigger throws away any grade or stage the old panel step might still write.
 
 ## Cost
 

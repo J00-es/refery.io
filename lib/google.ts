@@ -16,18 +16,34 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
 /** Access tokens last an hour; a warm lambda should not mint one per call. */
-let cached: { token: string; expiresAt: number } | null = null
+let cached: { token: string; expiresAt: number; refreshToken: string } | null = null
+
+/**
+ * The refresh token comes from desk_settings first (written by
+ * /api/admin/google/connect, which asks for compose + send + readonly), then
+ * from the environment. Client id and secret always come from the environment.
+ */
+async function refreshTokenFor(): Promise<string | null> {
+  try {
+    const { createAdminClient } = await import('@/lib/supabase/server')
+    const { data } = await createAdminClient().from('desk_settings').select('value').eq('key', 'google_refresh_token').maybeSingle()
+    if (typeof data?.value === 'string' && data.value.length > 0) return data.value
+  } catch {
+    // no database in this context; fall through to the environment
+  }
+  return process.env.GOOGLE_REFRESH_TOKEN ?? null
+}
 
 export async function accessToken(): Promise<string | null> {
   const clientId = process.env.GOOGLE_CLIENT_ID
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN
+  const refreshToken = await refreshTokenFor()
   if (!clientId || !clientSecret || !refreshToken) {
     console.warn('[google] GOOGLE_* not fully set; Gmail drafting disabled')
     return null
   }
 
-  if (cached && cached.expiresAt > Date.now() + 60_000) return cached.token
+  if (cached && cached.refreshToken === refreshToken && cached.expiresAt > Date.now() + 60_000) return cached.token
 
   try {
     const res = await fetch(TOKEN_URL, {
@@ -50,6 +66,7 @@ export async function accessToken(): Promise<string | null> {
     cached = {
       token: data.access_token,
       expiresAt: Date.now() + (data.expires_in ?? 3600) * 1000,
+      refreshToken,
     }
     return cached.token
   } catch (err) {
