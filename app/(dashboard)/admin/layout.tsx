@@ -49,20 +49,21 @@ export default function AdminLayout({
   const isSuperAdmin = adminRole === 'super_admin'
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-4 sm:gap-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground sm:text-base">
             Manage users, view analytics, and configure settings
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+        <div className="w-fit rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
           {adminRole === 'super_admin' ? 'Super Admin' : 'Admin'}
         </div>
       </div>
 
-      <nav className="flex gap-4 border-b pb-4">
+      {/* On a phone the tabs scroll sideways inside their own row; the page never does. */}
+      <nav className="-mx-4 flex gap-1 overflow-x-auto whitespace-nowrap border-b px-4 pb-3 sm:mx-0 sm:gap-4 sm:px-0 sm:pb-4 [scrollbar-width:none]">
         <Link
           href="/admin"
           className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
