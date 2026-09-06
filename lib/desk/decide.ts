@@ -69,8 +69,38 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   const stage = String(c.journey_stage ?? 'uploaded')
   const now = new Date().toISOString()
 
+  const target =
+    input.decision === 'intro_now'
+      ? recipient === 'owner'
+        ? 'intro_requested'
+        : 'intro_sent'
+      : input.decision === 'bench'
+        ? 'bench'
+        : input.decision === 'not_fit'
+          ? 'not_fit'
+          : null
+
+  // The same decision a second time is a no-op, with one exception: if the
+  // email for it never went out (credentials, a bounce), pressing the button
+  // again resends it. Nothing else moves; the decision already stands.
+  let resend = false
+  if (target && stage === target) {
+    const { data: last } = await admin
+      .from('candidate_emails')
+      .select('sent_at, error, to_email')
+      .eq('candidate_id', c.id)
+      .eq('kind', `decision_${input.decision}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (last && !last.sent_at) resend = true
+    else if (last?.sent_at) {
+      return { ok: false, message: `${first} is already *${stage.replace(/_/g, ' ')}* and the email went to ${last.to_email} on ${String(last.sent_at).slice(0, 10)}. Nothing changed.`, error: 'already_past' }
+    }
+  }
+
   const allowed = FROM[input.decision]
-  if (allowed && !allowed.includes(stage)) {
+  if (!resend && allowed && !allowed.includes(stage)) {
     return { ok: false, message: `${first} is already *${stage.replace(/_/g, ' ')}*, so nothing changed. Later moves happen on the profile.`, error: 'already_past' }
   }
 
@@ -107,21 +137,21 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   }
 
   // ── claim the move ─────────────────────────────────────────────────────────
-  const target =
-    input.decision === 'intro_now' ? (recipient === 'owner' ? 'intro_requested' : 'intro_sent') : input.decision === 'bench' ? 'bench' : 'not_fit'
-  const { data: claimed } = await admin
-    .from('candidates')
-    .update({ journey_stage: target, journey_stage_at: now, journey_stage_source: 'desk', updated_at: now, desk_reason_pending_at: null, desk_snoozed_until: null })
-    .eq('id', c.id)
-    .eq('journey_stage', stage)
-    .select('id')
-  if (!claimed?.length) return { ok: false, message: 'Someone moved this a moment ago, so nothing changed.', error: 'race' }
-  await logActivity(admin, c.id, 'journey_stage_changed', `${input.decision.replace(/_/g, ' ')} by ${input.via === 'auto' ? 'the desk' : 'Lily'}.`, {
-    from: stage,
-    to: target,
-    metadata: { by: input.by, via: input.via, decision: input.decision },
-  })
-  await cancelFollowups(admin, c.id, ['decision_reminder', 'snooze_repost', 'bench_autosend'])
+  if (!resend) {
+    const { data: claimed } = await admin
+      .from('candidates')
+      .update({ journey_stage: target ?? 'not_fit', journey_stage_at: now, journey_stage_source: 'desk', updated_at: now, desk_reason_pending_at: null, desk_snoozed_until: null })
+      .eq('id', c.id)
+      .eq('journey_stage', stage)
+      .select('id')
+    if (!claimed?.length) return { ok: false, message: 'Someone moved this a moment ago, so nothing changed.', error: 'race' }
+    await logActivity(admin, c.id, 'journey_stage_changed', `${input.decision.replace(/_/g, ' ')} by ${input.via === 'auto' ? 'the desk' : 'Lily'}.`, {
+      from: stage,
+      to: target,
+      metadata: { by: input.by, via: input.via, decision: input.decision },
+    })
+    await cancelFollowups(admin, c.id, ['decision_reminder', 'snooze_repost', 'bench_autosend'])
+  }
 
   if (input.decision === 'route_elsewhere') {
     await record()
@@ -175,11 +205,12 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
     }
   }
 
-  await record({ job_ids: input.jobIds ?? strongSeatIds(p, seats) })
+  if (!resend) await record({ job_ids: input.jobIds ?? strongSeatIds(p, seats) })
 
   // ── what happens next ──────────────────────────────────────────────────────
   if (input.decision === 'intro_now') {
     const jobIds = input.jobIds?.length ? input.jobIds : strongSeatIds(p, seats)
+    if (resend) await cancelFollowups(admin, c.id, ['referrer_nudge_1', 'referrer_nudge_2', 'referrer_escalate', 'candidate_book_nudge', 'candidate_book_escalate'], 'resent')
     await admin.from('candidates').update({ availability_status: c.availability_status === 'off_market' ? 'off_market' : 'active' }).eq('id', c.id)
     if (recipient === 'owner') {
       const days = await deskSetting<number[]>(admin, 'referrer_nudge_days', REFERRER_NUDGES_DEFAULT)
@@ -196,7 +227,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   const sentLine = skipEmail
     ? 'Nothing sent (they are ours and not an inbound).'
     : emailed
-      ? `Sent to ${to}.`
+      ? `${resend ? 'Resent' : 'Sent'} to ${to}.`
       : `:warning: The email to ${to ?? 'nobody'} did not send: ${emailError}. Worth sending by hand; the decision stands.`
 
   const next =
