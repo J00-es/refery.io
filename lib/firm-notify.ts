@@ -124,6 +124,73 @@ export function sendFirmReceipt(to: string, firm: Firm, signerName: string, vers
   return send(to, `We have ${firm.name}'s acceptance`, html, text)
 }
 
+/**
+ * 1b · Please sign for your company.
+ *
+ * Goes to someone who may never have heard of Refery, sent on the say-so of a
+ * colleague, asking them to bind their company. So it opens by saying who asked
+ * and what for, states plainly what is not being asked of them, and does not
+ * pretend to be a favour. Somebody forwarding this to their MD is the normal
+ * case, not the edge one.
+ */
+export function sendFirmSignatureRequest(
+  to: string,
+  firm: Firm,
+  requestedBy: string,
+  signUrl: string,
+  days: number,
+  versions: { partner: string; submission: string; addendum: string },
+) {
+  const html = shell(
+    `${esc0(requestedBy)} has asked you to sign for ${esc0(firm.name)}.`,
+    para(
+      `${esc0(requestedBy)} is setting <b>${esc0(firm.legal_name)}</b> up on Refery, where recruiting firms introduce people they know to roles at venture-backed companies. They have told us you are the person who can sign for the company.`,
+    ) +
+      para(
+        `You would be accepting the Partner Terms v${esc0(versions.partner)}, the Submission Terms v${esc0(versions.submission)} and the Firm Addendum v${esc0(versions.addendum)} on behalf of the company. <b>The firm keeps 70% of each placement fee</b>, and Refery pays the firm rather than individuals.`,
+      ) +
+      button(signUrl, 'Read and sign') +
+      para(
+        `<b>This does not create an account for you</b> and costs nothing. ${esc0(requestedBy)} runs the workspace; you are signing the agreement it operates under.`,
+      ) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">This link works once and expires in ${days} days. If you were not expecting it, or ${esc0(requestedBy)} is not authorised to ask, ignore this email and nothing happens. You can also reply and tell us.</span>`,
+      ),
+  )
+  const text = [
+    `${requestedBy} has asked you to sign for ${firm.name}.`,
+    '',
+    `${requestedBy} is setting ${firm.legal_name} up on Refery and has told us you are the person who can sign for the company.`,
+    '',
+    `You would be accepting the Partner Terms v${versions.partner}, Submission Terms v${versions.submission} and Firm Addendum v${versions.addendum} on behalf of the company.`,
+    '',
+    signUrl,
+    '',
+    `This link works once and expires in ${days} days. If you were not expecting it, ignore this email.`,
+  ].join('\n')
+  return send(to, `${requestedBy} has asked you to sign for ${firm.name} on Refery`, html, text)
+}
+
+/** 1c · Your signer signed. Tells the person who has been waiting. */
+export function sendFirmSignedNotice(
+  to: string,
+  firm: Firm,
+  signerName: string,
+) {
+  const html = shell(
+    `${esc0(signerName)} signed for ${esc0(firm.name)}.`,
+    para(
+      `The agreement for <b>${esc0(firm.legal_name)}</b> is signed. We review every firm by hand, so there is one more step at our end before you can invite your colleagues.`,
+    ) + para(`You will hear from us shortly.`),
+  )
+  return send(
+    to,
+    `${signerName} signed for ${firm.name}`,
+    html,
+    `${signerName} signed the agreement for ${firm.legal_name}. We review every firm by hand and will be in touch shortly.`,
+  )
+}
+
 /** 2 · The firm is live. */
 export function sendFirmActivated(to: string, firm: Firm, signerName: string, appUrl: string) {
   const html = shell(
@@ -330,6 +397,11 @@ export async function announceFirmSignup(opts: {
       type: 'section',
       fields: [
         { type: 'mrkdwn', text: `*Signed by*\n${esc(opts.signerName)}${opts.signerTitle ? `, ${esc(opts.signerTitle)}` : ''}` },
+        // Only when they differ. On a self-signed firm this line would only
+        // repeat the one above it.
+        ...(opts.setUpBy
+          ? [{ type: 'mrkdwn' as const, text: `*Set up by*\n${esc(opts.setUpBy)}` }]
+          : []),
         { type: 'mrkdwn', text: `*Entity*\n${esc(entity)}` },
         { type: 'mrkdwn', text: `*Email*\n${esc(opts.signerEmail)}` },
         {

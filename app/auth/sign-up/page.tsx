@@ -143,6 +143,11 @@ export default function Page() {
   const [firmCompanyNumber, setFirmCompanyNumber] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
   const [firmBillingEmail, setFirmBillingEmail] = useState('')
+  // Setting the firm up and binding it are two acts, and often two people. The
+  // champion who brings Refery in is frequently not the one who can sign.
+  const [signerSelf, setSignerSelf] = useState(true)
+  const [nomineeName, setNomineeName] = useState('')
+  const [nomineeEmail, setNomineeEmail] = useState('')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
@@ -200,7 +205,15 @@ export default function Page() {
       return
     }
     if (isFirm && !firmLegalName.trim()) {
-      setError('Please enter the registered legal entity you are signing for')
+      setError('Please enter the registered legal entity')
+      return
+    }
+    if (isFirm && !signerSelf && !nomineeName.trim()) {
+      setError('Please enter the name of the person who can sign')
+      return
+    }
+    if (isFirm && !signerSelf && !nomineeEmail.includes('@')) {
+      setError('Please enter the email of the person who can sign')
       return
     }
     const who = {
@@ -218,7 +231,7 @@ export default function Page() {
   const handleSubmit = async () => {
     setError(null)
 
-    if (!acceptedAgreement) {
+    if (signerSelf && !acceptedAgreement) {
       setError('Please accept the agreement to continue')
       return
     }
@@ -244,6 +257,9 @@ export default function Page() {
           company_number: firmCompanyNumber,
           signer_title: signerTitle,
           billing_email: firmBillingEmail,
+          signer_self: signerSelf,
+          signer_name: nomineeName,
+          signer_email: nomineeEmail,
         }
       }
 
@@ -537,6 +553,67 @@ export default function Page() {
                             />
                           </div>
                         </div>
+                        {/* The question that decides who takes on the authority
+                            representation. Asked plainly, because a champion
+                            who cannot sign should not have to guess that
+                            ticking the box later is a personal undertaking. */}
+                        <div className="grid gap-1.5">
+                          <Label className="text-sm">Who signs for {firmName.trim() || 'the firm'}?</Label>
+                          <div className="grid gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setSignerSelf(true)}
+                              className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                                signerSelf ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                              }`}
+                            >
+                              <span className="font-medium">I can sign for the company</span>
+                              <span className="block text-xs text-muted-foreground mt-0.5">
+                                You accept on the next step.
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSignerSelf(false)}
+                              className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                                !signerSelf ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                              }`}
+                            >
+                              <span className="font-medium">Someone else signs</span>
+                              <span className="block text-xs text-muted-foreground mt-0.5">
+                                We email them to accept. You still set everything up.
+                              </span>
+                            </button>
+                          </div>
+                        </div>
+                        {!signerSelf && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                            <div className="grid gap-1.5">
+                              <Label htmlFor="nomineeName" className="text-sm">Their Name *</Label>
+                              <Input
+                                id="nomineeName"
+                                type="text"
+                                placeholder="Priya Raman"
+                                value={nomineeName}
+                                onChange={(e) => setNomineeName(e.target.value)}
+                                className="h-11 sm:h-10 text-base sm:text-sm"
+                              />
+                            </div>
+                            <div className="grid gap-1.5">
+                              <Label htmlFor="nomineeEmail" className="text-sm">Their Email *</Label>
+                              <Input
+                                id="nomineeEmail"
+                                type="email"
+                                placeholder="priya@aldertalent.com"
+                                value={nomineeEmail}
+                                onChange={(e) => setNomineeEmail(e.target.value)}
+                                className="h-11 sm:h-10 text-base sm:text-sm"
+                                autoCapitalize="none"
+                                autoCorrect="off"
+                              />
+                            </div>
+                          </div>
+                        )}
                         <div className="border-t pt-4" />
                       </>
                     )}
@@ -599,16 +676,50 @@ export default function Page() {
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">
-                    {isFirm ? 'Partner Terms and Firm Addendum' : 'Partner Terms'}
+                    {isFirm && !signerSelf
+                      ? 'One last thing'
+                      : isFirm
+                        ? 'Partner Terms and Firm Addendum'
+                        : 'Partner Terms'}
                   </CardTitle>
                   <CardDescription className="text-sm">
-                    {isFirm
-                      ? 'You are accepting for your company. About a minute to read.'
-                      : 'About a minute to read. Accept to finish creating your account.'}
+                    {isFirm && !signerSelf
+                      ? `We will email ${nomineeName.trim() || 'them'} to sign for the company.`
+                      : isFirm
+                        ? 'You are accepting for your company. About a minute to read.'
+                        : 'About a minute to read. Accept to finish creating your account.'}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-6">
-                  {agreement ? (
+                  {/* A nominator has nothing to accept. Showing them terms they
+                      cannot agree to would invite them to agree anyway, which is
+                      the exact thing this whole branch exists to prevent. */}
+                  {isFirm && !signerSelf ? (
+                    <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-foreground/80">
+                      <p className="mb-3">
+                        Creating your account and{' '}
+                        <strong className="text-foreground">{firmLegalName.trim() || 'your firm'}</strong>.
+                      </p>
+                      <p className="mb-3">
+                        We will email{' '}
+                        <strong className="text-foreground">{nomineeName.trim() || 'your colleague'}</strong>{' '}
+                        at {nomineeEmail.trim() || 'their address'} and ask them to accept the Partner
+                        Terms, Submission Terms and Firm Addendum on the company&apos;s behalf. They do
+                        not need an account.
+                      </p>
+                      <p className="mb-3">
+                        You will be able to invite colleagues once they have signed and we have
+                        reviewed the firm. We will let you know at each step.
+                      </p>
+                      <p className="text-muted-foreground">
+                        You are not signing anything for the company yourself.{' '}
+                        <Link href="/partner-terms" target="_blank" className="underline underline-offset-2">
+                          Read the terms
+                        </Link>{' '}
+                        if you would like to see what they cover.
+                      </p>
+                    </div>
+                  ) : agreement ? (
                     <>
                       <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground flex flex-wrap items-center justify-between gap-2 mb-3">
                         <span>
@@ -694,14 +805,16 @@ export default function Page() {
                     <Button
                       type="button"
                       onClick={handleSubmit}
-                      disabled={isLoading || !acceptedAgreement}
+                      disabled={isLoading || (signerSelf && !acceptedAgreement)}
                       className="flex-1 h-11 sm:h-10 text-base sm:text-sm"
                     >
                       {isLoading
                         ? 'Creating account...'
-                        : agreement
-                          ? 'Accept & Create Account'
-                          : 'Create Account'}
+                        : isFirm && !signerSelf
+                          ? 'Create account & send for signature'
+                          : agreement
+                            ? 'Accept & Create Account'
+                            : 'Create Account'}
                     </Button>
                   </div>
                 </CardContent>

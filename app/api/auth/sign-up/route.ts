@@ -10,8 +10,8 @@ import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
 import { normalizeEmail } from '@/lib/current-user'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
-import { createFirm } from '@/lib/firms'
-import { announceFirmSignup, sendFirmReceipt } from '@/lib/firm-notify'
+import { createFirm, SIGNATURE_DAYS } from '@/lib/firms'
+import { announceFirmSignup, sendFirmReceipt, sendFirmSignatureRequest } from '@/lib/firm-notify'
 
 // PDF rendering + email send adds a few seconds; give the function room.
 export const maxDuration = 60
@@ -147,7 +147,15 @@ export async function POST(req: Request) {
               jurisdiction: body.firm.jurisdiction,
               companyNumber: body.firm.company_number,
               billingEmail: body.firm.billing_email,
-              signerUserId: adminRow.id as string,
+              createdByUserId: adminRow.id as string,
+              signer:
+                body.firm.signer_self === false
+                  ? {
+                      self: false,
+                      name: String(body.firm.signer_name ?? '').trim(),
+                      email: String(body.firm.signer_email ?? '').trim(),
+                    }
+                  : { self: true, name: fullName, email },
               ip: req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? null,
               userAgent: req.headers.get('user-agent'),
             })
@@ -158,18 +166,32 @@ export async function POST(req: Request) {
                 submission: AGREEMENT_VERSIONS.partnerSubmission,
                 addendum: AGREEMENT_VERSIONS.firmAddendum,
               }
-              await Promise.allSettled([
-                sendFirmReceipt(email, created.firm, fullName, versions),
-                announceFirmSignup({
-                  firm: created.firm,
-                  signerName: fullName,
-                  signerEmail: email,
-                  signerTitle: body.firm.signer_title,
-                  jurisdiction: body.firm.jurisdiction,
-                  companyNumber: body.firm.company_number,
+              if (created.signatureToken) {
+                // Somebody else binds the company. Nothing is announced yet:
+                // there is no signature for Lily to approve.
+                const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://refery.xyz'
+                await sendFirmSignatureRequest(
+                  String(body.firm.signer_email).trim(),
+                  created.firm,
+                  fullName,
+                  `${base}/firm/sign/${created.firm.slug}?token=${created.signatureToken}`,
+                  SIGNATURE_DAYS,
                   versions,
-                }),
-              ])
+                )
+              } else {
+                await Promise.allSettled([
+                  sendFirmReceipt(email, created.firm, fullName, versions),
+                  announceFirmSignup({
+                    firm: created.firm,
+                    signerName: fullName,
+                    signerEmail: email,
+                    signerTitle: body.firm.signer_title,
+                    jurisdiction: body.firm.jurisdiction,
+                    companyNumber: body.firm.company_number,
+                    versions,
+                  }),
+                ])
+              }
             } else {
               console.error('[sign-up] firm creation failed:', created.error)
             }

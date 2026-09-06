@@ -39,9 +39,14 @@ export interface Firm {
   name: string
   legal_name: string
   slug: string
-  status: 'pending' | 'active' | 'suspended'
+  status: 'awaiting_signature' | 'pending' | 'active' | 'suspended'
   signer_user_id: string | null
+  signer_name?: string | null
+  signer_email?: string | null
 }
+
+/** Days a signing link stays good. Same as a colleague invitation. */
+export const SIGNATURE_DAYS = 14
 
 export interface Membership {
   firm: Firm
@@ -202,10 +207,22 @@ export interface CreateFirmInput {
   jurisdiction?: string | null
   companyNumber?: string | null
   billingEmail?: string | null
-  signerUserId: string
+  /** Who set the firm up. Becomes the first Firm Admin either way. */
+  createdByUserId: string
   signerTitle?: string | null
   ip?: string | null
   userAgent?: string | null
+  /**
+   * Who binds the company.
+   *
+   * When `self` is true the creator is also the signer and the firm is created
+   * `pending`, ready for approval. Otherwise the named person is emailed a
+   * signing link and the firm waits in `awaiting_signature`, because a firm
+   * nobody with authority has signed for is not a firm we should be reviewing.
+   */
+  signer:
+    | { self: true; name: string; email: string }
+    | { self: false; name: string; email: string }
 }
 
 /**
@@ -218,7 +235,12 @@ export interface CreateFirmInput {
 export async function createFirm(
   admin: SupabaseClient,
   input: CreateFirmInput,
-): Promise<{ ok: true; firm: Firm } | { ok: false; error: string }> {
+): Promise<
+  { ok: true; firm: Firm; signatureToken: string | null } | { ok: false; error: string }
+> {
+  const self = input.signer.self
+  const signature = self ? null : newInviteToken()
+
   const { data: firm, error } = await admin
     .from('partner_orgs')
     .insert({
@@ -228,23 +250,39 @@ export async function createFirm(
       company_number: input.companyNumber?.trim().slice(0, 60) || null,
       billing_email: input.billingEmail?.trim().slice(0, 200) || null,
       slug: slugify(input.name),
-      status: 'pending',
-      signer_user_id: input.signerUserId,
-      signer_accepted_at: new Date().toISOString(),
+      status: self ? 'pending' : 'awaiting_signature',
+      created_by_user_id: input.createdByUserId,
+      // Only set when the signer holds an account. A nominated signer accepts by
+      // name-and-email clickwrap, the way a client signs a services agreement,
+      // so there is no account to point at and the columns below are the record.
+      signer_user_id: self ? input.createdByUserId : null,
+      signer_name: input.signer.name.trim().slice(0, 200),
+      signer_email: normalizeSignerEmail(input.signer.email),
+      signer_title: input.signerTitle?.trim().slice(0, 120) || null,
+      signer_accepted_at: self ? new Date().toISOString() : null,
+      signer_accepted_ip: self ? input.ip ?? null : null,
+      signer_accepted_user_agent: self ? input.userAgent ?? null : null,
+      signature_token_hash: signature?.hash ?? null,
+      signature_expires_at: signature
+        ? new Date(Date.now() + SIGNATURE_DAYS * 86_400_000).toISOString()
+        : null,
+      signature_requested_at: signature ? new Date().toISOString() : null,
       partner_terms_version: AGREEMENT_VERSIONS.partner,
       submission_terms_version: AGREEMENT_VERSIONS.partnerSubmission,
       firm_addendum_version: AGREEMENT_VERSIONS.firmAddendum,
     })
-    .select('id, name, legal_name, slug, status, signer_user_id')
+    .select('id, name, legal_name, slug, status, signer_user_id, signer_name, signer_email')
     .single()
 
   if (error || !firm) return { ok: false, error: error?.message ?? 'Could not create the firm' }
 
-  // The signer is an admin, and has accepted their own access terms by the same
-  // act: the acceptance screen names both capacities.
+  // Whoever set the firm up runs it, signer or not. They have accepted their own
+  // Team access terms by the same act either way: those are about their personal
+  // use of the workspace, which is a thing they can speak for without authority
+  // to bind the company.
   const { error: memberError } = await admin.from('partner_org_members').insert({
     org_id: firm.id,
-    user_id: input.signerUserId,
+    user_id: input.createdByUserId,
     org_role: 'admin',
     accepted_user_terms_at: new Date().toISOString(),
     accepted_user_terms_version: AGREEMENT_VERSIONS.firmUser,
@@ -253,10 +291,71 @@ export async function createFirm(
   })
 
   if (memberError) {
-    console.error('[firms] firm created but signer membership failed:', memberError.message)
+    console.error('[firms] firm created but admin membership failed:', memberError.message)
   }
 
-  return { ok: true, firm: firm as Firm }
+  return { ok: true, firm: firm as Firm, signatureToken: signature?.token ?? null }
+}
+
+function normalizeSignerEmail(email: string): string {
+  return email.trim().toLowerCase().slice(0, 200)
+}
+
+/**
+ * The firm a signing link refers to, or null.
+ *
+ * Expired, already signed, and never existed all answer the same way, so a
+ * token probe learns nothing it did not already know.
+ */
+export async function findFirmAwaitingSignature(
+  admin: SupabaseClient,
+  token: string,
+): Promise<Firm | null> {
+  const { data } = await admin
+    .from('partner_orgs')
+    .select('id, name, legal_name, slug, status, signer_user_id, signer_name, signer_email, jurisdiction, company_number, signature_token_hash, signature_expires_at')
+    .eq('signature_token_hash', hashToken(token))
+    .eq('status', 'awaiting_signature')
+    .maybeSingle()
+
+  if (!data) return null
+  if (!data.signature_expires_at) return null
+  if (new Date(data.signature_expires_at as string).getTime() < Date.now()) return null
+  if (!tokenMatches(token, data.signature_token_hash as string)) return null
+
+  return data as unknown as Firm
+}
+
+/**
+ * The nominated signer accepts.
+ *
+ * Burns the token in the same statement that records the acceptance, and only
+ * from `awaiting_signature`, so two clicks on the same link cannot produce two
+ * signatures or move an already-approved firm backwards.
+ */
+export async function signFirmAgreement(
+  admin: SupabaseClient,
+  opts: { firmId: string; name: string; ip?: string | null; userAgent?: string | null },
+): Promise<{ ok: true; firm: Firm } | { ok: false; error: string }> {
+  const { data, error } = await admin
+    .from('partner_orgs')
+    .update({
+      status: 'pending',
+      signer_name: opts.name.trim().slice(0, 200),
+      signer_accepted_at: new Date().toISOString(),
+      signer_accepted_ip: opts.ip ?? null,
+      signer_accepted_user_agent: opts.userAgent ?? null,
+      signature_token_hash: null,
+      signature_expires_at: null,
+    })
+    .eq('id', opts.firmId)
+    .eq('status', 'awaiting_signature')
+    .select('id, name, legal_name, slug, status, signer_user_id, signer_name, signer_email')
+    .maybeSingle()
+
+  if (error) return { ok: false, error: error.message }
+  if (!data) return { ok: false, error: 'That agreement has already been signed.' }
+  return { ok: true, firm: data as Firm }
 }
 
 export type InviteResult =
