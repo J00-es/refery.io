@@ -8,7 +8,7 @@
  * up when the grade crossed the A- bar.
  */
 
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildPanelContext, latestPanel, runPanel } from '@/lib/desk/panel'
 import { buildDecisionCard, postDecisionCard, suggestedLine } from '@/lib/desk/card'
@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
 
 async function run(req: NextRequest) {
   if (!authorised(req)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (req.nextUrl.searchParams.get('wait') === '1') return NextResponse.json(await work(req))
+  after(async () => {
+    try {
+      const out = await work(req)
+      if (out.processed) console.log('[desk:panel]', JSON.stringify(out))
+    } catch (err) {
+      console.error('[desk:panel] run threw:', err)
+    }
+  })
+  return NextResponse.json({ ok: true, accepted: true })
+}
+
+async function work(req: NextRequest): Promise<{ ok: boolean; processed: number; results: Record<string, unknown>[] }> {
   const admin = createAdminClient()
 
   // Stale "running" rows are a worker that died mid-call. Give them back.
@@ -73,7 +86,7 @@ async function run(req: NextRequest) {
       results.push({ id, error: message })
     }
   }
-  return NextResponse.json({ ok: true, processed: results.length, results })
+  return { ok: true, processed: results.length, results }
 }
 
 type Admin = ReturnType<typeof createAdminClient>
