@@ -14,6 +14,7 @@ import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 import { addReaction, esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
 import type { Firm, FirmRole } from '@/lib/firms'
+import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 
 const FROM = 'Refery <agreements@refery.io>'
 const REPLY_TO = 'lily@refery.io'
@@ -289,8 +290,9 @@ export async function sendFirmMemberRemoved(
 
 // ── slack ───────────────────────────────────────────────────────────────────
 
+/** Firms land beside partners, so there is one place to approve either. */
 export function firmSignupChannel(): string {
-  return process.env.SLACK_CHANNEL_PARTNER_SIGNUPS || ''
+  return partnerSignupChannel()
 }
 
 /**

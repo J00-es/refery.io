@@ -20,8 +20,17 @@ import { addReaction, esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
 /** Seeded on every card so a decision is one click, never a search for the emoji. */
 const AFFORDANCES = ['+1', '-1']
 
+/**
+ * #refery-partners, where every sign-up notice has always landed.
+ *
+ * Hardcoded with an env override, the same way the desk, search-questions and
+ * search-access channels are. Leaving it to an unset variable meant no card at
+ * all, which made approving from Slack a feature nobody could reach.
+ */
+const PARTNER_SIGNUPS_CHANNEL = 'C0BPHDJ4EPR'
+
 export function partnerSignupChannel(): string {
-  return process.env.SLACK_CHANNEL_PARTNER_SIGNUPS || ''
+  return process.env.SLACK_CHANNEL_PARTNER_SIGNUPS || PARTNER_SIGNUPS_CHANNEL
 }
 
 function truncate(s: string, n: number): string {
