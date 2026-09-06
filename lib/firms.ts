@@ -18,7 +18,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
-import type { AppUser } from '@/lib/current-user'
+import type { AppRole, AppUser } from '@/lib/current-user'
 
 /** How long an invitation is good for. */
 export const INVITE_DAYS = 7
@@ -51,12 +51,24 @@ export interface Membership {
 }
 
 /**
- * Firms are beta-only. Not a soft preference: a real firm must not reach this
- * until the recruiter data-sharing terms and candidate privacy notice are in
- * place, which is counsel's one remaining launch condition.
+ * Who may work as a firm. Open to every active partner since 6 Sep 2026.
+ *
+ * This was beta-only while member removal was still missing, which was
+ * counsel's one blocking condition. That shipped, so the flag came off and
+ * firms onboard themselves.
+ *
+ * Note what is *not* open: creating a firm leaves it `pending`, and a pending
+ * firm can invite nobody. Every firm still passes a human before it is live,
+ * which is where the remaining legal condition is enforced — no EU or UK firm
+ * gets activated until the data-sharing terms and candidate privacy notice
+ * exist. The sign-up card flags a non-US jurisdiction for exactly that reason.
+ *
+ * Hiring managers and viewers are not partners and have no book to share.
  */
-export function firmsEnabled(appUser: Pick<AppUser, 'isBeta'>): boolean {
-  return appUser.isBeta
+const PARTNER_ROLES = new Set<AppRole>(['recruiter', 'scout', 'admin', 'super_admin'])
+
+export function firmsEnabled(appUser: Pick<AppUser, 'role' | 'isActive'>): boolean {
+  return appUser.isActive && PARTNER_ROLES.has(appUser.role)
 }
 
 /** URL-safe, collision-resistant enough for a name, and stable to read. */

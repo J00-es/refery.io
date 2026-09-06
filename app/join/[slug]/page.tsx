@@ -78,8 +78,8 @@ export default async function JoinFirmPage({
     return (
       <Shell>
         <Message
-          title="Not available yet"
-          body="Firm accounts are still in testing. Ask Lily to switch them on for you."
+          title="This account cannot join a firm"
+          body="Firms are for recruiting partners. If you signed up as something else, or your account is not active yet, reply to your invitation and we will sort it out."
         />
       </Shell>
     )

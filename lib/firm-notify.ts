@@ -314,6 +314,19 @@ export async function announceFirmSignup(opts: {
 
   const entity = [opts.jurisdiction, opts.companyNumber].filter(Boolean).join(' · ') || 'Not given'
 
+  /**
+   * Counsel's one live condition: no EU or UK firm until the data-sharing
+   * terms, candidate privacy notice and AI assessment exist. Sign-up is open to
+   * anyone, so the condition is held here, at the moment of approval, by making
+   * a non-US firm impossible to thumb up without noticing.
+   *
+   * Deliberately reads "not recognisably US" rather than "recognisably EU": an
+   * unfamiliar or blank jurisdiction should prompt a look, not sail through.
+   */
+  const nonUS = !/\b(u\.?s\.?a?|united states|delaware|california|new york|texas|florida|nevada|washington|massachusetts|illinois|colorado|georgia|virginia|wyoming)\b/i.test(
+    opts.jurisdiction || '',
+  )
+
   const blocks: SlackBlock[] = [
     {
       type: 'section',
@@ -336,7 +349,9 @@ export async function announceFirmSignup(opts: {
       elements: [
         {
           type: 'mrkdwn',
-          text: 'Firm and signer are pending. Colleagues join by invitation and accept their own terms.',
+          text: nonUS
+            ? `:warning: *${esc(opts.jurisdiction || 'Jurisdiction not given')}.* Do not activate until the data-sharing terms, candidate privacy notice and AI assessment are done. US firms only for now.`
+            : 'Firm and signer are pending. Colleagues join by invitation and accept their own terms.',
         },
       ],
     },

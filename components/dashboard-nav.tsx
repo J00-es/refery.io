@@ -48,6 +48,16 @@ interface NavItem {
  * layouts and API handlers for Jobs and Companies.
  */
 const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon: Users }
+/**
+ * Firm accounts opened to every partner on 6 Sep 2026, and a page nobody can
+ * find is a page nobody uses: until this link existed you had to be sent the
+ * URL. /firm decides for itself whether that means "set one up" or "run yours".
+ *
+ * Shown to recruiters and scouts only. Not to the super admin, whose row is
+ * already six items and measured 1,377px in a 1,051px viewport the last time it
+ * grew; she can reach /firm directly.
+ */
+const firmItem: NavItem = { href: '/firm', label: 'Firm', icon: Building2 }
 const betaNavItems: NavItem[] = [
   { href: '/searches', label: 'Searches', icon: Handshake },
   { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
@@ -103,9 +113,11 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, userRole =
   const seesBeta = isBeta || isSuperAdmin
   // One ordered row. Hiding a link is not access control; each page enforces
   // its own gate. This only keeps the row honest.
+  const isPartner = userRole === 'recruiter' || userRole === 'scout'
   const visibleNavItems: NavItem[] = [
     candidatesItem,
     ...(seesBeta ? betaNavItems : []),
+    ...(isPartner ? [firmItem] : []),
     ...(isSuperAdmin ? superAdminNavItems : []),
   ]
   // The logo goes home. Home is the dashboard for the super admin and the
