@@ -64,8 +64,21 @@ export async function postMessage(
   channel: string,
   text: string,
   blocks: SlackBlock[],
+  /**
+   * Reply inside an existing card's thread rather than starting a new one.
+   *
+   * Used by the reminders: a firm should have exactly one place it gets
+   * approved, and a second top-level card is a second place to react.
+   */
+  threadTs?: string,
 ): Promise<{ ok: boolean; ts?: string; channel?: string; error?: string }> {
-  const res = await call('chat.postMessage', { channel, text, blocks, unfurl_links: false })
+  const res = await call('chat.postMessage', {
+    channel,
+    text,
+    blocks,
+    unfurl_links: false,
+    ...(threadTs ? { thread_ts: threadTs } : {}),
+  })
   return { ok: res.ok, ts: res.ts, channel: res.channel, error: res.error }
 }
 

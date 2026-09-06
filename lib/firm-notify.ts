@@ -355,9 +355,271 @@ export async function sendFirmMemberRemoved(
   )
 }
 
+// \u2500\u2500 reminders \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+
+/**
+ * N2a \u00b7 the signer, at day 3, 7 and 13.
+ *
+ * Says who is waiting rather than what we want, because the thing that moves a
+ * busy director is a colleague being blocked, not a platform being patient.
+ * There is no fresh link: the one they were sent is single use and still live.
+ */
+export function sendFirmSignatureReminder(
+  to: string,
+  firm: Firm,
+  championName: string,
+  daysLeft: number,
+) {
+  const urgent = daysLeft <= 1
+  const html = shell(
+    urgent
+      ? `Last day to sign for ${esc0(firm.name)}.`
+      : `Still waiting on your signature for ${esc0(firm.name)}.`,
+    para(
+      `${esc0(championName)} set <b>${esc0(firm.legal_name)}</b> up on Refery and cannot invite the rest of the team until the agreement is signed.`,
+    ) +
+      para(
+        `It takes about a minute, and <b>you do not need an account</b>. Use the link in the email we sent you when they set it up.`,
+      ) +
+      para(
+        urgent
+          ? `<b>That link expires tomorrow.</b> If it has already gone, reply and we will send a fresh one.`
+          : `<span style="color:${M.muted};font-size:14px;">The link expires in ${daysLeft} days. If you are not the right person for this, reply and tell us who is.</span>`,
+      ),
+  )
+  const text = [
+    urgent ? `Last day to sign for ${firm.name}.` : `Still waiting on your signature for ${firm.name}.`,
+    '',
+    `${championName} set ${firm.legal_name} up on Refery and cannot invite the rest of the team until the agreement is signed.`,
+    '',
+    `Use the link in the email we sent you. It expires in ${daysLeft} day(s).`,
+    '',
+    'If you are not the right person for this, reply and tell us who is.',
+  ].join('\n')
+  return send(
+    to,
+    urgent ? `Last day to sign for ${firm.name}` : `Still waiting on your signature for ${firm.name}`,
+    html,
+    text,
+  )
+}
+
+/**
+ * N2b \u00b7 the champion, from day 7.
+ *
+ * They have done everything asked of them and are stuck behind a colleague. The
+ * useful thing we can offer is permission to go and ask in person, plus the
+ * fact that a third email from us will not help.
+ */
+export function sendFirmSignatureStalledToChampion(
+  to: string,
+  firm: Firm,
+  signerName: string,
+  daysLeft: number,
+) {
+  const html = shell(
+    `${esc0(signerName)} has not signed yet.`,
+    para(
+      `We have emailed ${esc0(signerName)} about signing for <b>${esc0(firm.legal_name)}</b> and have not heard back. Nothing is wrong at our end, and in our experience this is almost always an inbox rather than a decision.`,
+    ) +
+      para(
+        `A word in person tends to be faster than another email from us. ${daysLeft > 0 ? `The link we sent them expires in ${daysLeft} days.` : 'The link we sent them expires today.'}`,
+      ) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">If somebody else should be signing, reply and tell us who, and we will send it to them instead.</span>`,
+      ),
+  )
+  return send(
+    to,
+    `${signerName} has not signed for ${firm.name} yet`,
+    html,
+    `We have emailed ${signerName} about signing for ${firm.legal_name} and have not heard back. A word in person tends to be faster than another email from us. The link expires in ${daysLeft} days. If somebody else should be signing, reply and tell us who.`,
+  )
+}
+
+/**
+ * N3 \u00b7 the link ran out.
+ *
+ * Not framed as a failure. A firm that let a link lapse is still a firm that
+ * wanted in, and the only thing between them and signing is a working URL.
+ */
+export function sendFirmSignatureExpired(
+  to: string,
+  firm: Firm,
+  signerName: string,
+  membersUrl: string,
+) {
+  const html = shell(
+    `The signing link for ${esc0(firm.name)} has expired.`,
+    para(
+      `Nobody signed within fourteen days, so the link we sent ${esc0(signerName)} no longer works. <b>Your account and everything you set up are untouched.</b>`,
+    ) +
+      para(`Send a new one whenever you are ready, to the same person or a different one.`) +
+      button(membersUrl, 'Send a new link') +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">If a firm account is not right for you after all, you can carry on as an individual partner and nothing changes.</span>`,
+      ),
+  )
+  return send(
+    to,
+    `The signing link for ${firm.name} has expired`,
+    html,
+    `Nobody signed within fourteen days, so the link we sent ${signerName} no longer works. Your account and everything you set up are untouched. Send a new one whenever you are ready: ${membersUrl}`,
+  )
+}
+
+/** N5a \u00b7 the invited colleague, at day 3. */
+export function sendFirmInviteReminder(
+  to: string,
+  firm: Firm,
+  daysLeft: number,
+  fallbackUrl: string,
+) {
+  const html = shell(
+    `Your invitation to ${esc0(firm.name)} expires soon.`,
+    para(
+      `You were added to <b>${esc0(firm.name)}</b> on Refery a few days ago. The invitation is still open but expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.`,
+    ) +
+      para(
+        `Joining takes a minute. You accept short access terms of your own, then you see the same candidates and the same searches as the rest of the team.`,
+      ) +
+      para(
+        `Use the link in the invitation we sent you. It only works once, so it has to be that one.`,
+      ) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">If this was not meant for you, ignore it and it lapses on its own.</span>`,
+      ),
+  )
+  return send(
+    to,
+    `Your invitation to ${firm.name} on Refery expires soon`,
+    html,
+    `You were added to ${firm.name} on Refery a few days ago and the invitation expires in ${daysLeft} day(s). Use the link in the original invitation; it only works once. If this was not meant for you, ignore it.`,
+  )
+}
+
+/** N5b \u00b7 the admin, at day 6, with something they can actually do. */
+export function sendFirmInviteStalledToAdmin(
+  to: string,
+  firm: Firm,
+  inviteeEmail: string,
+  membersUrl: string,
+) {
+  const html = shell(
+    `${esc0(inviteeEmail)} has not accepted yet.`,
+    para(
+      `The invitation you sent to <b>${esc0(inviteeEmail)}</b> expires tomorrow and has not been accepted. We reminded them once.`,
+    ) +
+      para(`You can send a fresh one from your team page, to the same address or a different one.`) +
+      button(membersUrl, 'Open your team'),
+  )
+  return send(
+    to,
+    `${inviteeEmail} has not accepted their invitation`,
+    html,
+    `The invitation you sent to ${inviteeEmail} expires tomorrow and has not been accepted. Send a fresh one from ${membersUrl}`,
+  )
+}
+
+/**
+ * N6 \u00b7 live for days, still a team of one.
+ *
+ * Ends by giving them permission to ignore it, because a one-person firm is a
+ * legitimate choice and there is no second email to make the point again.
+ */
+export function sendFirmEmptyTeam(to: string, firm: Firm, membersUrl: string) {
+  const html = shell(
+    `Bring your team into ${esc0(firm.name)}.`,
+    para(
+      `<b>${esc0(firm.name)}</b> has been live for a few days and it is still just you. The agreement covers everyone at the firm, so your colleagues do not need to sign anything of their own.`,
+    ) +
+      para(
+        `Adding someone takes an email address and about ten seconds. They accept short access terms, and then you all see the same book.`,
+      ) +
+      button(membersUrl, 'Invite your team') +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">Working solo on purpose? Then ignore this, nothing is wrong, and we will not ask again.</span>`,
+      ),
+  )
+  return send(
+    to,
+    `Bring your team into ${firm.name}`,
+    html,
+    `${firm.name} has been live for a few days and it is still just you. The agreement covers everyone at the firm. Invite them: ${membersUrl}. Working solo on purpose? Ignore this, we will not ask again.`,
+  )
+}
+
 // ── slack ───────────────────────────────────────────────────────────────────
 
 /** Firms land beside partners, so there is one place to approve either. */
+/**
+ * N4 - a signed firm nobody has approved yet.
+ *
+ * Replies inside the original card's thread rather than posting a new one, so a
+ * firm still has exactly one place it gets approved. A second top-level card
+ * would be a second set of reactions and a race between them.
+ *
+ * The only reminder that repeats, because the person being chased can act.
+ */
+export async function announceFirmAwaitingReview(opts: {
+  firm: Firm
+  signerName: string
+  signedAt: string
+  daysWaiting: number
+  jurisdiction?: string | null
+}): Promise<{ sent: boolean; error?: string }> {
+  const admin = createAdminClient()
+  const { data: row } = await admin
+    .from('partner_orgs')
+    .select('slack_channel_id, slack_message_ts')
+    .eq('id', opts.firm.id)
+    .single()
+
+  const channel = (row?.slack_channel_id as string) || firmSignupChannel()
+  if (!channel) return { sent: false, error: 'no channel' }
+
+  const since =
+    opts.daysWaiting <= 1 ? 'since yesterday' : `for ${opts.daysWaiting} days`
+
+  const blocks: SlackBlock[] = [
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `:hourglass_flowing_sand: *${esc(opts.firm.legal_name)} has been waiting on approval ${since}*`,
+      },
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: `Signed by ${esc(opts.signerName || 'the signer')}. Their team cannot be invited until this is activated.`,
+        },
+      ],
+    },
+    {
+      type: 'context',
+      elements: [
+        {
+          type: 'mrkdwn',
+          text: isRestrictedJurisdiction(opts.jurisdiction)
+            ? `:warning: ${esc(opts.jurisdiction || '')} is EU/UK. The hold still applies: do not activate yet.`
+            : ':+1: on the card above activates it  \u00b7  :-1: leaves it pending',
+        },
+      ],
+    },
+  ]
+
+  const posted = await postMessage(
+    channel,
+    `${opts.firm.legal_name} is waiting on approval`,
+    blocks,
+    (row?.slack_message_ts as string) || undefined,
+  )
+  return posted.ok ? { sent: true } : { sent: false, error: posted.error }
+}
+
 export function firmSignupChannel(): string {
   return partnerSignupChannel()
 }
