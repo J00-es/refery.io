@@ -13,7 +13,7 @@
 import { Resend } from 'resend'
 import { createAdminClient } from '@/lib/supabase/server'
 import { addReaction, esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
-import type { Firm, FirmRole } from '@/lib/firms'
+import { isRestrictedJurisdiction, type Firm, type FirmRole } from '@/lib/firms'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 
 const FROM = 'Refery <agreements@refery.io>'
@@ -317,15 +317,9 @@ export async function announceFirmSignup(opts: {
   /**
    * Counsel's one live condition: no EU or UK firm until the data-sharing
    * terms, candidate privacy notice and AI assessment exist. Sign-up is open to
-   * anyone, so the condition is held here, at the moment of approval, by making
-   * a non-US firm impossible to thumb up without noticing.
-   *
-   * Deliberately reads "not recognisably US" rather than "recognisably EU": an
-   * unfamiliar or blank jurisdiction should prompt a look, not sail through.
+   * anyone, so the condition is held at the moment of approval instead.
    */
-  const nonUS = !/\b(u\.?s\.?a?|united states|delaware|california|new york|texas|florida|nevada|washington|massachusetts|illinois|colorado|georgia|virginia|wyoming)\b/i.test(
-    opts.jurisdiction || '',
-  )
+  const restricted = isRestrictedJurisdiction(opts.jurisdiction)
 
   const blocks: SlackBlock[] = [
     {
@@ -349,8 +343,8 @@ export async function announceFirmSignup(opts: {
       elements: [
         {
           type: 'mrkdwn',
-          text: nonUS
-            ? `:warning: *${esc(opts.jurisdiction || 'Jurisdiction not given')}.* Do not activate until the data-sharing terms, candidate privacy notice and AI assessment are done. US firms only for now.`
+          text: restricted
+            ? `:warning: *${esc(opts.jurisdiction || '')} is EU/UK.* Counsel's hold: activate only once the data-sharing terms, candidate privacy notice and AI assessment are signed off.`
             : 'Firm and signer are pending. Colleagues join by invitation and accept their own terms.',
         },
       ],

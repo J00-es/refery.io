@@ -71,6 +71,37 @@ export function firmsEnabled(appUser: Pick<AppUser, 'role' | 'isActive'>): boole
   return appUser.isActive && PARTNER_ROLES.has(appUser.role)
 }
 
+/**
+ * Whether a firm's jurisdiction falls under counsel's one live restriction.
+ *
+ * Counsel named the EU and the UK, and nothing else. Canada, Latin America and
+ * the rest of the world were never restricted, so they are not treated as if
+ * they were: inventing a hold counsel did not impose is its own kind of wrong,
+ * and it teaches you to click past the warning that does matter.
+ *
+ * Switzerland and the wider EEA are included because the transfer problem is
+ * identical there, which is the thing the restriction is actually about.
+ *
+ * Matched on the jurisdiction the signer typed, so it is a prompt to look, not
+ * a determination. A firm that leaves the field blank gets no warning and is
+ * visible in the Entity field as "Not given".
+ */
+const RESTRICTED_JURISDICTIONS = [
+  'eu', 'e\\.u\\.', 'european union', 'eea', 'uk', 'u\\.k\\.', 'united kingdom',
+  'england', 'wales', 'scotland', 'northern ireland', 'britain', 'gb',
+  'austria', 'belgium', 'bulgaria', 'croatia', 'cyprus', 'czech', 'czechia',
+  'denmark', 'estonia', 'finland', 'france', 'germany', 'greece', 'hungary',
+  'iceland', 'ireland', 'italy', 'latvia', 'liechtenstein', 'lithuania',
+  'luxembourg', 'malta', 'netherlands', 'norway', 'poland', 'portugal',
+  'romania', 'slovakia', 'slovenia', 'spain', 'sweden', 'switzerland', 'swiss',
+]
+
+const RESTRICTED_RE = new RegExp(`\\b(${RESTRICTED_JURISDICTIONS.join('|')})\\b`, 'i')
+
+export function isRestrictedJurisdiction(jurisdiction?: string | null): boolean {
+  return RESTRICTED_RE.test(jurisdiction || '')
+}
+
 /** URL-safe, collision-resistant enough for a name, and stable to read. */
 export function slugify(name: string): string {
   const base = name
