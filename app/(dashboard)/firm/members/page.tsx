@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
 import { firmsEnabled, getMembership } from '@/lib/firms'
 import { InviteForm } from '@/components/firms/invite-form'
+import { RemoveMember } from '@/components/firms/remove-member'
 import { CARD } from '@/lib/candidate-ui'
 
 /**
@@ -133,6 +134,11 @@ export default async function FirmMembersPage() {
                 >
                   {ROLE_LABEL[m.org_role as string] ?? m.org_role}
                 </span>
+                {/* An admin can remove anyone but themselves. The endpoint also
+                    refuses the last admin, so a firm cannot lock itself out. */}
+                {isAdmin && (m.user_id as string) !== appUser.id && (
+                  <RemoveMember userId={m.user_id as string} name={label} />
+                )}
               </div>
             )
           })}

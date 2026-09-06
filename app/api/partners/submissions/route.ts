@@ -5,6 +5,7 @@ import { ownsCandidate } from '@/lib/current-user'
 import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
 import { qualifies, recordClaim } from '@/lib/submission-claims'
+import { getMembership } from '@/lib/firms'
 import { workAuthLabel } from '@/lib/partners'
 import { announceSubmission } from '@/lib/desk-notifications'
 
@@ -237,9 +238,18 @@ export async function POST(req: Request) {
   // here must not lose the partner's work. One timestamp for the batch, so two
   // candidates submitted together cannot be split by a millisecond.
   const claimedAt = new Date()
+  // Section 7 of the Firm Addendum: a submission through a firm's workspace is
+  // made by the firm, and the member is recorded for audit only.
+  const membership = await getMembership(adminClient, access.appUser.id)
+  const holderFirmId =
+    membership && membership.accepted && membership.firm.status === 'active'
+      ? membership.firm.id
+      : null
+
   for (const a of accepted) {
     await recordClaim(adminClient, {
-      holderUserId: access.appUser.id,
+      holderUserId: holderFirmId ? null : access.appUser.id,
+      holderFirmId,
       originatingUserId: access.appUser.id,
       candidateId: a.candidate_id,
       clientCompanyId: companyId,

@@ -225,6 +225,68 @@ export function sendFirmMemberJoined(
   )
 }
 
+/**
+ * 6 · Access ended, to both sides.
+ *
+ * Counsel called this security evidence rather than courtesy, and they are
+ * right: it is how an unauthorised removal, or a compromised admin account,
+ * gets noticed by the one person who would know it was wrong.
+ *
+ * It also restates what continues, because the obligations that outlive access
+ * are exactly the ones somebody assumes ended with it.
+ */
+export async function sendFirmMemberRemoved(
+  memberEmail: string,
+  adminEmail: string,
+  firm: Firm,
+  memberName: string,
+) {
+  const on = new Date().toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+
+  const toMember = shell(
+    `Your access to ${esc0(firm.name)} has ended.`,
+    para(
+      `Your access to <b>${esc0(firm.name)}</b>'s Refery workspace ended on ${on}. You no longer see its candidates or submissions.`,
+    ) +
+      para(
+        `Confidentiality continues, as do the other obligations identified in the Team access terms you accepted, for the periods stated there.`,
+      ) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">If you were not expecting this, reply to this email and tell us.</span>`,
+      ),
+  )
+  await send(
+    memberEmail,
+    `Your access to ${firm.name} on Refery has ended`,
+    toMember,
+    [
+      `Your access to ${firm.name}'s Refery workspace ended on ${on}.`,
+      '',
+      'Confidentiality continues, as do the other obligations in the Team access terms you accepted.',
+      '',
+      'If you were not expecting this, reply and tell us.',
+    ].join('\n'),
+  )
+
+  const toAdmin = shell(
+    `${esc0(memberName)} was removed from ${esc0(firm.name)}.`,
+    para(`Their access ended immediately, and anything they owned is now yours.`) +
+      para(
+        `<span style="color:${M.muted};font-size:14px;">If this was not you, reply to this email straight away.</span>`,
+      ),
+  )
+  return send(
+    adminEmail,
+    `${memberName} was removed from ${firm.name}`,
+    toAdmin,
+    `${memberName} was removed from ${firm.name}. Their access ended immediately. If this was not you, reply straight away.`,
+  )
+}
+
 // ── slack ───────────────────────────────────────────────────────────────────
 
 export function firmSignupChannel(): string {

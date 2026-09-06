@@ -339,3 +339,86 @@ export async function acceptInvite(
   if (inviteError) return { ok: false, error: inviteError.message }
   return { ok: true }
 }
+
+/**
+ * Removing someone from a firm.
+ *
+ * Counsel made this mandatory before any external firm, and the reason is
+ * timing: somebody leaves an agency and their access has to end that day, not
+ * whenever we next look at it.
+ *
+ * Access is resolved from this table on every request, so clearing `removed_at`
+ * takes effect on their very next page load. There is no cached membership to
+ * invalidate, which is the one good thing about resolving it every time.
+ *
+ * Their candidates are reassigned to the person doing the removal. Section 8 of
+ * the Firm Addendum says the firm keeps its records, and leaving `owner_user_id`
+ * pointing at a departed employee would mean the firm could no longer see work
+ * it owns. Claims are untouched: they are already held by the firm.
+ *
+ * The last admin cannot be removed, and nobody can remove themselves. Both are
+ * ways a firm locks itself out.
+ */
+export async function removeMember(
+  admin: SupabaseClient,
+  opts: { firmId: string; userId: string; actorId: string },
+): Promise<{ ok: true; reassigned: number } | { ok: false; error: string }> {
+  if (opts.userId === opts.actorId) {
+    return { ok: false, error: 'You cannot remove yourself. Ask another admin.' }
+  }
+
+  const { data: target } = await admin
+    .from('partner_org_members')
+    .select('org_role')
+    .eq('org_id', opts.firmId)
+    .eq('user_id', opts.userId)
+    .is('removed_at', null)
+    .maybeSingle()
+
+  if (!target) return { ok: false, error: 'They are not in this firm' }
+
+  if (target.org_role === 'admin') {
+    const { count } = await admin
+      .from('partner_org_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('org_id', opts.firmId)
+      .eq('org_role', 'admin')
+      .is('removed_at', null)
+
+    if ((count ?? 0) <= 1) {
+      return {
+        ok: false,
+        error: 'That is the last admin. Make someone else an admin first.',
+      }
+    }
+  }
+
+  const now = new Date().toISOString()
+
+  const { error } = await admin
+    .from('partner_org_members')
+    .update({ removed_at: now })
+    .eq('org_id', opts.firmId)
+    .eq('user_id', opts.userId)
+    .is('removed_at', null)
+
+  if (error) return { ok: false, error: error.message }
+
+  // The firm keeps what it owns. Without this the records would still be
+  // readable only by the person who just left.
+  const { data: moved } = await admin
+    .from('candidates')
+    .update({ owner_user_id: opts.actorId })
+    .eq('owner_user_id', opts.userId)
+    .select('id')
+
+  // Any open invitation to them is dead too.
+  await admin
+    .from('partner_org_invites')
+    .update({ revoked_at: now })
+    .eq('org_id', opts.firmId)
+    .is('accepted_at', null)
+    .is('revoked_at', null)
+
+  return { ok: true, reassigned: moved?.length ?? 0 }
+}

@@ -96,7 +96,9 @@ function addDays(from: Date, days: number): Date {
 }
 
 export interface RecordClaimInput {
-  holderUserId: string
+  /** Exactly one of these. A firm member's submission belongs to the firm. */
+  holderUserId?: string | null
+  holderFirmId?: string | null
   originatingUserId: string
   candidateId: string
   clientCompanyId: string
@@ -116,6 +118,11 @@ export interface RecordClaimInput {
  * The unique index on (holder, candidate, client group) is what collapses two
  * colleagues submitting the same person to the same client into one claim. A
  * conflict here is the rule working, not an error.
+ *
+ * When the submitter is in an active firm the holder is the firm, per section 7
+ * of the Firm Addendum: submissions vest in the firm, and the submitting member
+ * is recorded for audit only. That is what stops a departing employee and their
+ * old firm both claiming the same placement.
  */
 export async function recordClaim(
   admin: SupabaseClient,
@@ -126,7 +133,8 @@ export async function recordClaim(
   const { data, error } = await admin
     .from('submission_claims')
     .insert({
-      holder_user_id: input.holderUserId,
+      holder_user_id: input.holderFirmId ? null : input.holderUserId,
+      holder_firm_id: input.holderFirmId ?? null,
       originating_user_id: input.originatingUserId,
       candidate_id: input.candidateId,
       client_company_id: input.clientCompanyId,
