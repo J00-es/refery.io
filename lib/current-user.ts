@@ -1,4 +1,5 @@
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { scopeUserIds } from '@/lib/firms'
 
 export const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 
@@ -155,7 +156,44 @@ export async function getAppUser(): Promise<AppUser | null> {
  * applied to an already-truncated page of rows.
  */
 export function candidateOwnershipFilter(userId: string): string {
-  return `owner_user_id.eq.${userId},uploaded_by_user_id.eq.${userId},user_id.eq.${userId}`
+  return candidateScopeFilter([userId])
+}
+
+/**
+ * The same filter for a set of people: a partner and their firm.
+ *
+ * This and `requireCandidateAccess` below are the entire security boundary for
+ * candidate data, because the app reads through the service-role client, which
+ * bypasses row-level security. Widening the database policy without widening
+ * these two would show a firm nothing; widening these without the policy would
+ * be a boundary in one layer only. They move together.
+ */
+export function candidateScopeFilter(userIds: string[]): string {
+  const list = userIds.join(',')
+  return `owner_user_id.in.(${list}),uploaded_by_user_id.in.(${list}),user_id.in.(${list})`
+}
+
+/**
+ * True when this candidate belongs to one of `userIds`.
+ *
+ * Kept synchronous and id-based so the caller decides whose ids those are: just
+ * the person, or the person and their firm.
+ */
+export function candidateBelongsTo(
+  userIds: string[],
+  candidate: {
+    owner_user_id?: string | null
+    uploaded_by_user_id?: string | null
+    user_id?: string | null
+  } | null,
+): boolean {
+  if (!candidate) return false
+  return userIds.some(
+    id =>
+      candidate.owner_user_id === id ||
+      candidate.uploaded_by_user_id === id ||
+      candidate.user_id === id,
+  )
 }
 
 /** True when `appUser` may read/modify this specific candidate row. */
@@ -169,11 +207,7 @@ export function ownsCandidate(
 ): boolean {
   if (!candidate) return false
   if (appUser.canViewAllCandidates) return true
-  return (
-    candidate.owner_user_id === appUser.id ||
-    candidate.uploaded_by_user_id === appUser.id ||
-    candidate.user_id === appUser.id
-  )
+  return candidateBelongsTo([appUser.id], candidate)
 }
 
 export type CandidateAccess =
@@ -201,7 +235,17 @@ export async function requireCandidateAccess(candidateId: string): Promise<Candi
     .eq('id', candidateId)
     .maybeSingle()
 
-  if (!candidate || !ownsCandidate(appUser, candidate)) {
+  // A colleague's candidate is reachable too, once the firm is active and this
+  // person has accepted their own terms. scopeUserIds decides that; this only
+  // asks it.
+  const scope = appUser.canViewAllCandidates
+    ? null
+    : await scopeUserIds(adminClient, { id: appUser.id })
+
+  const allowed =
+    appUser.canViewAllCandidates || (scope ? candidateBelongsTo(scope, candidate) : false)
+
+  if (!candidate || !allowed) {
     return { ok: false, status: 404, message: 'Not found' }
   }
 

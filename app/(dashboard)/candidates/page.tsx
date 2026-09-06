@@ -4,7 +4,8 @@ import type { Candidate } from '@/lib/types'
 import { CandidateList } from '@/components/candidate-list'
 import { CandidatesIntroNote } from '@/components/candidates/candidates-intro-note'
 import { UNASSIGNED, type OwnerOption } from '@/components/candidates/owner-filter'
-import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { candidateScopeFilter, getAppUser } from '@/lib/current-user'
+import { scopeUserIds } from '@/lib/firms'
 import { FOCUS, ownerName } from '@/lib/candidate-ui'
 import { cookies } from 'next/headers'
 import { JOURNEY_BUCKETS, type JourneyBucket } from '@/lib/journey'
@@ -43,7 +44,9 @@ export default async function CandidatesPage({
     .order('created_at', { ascending: false })
 
   if (!canViewAll) {
-    candidatesQuery = candidatesQuery.or(candidateOwnershipFilter(appUser.id))
+    candidatesQuery = candidatesQuery.or(
+      candidateScopeFilter(await scopeUserIds(adminClient, { id: appUser.id })),
+    )
   }
 
   const candidatesResult = await candidatesQuery

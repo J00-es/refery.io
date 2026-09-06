@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/server'
-import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { candidateScopeFilter, getAppUser } from '@/lib/current-user'
+import { scopeUserIds } from '@/lib/firms'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
@@ -133,7 +134,7 @@ export default async function DashboardPage() {
     .select(
       'id, name, journey_stage, journey_stage_at, availability_status, intake_source, panel_grade, resume_blob_pathname, owner_user_id',
     )
-  if (!canViewAll) candQuery = candQuery.or(candidateOwnershipFilter(me))
+  if (!canViewAll) candQuery = candQuery.or(candidateScopeFilter(await scopeUserIds(adminClient, { id: me })))
 
   const { data: candData } = await candQuery
   const candidates = (candData || []) as ScopedCandidate[]

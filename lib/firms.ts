@@ -113,6 +113,33 @@ export async function getMembership(
   }
 }
 
+/**
+ * Whose records this person may see.
+ *
+ * Themselves, plus their colleagues when all four are true: they are in a firm,
+ * the firm is active, they have accepted their own terms, and their role is not
+ * coordinator. A coordinator sees only what is assigned to them, which is the
+ * whole reason that role exists.
+ *
+ * Returns a single id for the ~80 solo partners, so nothing changes for them.
+ */
+export async function scopeUserIds(
+  admin: SupabaseClient,
+  user: { id: string },
+): Promise<string[]> {
+  const membership = await getMembership(admin, user.id)
+  if (
+    !membership ||
+    !membership.accepted ||
+    membership.firm.status !== 'active' ||
+    membership.role === 'coordinator'
+  ) {
+    return [user.id]
+  }
+  const ids = await firmMemberIds(admin, membership.firm.id)
+  return ids.length ? ids : [user.id]
+}
+
 /** Every active member's user id. Used to widen visibility to the firm. */
 export async function firmMemberIds(
   admin: SupabaseClient,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { candidateOwnershipFilter, getAppUser } from '@/lib/current-user'
+import { candidateScopeFilter, getAppUser } from '@/lib/current-user'
+import { scopeUserIds } from '@/lib/firms'
 import { candidateRowFromParsed, sanitizeCandidateInput, toText } from '@/lib/resume'
 import { embedCandidate } from '@/lib/embeddings'
 import type { ParsedResumeData } from '@/lib/types'
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
       .limit(limit)
 
     if (!appUser.canViewAllCandidates) {
-      query = query.or(candidateOwnershipFilter(appUser.id))
+      query = query.or(candidateScopeFilter(await scopeUserIds(adminClient, { id: appUser.id })))
     }
 
     const { data: candidates, error } = await query
@@ -139,7 +140,11 @@ export async function POST(request: NextRequest) {
         .limit(1)
 
       if (!appUser.canViewAllCandidates) {
-        duplicateQuery = duplicateQuery.or(candidateOwnershipFilter(appUser.id))
+        // Duplicate detection follows the same scope as reading: a firm should
+        // be told a colleague already has this person, not create a second copy.
+        duplicateQuery = duplicateQuery.or(
+          candidateScopeFilter(await scopeUserIds(adminClient, { id: appUser.id })),
+        )
       }
 
       const { data: existing } = await duplicateQuery.maybeSingle()
