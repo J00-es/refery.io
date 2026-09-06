@@ -11,8 +11,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildPanelContext, latestPanel, runPanel } from '@/lib/desk/panel'
-import { postDecisionCard, suggestedLine } from '@/lib/desk/card'
-import { postThreadReply, esc } from '@/lib/slack-bot'
+import { buildDecisionCard, postDecisionCard, suggestedLine } from '@/lib/desk/card'
+import { postThreadReply, updateMessage, esc } from '@/lib/slack-bot'
 import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
 import { meetsBar, type PanelGrade } from '@/lib/journey'
 import { properName } from '@/lib/desk/people'
@@ -122,10 +122,17 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   }
 
   if (before && c.desk_card_channel && c.desk_card_ts && (pastTheDoor || !crossed)) {
+    // Still undecided: the card is rewritten in place so what Lily reads is
+    // what the latest panel said, drafts included. Decided: a thread note only.
+    const undecided = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'].includes(String(c.journey_stage))
+    if (undecided) {
+      const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf: null, latencyLine })
+      await updateMessage(c.desk_card_channel as string, c.desk_card_ts as string, card.text, card.blocks)
+    }
     if (priorGrade !== panel.grade) {
       await postThreadReply(c.desk_card_channel as string, c.desk_card_ts as string, `:brain: Re-graded after ${reason.replace(/_/g, ' ')}: *${esc(priorGrade ?? '?')} → ${esc(panel.grade)}*. ${esc(panel.suggested_reason ?? '')}`)
     }
-    return { grade: panel.grade, posted: 'thread note', cost: panel.cost_usd }
+    return { grade: panel.grade, posted: undecided ? 'card updated' : 'thread note', cost: panel.cost_usd }
   }
   if (pastTheDoor) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
 

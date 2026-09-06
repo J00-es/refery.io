@@ -69,6 +69,17 @@ export async function postMessage(
   return { ok: res.ok, ts: res.ts, channel: res.channel, error: res.error }
 }
 
+/** Rewrite a message in place, for a card whose facts changed before anyone acted on it. */
+export async function updateMessage(
+  channel: string,
+  ts: string,
+  text: string,
+  blocks: SlackBlock[],
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await call('chat.update', { channel, ts, text, blocks })
+  return { ok: res.ok, error: res.error }
+}
+
 /** Replies in-thread so the channel stays one message per applicant. */
 export async function postThreadReply(
   channel: string,
