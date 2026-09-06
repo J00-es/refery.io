@@ -34,6 +34,15 @@ export const AGREEMENT_VERSIONS = {
   // v2.0 did.
   partner: '2.1',
   partnerSubmission: '1.0',
+  // Firms. Accepted by the signer on behalf of the entity, alongside the two
+  // documents above. Counsel approved the structure on 6 Sep 2026 subject to
+  // the caps, the AAA framework and the California rider, all of which are in
+  // the text below.
+  firmAddendum: '1.0',
+  // Accepted personally by each person a firm invites. A firm cannot accept it
+  // for them: it carries confidentiality and post-access obligations that only
+  // the individual can agree to.
+  firmUser: '1.0',
   // Retained so historical acceptances still resolve to the text that was signed.
   scout: '1.2.0',
   recruiter: '1.2.0',
@@ -1050,3 +1059,148 @@ export const CLIENT_AGREEMENT_TYPE_LABEL = 'Recruitment Services Agreement'
 export function formatClientTerms(terms: ClientAgreementTerms): string {
   return `${terms.feePercentage}% fee, ${terms.paymentWindowDays}-day payment, ${terms.guaranteeDays}-day guarantee`
 }
+/**
+ * Firm Addendum v1.0.
+ *
+ * Attaches to Partner Terms and Submission Terms when the partner is a company
+ * rather than a person. Nothing in either of those documents changes, which is
+ * what lets a firm sign without re-papering the partners already on them.
+ *
+ * The two numbers in here were set by counsel, not by us: the signer's cap at
+ * $25,000 and, in the Firm User Terms, Refery's cap to a member at $1,000.
+ */
+export const FIRM_ADDENDUM_TEXT = `# Firm Addendum
+
+**v1.0** · For firms · Part of the Partner Terms and the Submission Terms
+
+## The short version
+
+| | |
+|---|---|
+| **The firm is the partner** | We contract with the company, not with its people |
+| **One person accepts** | Someone authorised to bind the firm |
+| **Colleagues join separately** | Each accepts short Team access terms of their own |
+| **Submissions belong to the firm** | Including the 24 month protection |
+| **We pay the firm** | Never an individual at the firm |
+
+## The details
+
+**1. What this is, and which document wins.** This Addendum forms part of the Partner Terms and the Submission Terms. Together they are the Firm Agreement. On a conflict, this Addendum controls over the Submission Terms, the Submission Terms control over the Partner Terms on anything specific to a submission, and the Partner Terms control over the general platform Terms and Conditions. Changes to those general Terms do not change the Firm Agreement unless the Firm accepts them.
+
+**Reading the underlying terms.** In the Partner Terms and Submission Terms, "you", "your" and "the Partner" mean the Firm, except where this Addendum says the Signer or a Firm User. The independent contractor relationship in section 5 of the Partner Terms is between Refery and the Firm, not between Refery and any Firm User.
+
+**2. Who is who.** The **Firm** is the named legal entity. The **Signer** is the individual who accepts, in the two capacities in section 13. A **Firm Admin** administers the workspace. An **Authorised Firm Representative** is the Signer or someone whose authority we have verified to change the agreement, the contracting entity, the Verified Payee or control of the account. A **Firm User** is anyone the Firm authorises to use its workspace. The **Verified Payee** is the Firm or an affiliate we have approved to receive payment. A **Client Group** is a client together with any parent, subsidiary or affiliate treated as one protected relationship under the Submission Terms. **Material Activity** is an intentional action on a client or opportunity: submitting or recommending someone, talking to the client or candidate about it, taking part in a live process, or acting on non public information from Refery. Signing in, receiving a notification, or looking at a page without acting on it is not Material Activity.
+
+**3. Authority to accept.** The Firm represents that it is legally formed and existing, and that the information it gives us about itself is complete and accurate. The Signer personally represents that they have authority to bind the Firm. If that is materially untrue and the Signer knew, or had no reasonable basis to believe it was true, the Signer is personally responsible for Refery's direct losses and reasonable external enforcement costs caused by our reliance on it.
+
+That personal liability is **capped at US$25,000 in aggregate**, including those enforcement costs, and covers direct losses only, not indirect, consequential or speculative losses. The cap does not apply to fraud, deliberate misrepresentation or wilful misconduct. It does not make the Signer the Partner and gives the Signer no individual right to a payout or submission.
+
+**4. The Firm is the partner.** The Firm is the sole Partner. Firm Users may be its employees, officers, directors, contractors or agents, and this Agreement does not characterise the relationship between the Firm and its own people. No Firm User is an employee, contractor or agent of Refery, and none may bind Refery. The Firm controls its Firm Users and is responsible for their acts and omissions in connection with the Services as if they were its own. It will keep an accurate record of them and remove access promptly when someone's authorisation ends.
+
+**5. Firm Users accept their own terms.** Each Firm User must personally accept the Team access terms before receiving access. The Firm's acceptance does not accept personal obligations for anyone. A Firm User has no right to payment under the Firm Agreement and is not a third party beneficiary of it.
+
+**6. Relationships you already had.** A Pre-Existing Relationship is a real, documented relationship between the Firm and a named client that existed before the Firm accepted this Agreement. Tell us during onboarding, or within five business days of us first identifying that client to you, and in either case before you submit anyone or carry out Material Activity for them through Refery. We may ask for reasonable evidence.
+
+A Firm User joining later does not automatically add a carve out. The Firm may request one within five business days of that person joining, with evidence that the relationship materially predated their access to the client through Refery, and we will confirm or reasonably decline in writing. No carve out applies to anything introduced through Refery. The Firm's restriction under section 4 of the Partner Terms runs from the Firm's last Material Activity for that client.
+
+If the Firm is based in California, its obligation under section 4 of the Partner Terms is limited to intentionally diverting a specific Refery protected opportunity using a Refery introduction or Refery confidential information. It does not restrict the Firm from serving the same client generally.
+
+**7. Submissions belong to the firm.** Every qualified submission through the Firm's workspace is made by the Firm, and all protection, attribution and payment rights accrue to the Firm. Two Firm Users submitting the same candidate to the same Client Group is one claim, dated from the first submission we confirm. The same candidate to unrelated Client Groups is separate claims. Nothing here changes priority between the Firm and any other Refery partner. We record which Firm User submitted for operational and audit purposes only, and that creates no individual right. Nothing in the Firm Agreement gives anyone ownership of a candidate or their personal data.
+
+**8. When someone leaves.** A Firm Admin may add and remove Firm Users. On removal we revoke access and keep the Firm's records and rights. We may act on an active Firm Admin's instruction unless we reasonably suspect fraud, unauthorised activity, or a dispute about who controls the Firm, and where two active Firm Admins give conflicting instructions we may suspend the affected action while we verify authority.
+
+We have no duty to resolve a dispute between a Firm and a current or former Firm User. We may suspend access, record changes or payments reasonably affected by such a dispute while we verify authority or wait for evidence that it is resolved, and will keep processing undisputed amounts unless that would risk duplicate payment, fraud or a legal violation. A former Firm User has no individual claim against us for payment, attribution or reassignment. The right in section 7 of the Partner Terms to be paid on candidates already submitted belongs to the Firm.
+
+**9. Payment.** We pay only the Verified Payee: the Firm, or an affiliate we have approved after tax, identity and payment verification. Payment in line with the Firm's verified instructions discharges our obligation in full. An approved affiliate receives payment solely as the Firm's payment agent and does not become the Partner or acquire submission rights. We owe nothing to any Firm User individually, and the Firm is responsible for taxes, invoicing and how it divides money internally.
+
+The Firm will indemnify us against claims by current or former Firm Users about employment, compensation, commission, attribution or internal distribution. We will give prompt notice, the Firm controls the defence with counsel reasonably acceptable to us, we will cooperate reasonably at the Firm's cost, and the Firm will not settle in a way that admits fault by us or imposes non monetary obligations on us without our consent. We may take over the defence if the Firm does not defend it properly. The indemnity does not apply where the claim is caused by us paying contrary to the Firm's verified instructions, or by our own gross negligence or wilful misconduct.
+
+Changing the contracting entity needs our approval and a new agreement or a written novation.
+
+**10. Liability and disputes.** For section 8 of the Partner Terms, amounts paid to "you" means amounts paid to the Firm or its Verified Payee in the relevant twelve months. That cap applies once, in aggregate, to claims by the Firm and by anyone claiming through it, and does not multiply by the number of Firm Users.
+
+Commercial, submission and payment disputes are brought by or against the Firm, under Delaware law and the AAA Commercial Arbitration Rules, before one arbitrator, in English, seated in Wilmington, Delaware, heard remotely unless the arbitrator decides otherwise. The Signer's personal obligations under section 3 are governed by the same provisions. A Firm User's personal obligations are governed by the Team access terms they accepted. The Firm and the Signer consent to related proceedings being joined or consolidated so far as the applicable rules allow. Nobody recovers twice for the same loss.
+
+**11. Data and the law.** For processing carried out by the Firm or on its instructions, the Firm represents that it and its Firm Users have the rights, authorisations and lawful bases to submit what they submit, have given every required notice, and will comply with applicable recruitment, employment, anti discrimination, privacy, security, tax, sanctions and anti bribery law. The Firm will not submit information obtained unlawfully or in breach of an obligation owed to a candidate, an employer or anyone else, and is responsible for its Firm Users' compliance. Separate data sharing terms govern the parties' data protection roles.
+
+**12. Running the workspace.** The Firm appoints one or more Firm Admins, who invite and remove Firm Users and manage permissions. Only an Authorised Firm Representative may accept amended commercial terms, change the contracting entity, change the Verified Payee, or transfer control of the account. Administering the workspace does not by itself confer that authority.
+
+Firm Users cannot delete, overwrite or backdate records of acceptance, confirmed submission timestamps, protected periods or audit events. We may correct or restrict a record where reasonably necessary for error, fraud, security, legal requirements or data subject rights, keeping the original value, the correction, who made it, why and when in an append only history so far as the law allows. The Firm may not remove its last active Firm Admin without appointing a replacement. We may suspend or remove a Firm Admin where reasonably necessary for fraud, security, legal requirements, loss of authority, death, incapacity, or a dispute about control of the Firm. Transferring sole or primary administrative control requires step up authentication and notice to the existing authorised contacts.
+
+**13. Accepting, and when it takes effect.** We both agree to do this electronically. Clicking Accept is the Signer's electronic signature and shows they intend to be legally bound **in each capacity named at the point of acceptance**: once for the Firm, and once personally for section 3.
+
+Section 3, section 13, and the parts of section 10 that apply to the Signer take effect **immediately on acceptance**, and continue to apply even if we decline to activate the Firm. The rest becomes effective for the Firm when we approve it. We are not obliged to activate a Firm or give access before then.
+
+**14. Nothing transfers by itself.** This Agreement does not transfer to the Firm any submission, protection period, attribution, payment right or obligation that arose under an agreement previously accepted by a Firm User or another entity. A transfer needs a written novation accepted by Refery, the existing rights holder and the Firm. The same applies when someone leaves a Firm and becomes a solo partner, and on a merger, a sale of the business, a change of legal entity, dissolution, or assignment to an affiliate.`
+
+/**
+ * Firm User Terms v1.0, shown in the product as "Team access terms".
+ *
+ * Accepted personally by each person a firm invites. Kept short on purpose:
+ * someone who gets nothing commercial from a document will not read a dense
+ * one, and an unread clause is a weak clause.
+ *
+ * Counsel set the $1,000 cap, chose AAA Commercial Rules over the Employment
+ * or Consumer rules, and wrote the California rider and the mandatory law
+ * savings clause. Those two are reproduced as given.
+ */
+export const FIRM_USER_TERMS_TEXT = `# Team access terms
+
+**v1.0** · Between Refery, Inc. and you · One screen, once
+
+## The short version
+
+| | |
+|---|---|
+| **Who you contract with** | Refery, Inc. Your firm has its own separate agreement |
+| **What you are owed by us** | Nothing. We pay your firm, and what you earn is between you and them |
+| **What we ask** | Keep what you see confidential, use your own account, do not route our placements around us |
+| **How long it lasts** | Confidentiality continues after your access ends |
+
+## The details
+
+**1. What this is.** Your firm is Refery's partner. You are getting access to its workspace, which holds confidential information about our clients and about candidates. These terms are the conditions of that access. The general platform Terms and Conditions also apply to your use of the platform, and where they conflict with these terms, **these terms control** for your access as a Firm User. A change to those general Terms does not change your obligations here unless you accept it.
+
+**2. We do not owe you money.** Everything we pay, we pay to your firm. You have no individual right to a payout, attribution or any other benefit under your firm's agreement, and you are not a third party beneficiary of it. Any salary, commission, bonus or other arrangement between you and your firm is solely between you and them, and we are not responsible for working out or paying it.
+
+**3. Keep what you see confidential.** Client names, roles, hiring managers, pay, team detail and candidate information are all confidential. Many of our clients are in stealth. You can describe a role in general terms, such as "a Series B fintech in New York", but do not name or identify the company until that candidate has been vetted and has accepted our confidentiality terms.
+
+**Use it only for the work.** Use our confidential information only for authorised work for your firm through Refery. Not for personal benefit, and not for any purpose outside that work. Do not scrape it, mass export it, add it to an external database, or put it into a public or unapproved AI or other third party service.
+
+**What is not confidential.** Anything you can show you already lawfully knew without a confidentiality restriction, that became public without a breach of these terms, that you developed independently without using our information, or that you lawfully received from a third party with no confidentiality obligation.
+
+**Disclosures you may always make.** Nothing here stops you making a lawful disclosure to a regulator, a law enforcement authority, a court or a legal adviser, or any other disclosure protected by law. Where you are legally allowed to, tell us before a compelled disclosure and disclose only what is required.
+
+**How long.** Trade secrets stay protected for as long as they remain trade secrets. Personal data obligations last as long as the law requires. Everything else lasts three years after your access ends.
+
+**4. Your account.** It is yours and only yours. Do not share your password or let anyone else use it, and tell us promptly if you think someone has. Use the workspace only for your firm's Refery work, and only while your firm authorises you to. Do not try to reach another firm's data, get around access controls, or interfere with the platform.
+
+**5. Candidates.** When you submit someone, you confirm, to the best of your knowledge and having followed your firm's approved process, that they authorised your firm to share their information with Refery and the relevant clients, that any required notices have been given, and that what you have told us is accurate as far as you know. Do not submit information you know was obtained unlawfully or in breach of an obligation you owe to a candidate, an employer or a former employer. Do not intentionally include special category, highly sensitive or legally restricted information unless we ask for it for a lawful purpose and your firm is allowed to give it. Tell us promptly if you learn that something you submitted is materially wrong, was shared without authority, or has to be corrected or withdrawn.
+
+**6. Please keep Refery placements on Refery.** While you have access, and for twelve months after your last Material Activity on a Protected Opportunity, do not knowingly use a Refery introduction or Refery confidential information to cause, complete, assist or conceal a hire or placement outside Refery when you know a fee would otherwise be payable to us for it.
+
+A **Refery introduction** is a non public introduction, identity, contact, role, candidate or opportunity first disclosed to you through Refery. It does not include anything you can show you already lawfully knew or obtained independently. **Material Activity** is an intentional action on a client or opportunity; signing in or looking at a page without acting on it is not. A **Protected Opportunity** is a candidate and client pairing protected under our Submission Terms.
+
+This does not stop you working in recruitment, working with a client generally, recruiting through public or independently developed sources, or using relationships and candidates you can show you developed independently of Refery. A relationship you already had may be relevant to whether you personally breached this section, but it does not create a carve out for your firm, and it does not let your firm route a Refery protected placement outside Refery.
+
+**California.** If you primarily reside or work in California, Section 6 is replaced by this provision. Nothing in these Terms restricts you from engaging in any lawful profession, trade or business, or from working with any client or candidate. You must not use or disclose Refery Confidential Information or trade secrets except as authorised, circumvent Refery's access controls, falsify or alter Refery records, or knowingly make a false statement or conceal a material fact from Refery concerning the origin or status of a Protected Opportunity. Any fee protection or non circumvention obligation relating to a placement is owed by the Firm under the Firm Agreement, not by you personally.
+
+**7. The platform.** Refery and its licensors own the platform, its software, design, functionality and the content we create. Your firm, candidates and other contributors keep whatever rights they hold in what they provide. We give you a limited, personal, non transferable right to use the platform for your firm's authorised work. Except where the law does not allow the restriction, do not scrape, resell, copy or reverse engineer it, or use our confidential information to build or improve a competing product.
+
+**8. When your access ends.** Your firm can end it at any time, and so can we. Your firm keeps its workspace records and any submission, attribution and payment rights allocated to it. That does not give your firm or us ownership of a candidate or their personal data. Sections 3, 5, 6, 7, 9 and 10 continue to apply for the periods stated in them.
+
+**9. Our liability to you.** The platform is provided as is, without warranties of any kind, so far as the law allows. Our total liability to you under these terms is **capped at US$1,000 in aggregate**. That cap does not apply to anything that cannot lawfully be limited, including your applicable statutory privacy rights, and it does not apply to fraud or wilful misconduct.
+
+**10. Disputes.** Delaware law applies. Any dispute arising out of or relating to these terms is resolved by binding individual arbitration administered by the American Arbitration Association under its **Commercial Arbitration Rules**, before one arbitrator, in English, legally seated in Wilmington, Delaware, heard remotely unless the arbitrator decides otherwise.
+
+**We pay the arbitration costs.** Refery will pay all AAA administrative and arbitrator fees above what you would have paid to file an equivalent claim in court, unless the arbitrator finds you acted frivolously or in bad faith.
+
+Either of us can still use small claims court, and either of us can ask a court to stop a breach of section 3 or section 6. We both waive trial by jury and participation in any class, collective or representative action. Related **individual** proceedings involving your firm, its signer or a Firm User may be joined or consolidated where the applicable agreements and rules allow, and you consent to that.
+
+**Mandatory local law.** Nothing in these Terms deprives a person of any mandatory right or remedy that cannot lawfully be waived under the law applicable to that person or dispute. The Delaware choice of law and arbitration provisions apply only to the extent permitted by that law. Where arbitration cannot lawfully be required, the dispute may be brought in a court with mandatory jurisdiction.
+
+**11. The rest.** We may update these terms and will ask you to accept a new version when your obligations materially change. Notices go to the email on your account. You may not assign these terms; we may assign them to an affiliate or in a reorganisation or sale. If a provision is unenforceable the rest continues. Not enforcing something once does not waive it. These terms and the documents they refer to are the whole agreement between you and Refery about your access.
+
+## Accept
+
+Ticking the box and creating your account is your electronic signature and shows you intend to be legally bound. You can download a copy, and we will email you one.`
