@@ -296,7 +296,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         which puts "at a glance" and the notes within thumb reach.
       */}
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
+        <div className="min-w-0 space-y-6 lg:col-span-2 lg:col-start-1 lg:row-start-1">
           {/* ── assessment ───────────────────────────────────────────────
               Previously three stacked cards: recruiter verdict, Lily's
               verdict, and an AI analysis panel that rendered an empty state
@@ -342,7 +342,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
                 <p className="mb-2 text-[12px] font-semibold uppercase tracking-wider text-[#9C9C95]">
                   Panel reasoning
                 </p>
-                <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#161613]">
+                <p className="max-w-full overflow-x-auto whitespace-pre-wrap text-[13.5px] leading-relaxed text-[#161613] [overflow-wrap:anywhere]">
                   {typedCandidate.ai_analysis}
                 </p>
               </div>
@@ -487,7 +487,7 @@ export default async function CandidateDetailPage({ params }: PageProps) {
             Was eight stacked cards — contact, ownership, salary, skills,
             certifications, languages, resume — several of them a heading over
             a single line. Everything that is one fact now sits in one list. */}
-        <div className="space-y-6 lg:col-start-3 lg:row-start-1 lg:row-span-2">
+        <div className="min-w-0 space-y-6 lg:col-start-3 lg:row-start-1 lg:row-span-2">
           <section className={`${CARD} p-5`}>
             <h2 className="text-[15px] font-semibold text-[#161613]">At a glance</h2>
             <dl className="mt-1 divide-y divide-[#E4E3DC]">

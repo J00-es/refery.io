@@ -76,20 +76,22 @@ export default async function PipelinePage() {
         </div>
       ) : (
         <>
-          {/* Scrolls sideways on a phone, six columns on a desktop. */}
-          <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 lg:mx-0 lg:grid lg:grid-cols-6 lg:overflow-visible lg:px-0">
+          {/* On a phone the six stages stack, and an empty stage folds to one
+              line so the page is the people, not the placeholders. On a desktop
+              it is a six-column board. */}
+          <div className="flex flex-col gap-4 lg:grid lg:grid-cols-6 lg:gap-3">
             {columns.map(({ meta, items }) => (
-              <div key={meta.value} className="w-[240px] shrink-0 space-y-2 lg:w-auto">
+              <div key={meta.value} className={`space-y-2 ${items.length === 0 ? 'lg:block' : ''}`}>
                 <div className="px-1">
                   <p className="flex items-center gap-2 text-[13.5px] font-semibold text-[#161613]">
                     <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
                     {meta.label}
                     <span className="font-medium text-[#9C9C95]">{items.length}</span>
                   </p>
-                  <p className={`mt-0.5 ${META}`}>{meta.blurb}</p>
+                  <p className={`mt-0.5 ${META} ${items.length === 0 ? 'hidden lg:block' : ''}`}>{meta.blurb}</p>
                 </div>
                 {items.length === 0 ? (
-                  <div className="rounded-[16px] border border-dashed border-[#D2D1C7] px-3 py-5 text-center text-[12.5px] text-[#9C9C95]">
+                  <div className="hidden rounded-[16px] border border-dashed border-[#D2D1C7] px-3 py-5 text-center text-[12.5px] text-[#9C9C95] lg:block">
                     {meta.value === 'placed' ? 'Your first one lands here' : 'Nothing here'}
                   </div>
                 ) : (

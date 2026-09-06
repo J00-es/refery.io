@@ -53,6 +53,9 @@ import { SubmitCandidates } from '@/components/partners/submit-candidates'
 
 export const dynamic = 'force-dynamic'
 
+/** Tailwind needs whole class names; a template literal never generated these. */
+const STEP_COLS: Record<number, string> = { 1: '', 2: 'sm:grid-cols-2', 3: 'sm:grid-cols-3', 4: 'sm:grid-cols-2 lg:grid-cols-4' }
+
 export default async function PartnerRolePage({
   params,
 }: {
@@ -386,7 +389,7 @@ export default async function PartnerRolePage({
       </header>
 
       {/* Three figures, each read before its label. No boxes — space groups them. */}
-      <dl className={`mt-7 grid grid-cols-2 gap-x-6 gap-y-5 border-y py-5 sm:grid-cols-3 ${RULE}`}>
+      <dl className={`mt-7 grid grid-cols-1 gap-x-6 gap-y-5 border-y py-5 sm:grid-cols-3 ${RULE}`}>
         <div>
           <dt className={`${FIGURE} ${payout ? FOREST : ''}`}>{payout ?? '—'}</dt>
           <dd className={`mt-1.5 ${LABEL}`}>
@@ -609,7 +612,7 @@ export default async function PartnerRolePage({
           {interviewSteps.length > 0 && (
             <section className="mt-9">
               <h2 className={H2}>How they interview</h2>
-              <ol className={`mt-4 grid gap-5 p-5 sm:grid-cols-${Math.min(interviewSteps.length, 4)} ${CARD}`}>
+              <ol className={`mt-4 grid gap-5 p-5 ${STEP_COLS[Math.min(interviewSteps.length, 4)]} ${CARD}`}>
                 {interviewSteps.map((step, i) => (
                   <li key={i} className="flex gap-3">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#E7EDE9] text-[12px] font-bold text-[#1F3A2F]">

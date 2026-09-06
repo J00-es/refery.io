@@ -144,7 +144,7 @@ export function SubmitCandidates({
         </button>
       </SheetTrigger>
 
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-[560px]">
+      <SheetContent side="right" className="flex w-full max-w-full flex-col gap-0 p-0 sm:max-w-[560px]">
         <SheetHeader className="border-b border-[#E4E3DC] px-5 py-4">
           <SheetTitle className="text-left text-[19px] font-semibold text-[#161613]">
             {step === 'why' ? 'Why them?' : 'Choose from your candidates'}
