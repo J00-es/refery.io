@@ -4,6 +4,7 @@ import { getAppUser } from '@/lib/current-user'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getMembership } from '@/lib/firms'
 import { DashboardNav } from '@/components/dashboard-nav'
+import { ActivityBeacon } from '@/components/activity-beacon'
 import { Suspense } from 'react'
 import { Spinner } from '@/components/ui/spinner'
 import { cookies } from 'next/headers'
@@ -38,6 +39,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background">
+      <ActivityBeacon />
       <DashboardNav
         user={user}
         isAdmin={appUser.isAdmin}

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { loadPresence, QUIET_AFTER_DAYS } from './activity'
 
 /**
  * The partner funnel, end to end.
@@ -25,8 +26,14 @@ const DAY_MS = 24 * 60 * 60 * 1000
 /** Untriaged past this many days counts as stalled rather than simply recent. */
 export const STALE_INTAKE_DAYS = 3
 
-/** Approved but silent for this long counts as never activated. */
-export const DORMANT_PARTNER_DAYS = 14
+/**
+ * Approved and not seen for this long counts as dormant. "Seen" is a sign-in,
+ * a token refresh or a page view (lib/activity.ts): until 7 Sep 2026 this was
+ * measured by account age plus candidate ownership, which meant a partner who
+ * signed in every day and submitted nobody read as dormant, and one who never
+ * came back after approval read as fine as long as they had once uploaded.
+ */
+export const DORMANT_PARTNER_DAYS = QUIET_AFTER_DAYS
 
 /** Only these mean nobody has dealt with the row yet. */
 const UNTRIAGED = 'new'
@@ -45,10 +52,11 @@ const UNTRIAGED = 'new'
  */
 const INTERNAL_DOMAINS = new Set(['refery.io', '10kventures.co'])
 
-function isInternal(email: string | null | undefined): boolean {
+export function isInternalEmail(email: string | null | undefined): boolean {
   const domain = (email ?? '').trim().toLowerCase().split('@')[1]
   return !!domain && INTERNAL_DOMAINS.has(domain)
 }
+const isInternal = isInternalEmail
 
 export interface StalledIntake {
   id: string
@@ -69,6 +77,21 @@ export interface DormantPartner {
   role: string
   joinedAt: string
   ageDays: number
+  /** Last sign-in, token refresh or page view. Null when they never signed in. */
+  lastSeenAt: string | null
+  /** Days since lastSeenAt, or since joining when they never signed in. */
+  quietDays: number
+  /** Has ever put a candidate into the system. */
+  activated: boolean
+}
+
+export interface SeenPartner {
+  id: string
+  name: string | null
+  email: string | null
+  role: string
+  lastSeenAt: string
+  signIns7d: number
 }
 
 export interface IntakeStage {
@@ -100,6 +123,8 @@ export interface PartnerStage {
    *  exclusion is visible rather than a silently smaller denominator. */
   internal: number
   dormant: DormantPartner[]
+  /** Partners seen inside the window, most recent first. */
+  seen: SeenPartner[]
 }
 
 export interface FunnelSnapshot {
@@ -125,7 +150,7 @@ export async function loadFunnel(
   const windowDays = opts.windowDays ?? 1
   const since = new Date(Date.now() - windowDays * DAY_MS).toISOString()
 
-  const [scoutRes, leadRes, signupRes, userRes, candidateRes] = await Promise.all([
+  const [scoutRes, leadRes, signupRes, userRes, candidateRes, presence] = await Promise.all([
     admin
       .from('scout_applications')
       .select('id, full_name, email, status, created_at, slack_message_ts, outreach_sent_at'),
@@ -142,6 +167,7 @@ export async function loadFunnel(
     // Only the ownership columns matter: this answers "has this partner ever
     // put anyone in", not "how many".
     admin.from('candidates').select('owner_user_id, uploaded_by_user_id, created_by_user_id'),
+    loadPresence(admin),
   ])
 
   const scouts = scoutRes.data ?? []
@@ -230,26 +256,52 @@ export async function loadFunnel(
   const activePartners = partners.filter((u) => u.status === 'active')
 
   const dormantBefore = Date.now() - DORMANT_PARTNER_DAYS * DAY_MS
+  const windowStart = new Date(since).getTime()
+  const lastSeen = (u: { user_id: string | null }) =>
+    (u.user_id && presence.get(u.user_id)?.last_active_at) || null
+
   const partnerStage: PartnerStage = {
     active: activePartners.length,
     pending: partners.filter((u) => u.status === 'pending').length,
     internal: allPartnerRows.length - partners.length,
     activated: activePartners.filter((u) => u.user_id && owners.has(u.user_id)).length,
     dormant: activePartners
-      .filter(
-        (u) =>
-          !(u.user_id && owners.has(u.user_id)) &&
-          new Date(u.created_at).getTime() < dormantBefore,
-      )
-      .map((u) => ({
-        id: u.id,
-        name: u.full_name,
-        email: u.email,
-        role: u.role,
-        joinedAt: u.created_at,
-        ageDays: ageDays(u.created_at),
-      }))
-      .sort((a, b) => b.ageDays - a.ageDays),
+      .filter((u) => {
+        const seen = lastSeen(u)
+        const anchor = seen ?? u.created_at
+        return new Date(anchor).getTime() < dormantBefore
+      })
+      .map((u) => {
+        const seen = lastSeen(u)
+        return {
+          id: u.id,
+          name: u.full_name,
+          email: u.email,
+          role: u.role,
+          joinedAt: u.created_at,
+          ageDays: ageDays(u.created_at),
+          lastSeenAt: seen,
+          quietDays: ageDays(seen ?? u.created_at),
+          activated: Boolean(u.user_id && owners.has(u.user_id)),
+        }
+      })
+      .sort((a, b) => b.quietDays - a.quietDays),
+    seen: activePartners
+      .flatMap((u) => {
+        const seen = lastSeen(u)
+        if (!seen || new Date(seen).getTime() < windowStart) return []
+        return [
+          {
+            id: u.id,
+            name: u.full_name,
+            email: u.email,
+            role: u.role,
+            lastSeenAt: seen,
+            signIns7d: (u.user_id && presence.get(u.user_id)?.sign_ins_7d) || 0,
+          },
+        ]
+      })
+      .sort((a, b) => new Date(b.lastSeenAt).getTime() - new Date(a.lastSeenAt).getTime()),
   }
 
   return {

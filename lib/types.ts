@@ -129,6 +129,10 @@ export interface UserAdmin {
   accepted_terms_at: string | null
   /** Sees surfaces still in beta (Searches, Pipeline). Toggled on /admin/users. */
   is_beta: boolean
+  /** Last sign-in, token refresh or page view. Read-only, joined from auth by the admin API. */
+  last_seen_at?: string | null
+  /** Sign-ins in the last 7 days. Same source as last_seen_at. */
+  sign_ins_7d?: number
 }
 
 export interface Company {

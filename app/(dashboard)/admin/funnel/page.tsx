@@ -99,7 +99,7 @@ function StalledList({ rows, empty }: { rows: StalledIntake[]; empty: string }) 
 
 function DormantList({ rows }: { rows: DormantPartner[] }) {
   if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">Every approved partner has submitted someone.</p>
+    return <p className="text-sm text-muted-foreground">Every approved partner has been on the site in the last two weeks.</p>
   }
   return (
     <ul className="divide-y">
@@ -112,7 +112,7 @@ function DormantList({ rows }: { rows: DormantPartner[] }) {
             </div>
           </div>
           <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {r.ageDays}d in
+            {r.lastSeenAt ? `seen ${r.quietDays}d ago` : `never signed in, ${r.ageDays}d in`}
           </span>
         </li>
       ))}
@@ -298,7 +298,7 @@ export default function FunnelPage() {
               of={partners.active}
               note={
                 partners.dormant.length > 0
-                  ? `${partners.dormant.length} have been in over two weeks and submitted nobody`
+                  ? `${partners.dormant.length} have not been on the site for two weeks`
                   : undefined
               }
               warn={partners.dormant.length > 0}
@@ -321,8 +321,8 @@ export default function FunnelPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Approved but silent</CardTitle>
-            <CardDescription>In over two weeks, no candidate yet</CardDescription>
+            <CardTitle className="text-base">Approved but gone quiet</CardTitle>
+            <CardDescription>No sign-in or page view for two weeks, quietest first</CardDescription>
           </CardHeader>
           <CardContent>
             <DormantList rows={partners.dormant} />

@@ -231,6 +231,7 @@ export async function GET(request: NextRequest) {
       signed.length === 0 &&
       candidates.length === 0 &&
       stalledIntake.length === 0 &&
+      partners.seen.length === 0 &&
       partners.dormant.length === 0 &&
       pipelineProblems.length === 0
 
@@ -274,6 +275,16 @@ export async function GET(request: NextRequest) {
                 hiringManagers.untriaged,
                 'hiring lead',
               )}`,
+      },
+      {
+        label: 'Partners on the site',
+        value:
+          partners.seen.length === 0
+            ? 'Nobody signed in'
+            : `${plural(partners.seen.length, 'partner')}: ${partners.seen
+                .slice(0, 8)
+                .map((p) => (p.name || p.email || '').split(' ')[0])
+                .join(', ')}${partners.seen.length > 8 ? `, plus ${partners.seen.length - 8} more` : ''}`,
       },
       {
         label: 'Partner sign-ups',
@@ -384,13 +395,14 @@ export async function GET(request: NextRequest) {
     // on any given morning. It is still the difference between 54 partners and
     // 19 working ones.
     if (partners.dormant.length) {
+      const neverSeen = partners.dormant.filter((p) => !p.lastSeenAt).length
       actions.push(
-        `*${plural(partners.dormant.length, 'approved partner')} joined over ${DORMANT_PARTNER_DAYS} days ago and ${verb(partners.dormant.length, 'has', 'have')} never submitted anyone:* ${partners.dormant
+        `*${plural(partners.dormant.length, 'approved partner')} ${verb(partners.dormant.length, 'has', 'have')} not been on the site for ${DORMANT_PARTNER_DAYS}+ days:* ${partners.dormant
           .slice(0, 6)
-          .map((p) => `${p.name || p.email} (${p.ageDays}d)`)
+          .map((p) => `${p.name || p.email} (${p.lastSeenAt ? `${p.quietDays}d` : 'never signed in'})`)
           .join(', ')}${
           partners.dormant.length > 6 ? `, plus ${partners.dormant.length - 6} more` : ''
-        }.`,
+        }.${neverSeen ? ` ${neverSeen} of them never signed in at all.` : ''}`,
       )
     }
 

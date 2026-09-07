@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Spinner } from '@/components/ui/spinner'
 import { UserAdmin } from '@/lib/types'
-import { Plus, Trash2, Shield, ShieldCheck, User, Eye, Building, Search, ChevronRight, RefreshCw } from 'lucide-react'
+import { ago } from '@/lib/activity'
+import { Plus, Trash2, Shield, ShieldCheck, User, Eye, Building, Search, ChevronRight, RefreshCw, Clock } from 'lucide-react'
 import Link from 'next/link'
 import {
   Dialog,
@@ -47,6 +48,8 @@ export default function AdminUsersPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState('')
+  // Newest account first by default; "recently seen" answers who is actually using the site.
+  const [sortBySeen, setSortBySeen] = useState(false)
 
   // New user form
   const [newEmail, setNewEmail] = useState('')
@@ -225,8 +228,20 @@ export default function AdminUsersPage() {
               Manage team members and their access levels
             </CardDescription>
           </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant={sortBySeen ? 'secondary' : 'outline'}
+              size="sm"
+              className="sm:size-default"
+              onClick={() => setSortBySeen((v) => !v)}
+              title="Sort by the last sign-in or page view"
+            >
+              <Clock className="mr-2 h-4 w-4" />
+              <span className="hidden sm:inline">Recently seen first</span>
+              <span className="sm:hidden">Seen</span>
+            </Button>
           {isSuperAdmin && (
-            <div className="flex items-center gap-2">
+            <>
               <Button
                 variant="outline"
                 onClick={handleSyncUsers}
@@ -296,12 +311,21 @@ export default function AdminUsersPage() {
                 </form>
               </DialogContent>
             </Dialog>
-            </div>
+            </>
           )}
+          </div>
         </CardHeader>
         <CardContent className="px-4 sm:px-6 pb-4 sm:pb-6">
           <div className="space-y-2 sm:space-y-3">
-            {users.map((user) => {
+            {(sortBySeen
+              ? [...users].sort(
+                  (a, b) =>
+                    (b.last_seen_at ? new Date(b.last_seen_at).getTime() : 0) -
+                    (a.last_seen_at ? new Date(a.last_seen_at).getTime() : 0),
+                )
+              : users
+            ).map((user) => {
+              const seen = user.last_seen_at ? `seen ${ago(user.last_seen_at)}` : 'never signed in'
               const RoleIcon = roleIcons[user.role as keyof typeof roleIcons] || User
               const roleColor = roleColors[user.role as keyof typeof roleColors] || 'bg-gray-100 text-gray-700'
 
@@ -318,7 +342,7 @@ export default function AdminUsersPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate">{user.full_name || user.email}</div>
-                        <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                        <div className="text-xs text-muted-foreground truncate">{user.email} · {seen}</div>
                         <div className="flex gap-1.5 mt-1.5">
                           <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${roleColor}`}>
                             {user.role.replace('_', ' ')}
@@ -406,7 +430,7 @@ export default function AdminUsersPage() {
                           )}
                         </div>
                         <div className="text-sm text-muted-foreground truncate">
-                          {user.full_name ? user.email : `Added ${new Date(user.created_at).toLocaleDateString()}`}
+                          {user.full_name ? user.email : `Added ${new Date(user.created_at).toLocaleDateString()}`} · {seen}
                         </div>
                       </div>
                     </Link>
