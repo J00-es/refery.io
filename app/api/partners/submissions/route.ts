@@ -104,6 +104,25 @@ export async function POST(req: Request) {
 
   const adminClient = createAdminClient()
 
+  /**
+   * A coordinator cannot submit.
+   *
+   * The invitation screen and the firm guide have both promised this since the
+   * role existed, and nothing enforced it: a coordinator could submit anyone
+   * they could see. A permission described to a firm admin at the moment they
+   * choose it has to be real, otherwise the choice is decoration.
+   */
+  const submitterMembership = await getMembership(adminClient, access.appUser.id)
+  if (submitterMembership?.role === 'coordinator') {
+    return NextResponse.json(
+      {
+        error:
+          'Coordinators cannot submit candidates. Ask a firm admin to change your role, or to submit this themselves.',
+      },
+      { status: 403 },
+    )
+  }
+
   const { data: role } = await adminClient
     .from('partner_roles_v')
     .select('job_id, company_id, is_live, job_status, submission_cap, live_submission_count, title')
