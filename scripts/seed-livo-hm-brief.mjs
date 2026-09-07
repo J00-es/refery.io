@@ -46,7 +46,7 @@ export const content = {
     heading: 'Before we start',
     paragraphs: [
       'Adnane, this is how I will pitch Livo and what I will screen for, so we start from the same page. Skim the headers, open what matters, and correct me anywhere: every section takes a note and it reaches me straight away :)',
-      'Three things are yours to do, listed just below. The rest can wait for a quiet moment.',
+      'Your part is short and listed just below. The rest can wait for a quiet moment.',
     ],
   },
   sections: [
