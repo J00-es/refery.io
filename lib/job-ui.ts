@@ -5,15 +5,16 @@
  */
 
 /**
- * Note: the jobs table has no currency column, so a figure posted in pesos or
- * yen is rendered with a dollar sign like every other. Values roll over to
- * millions above 999k rather than printing "$1385k".
+ * `jobs.salary_currency` says which symbol to print; unset means dollars, which
+ * is what every ingested row is. Values roll over to millions above 999k rather
+ * than printing "$1385k".
  */
-export function formatSalary(min?: number | null, max?: number | null): string | null {
+export function formatSalary(min?: number | null, max?: number | null, currency?: string | null): string | null {
+  const sym = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$'
   const fmt = (n: number) =>
     n >= 1_000_000
-      ? `$${(n / 1_000_000).toFixed(n / 1_000_000 >= 10 ? 0 : 1).replace(/\.0$/, '')}M`
-      : `$${Math.round(n / 1000)}k`
+      ? `${sym}${(n / 1_000_000).toFixed(n / 1_000_000 >= 10 ? 0 : 1).replace(/\.0$/, '')}M`
+      : `${sym}${Math.round(n / 1000)}k`
   if (min && max) return `${fmt(min)}–${fmt(max)}`
   if (min) return `${fmt(min)}+`
   if (max) return `Up to ${fmt(max)}`

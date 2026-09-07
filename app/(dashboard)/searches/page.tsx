@@ -259,7 +259,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     const rolesByCompany = new Map<string, CompanyCardRole[]>()
     for (const role of roles) {
       const list = rolesByCompany.get(role.company_id) ?? []
-      list.push({ jobId: role.job_id, title: role.headline || role.title, location: role.location, priority: role.priority, scoutPayout: resolveFee(role).payoutLow })
+      list.push({ jobId: role.job_id, title: role.headline || role.title, location: role.location, priority: role.priority, scoutPayout: resolveFee(role).payoutLow, currency: resolveFee(role).currency })
       rolesByCompany.set(role.company_id, list)
     }
     return (

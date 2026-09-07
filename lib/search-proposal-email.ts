@@ -36,6 +36,7 @@ export interface ProposalRole {
   location?: string | null
   salary_min?: number | string | null
   salary_max?: number | string | null
+  salary_currency?: string | null
   fee_percentage?: number | string | null
   fee_flat?: number | string | null
   scout_payout?: number | string | null

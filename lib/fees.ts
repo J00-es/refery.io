@@ -34,9 +34,26 @@ export const DEFAULT_SCOUT_SHARE = 70
  */
 type Numberish = number | string | null | undefined
 
+/**
+ * The currency the salary band, and so every figure derived from it, is in.
+ *
+ * Refery's first clients were all US, so the desk formatted everything as
+ * dollars. Barcelona and London mandates pay in euros and pounds, and a scout
+ * reading "$60k" for a €60k role would be misled about the payout by roughly
+ * the exchange rate. `jobs.salary_currency` carries the truth; unset means USD.
+ */
+export type SalaryCurrency = 'USD' | 'EUR' | 'GBP'
+
+const CURRENCY_SYMBOL: Record<SalaryCurrency, string> = { USD: '$', EUR: '€', GBP: '£' }
+
+export function salaryCurrency(value: unknown): SalaryCurrency {
+  return value === 'EUR' || value === 'GBP' ? value : 'USD'
+}
+
 export interface FeeTerms {
   salary_min?: Numberish
   salary_max?: Numberish
+  salary_currency?: string | null
   /** Percent of base. Null uses DEFAULT_FEE_PERCENTAGE. */
   fee_percentage?: Numberish
   /** A fixed client fee, which wins over the percentage. */
@@ -53,6 +70,8 @@ export interface ResolvedFee {
   basis: 'fixed_payout' | 'flat_fee' | 'percentage' | 'unknown'
   /** True when nothing on the role overrides the platform defaults. */
   isDefault: boolean
+  /** Every figure below is in this currency. */
+  currency: SalaryCurrency
   feePercentage: number
   scoutSharePercentage: number
   /** The salary the fee is computed on. A range when the job posts one. */
@@ -88,7 +107,8 @@ export function resolveFee(terms: FeeTerms): ResolvedFee {
   const baseLow = min ?? max ?? null
   const baseHigh = max ?? min ?? null
 
-  const base = { feePercentage, scoutSharePercentage, isDefault, baseLow, baseHigh }
+  const currency = salaryCurrency(terms.salary_currency)
+  const base = { feePercentage, scoutSharePercentage, isDefault, currency, baseLow, baseHigh }
 
   const fixed = num(terms.scout_payout)
   if (fixed != null) {
@@ -131,16 +151,17 @@ function round(value: number): number {
 // ── formatting ──────────────────────────────────────────────────────────────
 
 /** "$12,600" — a figure someone is deciding on deserves full precision. */
-export function money(usd?: number | null): string | null {
-  if (usd == null || usd <= 0) return null
-  return `$${Math.round(usd).toLocaleString('en-US')}`
+export function money(amount?: number | null, currency: SalaryCurrency = 'USD'): string | null {
+  if (amount == null || amount <= 0) return null
+  return `${CURRENCY_SYMBOL[currency]}${Math.round(amount).toLocaleString('en-US')}`
 }
 
 /** "$120k" — for the salary a fee is computed from, where precision is noise. */
-export function shortMoney(usd?: number | null): string | null {
-  if (usd == null || usd <= 0) return null
-  if (usd >= 1_000_000) return `$${(usd / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
-  return `$${Math.round(usd / 1000)}k`
+export function shortMoney(amount?: number | null, currency: SalaryCurrency = 'USD'): string | null {
+  if (amount == null || amount <= 0) return null
+  const sym = CURRENCY_SYMBOL[currency]
+  if (amount >= 1_000_000) return `${sym}${(amount / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`
+  return `${sym}${Math.round(amount / 1000)}k`
 }
 
 /**
@@ -150,12 +171,12 @@ export function shortMoney(usd?: number | null): string | null {
  * "$14,000–$21,000". That is the ordinary typographic convention for a range, and
  * it also stops the widest case wrapping onto two lines in the payout column.
  */
-function range(low: number | null, high: number | null, fmt = money): string | null {
+function range(low: number | null, high: number | null, currency: SalaryCurrency, fmt = money): string | null {
   if (low == null && high == null) return null
   if (low != null && high != null && low !== high) {
-    return `${fmt(low)}–${fmt(high)?.replace(/^\$/, '')}`
+    return `${fmt(low, currency)}–${fmt(high, currency)?.replace(/^[$€£]/, '')}`
   }
-  return fmt(low ?? high)
+  return fmt(low ?? high, currency)
 }
 
 /**
@@ -163,7 +184,7 @@ function range(low: number | null, high: number | null, fmt = money): string | n
  * Null when there is no salary band to compute it from.
  */
 export function payoutAmount(fee: ResolvedFee): string | null {
-  return range(fee.payoutLow, fee.payoutHigh)
+  return range(fee.payoutLow, fee.payoutHigh, fee.currency)
 }
 
 /**
@@ -177,9 +198,9 @@ export function feeExplanation(fee: ResolvedFee): string {
   if (fee.basis === 'fixed_payout') return 'Agreed for this search'
   const share = `you keep ${fee.scoutSharePercentage}%`
   if (fee.basis === 'flat_fee') {
-    return `${money(fee.feeLow)} flat fee · ${share}`
+    return `${money(fee.feeLow, fee.currency)} flat fee · ${share}`
   }
-  const base = range(fee.baseLow, fee.baseHigh, shortMoney)
+  const base = range(fee.baseLow, fee.baseHigh, fee.currency, shortMoney)
   return base
     ? `${fee.feePercentage}% of ${base} base · ${share}`
     : `${fee.feePercentage}% of base · ${share} · base not recorded yet`
@@ -187,7 +208,7 @@ export function feeExplanation(fee: ResolvedFee): string {
 
 /** The client-side total, for the admin who sets terms. */
 export function clientFeeAmount(fee: ResolvedFee): string | null {
-  return range(fee.feeLow, fee.feeHigh)
+  return range(fee.feeLow, fee.feeHigh, fee.currency)
 }
 
 /**

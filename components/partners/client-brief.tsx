@@ -371,7 +371,7 @@ function SearchCard({
   const priority = PRIORITY_META[role.priority] ?? PRIORITY_META.normal
   const href = `/searches/${companyId}/roles/${role.job_id}`
   const meta = detailLine(role.department, role.location, role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null)
-  const comp = detailLine(formatSalary(role.salary_min, role.salary_max), payout ? `${payout} to you` : null)
+  const comp = detailLine(formatSalary(role.salary_min, role.salary_max, role.salary_currency), payout ? `${payout} to you` : null)
 
   return (
     <article className={`p-5 sm:p-6 ${CARD}`}>
@@ -648,7 +648,7 @@ export function ClientBrief(p: ClientBriefProps) {
                           {r.headline || r.title}
                         </Link>
                         {r.priority !== 'normal' && <span className={r.priority === 'urgent' ? CHIP_BAD : CHIP_WARN}>{priority.label}</span>}
-                        <span className={META}>{detailLine(r.location, formatSalary(r.salary_min, r.salary_max))}</span>
+                        <span className={META}>{detailLine(r.location, formatSalary(r.salary_min, r.salary_max, r.salary_currency))}</span>
                         {payout && <span className={`ml-auto text-[13.5px] font-semibold ${FOREST}`}>{payout} to you</span>}
                       </li>
                     )

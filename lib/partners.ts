@@ -386,6 +386,7 @@ export interface PartnerRoleRow {
   job_status: string
   salary_min: number | null
   salary_max: number | null
+  salary_currency: string | null
   visa_requirement: string | null
   job_post_url: string | null
   description: string | null

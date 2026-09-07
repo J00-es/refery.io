@@ -15,7 +15,7 @@ import {
 } from '@/lib/desk-ui'
 import { formatMoney, stageLabel } from '@/lib/company-ui'
 import { relationshipMeta, type PartnerCompanyView } from '@/lib/partners'
-import { money } from '@/lib/fees'
+import { money, type SalaryCurrency } from '@/lib/fees'
 import { CompanyLogo } from './company-logo'
 
 export interface CompanyCardRole {
@@ -24,6 +24,7 @@ export interface CompanyCardRole {
   location: string | null
   priority: string
   scoutPayout: number | null
+  currency?: SalaryCurrency
 }
 
 /**
@@ -57,10 +58,11 @@ export function PartnerCompanyCard({
   const relationship = relationshipMeta(company.relationship)
   const shown = roles.slice(0, 4)
   const extra = roles.length - shown.length
-  const bestPayout = roles.reduce<number | null>(
-    (best, r) => (r.scoutPayout != null && (best == null || r.scoutPayout > best) ? r.scoutPayout : best),
+  const best = roles.reduce<CompanyCardRole | null>(
+    (acc, r) => (r.scoutPayout != null && (acc?.scoutPayout == null || r.scoutPayout > acc.scoutPayout) ? r : acc),
     null,
   )
+  const bestPayout = best?.scoutPayout ?? null
 
   const facts = detailLine(
     stageLabel(company.stage),
@@ -94,7 +96,7 @@ export function PartnerCompanyCard({
         </div>
 
         {bestPayout != null && (
-          <span className={`shrink-0 ${CHIP_VALUE}`}>up to {money(bestPayout)}</span>
+          <span className={`shrink-0 ${CHIP_VALUE}`}>up to {money(bestPayout, best?.currency)}</span>
         )}
       </div>
 

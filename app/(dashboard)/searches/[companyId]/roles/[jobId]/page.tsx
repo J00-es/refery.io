@@ -277,7 +277,7 @@ export default async function PartnerRolePage({
     .filter(Boolean) as string[]
   const rest = detailLine(
     role.seniority ? seniorityLabel(role.seniority) : null,
-    formatSalary(role.salary_min, role.salary_max),
+    formatSalary(role.salary_min, role.salary_max, role.salary_currency),
     formatExperience(role.experience_years_min, role.experience_years_max),
     visaSignal(role.visa_requirement),
     role.department,
@@ -365,6 +365,7 @@ export default async function PartnerRolePage({
                   targetStart: role.target_start,
                   salaryMin: role.salary_min,
                   salaryMax: role.salary_max,
+                  salaryCurrency: role.salary_currency,
                   hardRequirements: role.hard_requirements ?? [],
                   intakeNotes: role.intake_notes ?? [],
                   notFor: role.not_for,

@@ -55,6 +55,7 @@ export function ManageRole({
     /** The band a percentage fee is computed against, for the live preview. */
     salaryMin: number | null
     salaryMax: number | null
+    salaryCurrency?: string | null
     hardRequirements: string[]
     intakeNotes: string[]
     notFor: string | null
@@ -99,6 +100,7 @@ export function ManageRole({
   const previewFee = resolveFee({
     salary_min: initial.salaryMin,
     salary_max: initial.salaryMax,
+    salary_currency: initial.salaryCurrency,
     fee_percentage: feePercentage || null,
     fee_flat: feeFlat || null,
     scout_share: scoutShare || null,

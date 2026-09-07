@@ -42,7 +42,7 @@ export function RoleCard({
     role.location,
     role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null,
     role.seniority ? seniorityLabel(role.seniority) : null,
-    formatSalary(role.salary_min, role.salary_max),
+    formatSalary(role.salary_min, role.salary_max, role.salary_currency),
   )
 
   return (
