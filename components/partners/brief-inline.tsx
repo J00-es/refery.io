@@ -13,7 +13,7 @@ export function Inline({ text }: { text: string }) {
       {parseInline(text).map((node, i) => {
         if (node.t === 'b') {
           return (
-            <strong key={i} className="font-semibold text-[#1D1F1D]">
+            <strong key={i} className="font-semibold text-[#161613]">
               {node.v}
             </strong>
           )

@@ -40,7 +40,7 @@ const DOC = {
   faint: 'text-[#9C9C95]',
   green: 'text-[#1F3A2F]',
   deep: 'text-[#142E24]',
-  gold: 'text-[#9A7B2E]',
+  gold: 'text-[#8A6A1F]',
   line: 'border-[#E4E3DC]',
   card: 'bg-white border border-[#E4E3DC] rounded-[10px]',
 }
@@ -187,7 +187,7 @@ function Roles({ items }: { items: RoleItem[] }) {
 
 const BAR_TONES: Record<BarGroup['tone'], { rule: string; heading: string; mark: string; glyph: string }> = {
   must: { rule: 'border-l-[#1F3A2F]', heading: 'text-[#1F3A2F]', mark: 'text-[#1F3A2F]', glyph: '✓' },
-  nice: { rule: 'border-l-[#C8A24B]', heading: 'text-[#9A7B2E]', mark: 'text-[#C8A24B]', glyph: '○' },
+  nice: { rule: 'border-l-[#8A6A1F]', heading: 'text-[#9A7B2E]', mark: 'text-[#8A6A1F]', glyph: '○' },
   no: { rule: 'border-l-[#A8564C]', heading: 'text-[#A8564C]', mark: 'text-[#A8564C]', glyph: '✕' },
 }
 
@@ -287,7 +287,7 @@ function Questions({ items }: { items: QuestionItem[] }) {
           {q.tag && (
             <p className={`text-[10px] font-bold uppercase tracking-[0.16em] ${DOC.gold}`}>{q.tag}</p>
           )}
-          <p className={`mt-1.5 font-semibold text-[17px] italic leading-snug ${DOC.deep}`}>{q.question}</p>
+          <p className={`mt-1.5 font-semibold text-[17px] leading-snug ${DOC.deep}`}>{q.question}</p>
           {q.looking_for && (
             <p className={`mt-2 text-[13.5px] leading-relaxed ${DOC.muted}`}>
               <Inline text={q.looking_for} />
@@ -317,7 +317,7 @@ function Blurb({ block }: { block: Extract<BriefBlock, { kind: 'blurb' }> }) {
             key={i}
  className={`mb-4 font-semibold text-[16px] leading-[1.7] last:mb-0 ${
               i === block.paragraphs.length - 1 && block.paragraphs.length > 1
-                ? `italic ${DOC.muted}`
+                ? `${DOC.muted}`
                 : DOC.ink
             }`}
           >
@@ -550,7 +550,7 @@ function Steps({ items }: { items: string[] }) {
     <ol className="my-5 space-y-3">
       {items.map((item, i) => (
         <li key={i} className={`${DOC.card} flex gap-4 px-5 py-4 sm:px-6`}>
-          <span aria-hidden className={`w-6 shrink-0 font-semibold text-[18px] italic ${DOC.gold}`}>
+          <span aria-hidden className={`w-6 shrink-0 font-semibold text-[18px] ${DOC.gold}`}>
             {romanise(i)}
           </span>
           <span className={`text-[14.5px] leading-relaxed ${DOC.body}`}>
@@ -586,7 +586,7 @@ function Checklist({
       <ol className="space-y-3">
         {block.items.map((item, i) => (
           <li key={i} className={`${DOC.card} flex gap-3.5 px-5 py-4 sm:px-6`}>
-            <span aria-hidden className={`w-5 shrink-0 pt-px font-semibold text-[14px] italic ${DOC.gold}`}>
+            <span aria-hidden className={`w-5 shrink-0 pt-px font-semibold text-[14px] ${DOC.gold}`}>
               {i + 1}
             </span>
             <div className="min-w-0 flex-1">
@@ -799,7 +799,7 @@ export function BriefDocument({
       {standalone && (
         <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-2 bg-[#142E24] px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.13em] text-white sm:px-8 print:static">
           <span className="flex items-center gap-2">
-            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#C8A24B]" />
+            <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#8A6A1F]" />
             {ribbonLabel}
           </span>
           <span className="text-[12px] font-medium normal-case tracking-[0.04em] text-[#B4C7BC]">
@@ -867,7 +867,7 @@ export function BriefDocument({
                 <ul className="mt-2">
                   {content.confidential.points.map((p, i) => (
                     <li key={i} className="flex gap-3 py-1">
-                      <span aria-hidden className={`w-3 shrink-0 font-semibold text-[14px] italic ${DOC.gold}`}>
+                      <span aria-hidden className={`w-3 shrink-0 font-semibold text-[14px] ${DOC.gold}`}>
                         {i + 1}
                       </span>
                       <span className={`text-[14px] leading-relaxed ${DOC.body}`}>
@@ -906,7 +906,7 @@ export function BriefDocument({
               className={standalone ? 'scroll-mt-16 pt-12 sm:pt-14' : ''}
             >
               <div className="mb-5 flex items-baseline gap-3.5 border-b-2 border-[#1F3A2F] pb-3">
-                <span aria-hidden className={`font-semibold text-[15px] italic ${DOC.gold}`}>
+                <span aria-hidden className={`font-semibold text-[15px] ${DOC.gold}`}>
                   {String(index + 1).padStart(2, '0')}
                 </span>
                 <h2

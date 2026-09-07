@@ -322,6 +322,7 @@ export interface PublicBrief {
   recipientName: string | null
   companyName: string
   updatedAt: string
+  publishedAt: string | null
 }
 
 /**
@@ -342,7 +343,7 @@ export const findPublishedBrief = cache(async function findPublishedBrief(
   const db = createAdminClient()
   const { data } = await db
     .from('hm_briefs')
-    .select('id, slug, title, status, content, ribbon_note, recipient_name, updated_at, companies(name)')
+    .select('id, slug, title, status, content, ribbon_note, recipient_name, updated_at, published_at, companies(name)')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -363,6 +364,7 @@ export const findPublishedBrief = cache(async function findPublishedBrief(
     recipientName: data.recipient_name,
     companyName: (company as { name?: string } | null)?.name ?? data.title,
     updatedAt: data.updated_at,
+    publishedAt: data.published_at ?? null,
   }
 })
 

@@ -57,7 +57,7 @@ export function BriefChoice({
   }
 
   return (
-    <div className="my-5 rounded-[10px] border border-[#E6E4DC] bg-white px-5 py-4 sm:px-6">
+    <div className="my-5 rounded-[10px] border border-[#E4E3DC] bg-white px-5 py-4 sm:px-6">
       <p className="text-[14.5px] font-semibold leading-relaxed text-[#161613]">{block.prompt}</p>
       {block.note && <p className="mt-1 text-[13px] leading-relaxed text-[#6E6E68]">{block.note}</p>}
 
@@ -74,14 +74,14 @@ export function BriefChoice({
               className={`rounded-[8px] border px-3.5 py-3 text-left transition-colors disabled:cursor-wait ${
                 active
                   ? 'border-[#1F3A2F] bg-[#E7EDE9]'
-                  : 'border-[#E6E4DC] bg-[#FBFAF7] hover:border-[#1F3A2F]'
+                  : 'border-[#E4E3DC] bg-[#FAF9F5] hover:border-[#1F3A2F]'
               }`}
             >
-              <span className="flex items-center gap-2 text-[14px] font-semibold text-[#173B2D]">
+              <span className="flex items-center gap-2 text-[14px] font-semibold text-[#1F3A2F]">
                 <span
                   aria-hidden
                   className={`inline-block h-3.5 w-3.5 shrink-0 rounded-full border ${
-                    active ? 'border-[#1F3A2F] bg-[#1F3A2F]' : 'border-[#C9C8BF] bg-white'
+                    active ? 'border-[#1F3A2F] bg-[#1F3A2F]' : 'border-[#D2D1C7] bg-white'
                   }`}
                 />
                 {busy === o.value ? 'Saving…' : o.label}
@@ -99,13 +99,13 @@ export function BriefChoice({
           onChange={e => rememberName(e.target.value)}
           placeholder="Your name (optional)"
           maxLength={80}
-          className="w-full max-w-[260px] rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-3 py-1.5 text-[13px] text-[#1D1F1D] outline-none placeholder:text-[#A9ADA2] focus:border-[#1F3A2F]"
+          className="w-full max-w-[260px] rounded-[8px] border border-[#E4E3DC] bg-[#FAF9F5] px-3 py-1.5 text-[13px] text-[#161613] outline-none placeholder:text-[#9C9C95] focus:border-[#1F3A2F]"
         />
         {saved && <span className="text-[12.5px] font-medium text-[#1F3A2F]">Saved. Lily has been told.</span>}
         {!saved && value && initial?.value === value && (
           <span className="text-[12.5px] text-[#9C9C95]">Answered. Tap another option to change it.</span>
         )}
-        {error && <span className="text-[13px] text-[#B0483C]">{error}</span>}
+        {error && <span className="text-[13px] text-[#A8564C]">{error}</span>}
       </div>
     </div>
   )

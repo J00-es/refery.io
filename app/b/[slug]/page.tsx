@@ -16,7 +16,7 @@ import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { normalizeBrief, briefNav } from '@/lib/brief'
 import { findPublishedBrief } from '@/lib/hm-brief'
-import { BriefDocument } from '@/components/partners/brief-document'
+import { FounderBrief } from '@/components/hm/founder-brief'
 import { BriefCommentsProvider, type BriefComment } from '@/components/hm/comments-provider'
 import { GeneralComments, SectionComments, ChecklistAnswer } from '@/components/hm/brief-comments'
 import { BriefTelemetry } from '@/components/hm/brief-telemetry'
@@ -98,11 +98,12 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
     <BriefCommentsProvider slug={brief.slug} initial={comments}>
       <BriefTelemetry slug={brief.slug} sections={nav} />
 
-      <BriefDocument
+      <FounderBrief
         content={content}
-        variant="standalone"
-        ribbonLabel="Private link"
         ribbonNote={brief.ribbonNote ?? 'Prepared for you by Refery · please don’t forward'}
+        recipientName={brief.recipientName}
+        publishedAt={brief.publishedAt}
+        answers={answers}
         sectionSlots={sectionSlots}
         checklistSlot={(ask, section) => (
           <ChecklistAnswer ask={ask} sectionId={section.id} sectionLabel={section.label} />

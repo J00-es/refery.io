@@ -15,7 +15,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useBriefComments, type BriefComment } from './comments-provider'
 
-const CARD = 'rounded-[10px] border border-[#E6E4DC] bg-white'
+const CARD = 'rounded-[10px] border border-[#E4E3DC] bg-white'
 const GREEN = '#1F3A2F'
 
 // ── time ────────────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ function Timestamp({ iso, edited }: { iso: string; edited: boolean }) {
   }, [iso, edited])
 
   return (
-    <span className="text-[11.5px] text-[#A9ADA2]" suppressHydrationWarning>
+    <span className="text-[11.5px] text-[#9C9C95]" suppressHydrationWarning>
       {text}
     </span>
   )
@@ -97,7 +97,7 @@ function Composer({
           onChange={e => rememberName(e.target.value)}
           placeholder="Your name (optional)"
           maxLength={80}
-          className="mb-2 w-full rounded-[8px] border border-[#E6E4DC] bg-[#FBFAF7] px-3 py-2 text-[13.5px] text-[#1D1F1D] outline-none placeholder:text-[#A9ADA2] focus:border-[#1F3A2F]"
+          className="mb-2 w-full rounded-[8px] border border-[#E4E3DC] bg-[#FAF9F5] px-3 py-2 text-[13.5px] text-[#161613] outline-none placeholder:text-[#9C9C95] focus:border-[#1F3A2F]"
         />
       )}
       <textarea
@@ -113,9 +113,9 @@ function Composer({
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') void submit()
           if (e.key === 'Escape') onCancel()
         }}
-        className="w-full resize-y rounded-[8px] border border-[#E6E4DC] bg-white px-3 py-2.5 text-[14.5px] leading-relaxed text-[#1D1F1D] outline-none placeholder:text-[#A9ADA2] focus:border-[#1F3A2F]"
+        className="w-full resize-y rounded-[8px] border border-[#E4E3DC] bg-white px-3 py-2.5 text-[14.5px] leading-relaxed text-[#161613] outline-none placeholder:text-[#9C9C95] focus:border-[#1F3A2F]"
       />
-      {error && <p className="mt-1.5 text-[13px] text-[#B0483C]">{error}</p>}
+      {error && <p className="mt-1.5 text-[13px] text-[#A8564C]">{error}</p>}
       <div className="mt-2 flex items-center gap-2">
         <button
           type="button"
@@ -128,11 +128,11 @@ function Composer({
         <button
           type="button"
           onClick={onCancel}
-          className="rounded-full px-3 py-1.5 text-[13px] font-medium text-[#75796F] transition-colors hover:text-[#1D1F1D]"
+          className="rounded-full px-3 py-1.5 text-[13px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613]"
         >
           Cancel
         </button>
-        <span className="ml-auto hidden text-[11.5px] text-[#A9ADA2] sm:inline">⌘↵ to send</span>
+        <span className="ml-auto hidden text-[11.5px] text-[#9C9C95] sm:inline">⌘↵ to send</span>
       </div>
     </div>
   )
@@ -165,20 +165,20 @@ function Comment({ comment }: { comment: BriefComment }) {
   return (
     <li className={`${CARD} border-l-[3px] px-4 py-3`} style={{ borderLeftColor: GREEN }}>
       <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
-        <span className="text-[13px] font-semibold text-[#173B2D]">
+        <span className="text-[13px] font-semibold text-[#1F3A2F]">
           {comment.authorName?.trim() || 'Anonymous'}
         </span>
         <Timestamp iso={comment.createdAt} edited={!!comment.editedAt} />
       </div>
       {comment.prompt && (
-        <p className="mt-1 text-[12px] italic leading-snug text-[#9A7B2E]">
+        <p className="mt-1 text-[12px] italic leading-snug text-[#8A6A1F]">
           Answering: {comment.prompt}
         </p>
       )}
-      <p className="mt-1.5 whitespace-pre-wrap text-[14.5px] leading-relaxed text-[#3C403C]">
+      <p className="mt-1.5 whitespace-pre-wrap text-[14.5px] leading-relaxed text-[#2A2A26]">
         {comment.body}
       </p>
-      {error && <p className="mt-1.5 text-[13px] text-[#B0483C]">{error}</p>}
+      {error && <p className="mt-1.5 text-[13px] text-[#A8564C]">{error}</p>}
       {mine && (
         <div className="mt-2 flex items-center gap-3">
           <button
@@ -187,7 +187,7 @@ function Comment({ comment }: { comment: BriefComment }) {
               setError(null)
               setEditing(true)
             }}
-            className="text-[12.5px] font-medium text-[#75796F] underline-offset-2 transition-colors hover:text-[#1F3A2F] hover:underline"
+            className="text-[12.5px] font-medium text-[#6E6E68] underline-offset-2 transition-colors hover:text-[#1F3A2F] hover:underline"
           >
             Edit
           </button>
@@ -204,14 +204,14 @@ function Comment({ comment }: { comment: BriefComment }) {
                     setConfirming(false)
                   }
                 }}
-                className="text-[12.5px] font-semibold text-[#B0483C] underline underline-offset-2"
+                className="text-[12.5px] font-semibold text-[#A8564C] underline underline-offset-2"
               >
                 Really delete
               </button>
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
-                className="text-[12.5px] font-medium text-[#75796F]"
+                className="text-[12.5px] font-medium text-[#6E6E68]"
               >
                 Keep
               </button>
@@ -220,7 +220,7 @@ function Comment({ comment }: { comment: BriefComment }) {
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="text-[12.5px] font-medium text-[#75796F] underline-offset-2 transition-colors hover:text-[#B0483C] hover:underline"
+              className="text-[12.5px] font-medium text-[#6E6E68] underline-offset-2 transition-colors hover:text-[#A8564C] hover:underline"
             >
               Delete
             </button>
@@ -267,7 +267,7 @@ export function SectionComments({
   )
 
   return (
-    <div className="mt-6 border-t border-dashed border-[#E6E4DC] pt-4 print:hidden">
+    <div className="mt-6 border-t border-dashed border-[#E4E3DC] pt-4 print:hidden">
       <Thread comments={mine} />
       {open ? (
         <Composer
@@ -279,7 +279,7 @@ export function SectionComments({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full border border-[#E6E4DC] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#75796F] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F]"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#E4E3DC] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#6E6E68] transition-colors hover:border-[#1F3A2F] hover:text-[#1F3A2F]"
         >
           <span aria-hidden>+</span>
           {mine.length ? 'Add another note' : 'Correct or add something'}
@@ -324,7 +324,7 @@ export function ChecklistAnswer({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="text-[12.5px] font-semibold text-[#1F3A2F] underline decoration-[#C8A24B] underline-offset-4 transition-opacity hover:opacity-70"
+          className="text-[12.5px] font-semibold text-[#1F3A2F] underline decoration-[#8A6A1F] underline-offset-4 transition-opacity hover:opacity-70"
         >
           {answers.length ? 'Add to this answer' : 'Answer this'}
         </button>
@@ -343,14 +343,14 @@ export function GeneralComments() {
   return (
     <section id="comments" className="mt-14 scroll-mt-16 print:hidden">
       <div className="mb-4 flex items-baseline gap-3.5 border-b-2 border-[#1F3A2F] pb-3">
-        <span aria-hidden className="font-semibold text-[15px] italic text-[#9A7B2E]">
+        <span aria-hidden className="font-semibold text-[15px] italic text-[#8A6A1F]">
           ✎
         </span>
-        <h2 className="text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#173B2D] sm:text-[27px]">
+        <h2 className="text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#1F3A2F] sm:text-[27px]">
           Anything else
         </h2>
       </div>
-      <p className="text-[14px] leading-relaxed text-[#75796F]">
+      <p className="text-[14px] leading-relaxed text-[#6E6E68]">
         Everything you write here reaches me straight away, and you can edit or delete it afterwards.
         No account, no reply address needed.
       </p>

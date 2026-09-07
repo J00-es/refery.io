@@ -218,6 +218,8 @@ export interface BriefSection {
   heading: string
   /** Short label for the contents rail; falls back to the heading. */
   nav?: string
+  /** On the folded founder layout: start expanded (true), folded (false), or the default rule (unset). */
+  open?: boolean
   /**
    * The "in short" line. A hiring manager skims the ten headings first and
    * reads the two sections that worry them, so every section says its own
@@ -321,6 +323,7 @@ function normalizeSection(v: unknown, index: number): BriefSection | null {
     id: str(o.id) ?? `section-${index + 1}`,
     heading,
     nav: str(o.nav),
+    open: typeof o.open === 'boolean' ? o.open : undefined,
     summary: str(o.summary),
     blocks: blocks.map(normalizeBlock).filter((b): b is BriefBlock => b !== null),
   }
