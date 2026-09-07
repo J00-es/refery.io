@@ -1,11 +1,12 @@
 /**
- * Gmail, for creating drafts. Nothing here sends.
+ * Gmail: drafts for the recap emails, and sending for the desk.
  *
- * The recap email is the one piece of this system that speaks to the outside
- * world in Lily's name, so it stops at a draft in her mailbox and she presses
- * send. That is the same boundary the brief emails hold, and it is the reason
- * this file asks for `gmail.compose` rather than `gmail.send`: the credential
- * itself is incapable of sending, so no bug in this repo can send an email.
+ * The recap email speaks to the outside world in Lily's name, so it starts as
+ * a draft in her mailbox. Since 7 Sep 2026 that draft can also be sent from
+ * the Slack card (sendDraft, below), which is still Lily pressing send: the
+ * reaction is hers, the code only relays it. drafts.send is covered by the
+ * `gmail.compose` scope, so it works on the same credential that creates the
+ * draft, without the `gmail.send` grant the desk needs for messages.send.
  *
  * Auth is the OAuth refresh-token flow already used by the Python ingester.
  * Every function no-ops when the three GOOGLE_* vars are unset, so the poller
@@ -190,14 +191,15 @@ export interface DraftResult {
 }
 
 /**
- * Create a Gmail draft. Never sends.
+ * The message a draft carries. Shared by create and update so an edited
+ * draft keeps exactly the threading headers the original had.
  *
  * When an existing thread is supplied the draft joins it, which Gmail only
  * honours if the subject matches the thread's and the reply headers are set.
  * Getting either wrong silently produces a new conversation, which looks like
  * the drafting worked and reads to the recipient as though we lost the plot.
  */
-export async function createDraft(input: DraftInput): Promise<DraftResult> {
+function draftPayload(input: DraftInput): { subject: string; message: Record<string, string> } {
   const thread = input.thread
   const subject = thread?.subject
     ? /^re:\s/i.test(thread.subject)
@@ -224,12 +226,15 @@ export async function createDraft(input: DraftInput): Promise<DraftResult> {
   const raw = Buffer.from(`${headers.join('\r\n')}\r\n\r\n${input.body}`, 'utf8').toString(
     'base64url',
   )
+  return { subject, message: thread?.threadId ? { raw, threadId: thread.threadId } : { raw } }
+}
 
+/** Create a Gmail draft. Never sends. */
+export async function createDraft(input: DraftInput): Promise<DraftResult> {
+  const { subject, message } = draftPayload(input)
   const res = await gmail<{ id?: string; message?: { threadId?: string } }>('/drafts', {
     method: 'POST',
-    body: JSON.stringify({
-      message: thread?.threadId ? { raw, threadId: thread.threadId } : { raw },
-    }),
+    body: JSON.stringify({ message }),
   })
 
   if (res.error) return { subject, error: res.error }
@@ -238,6 +243,37 @@ export async function createDraft(input: DraftInput): Promise<DraftResult> {
     threadId: res.data?.message?.threadId,
     subject,
   }
+}
+
+/**
+ * Replace a draft's content in place. The draft keeps its id, so the "Open
+ * the draft" link on the card stays valid after an edit from Slack.
+ */
+export async function updateDraft(draftId: string, input: DraftInput): Promise<DraftResult> {
+  const { subject, message } = draftPayload(input)
+  const res = await gmail<{ id?: string; message?: { threadId?: string } }>(`/drafts/${encodeURIComponent(draftId)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ message }),
+  })
+  if (res.error) return { subject, error: res.error }
+  return { draftId: res.data?.id ?? draftId, threadId: res.data?.message?.threadId, subject }
+}
+
+/**
+ * Send a draft exactly as it stands in Gmail, edits Lily made there included.
+ * The draft disappears from the mailbox on success; what comes back is the
+ * sent message. A 404 means the draft was already sent or deleted by hand.
+ */
+export async function sendDraft(draftId: string): Promise<{ messageId?: string; threadId?: string; error?: string }> {
+  const res = await gmail<{ id?: string; threadId?: string }>('/drafts/send', {
+    method: 'POST',
+    body: JSON.stringify({ id: draftId }),
+  })
+  if (res.error) {
+    const hint = /^404/.test(res.error) ? ' (the draft no longer exists: sent or deleted in Gmail already?)' : ''
+    return { error: `${res.error}${hint}` }
+  }
+  return { messageId: res.data?.id, threadId: res.data?.threadId }
 }
 
 /** Where Lily opens the draft from the Slack card. */

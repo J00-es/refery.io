@@ -17,8 +17,16 @@ and teaches us nothing.
 ## Where this fires automatically
 
 After every Granola-recorded call that resolves to a person we know, a draft of
-this email is created in Gmail and announced in `#refery-calls`. **Nothing is
-ever sent.** Lily edits and sends from Gmail.
+this email is created in Gmail and announced in `#refery-calls`, with the full
+text on the card. **Nothing is sent until Lily says so.** She can do that from
+either place:
+
+- In Gmail: edit and send as usual.
+- In Slack: `:outbox_tray:` on the card sends the Gmail draft as it stands
+  (edits made in Gmail included). A thread reply `edit: <new text>` replaces
+  the body, and `redo: <what to change>` has the model rewrite it; both update
+  the Gmail draft and the card, and `:outbox_tray:` then sends that version.
+  The handlers live in `lib/desk/recap-send.ts`.
 
 The code lives in `lib/call-recap.ts`, driven by
 `app/api/cron/call-recaps/route.ts`. It reads *this file* as its prompt, so

@@ -251,13 +251,28 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
 // ── The Slack card ───────────────────────────────────────────────────────────
 
 /**
- * The emojis seeded on every card.
+ * The emojis seeded on every card, read by lib/desk/verdict.ts.
  *
- * They do nothing yet: the handler that reads them is the next piece of work.
- * They are seeded now anyway, because a card whose affordances appear a week
- * later trains everyone to ignore the ones that are there.
+ * :fire:, :-1: and :zzz: set a verdict on a candidate. :email: posts the Gmail
+ * link. :outbox_tray: sends the draft as it stands in Gmail (lib/desk/recap-send.ts).
+ * Not :+1:, on purpose: on a candidate card the thumb already means "strong",
+ * and an emoji that sends an email on one card and files a verdict on the
+ * next is the kind of thing that sends an email by accident.
  */
-export const RECAP_AFFORDANCES = ['fire', '-1', 'zzz', 'email'] as const
+export const RECAP_AFFORDANCES = ['fire', '-1', 'zzz', 'outbox_tray', 'email'] as const
+
+/**
+ * The heading over the draft on the card. recap-send.ts finds the block by
+ * this string to rewrite it after an edit or a send, so it lives here once.
+ */
+export const DRAFT_HEADER = '*Draft reply, nothing sent*'
+
+/** Slack quotes the body one `>` per line; shared with the card patcher. */
+export function quoteDraft(body: string): string {
+  const trimmed = body.trim()
+  const shown = trimmed.length > DRAFT_PREVIEW_CHARS ? `${trimmed.slice(0, DRAFT_PREVIEW_CHARS)}…` : trimmed
+  return esc(shown).split('\n').map(l => `>${l}`).join('\n')
+}
 
 /**
  * How much of the draft to show on the card.
@@ -336,13 +351,12 @@ export function recapBlocks(input: CardInput): { text: string; blocks: SlackBloc
   // message that was being posted anyway, not another model call.
   const body = recap.emailBody.trim()
   if (body) {
-    const shown = body.length > DRAFT_PREVIEW_CHARS ? `${body.slice(0, DRAFT_PREVIEW_CHARS)}…` : body
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Draft reply, nothing sent*\n${esc(shown).split('\n').map(l => `>${l}`).join('\n')}`,
+        text: `${DRAFT_HEADER}\n${quoteDraft(body)}`,
       },
     })
     if (body.length > DRAFT_PREVIEW_CHARS) {
@@ -373,15 +387,19 @@ export function recapBlocks(input: CardInput): { text: string; blocks: SlackBloc
   // What the pre-seeded reactions do, said on the card, because an emoji whose
   // meaning has to be remembered is one nobody uses. The three verdicts write
   // to a candidate record, so on a scout or recruiter call they are left off
-  // rather than offered and then refused.
+  // rather than offered and then refused. The send and the two edit forms are
+  // offered only when a draft exists; without one there is nothing to send.
+  const draftHelp = input.draftUrl
+    ? ':outbox_tray: send the draft   ·   :email: open it in Gmail   ·   reply "edit: <new text>" to replace it, or "redo: <what to change>" to have it rewritten'
+    : null
   blocks.push({
     type: 'context',
     elements: [
       {
         type: 'mrkdwn',
         text: input.verdictsApply
-          ? ':fire: very strong   ·   :-1: not a fit   ·   :zzz: hold, off market   ·   :email: open the draft   ·   reply in thread to save a note'
-          : ':email: open the draft   ·   reply in thread to save a note   ·   verdict reactions apply on candidate calls',
+          ? [':fire: very strong   ·   :-1: not a fit   ·   :zzz: hold, off market', draftHelp, 'any other reply saves as a note'].filter(Boolean).join('   ·   ')
+          : [draftHelp, 'verdict reactions apply on candidate calls'].filter(Boolean).join('   ·   '),
       },
     ],
   })

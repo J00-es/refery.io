@@ -17,6 +17,7 @@ import { loadLiveSeats, seatBrief, type Seat } from '@/lib/desk/seats'
 import { firstNameOf, lilyUserId, loadOwner, properName } from '@/lib/desk/people'
 import { cancelFollowups, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { referrerOutcome } from '@/lib/desk/emails'
+import { changeRecapFromSlack, sendRecapFromSlack } from '@/lib/desk/recap-send'
 import type { ParsedResumeData } from '@/lib/types'
 
 const VERDICT_BY_REACTION: Record<string, { lily: string; stage: string; label: string }> = {
@@ -214,6 +215,10 @@ export async function handleRecapReaction(admin: SupabaseClient, input: { reacti
     await postThreadReply(input.channel, input.ts, recap.gmail_draft_id ? `The recap draft is in Gmail: https://mail.google.com/mail/u/0/#drafts?compose=${recap.gmail_draft_id}` : 'No Gmail draft was created for this call.')
     return true
   }
+  // The send. On any call type: a scout or recruiter recap is sent the same way.
+  if (input.reaction === 'outbox_tray') {
+    return sendRecapFromSlack(admin, { channel: input.channel, ts: input.ts, slackUser: input.slackUser })
+  }
   const v = VERDICT_BY_REACTION[input.reaction]
   if (!v) return false
   if (recap.entity_type !== 'candidate' || !recap.entity_id) {
@@ -237,12 +242,23 @@ export async function handleRecapReaction(admin: SupabaseClient, input: { reacti
   return true
 }
 
-/** A typed reply in a recap card's thread is Lily's note on the record. */
+/**
+ * A typed reply in a recap card's thread.
+ *
+ * "edit: …" and "redo: …" change a draft. Which draft: the newest unsent one
+ * in the thread. A founder blurb or referrer update posted after a verdict is
+ * newer than the recap on the card, so "edit:" reaches it first; with none of
+ * those waiting, both verbs work the recap draft itself. Anything else is
+ * Lily's note on the record, which only a candidate has.
+ */
 export async function handleRecapThreadReply(admin: SupabaseClient, input: { text: string; slackUser: string; channel: string; threadTs: string }): Promise<boolean> {
   const recap = await recapForSlackMessage(admin, input.channel, input.threadTs)
   if (!recap) return false
+  if (/^(edit|redo)\s*[:：]/i.test(input.text)) {
+    if (/^edit/i.test(input.text) && (await handleDraftEdit(admin, { text: input.text, channel: input.channel, threadTs: input.threadTs, slackUser: input.slackUser }))) return true
+    return changeRecapFromSlack(admin, { text: input.text, channel: input.channel, threadTs: input.threadTs, slackUser: input.slackUser })
+  }
   if (recap.entity_type !== 'candidate' || !recap.entity_id) return true
-  if (/^edit\s*[:：]/i.test(input.text)) return handleDraftEdit(admin, { text: input.text, channel: input.channel, threadTs: input.threadTs, slackUser: input.slackUser })
   const userId = await lilyUserId(admin)
   const { error } = await admin.from('recruiter_notes').insert({
     candidate_id: recap.entity_id,

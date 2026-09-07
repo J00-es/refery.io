@@ -93,6 +93,24 @@ export async function updateMessage(
   return { ok: res.ok, error: res.error }
 }
 
+/**
+ * One message, with its blocks, so a card can be patched rather than rebuilt.
+ *
+ * Used after a recap draft is sent: the card was rendered with facts the
+ * database does not keep (the transcript link, the meeting length), so the
+ * honest way to change one line on it is to read it back and change that line.
+ * Needs channels:history or groups:history; null when the read fails.
+ */
+export async function getMessage(
+  channel: string,
+  ts: string,
+): Promise<{ text?: string; blocks?: SlackBlock[] } | null> {
+  const res = await call('conversations.history', { channel, latest: ts, oldest: ts, inclusive: true, limit: 1 })
+  const messages = (res.messages as { ts?: string; text?: string; blocks?: SlackBlock[] }[] | undefined) ?? []
+  const m = messages.find(x => x.ts === ts)
+  return res.ok && m ? { text: m.text, blocks: m.blocks } : null
+}
+
 /** Replies in-thread so the channel stays one message per applicant. */
 export async function postThreadReply(
   channel: string,
