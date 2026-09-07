@@ -20,6 +20,7 @@ import { BriefDocument } from '@/components/partners/brief-document'
 import { BriefCommentsProvider, type BriefComment } from '@/components/hm/comments-provider'
 import { GeneralComments, SectionComments, ChecklistAnswer } from '@/components/hm/brief-comments'
 import { BriefTelemetry } from '@/components/hm/brief-telemetry'
+import { BriefChoice, type BriefAnswer } from '@/components/hm/brief-choice'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -65,6 +66,14 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
     .order('created_at', { ascending: true })
     .limit(500)
 
+  const { data: answerRows } = await createAdminClient()
+    .from('hm_brief_answers')
+    .select('key, value, author_name, updated_at')
+    .eq('brief_id', brief.id)
+  const answers: Record<string, BriefAnswer> = Object.fromEntries(
+    (answerRows ?? []).map(r => [r.key, { value: r.value, authorName: r.author_name, updatedAt: r.updated_at }]),
+  )
+
   const comments: BriefComment[] = (rows ?? []).map(r => ({
     id: r.id,
     sectionId: r.section_id,
@@ -98,6 +107,7 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
         checklistSlot={(ask, section) => (
           <ChecklistAnswer ask={ask} sectionId={section.id} sectionLabel={section.label} />
         )}
+        choiceSlot={block => <BriefChoice slug={brief.slug} block={block} initial={answers[block.key] ?? null} />}
         footerSlot={<GeneralComments />}
       />
     </BriefCommentsProvider>

@@ -99,6 +99,23 @@ Put `comp` after `logistics` and `jds` after `how`, so the argument lands before
 - **`confidential.points`** is the "if you have two minutes" list. Each point links to the
   section that argues it: `[the claim](#comp)`. In-page anchors are a permitted scheme.
 
+### Action blocks (added 2026-09-07, first used on `livo-7kq3mxw`)
+
+- **`cta`** is a button: `{ kind: 'cta', label, url, note?, secondary? }`. `url` must be
+  http(s), `mailto:` or `#anchor`. Use it for the client agreement link and the Slack DM
+  link, not for ordinary links (those stay inline). Issue the agreement link headlessly
+  with `npx tsx scripts/issue-client-agreement.ts <company_id> [fee]` (open link, v2.8, 30 days).
+- **`choice`** is a one-tap question: `{ kind: 'choice', key, prompt, options: [{ value,
+  label, detail? }], note? }`. On the public page the tap is saved to `hm_brief_answers`
+  (one row per brief and key), pinged to Slack `clients` like a comment, and, for
+  `key: 'candidate_delivery'` with values `slack | email | platform`, mirrored onto
+  `client_companies.candidate_delivery`. Elsewhere it renders as a read-only list.
+- A **`start`** section ("How to start, and how we work") goes first when the client has
+  not signed yet: the Refery paragraph, four `steps`, the two `cta` buttons, the
+  `candidate_delivery` choice, and a speed callout. `how` after logistics is then dropped.
+
+The dropped-block checker is `npx tsx scripts/check-brief-content.ts <module exporting content>`.
+
 ### Writing the `roles` block
 
 One item per seat. Fields, all optional except `title`:

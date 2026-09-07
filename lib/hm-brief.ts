@@ -284,6 +284,32 @@ export async function notifyBriefComment(
   })
 }
 
+/**
+ * A one-tap answer landed (today: how they want to receive candidates).
+ * Same channel and urgency as a comment: it changes how Lily works with them.
+ */
+export async function notifyBriefAnswer(
+  brief: BriefRef,
+  v: ViewerContext,
+  answer: { author: string | null; prompt: string; label: string; changed: boolean },
+) {
+  const who = answer.author?.trim() || brief.recipientName || 'The hiring manager'
+  await notifySlack({
+    stream: 'clients',
+    emoji: ':mailbox_with_mail:',
+    title: `${brief.companyName}: ${who} chose "${answer.label}"`,
+    context: answer.changed
+      ? 'They changed an earlier answer. The client record is updated; adjust how you send candidates.'
+      : 'Saved on the client record. Send candidates that way from now on.',
+    fields: [
+      { label: 'Question', value: answer.prompt },
+      { label: 'Answer', value: answer.label },
+      { label: 'From', value: `${who} · ${describePlace(v)}` },
+    ],
+    links: [{ label: 'Open the brief', url: briefUrl(brief.slug) }],
+  })
+}
+
 // ── lookup ──────────────────────────────────────────────────────────────────
 
 export interface PublicBrief {

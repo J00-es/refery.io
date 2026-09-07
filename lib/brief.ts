@@ -159,8 +159,28 @@ export interface JdItem {
   parts: JdPart[]
 }
 
+/** One option in a `choice` block. */
+export interface ChoiceOption {
+  value: string
+  label: string
+  detail?: string
+}
+
+export type ChoiceBlock = {
+  kind: 'choice'
+  /** Stable key the answer is stored under, e.g. `candidate_delivery`. */
+  key: string
+  prompt: string
+  options: ChoiceOption[]
+  note?: string
+}
+
 export type BriefBlock =
   | { kind: 'lede'; text: string }
+  /** A button: the one thing on the page that is an action rather than a sentence. */
+  | { kind: 'cta'; label: string; url: string; note?: string; secondary?: boolean }
+  /** A one-tap question. On the public brief the answer is saved; elsewhere it lists the options. */
+  | ChoiceBlock
   | { kind: 'paragraph'; text: string; tone?: 'default' | 'note' }
   | { kind: 'stats'; items: StatItem[] }
   | { kind: 'bullets'; items: string[] }
@@ -411,6 +431,23 @@ function normalizeBlock(v: unknown): BriefBlock | null {
     case 'callout': {
       const text = str(o.text)
       return text ? { kind: 'callout', text } : null
+    }
+    case 'cta': {
+      const label = str(o.label)
+      const url = str(o.url)
+      if (!label || !url || !/^(https?:\/\/|mailto:|#)/.test(url)) return null
+      return { kind: 'cta', label, url, note: str(o.note), secondary: o.secondary === true }
+    }
+    case 'choice': {
+      const key = str(o.key)
+      const prompt = str(o.prompt)
+      const options = objList<ChoiceOption>(o.options, i => {
+        const value = str(i.value)
+        const label = str(i.label)
+        return value && label && /^[a-z0-9_-]{1,40}$/.test(value) ? { value, label, detail: str(i.detail) } : null
+      })
+      if (!key || !prompt || options.length < 2 || !/^[a-z0-9_]{1,40}$/.test(key)) return null
+      return { kind: 'choice', key, prompt, options, note: str(o.note) }
     }
     case 'heading': {
       const text = str(o.text)

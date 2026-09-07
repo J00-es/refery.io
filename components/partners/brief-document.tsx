@@ -20,6 +20,7 @@ import type {
   BriefBlock,
   BriefContent,
   CardItem,
+  ChoiceBlock,
   PersonItem,
   QuestionItem,
   RoleItem,
@@ -606,9 +607,72 @@ function Checklist({
   )
 }
 
+/** A button. Opens in a new tab: the reader is mid-document and should come back to it. */
+function Cta({ block }: { block: Extract<BriefBlock, { kind: 'cta' }> }) {
+  const external = /^https?:/.test(block.url)
+  return (
+    <div className="my-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+      <a
+        href={block.url}
+        target={external ? '_blank' : undefined}
+        rel={external ? 'noopener noreferrer' : undefined}
+        className={
+          block.secondary
+            ? 'inline-flex items-center rounded-full border border-[#1F3A2F] bg-white px-5 py-2.5 text-[14px] font-semibold text-[#1F3A2F] transition-colors hover:bg-[#E7EDE9]'
+            : 'inline-flex items-center rounded-full bg-[#1F3A2F] px-5 py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90'
+        }
+      >
+        {block.label}
+        {external && <span aria-hidden className="ml-1.5 text-[12px] opacity-70">&#8599;</span>}
+      </a>
+      {block.note && (
+        <span className={`text-[13px] leading-snug ${DOC.muted}`}>
+          <Inline text={block.note} />
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** The read-only rendering of a choice: what was asked, and the options. */
+function ChoiceStatic({ block }: { block: ChoiceBlock }) {
+  return (
+    <div className={`${DOC.card} my-5 px-5 py-4 sm:px-6`}>
+      <p className={`text-[14.5px] font-semibold leading-relaxed ${DOC.ink}`}>
+        <Inline text={block.prompt} />
+      </p>
+      <ul className="mt-2.5 space-y-1.5">
+        {block.options.map(o => (
+          <li key={o.value} className={`text-[14px] leading-relaxed ${DOC.body}`}>
+            <span className="font-semibold">{o.label}</span>
+            {o.detail && <span className={DOC.muted}> · {o.detail}</span>}
+          </li>
+        ))}
+      </ul>
+      {block.note && (
+        <p className={`mt-2.5 text-[13px] leading-relaxed ${DOC.muted}`}>
+          <Inline text={block.note} />
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** One block. Exported so the client-brief page can fall back to it for the rare kinds. */
-export function Block({ block, checklistSlot }: { block: BriefBlock; checklistSlot?: (ask: string) => React.ReactNode }) {
+export function Block({
+  block,
+  checklistSlot,
+  choiceSlot,
+}: {
+  block: BriefBlock
+  checklistSlot?: (ask: string) => React.ReactNode
+  choiceSlot?: (block: ChoiceBlock) => React.ReactNode
+}) {
   switch (block.kind) {
+    case 'cta':
+      return <Cta block={block} />
+    case 'choice':
+      return choiceSlot ? <>{choiceSlot(block)}</> : <ChoiceStatic block={block} />
     case 'lede':
       return (
         <p className={`mb-4 text-[16.5px] leading-relaxed ${DOC.ink}`}>
@@ -699,6 +763,11 @@ export interface BriefDocumentProps {
    * as against the question.
    */
   checklistSlot?: (ask: string, section: { id: string; label: string }) => React.ReactNode
+  /**
+   * Rendered in place of a `choice` block. The public hiring-manager page hangs
+   * the one-tap answer widget here; without it the options are listed read-only.
+   */
+  choiceSlot?: (block: ChoiceBlock, section: { id: string; label: string }) => React.ReactNode
   /** Rendered after the signoff, e.g. the general comment thread. */
   footerSlot?: React.ReactNode
 }
@@ -710,6 +779,7 @@ export function BriefDocument({
   ribbonLabel = 'Confidential',
   sectionSlots,
   checklistSlot,
+  choiceSlot,
   footerSlot,
 }: BriefDocumentProps) {
   const standalone = variant === 'standalone'
@@ -864,6 +934,10 @@ export function BriefDocument({
                   checklistSlot={
                     checklistSlot &&
                     (ask => checklistSlot(ask, { id: section.id, label: section.nav ?? section.heading }))
+                  }
+                  choiceSlot={
+                    choiceSlot &&
+                    (block => choiceSlot(block, { id: section.id, label: section.nav ?? section.heading }))
                   }
                 />
               ))}
