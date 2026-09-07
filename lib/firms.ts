@@ -508,7 +508,10 @@ export async function acceptInvite(
 export async function removeMember(
   admin: SupabaseClient,
   opts: { firmId: string; userId: string; actorId: string },
-): Promise<{ ok: true; reassigned: number } | { ok: false; error: string }> {
+): Promise<
+  | { ok: true; reassigned: number; invitesRevoked: number; problems: string[] }
+  | { ok: false; error: string }
+> {
   if (opts.userId === opts.actorId) {
     return { ok: false, error: 'You cannot remove yourself. Ask another admin.' }
   }
@@ -526,6 +529,13 @@ export async function removeMember(
   // The window the firm has a claim over. Anything they owned before they
   // walked in is theirs and goes with them.
   const joinedAt = (target.joined_at as string) ?? new Date(0).toISOString()
+
+  // Needed to scope the invitation revocation to this person.
+  const { data: leaver } = await admin
+    .from('users_admin')
+    .select('email')
+    .eq('user_id', opts.userId)
+    .maybeSingle()
 
   if (target.org_role === 'admin') {
     const { count } = await admin
@@ -556,7 +566,7 @@ export async function removeMember(
 
   // The firm keeps what it owns. Without this the records would still be
   // readable only by the person who just left.
-  const { data: moved } = await admin
+  const moveRes = await admin
     .from('candidates')
     .update({ owner_user_id: opts.actorId })
     .eq('owner_user_id', opts.userId)
@@ -565,14 +575,52 @@ export async function removeMember(
     // not the firm taking everything the person has ever owned.
     .gte('created_at', joinedAt)
     .select('id')
+  const moveError = moveRes.error
+  const moved = moveRes.data
 
-  // Any open invitation to them is dead too.
-  await admin
-    .from('partner_org_invites')
-    .update({ revoked_at: now })
-    .eq('org_id', opts.firmId)
-    .is('accepted_at', null)
-    .is('revoked_at', null)
+  /**
+   * Any open invitation *to them* is dead too.
+   *
+   * The email predicate is the whole point. Without it, removing one colleague
+   * revoked every pending invitation the firm had sent to anybody, which is a
+   * quiet way to undo a week of somebody else's work.
+   */
+  let invitesRevoked = 0
+  if (leaver?.email) {
+    const { data: killed } = await admin
+      .from('partner_org_invites')
+      .update({ revoked_at: now })
+      .eq('org_id', opts.firmId)
+      .eq('email', (leaver.email as string).toLowerCase())
+      .is('accepted_at', null)
+      .is('revoked_at', null)
+      .select('id')
+    invitesRevoked = killed?.length ?? 0
+  }
 
-  return { ok: true, reassigned: moved?.length ?? 0 }
+  /**
+   * What did not work.
+   *
+   * Access is the only step that must succeed, and it already has: the
+   * membership row is marked removed above and that is what every read checks.
+   * The rest is tidying, so a failure there is reported rather than thrown,
+   * because rolling back a completed revocation to satisfy a bookkeeping error
+   * would be the worse outcome.
+   */
+  const problems: string[] = []
+  if (moveError) problems.push(`records not reassigned: ${moveError.message}`)
+  if (problems.length) {
+    console.error('[firms] removal partially failed', {
+      firmId: opts.firmId,
+      userId: opts.userId,
+      problems,
+    })
+  }
+
+  return {
+    ok: true,
+    reassigned: moved?.length ?? 0,
+    invitesRevoked,
+    problems,
+  }
 }

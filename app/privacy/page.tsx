@@ -1,5 +1,14 @@
 import Link from 'next/link'
 
+/**
+ * A real publication date, changed by hand when the text changes.
+ *
+ * This used to render new Date(), so the page claimed to have been updated
+ * today, every day, whatever it said. A notice that cannot be dated cannot be
+ * relied on, and the date is the part a reader checks first.
+ */
+const LAST_UPDATED = '7 September 2026'
+
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-background">
@@ -13,7 +22,7 @@ export default function PrivacyPage() {
         <h1 className="text-4xl font-bold mb-8 text-foreground">Privacy Policy</h1>
         
         <div className="prose prose-gray dark:prose-invert max-w-none space-y-6">
-          <p className="text-muted-foreground">Last updated: {new Date().toLocaleDateString()}</p>
+          <p className="text-muted-foreground">Last updated: {LAST_UPDATED}</p>
           
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-foreground">1. Introduction</h2>
@@ -69,7 +78,17 @@ export default function PrivacyPage() {
             <p className="text-foreground">We may share your information with:</p>
             <ul className="list-disc list-inside text-foreground space-y-2">
               <li>Hiring companies (candidate information with consent)</li>
-              <li>Service providers who assist in operating our platform</li>
+              <li>
+                The recruiting partner who introduced you. Where that partner works as part of a
+                firm, their colleagues at that firm can see your details and their assessments of
+                you. They cannot see candidates introduced by other firms.
+              </li>
+              <li>
+                Service providers who assist in operating our platform, named in our{' '}
+                <a href="/providers" className="underline underline-offset-2">
+                  Service Providers and International Processing Register
+                </a>
+              </li>
               <li>Legal authorities when required by law</li>
             </ul>
             <p className="text-foreground mt-2">
