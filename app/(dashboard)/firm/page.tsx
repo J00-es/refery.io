@@ -15,7 +15,9 @@ export const dynamic = 'force-dynamic'
 
 export default async function FirmIndexPage() {
   const appUser = await getAppUser()
-  if (!appUser) redirect('/auth/login')
+  // Somebody arriving from the guide with no account wants to sign up, not to
+  // log in to one they do not have.
+  if (!appUser) redirect('/auth/sign-up')
   if (!firmsEnabled(appUser)) notFound()
 
   const membership = await getMembership(createAdminClient(), appUser.id)

@@ -319,8 +319,13 @@ export default function FirmGuidePage() {
             email the moment you finish.
           </p>
           <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
+            {/* /firm rather than /auth/sign-up. A partner who already has an
+                account and follows this button was being sent to a sign-up form
+                that correctly refuses them, which is a dead end and exactly how
+                the first real request for a firm arrived by email instead.
+                /firm works out who they are and sends them to the right place. */}
             <Link
-              href="/auth/sign-up"
+              href="/firm"
               className="inline-flex min-h-[46px] items-center justify-center rounded-[10px] bg-white px-5 text-[15px] font-semibold text-[#1F3A2F] transition-colors hover:bg-[#F2F1EB] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             >
               Set up your firm

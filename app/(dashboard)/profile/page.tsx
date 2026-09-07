@@ -298,6 +298,39 @@ export default function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* The way an existing partner becomes a firm.
+          The Firm tab only appears once you are in one, which is right for the
+          nav row and wrong as the only door: the first real request arrived as
+          an email saying "I cannot sign up, I am already registered". This is
+          account-level, so the account page is where it belongs. */}
+      {(profile.role === 'recruiter' || profile.role === 'scout') && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Work as a firm</CardTitle>
+            <CardDescription>
+              If you work as a team, one person signs for the company and your colleagues join
+              without their own agreement. Your account becomes the firm&apos;s.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <a
+              href="/firm"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Set up your firm
+            </a>
+            <a
+              href="/firm/guide"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-[44px] items-center justify-center px-2 text-sm font-medium text-muted-foreground underline underline-offset-4"
+            >
+              How firm accounts work
+            </a>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
