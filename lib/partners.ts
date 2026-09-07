@@ -32,17 +32,17 @@ import type { AppUser } from '@/lib/current-user'
 import { stageLabel } from '@/lib/company-ui'
 
 /**
- * While the desk is in beta, only beta users (and super admins) can reach it.
+ * The desk is open to every active partner since 7 Sep 2026.
  *
- * Who is beta is a per-user switch on /admin/users (`users_admin.is_beta`), so
- * Lily can let Gina in this week and three more partners next week without a
- * deploy. Everything underneath is already written for the full audience — the
- * anonymised card, the assignment model, the per-viewer submission scoping — so
- * opening it to everyone is flipping this one flag, not unpicking a special
- * case. It is here rather than inlined at each call site so there is exactly
- * one thing to change and nothing to miss.
+ * During the beta (5 to 7 Sep) this was `true` and only users with
+ * `users_admin.is_beta` (plus super admins) could reach Searches and Pipeline.
+ * The per-user switch on /admin/users still exists and still works as a kill
+ * switch for one person if this is ever set back to `true`; with it `false`,
+ * the switch is ignored and new sign-ups see the desk the moment they are
+ * active. It stays here rather than inlined at each call site so there is
+ * exactly one thing to change and nothing to miss.
  */
-export const DESK_BETA_ONLY = true
+export const DESK_BETA_ONLY = false
 
 // ── priority ────────────────────────────────────────────────────────────────
 
