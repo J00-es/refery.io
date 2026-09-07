@@ -18,17 +18,75 @@ import type { z } from 'zod'
 
 export type DeskJob = 'panel' | 'bench' | 'classify' | 'draft'
 
+/**
+ * Routes approved to receive candidate data.
+ *
+ * The Partner Terms promise that providers do not train on what we send them.
+ * That promise is only as good as the route a request actually took, so a model
+ * is usable here only if somebody has put it on this list: an env var naming
+ * something unapproved is refused rather than obeyed, and a chain skips past a
+ * model it does not recognise instead of quietly using it.
+ *
+ * Adding an entry is a deliberate act. Before one goes on, the provider's terms,
+ * our own account settings and its retention behaviour have to have been checked
+ * and recorded in the provider register.
+ *
+ * Reviewed 7 September 2026. Verification of the contractual chain is in
+ * progress; these are the routes in use and under review, and nothing else may
+ * be reached even by misconfiguration.
+ */
+const APPROVED_ROUTES = new Set<string>([
+  'anthropic/claude-opus-5',
+  'anthropic/claude-sonnet-5',
+  'anthropic/claude-haiku-4-5',
+  'openai/gpt-5.6-sol',
+  'google/gemini-3.6-flash',
+])
+
+export function isApprovedRoute(model: string): boolean {
+  return APPROVED_ROUTES.has(model)
+}
+
+/**
+ * Drops anything unapproved, and says so.
+ *
+ * Loudly rather than silently: a chain that quietly shortened itself would look
+ * exactly like a chain that was configured that way on purpose.
+ */
+function approved(models: string[], job: string): string[] {
+  const ok: string[] = []
+  for (const m of models) {
+    if (isApprovedRoute(m)) ok.push(m)
+    else console.error(`[model] "${m}" is not an approved route and was dropped from the ${job} chain`)
+  }
+  return ok
+}
+
 const CHAINS: Record<DeskJob, string[]> = {
-  panel: [process.env.DESK_PANEL_MODEL, 'anthropic/claude-opus-5', 'anthropic/claude-sonnet-5', 'openai/gpt-5.6-sol'].filter(
-    (m): m is string => !!m,
+  panel: approved(
+    [process.env.DESK_PANEL_MODEL, 'anthropic/claude-opus-5', 'anthropic/claude-sonnet-5', 'openai/gpt-5.6-sol'].filter(
+      (m): m is string => !!m,
+    ),
+    'panel',
   ),
-  bench: [process.env.DESK_BENCH_MODEL, 'anthropic/claude-sonnet-5', 'anthropic/claude-opus-5', 'google/gemini-3.6-flash'].filter(
-    (m): m is string => !!m,
+  bench: approved(
+    [process.env.DESK_BENCH_MODEL, 'anthropic/claude-sonnet-5', 'anthropic/claude-opus-5', 'google/gemini-3.6-flash'].filter(
+      (m): m is string => !!m,
+    ),
+    'bench',
   ),
-  classify: [process.env.DESK_CLASSIFY_MODEL, 'anthropic/claude-haiku-4-5', 'google/gemini-3.6-flash', 'anthropic/claude-sonnet-5'].filter(
-    (m): m is string => !!m,
+  classify: approved(
+    [process.env.DESK_CLASSIFY_MODEL, 'anthropic/claude-haiku-4-5', 'google/gemini-3.6-flash', 'anthropic/claude-sonnet-5'].filter(
+      (m): m is string => !!m,
+    ),
+    'classify',
   ),
-  draft: [process.env.DESK_DRAFT_MODEL, 'anthropic/claude-opus-5', 'anthropic/claude-sonnet-5'].filter((m): m is string => !!m),
+  draft: approved(
+    [process.env.DESK_DRAFT_MODEL, 'anthropic/claude-opus-5', 'anthropic/claude-sonnet-5'].filter(
+      (m): m is string => !!m,
+    ),
+    'draft',
+  ),
 }
 
 /** USD per million tokens, input then output. Cache reads bill at a tenth of input. */

@@ -67,7 +67,7 @@ function shell(headline: string, bodyHtml: string): string {
   <tr><td style="padding:0 0 6px 0;font-family:${SANS};font-size:15px;line-height:1.4;color:${M.body};">Lily Joo</td></tr>
   <tr><td style="padding:0 0 36px 0;font-family:${SANS};font-size:13px;line-height:1.4;color:${M.muted};">Founding Partner, Refery</td></tr>
   <tr><td style="border-top:1px solid ${M.rule};padding-top:20px;font-family:${SANS};font-size:11px;line-height:1.5;color:${M.muted};">
-    Refery &middot; <a href="https://refery.io" style="color:${M.muted};text-decoration:none;">refery.io</a>
+    Refery, Inc. &middot; <a href="https://refery.io" style="color:${M.muted};text-decoration:none;">refery.io</a>
   </td></tr>
 </table></td></tr></table></body></html>`
 }

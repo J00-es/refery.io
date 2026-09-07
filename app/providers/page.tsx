@@ -165,13 +165,20 @@ export default function ProvidersPage() {
           </h2>
           <p className="mt-2.5 text-[14.5px] leading-[1.62] text-[#6E6E68]">
             We use automated tools to read CVs, summarise them, suggest which roles someone may suit
-            and draft correspondence. Our intended commitment is that{' '}
-            <b className="font-semibold text-[#161613]">candidate information is not used to train
-            models</b>. Note that no training and no retention are different promises: a provider may
-            hold a request briefly for abuse monitoring even where it never trains on it. We are
-            establishing exactly which applies on each route we use, including the fallback routes
-            used when a preferred model is unavailable, and we will state the outcome here rather
-            than summarise it.
+            and draft correspondence.{' '}
+            <b className="font-semibold text-[#161613]">
+              Candidate information is not used to train these providers&rsquo; models.
+            </b>{' '}
+            That is a commitment we make in our partner agreement, and every route a request can take
+            is on an approved list: a model that is not on it cannot be reached, even by
+            misconfiguration, so a provider being unavailable can never quietly move your data
+            somewhere we have not approved.
+          </p>
+          <p className="mt-3 text-[14.5px] leading-[1.62] text-[#6E6E68] sm:text-[15px]">
+            What we are still documenting is the contractual chain behind each route: the exact
+            contracting entity, the terms that apply to our account, and how long a provider holds a
+            request for its own abuse monitoring. No training and no retention are different
+            promises, and we would rather show our working than round the second one up to the first.
           </p>
         </section>
 
