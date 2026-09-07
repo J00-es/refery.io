@@ -210,6 +210,25 @@ URL: `https://refery.xyz/b/<slug>`.
 
 ---
 
+## The founder layout (since 2026-09-07)
+
+`/b/<slug>` renders `components/hm/founder-brief.tsx`, not the scout `BriefDocument`.
+Same content JSON, different shape, built for a phone:
+
+- Compact hero with a read time. No `confidential.points` are shown; the **"your part"**
+  card replaces them, derived from the page: every `cta`, every `choice` (ticked once
+  answered) and the confirm `checklist` (counts down as answers land).
+- Every section is a fold that shows its `summary` line closed. **Always write `summary`**
+  or the fold shows only the heading. `open: true` on a section starts it expanded; the
+  default opens the first section, `start` and `confirm`.
+- A sticky bar on phones carries the first `cta` and a "Questions" jump.
+- Voice: `docs/proposals/2026-09-07-onboarding/01-voice-spec.md`. Aim for 300 to 400 words
+  across the open sections and under 1,800 in total; spoken sentences, one smiley at most,
+  no scolding. Livo (`scripts/seed-livo-hm-brief.mjs`) is the reference, not Arx.
+- Never leave "sign the agreement" in a brief after the client has signed. Check
+  `client_agreement_links.status` and write "Agreement signed on <date>, so we are live."
+- Research behind the layout: `docs/research/2026-09-07-founder-brief-research.md`.
+
 ## Reusable near-verbatim
 
 The `how` section (what Refery is, the five steps) and the shape of the closing `signoff`
