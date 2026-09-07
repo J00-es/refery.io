@@ -76,9 +76,19 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
     ...searchAssignments.filter(a => a.status !== 'declined').map(a => a.company_id),
   ])
 
+  /**
+   * A coordinator is a firm's researcher or contractor: they see what is
+   * assigned to them and cannot commit the firm. Reported here rather than
+   * looked up per route, because the per-route version is what missed the
+   * search-confirmation endpoint.
+   */
+  const membership = await getMembership(adminClient, appUser.id)
+  const isCoordinator = membership?.role === 'coordinator'
+
   return {
     appUser,
     realUser,
+    isCoordinator,
     preview: preview?.info ?? null,
     /*
       Reaching the desk is the real user's right, not the persona's. Checking the
@@ -169,13 +179,12 @@ export function actingFor(access: PartnerAccess): string | null {
  * apart, which is how the first version of this check ended up existing only in
  * the UI.
  */
-export async function refuseCoordinator(userId: string): Promise<NextResponse | null> {
-  const membership = await getMembership(createAdminClient(), userId)
-  if (membership?.role !== 'coordinator') return null
+export function refuseCoordinator(access: { isCoordinator?: boolean }): NextResponse | null {
+  if (!access.isCoordinator) return null
   return NextResponse.json(
     {
       error:
-        'Coordinators cannot change submissions. Ask a firm admin to change your role, or to do this themselves.',
+        'Coordinators cannot submit candidates or commit the firm to a search. Ask a firm admin to change your role, or to do this themselves.',
     },
     { status: 403 },
   )

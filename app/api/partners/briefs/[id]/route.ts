@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 
 /**
  * Publishing or unpublishing a brief.
@@ -13,6 +13,12 @@ import { resolvePartnerAccess } from '@/lib/partners-access'
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
@@ -45,6 +51,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

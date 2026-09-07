@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
-import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
+import { actingFor, resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 import { ACTIVE_SUBMISSION_STATUSES, WORK_AUTH_OPTIONS, SPOKEN_OPTIONS, canWorkSearch } from '@/lib/partners'
 import { qualifies, recordClaim } from '@/lib/submission-claims'
 import { getMembership } from '@/lib/firms'
@@ -112,16 +112,8 @@ export async function POST(req: Request) {
    * they could see. A permission described to a firm admin at the moment they
    * choose it has to be real, otherwise the choice is decoration.
    */
-  const submitterMembership = await getMembership(adminClient, access.appUser.id)
-  if (submitterMembership?.role === 'coordinator') {
-    return NextResponse.json(
-      {
-        error:
-          'Coordinators cannot submit candidates. Ask a firm admin to change your role, or to submit this themselves.',
-      },
-      { status: 403 },
-    )
-  }
+  const coordinatorBlock = refuseCoordinator(access)
+  if (coordinatorBlock) return coordinatorBlock
 
   const { data: role } = await adminClient
     .from('partner_roles_v')

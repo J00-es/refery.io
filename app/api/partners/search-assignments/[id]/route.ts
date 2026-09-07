@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { actingFor, resolvePartnerAccess } from '@/lib/partners-access'
+import { actingFor, resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 import type { SearchAssignmentStatus } from '@/lib/partners'
 import { noteProposalDeclined } from '@/lib/desk-notifications'
 import { sendSearchProposalEmail } from '@/lib/search-proposal-email'
@@ -18,6 +18,12 @@ import { sendSearchProposalEmail } from '@/lib/search-proposal-email'
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { id } = await params
@@ -124,6 +130,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

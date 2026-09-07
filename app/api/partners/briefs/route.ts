@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { normalizeBrief } from '@/lib/brief'
 import { importBriefHtml } from '@/lib/brief-import'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 
 /**
  * Creating or replacing a scout brief.
@@ -19,6 +19,12 @@ import { resolvePartnerAccess } from '@/lib/partners-access'
 export async function POST(req: Request) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

@@ -37,7 +37,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
    * off a search, is not submitting but it is exactly the damage the narrower
    * role exists to prevent.
    */
-  const coordinatorBlock = await refuseCoordinator(access.appUser.id)
+  const coordinatorBlock = refuseCoordinator(access)
   if (coordinatorBlock) return coordinatorBlock
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -173,7 +173,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ jobI
    * off a search, is not submitting but it is exactly the damage the narrower
    * role exists to prevent.
    */
-  const coordinatorBlock = await refuseCoordinator(access.appUser.id)
+  const coordinatorBlock = refuseCoordinator(access)
   if (coordinatorBlock) return coordinatorBlock
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })

@@ -36,7 +36,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
    * off a search, is not submitting but it is exactly the damage the narrower
    * role exists to prevent.
    */
-  const coordinatorBlock = await refuseCoordinator(access.appUser.id)
+  const coordinatorBlock = refuseCoordinator(access)
   if (coordinatorBlock) return coordinatorBlock
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 

@@ -10,9 +10,9 @@
  * A firm cannot accept personal obligations for someone it has not hired yet,
  * which is why joining is its own acceptance rather than an inherited one.
  *
- * Everything here is gated on `is_beta` until the data-sharing terms are done.
- * That flag already gates the Searches desk, so firms ride a switch that exists
- * rather than inventing another one.
+ * Open to every active partner since 6 Sep 2026. What is not open is activation:
+ * a firm is created pending and a person decides, which is where the remaining
+ * European hold is actually enforced.
  */
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
@@ -88,8 +88,8 @@ export function firmsEnabled(appUser: Pick<AppUser, 'role' | 'isActive'>): boole
  * identical there, which is the thing the restriction is actually about.
  *
  * Matched on the jurisdiction the signer typed, so it is a prompt to look, not
- * a determination. A firm that leaves the field blank gets no warning and is
- * visible in the Entity field as "Not given".
+ * a determination. A blank answer counts as restricted: an unanswered field is
+ * not evidence of a safe answer.
  */
 const RESTRICTED_JURISDICTIONS = [
   'eu', 'e\\.u\\.', 'european union', 'eea', 'uk', 'u\\.k\\.', 'united kingdom',
@@ -274,6 +274,15 @@ export async function createFirm(
       partner_terms_version: AGREEMENT_VERSIONS.partner,
       submission_terms_version: AGREEMENT_VERSIONS.partnerSubmission,
       firm_addendum_version: AGREEMENT_VERSIONS.firmAddendum,
+      /**
+       * The exact text, not a pointer to it.
+       *
+       * A version number refers to a constant this repository can edit. A firm
+       * that accepted "v1.0" in September could not otherwise show which v1.0,
+       * and an electronic record is only worth having if it stays accurate and
+       * retrievable later. The hash is what makes the accepted text provable.
+       */
+      accepted_terms_hash: await acceptedFirmTermsHash(),
     })
     .select('id, name, legal_name, slug, status, signer_user_id, signer_name, signer_email')
     .single()
@@ -623,4 +632,18 @@ export async function removeMember(
     invitesRevoked,
     problems,
   }
+}
+
+/**
+ * A stable fingerprint of everything a firm signer accepts.
+ *
+ * Partner Terms plus the Firm Addendum, in that order, hashed together: that
+ * combination is what the acceptance is of, so hashing either alone would prove
+ * the wrong thing.
+ */
+export async function acceptedFirmTermsHash(): Promise<string> {
+  const { PARTNER_TERMS_TEXT, FIRM_ADDENDUM_TEXT, generateAgreementHash } = await import(
+    '@/lib/agreements'
+  )
+  return generateAgreementHash(`${PARTNER_TERMS_TEXT}\n\n${FIRM_ADDENDUM_TEXT}`)
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 import { announceSubmission } from '@/lib/desk-notifications'
 
 /**
@@ -12,6 +12,12 @@ import { announceSubmission } from '@/lib/desk-notifications'
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // A coordinator cannot commit the firm. See refuseCoordinator.
+  {
+    const refusal = refuseCoordinator(access)
+    if (refusal) return refusal
+  }
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
   if (!access.canManage) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 

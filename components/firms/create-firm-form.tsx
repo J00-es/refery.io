@@ -222,6 +222,28 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
       </p>
 
       {signerSelf ? (
+        <>
+      {/* The same warning the nominated signer sees. It was on that screen
+          and not this one, which is the path most firms will take: the same
+          undertaking with half the disclosure. Counsel's wording, both places. */}
+      <div className="mt-5 rounded-[12px] border border-[#E8D6AE] bg-[#FBF4E7] p-4">
+        <p className="text-[13.5px] font-semibold text-[#6B4610]">Your authority to sign</p>
+        <p className="mt-1.5 text-[13.5px] leading-[1.6] text-[#7A5518]">
+          You personally confirm that you are authorised to bind this company. If that confirmation
+          is materially false and you knew, or had no reasonable basis to believe, it was true, you
+          are responsible for the direct reliance losses specified in Section 3, up to{' '}
+          <b className="font-semibold text-[#6B4610]">US$25,000</b>. The cap does not apply to fraud
+          or wilful misconduct.
+        </p>
+        <p className="mt-2 text-[13.5px] leading-[1.6] text-[#7A5518]">
+          This undertaking starts when you accept, even if the firm is not activated.{' '}
+          <b className="font-semibold text-[#6B4610]">
+            It is not a personal guarantee of the firm&rsquo;s commercial obligations.
+          </b>{' '}
+          Not the authorised signer? Choose &ldquo;Someone else signs&rdquo; above.
+        </p>
+      </div>
+
         <label className="mt-4 flex cursor-pointer items-start gap-2.5">
           <input
             type="checkbox"
@@ -235,6 +257,7 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
             Section 3.
           </span>
         </label>
+        </>
       ) : (
         <p className="mt-4 rounded-[10px] border border-[#E4E3DC] bg-[#FAF9F5] px-3.5 py-3 text-[13.5px] leading-[1.55] text-[#6E6E68]">
           You are not accepting anything for the company. We will email{' '}
