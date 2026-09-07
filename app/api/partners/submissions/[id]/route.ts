@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
-import { resolvePartnerAccess } from '@/lib/partners-access'
+import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
 import { SUBMISSION_STATUSES, type SubmissionStatus } from '@/lib/partners'
 import { noteWithdrawal } from '@/lib/desk-notifications'
 
@@ -26,6 +26,18 @@ const VALID = new Set(SUBMISSION_STATUSES.map(s => s.value))
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await resolvePartnerAccess()
   if (!access) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  /**
+   * A coordinator cannot change what the firm has submitted.
+   *
+   * The role is sold to a firm admin as "only candidates assigned to them,
+   * cannot submit". Blocking creation alone would leave the same reach through
+   * a different door: withdrawing a colleague's submission, or stepping the firm
+   * off a search, is not submitting but it is exactly the damage the narrower
+   * role exists to prevent.
+   */
+  const coordinatorBlock = await refuseCoordinator(access.appUser.id)
+  if (coordinatorBlock) return coordinatorBlock
   if (!access.canUseDesk) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   const { id } = await params

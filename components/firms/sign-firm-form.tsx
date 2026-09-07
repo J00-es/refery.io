@@ -161,6 +161,29 @@ export function SignFirmForm({
         />
       </label>
 
+      {/* Above the checkbox, not inside a clause.
+          Counsel's wording, and deliberately not mine: my first draft said "if
+          you are not authorised you are personally responsible", which dropped
+          the condition the clause actually turns on. A warning stricter than the
+          term it summarises is its own kind of inaccurate. */}
+      <div className="mt-5 rounded-[12px] border border-[#E8D6AE] bg-[#FBF4E7] p-4">
+        <p className="text-[13.5px] font-semibold text-[#6B4610]">Your authority to sign</p>
+        <p className="mt-1.5 text-[13.5px] leading-[1.6] text-[#7A5518]">
+          You personally confirm that you are authorised to bind this company. If that confirmation
+          is materially false and you knew, or had no reasonable basis to believe, it was true, you
+          are responsible for the direct reliance losses specified in Section 3, up to{' '}
+          <b className="font-semibold text-[#6B4610]">US$25,000</b>. The cap does not apply to fraud
+          or wilful misconduct.
+        </p>
+        <p className="mt-2 text-[13.5px] leading-[1.6] text-[#7A5518]">
+          This undertaking starts when you accept, even if the firm is not activated.{' '}
+          <b className="font-semibold text-[#6B4610]">
+            It is not a personal guarantee of the firm&rsquo;s commercial obligations.
+          </b>{' '}
+          Not the authorised signer? Ask your colleague to nominate someone who is.
+        </p>
+      </div>
+
       <label className="mt-4 flex cursor-pointer items-start gap-2.5">
         <input
           type="checkbox"

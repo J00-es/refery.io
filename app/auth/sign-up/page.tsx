@@ -58,7 +58,7 @@ const ROLE_OPTIONS: Array<{
   {
     value: 'firm',
     title: 'Recruiting Firm',
-    description: 'You sign once for your company and your colleagues join without their own agreement.',
+    description: 'One authorised person signs the commercial agreement for your company. Each colleague accepts short team-access terms when joining.',
     icon: Building,
     bg: 'bg-[#E5E9EE]',
     fg: 'text-[#3D5468]',

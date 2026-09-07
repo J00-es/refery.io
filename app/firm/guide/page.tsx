@@ -184,12 +184,13 @@ export default function FirmGuidePage() {
             Firm accounts
           </p>
           <h1 className="mt-3 text-balance text-[30px] font-semibold leading-[1.12] tracking-[-0.028em] text-[#161613] sm:text-[40px]">
-            One signature for the company. Everyone else just joins.
+            One signature for the company. Colleagues accept short access terms.
           </h1>
           <p className="mt-4 text-[16px] leading-[1.6] text-[#6E6E68] sm:text-[17px]">
-            If you work as a team, you should not each be negotiating your own agreement. One person
-            signs for the firm, colleagues come in behind them, and the firm holds the work and gets
-            paid. Here is exactly how it goes.
+            If you work as a team, you should not each be negotiating your own commercial agreement.
+            One authorised person signs for the firm, colleagues accept short team-access terms
+            covering their own use, and the firm holds the work and gets paid. Here is exactly how it
+            goes.
           </p>
         </header>
 

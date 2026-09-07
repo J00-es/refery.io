@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 /**
  * Who this viewer is on the partner desk. Server-only.
  *
@@ -11,6 +12,7 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser, type AppUser } from '@/lib/current-user'
+import { getMembership } from '@/lib/firms'
 import {
   DESK_BETA_ONLY,
   type PartnerAccess,
@@ -158,4 +160,23 @@ async function resolvePreview(
  */
 export function actingFor(access: PartnerAccess): string | null {
   return access.preview ? access.realUser.id : null
+}
+
+/**
+ * Refuses a coordinator, or returns null to carry on.
+ *
+ * Lives here rather than in each route so the four write paths cannot drift
+ * apart, which is how the first version of this check ended up existing only in
+ * the UI.
+ */
+export async function refuseCoordinator(userId: string): Promise<NextResponse | null> {
+  const membership = await getMembership(createAdminClient(), userId)
+  if (membership?.role !== 'coordinator') return null
+  return NextResponse.json(
+    {
+      error:
+        'Coordinators cannot change submissions. Ask a firm admin to change your role, or to do this themselves.',
+    },
+    { status: 403 },
+  )
 }
