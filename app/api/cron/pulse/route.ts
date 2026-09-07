@@ -315,7 +315,8 @@ async function buildDaily(since: Date, now: Date): Promise<{ blocks: SlackBlock[
     for (const [userId, rows] of activity) {
       for (const d of dwellByPage(rows.filter((r) => new Date(r.at) < now))) {
         byArea.set(areaOf(d.route), (byArea.get(areaOf(d.route)) ?? 0) + d.ms)
-        if (d.route.startsWith('/searches/[companyId]') && d.entityId && names.get(d.entityId)) {
+        const isSearchPage = d.route === '/searches/[companyId]' || d.route === '/searches/[companyId]/brief'
+        if (isSearchPage && d.entityId && names.get(d.entityId)) {
           const name = names.get(d.entityId)!
           const c = byCompany.get(name) ?? { ms: 0, people: new Set<string>() }
           c.ms += d.ms
@@ -334,6 +335,7 @@ async function buildDaily(since: Date, now: Date): Promise<{ blocks: SlackBlock[
         return `${area.padEnd(11)}${bar.padEnd(13)}${String(pct).padStart(3)}%`
       })
     const most = [...byCompany.entries()]
+      .filter(([, c]) => c.ms >= 60_000)
       .sort((a, b) => b[1].ms - a[1].ms)
       .slice(0, 3)
       .map(([name, c]) => `${name} (${plural(c.people.size, 'person', 'people')}, ${Math.round(c.ms / 60_000)} min)`)

@@ -162,3 +162,27 @@ Each step is useful alone. Step 1 answers "who is active" tonight.
   and the dormancy line now means "not seen for 14+ days" rather than
   "joined 14+ days ago and never submitted". `/admin/funnel` copy follows.
 - `/admin/users`: "seen 2h ago" on every row and a "Recently seen first" sort.
+
+## Second version, same day
+
+Lily's verdict on the first card: "very poorly designed, it doesn't add much
+insight". Fair. It reported attendance. The redesign (canvas: Refery Pulse
+Cards) makes each line say what the visit meant:
+
+- amber, needs Lily: first sign-in, pending approval, an open request
+- green, did something: read from candidates, role_submissions,
+  search_assignments (confirmed_at / declined_at), search_questions,
+  company_access_requests
+- grey, only looked: pages read with dwell (gap to next view, capped at
+  10 min), then what is waiting on them (proposed searches, oldest date,
+  companies) and the visit count this week
+
+A visit is a session start or a page view after 30 minutes of silence,
+because people who stay signed in never create a new session.
+
+A morning card (`?daily=1`, pg_cron `desk-pulse-daily` at 06:00 UTC) adds the
+day up: did something, keep coming back without acting in 14 days, needs
+you, where the time went by area, most-read searches, signed in once and
+never came back.
+
+All of it lives in `lib/pulse.ts`. No model call anywhere.

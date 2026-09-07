@@ -607,7 +607,7 @@ export function ordinal(n: number): string {
 /** "31 Aug", "7 Sep". */
 export function shortDate(iso: string): string {
   const d = new Date(iso)
-  return `${d.getUTCDate()} ${d.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })}`
+  return `${d.getUTCDate()} ${d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' })}`
 }
 
 /** Slack renders this in each reader's own timezone. */
