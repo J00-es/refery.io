@@ -250,7 +250,7 @@ function slackBlocks(d: DeliveryRecord, slug: string): SlackBlock[] {
 }
 
 function decidedBlocks(d: DeliveryRecord, slug: string): SlackBlock[] {
-  const when = d.decisionAt ? new Date(d.decisionAt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
+  const when = d.decisionAt ? new Date(d.decisionAt).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : ''
   const who = d.decisionBy ?? 'the client'
   const line =
     d.decision === 'interview'
@@ -293,10 +293,15 @@ function emailHtml(d: DeliveryRecord, slug: string, opening: string): string {
 
 async function sendEmail(to: string, subject: string, html: string, text: string): Promise<{ sent: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return { sent: false, error: 'RESEND_API_KEY not set' }
+  if (!apiKey) {
+    console.error('[client-delivery] RESEND_API_KEY not set; email to', to, 'not sent')
+    return { sent: false, error: 'RESEND_API_KEY not set' }
+  }
   try {
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({ from: FROM, to, replyTo: REPLY_TO, subject, html, text })
+    if (error) console.error('[client-delivery] email failed:', to, subject, error.message)
+    else console.log('[client-delivery] email sent:', to, subject)
     return error ? { sent: false, error: error.message } : { sent: true }
   } catch (e) {
     return { sent: false, error: e instanceof Error ? e.message : 'send failed' }
