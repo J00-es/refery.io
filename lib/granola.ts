@@ -1,13 +1,13 @@
 /**
  * Granola public API client.
  *
- * Used by the call-recap poller, which needs Granola directly rather than
+ * Used by the call-recap runner, which needs Granola directly rather than
  * through `ingested_signals`: the Python ingester runs once a night from
  * GitHub Actions, and a recap that arrives the next morning is not a recap.
  *
- * A note only exists here once Granola has finished writing it up, which makes
- * "a new note appeared" the closest thing to a call-ended event the API offers.
- * There are no webhooks, so this is polled.
+ * A note only exists here once Granola has finished writing it up. Since
+ * 2026-09-08 Granola announces that by webhook (app/api/webhooks/granola);
+ * `recentNotes` is the poll that backs it up.
  */
 
 const BASE = 'https://public-api.granola.ai/v1'

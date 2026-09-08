@@ -62,6 +62,13 @@ export function verifyResendSignature(
   return ok ? null : 'signature mismatch'
 }
 
+/**
+ * The same scheme under its generic name. Svix's format became the Standard
+ * Webhooks spec, and Granola signs with it too (`webhook-id`,
+ * `webhook-timestamp`, `webhook-signature`), so one verifier serves both.
+ */
+export const verifyStandardWebhookSignature = verifyResendSignature
+
 /** The signature a sender with this secret would produce. Used by the tests. */
 export function signResendPayload(
   id: string,
