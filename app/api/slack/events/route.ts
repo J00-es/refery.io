@@ -40,6 +40,7 @@ import { handleDecisionReaction, handleDecisionThreadReply } from '@/lib/desk/de
 import { handleEscalationReaction } from '@/lib/desk/followups'
 import { handleBenchReaction } from '@/lib/desk/bench'
 import { handleDraftReaction, handleRecapReaction, handleRecapThreadReply } from '@/lib/desk/verdict'
+import { discardRun, publishRun, runForSlackMessage } from '@/lib/client-onboarding/run'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.
@@ -234,6 +235,14 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   // by the message, not the channel.
   if (await handleQuestionReaction(event, channel, ts, hide)) return
   if (hide) return
+
+  // An onboarding review card: :+1: publishes the client, :-1: leaves it unpublished.
+  const run = await runForSlackMessage(channel, ts)
+  if (run) {
+    if (approve) await publishRun(run.id, event.user)
+    else if (reject) await discardRun(run.id, event.user)
+    return
+  }
 
   // Submission cards in #refery-desk: :+1: shortlists, :outbox_tray: marks sent
   // to the client, :-1: arms a decline whose reason is the next thread reply.

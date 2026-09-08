@@ -83,6 +83,26 @@ async function findChannel(name: string): Promise<{ id: string; name: string } |
   return null
 }
 
+/**
+ * The client's room, found or created, with Lily in it. Null when the app
+ * cannot create channels (missing scope) and none exists yet.
+ */
+export async function ensureClientRoom(companyName: string, isPrivate = true): Promise<{ id: string; name: string } | null> {
+  const name = clientChannelName(companyName)
+  let channel = await findChannel(name)
+  if (!channel) {
+    const created = await slack('conversations.create', { name, is_private: isPrivate })
+    if (!created.ok) {
+      console.warn('[slack-connect] conversations.create failed:', created.error, created.needed ?? '')
+      return null
+    }
+    const c = created.channel as { id: string; name: string }
+    channel = { id: c.id, name: c.name }
+  }
+  await slack('conversations.invite', { channel: channel.id, users: lilySlackUserId() })
+  return channel
+}
+
 export interface InviteOutcome {
   mode: 'invited' | 'manual'
   channelId: string | null
