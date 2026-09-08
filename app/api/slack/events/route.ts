@@ -44,6 +44,12 @@ import { handleEscalationReaction } from '@/lib/desk/followups'
 import { handleBenchReaction } from '@/lib/desk/bench'
 import { handleDraftReaction, handleRecapReaction, handleRecapThreadReply } from '@/lib/desk/verdict'
 import { discardRun, publishRun, runForSlackMessage } from '@/lib/client-onboarding/run'
+import { handleBatchReaction, handleBatchThreadReply } from '@/lib/batches'
+// Side-effect imports: each registers its applier for handleBatchReaction.
+import '@/lib/backlog/scouts'
+import '@/lib/backlog/leads'
+import '@/lib/agreement-chase'
+import '@/lib/founder-outbound'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.
@@ -185,6 +191,8 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
     return
   }
   if (await handleRecapThreadReply(deskAdmin, { text: m.text!, slackUser: m.user!, channel: m.channel!, threadTs: m.thread_ts! })) return
+  // A batch card's thread: `3 skip` changes one line before the :+1:.
+  if (await handleBatchThreadReply(deskAdmin, { text: m.text!, slackUser: m.user!, channel: m.channel!, threadTs: m.thread_ts! })) return
 
   // A submission card with a decline armed: this reply is the reason. Without
   // the :-1: first, a reply on a submission card is just conversation.
@@ -268,6 +276,8 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   if (await handleDraftReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
   if (await handleBenchReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
   if (await handleRecapReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
+  // Batch cards: :+1: applies every line, :-1: closes the card.
+  if (await handleBatchReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
   if (!approve && !reject && !hide && !send && !intakeOnly) return
 
   // Question cards: :see_no_evil: hides the question from partners. Recognised

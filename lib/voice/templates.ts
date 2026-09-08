@@ -86,7 +86,7 @@ export function templateA(p: { fullName: string; reviewDate: string | null }): R
 
 // ── B · approved scout, independent start ───────────────────────────────────
 
-export function templateB(p: { fullName: string; verifiedDetail: string; onboardingLink: string }): RenderedEmail {
+export function templateB(p: { fullName: string; verifiedDetail: string; onboardingLink: string; late?: boolean }): RenderedEmail {
   const detail = need(p.verifiedDetail, 'verified_detail')
   const link = need(p.onboardingLink, 'onboarding_link')
   return {
@@ -98,6 +98,7 @@ export function templateB(p: { fullName: string; verifiedDetail: string; onboard
     text: sign([
       `Hi ${first(p.fullName)},`,
       '',
+      ...lateLine(p.late),
       `Thanks for applying, and for ${detail}. I'd be happy to have you join Refery :)`,
       '',
       'How it works on your side: you introduce people you know and would vouch for. We check the fit, talk to them, and run the process with the client. If someone you introduced is hired, 70% of the placement fee is yours under the partner terms.',
@@ -148,6 +149,7 @@ export function templateD(p: {
   reason: string
   previewLink: string
   question: string
+  late?: boolean
 }): RenderedEmail {
   const detail = need(p.verifiedDetail, 'verified_detail')
   const reason = need(p.reason, 'reason_connected_to_the_opportunity')
@@ -162,6 +164,7 @@ export function templateD(p: {
     text: sign([
       `Hi ${first(p.fullName)},`,
       '',
+      ...lateLine(p.late),
       `Thanks for applying, and for ${detail}. ${reason}, so I'd like to explore working together.`,
       '',
       `Here's a short overview and the search I'd start with: ${link}. It shows what we'd each handle, how the fee works, and how to set up your account if it feels right.`,
@@ -173,7 +176,7 @@ export function templateD(p: {
 
 // ── E · not moving forward ──────────────────────────────────────────────────
 
-export function templateE(p: { fullName: string; focusLine: string }): RenderedEmail {
+export function templateE(p: { fullName: string; focusLine: string; late?: boolean }): RenderedEmail {
   const focus = need(p.focusLine, 'current_focus_line')
   return {
     templateId: 'E',
@@ -184,6 +187,7 @@ export function templateE(p: { fullName: string; focusLine: string }): RenderedE
     text: sign([
       `Hi ${first(p.fullName)},`,
       '',
+      ...lateLine(p.late),
       'Thank you for your interest in Refery.',
       '',
       `We're keeping this intake focused on scouts and recruiting partners with experience closest to our current searches: ${focus}.`,
@@ -197,7 +201,7 @@ export function templateE(p: { fullName: string; focusLine: string }): RenderedE
 
 // ── F · good potential, no matching search ──────────────────────────────────
 
-export function templateF(p: { fullName: string; strength: string; whereSearchesAre: string; applied: boolean }): RenderedEmail {
+export function templateF(p: { fullName: string; strength: string; whereSearchesAre: string; applied: boolean; late?: boolean }): RenderedEmail {
   const strength = need(p.strength, 'verified_strength_of_their_network')
   const where = need(p.whereSearchesAre, 'where_our_searches_are')
   return {
@@ -209,6 +213,7 @@ export function templateF(p: { fullName: string; strength: string; whereSearches
     text: sign([
       `Hi ${first(p.fullName)},`,
       '',
+      ...lateLine(p.late),
       `${p.applied ? 'Thanks for applying. ' : ''}${strength} is a strong one, but every search we're working on today is ${where}, and I wouldn't ask you to spend time on those.`,
       '',
       "If you'd like, reply and I'll keep you in mind when something closer opens. There's nothing you need to set up in the meantime.",

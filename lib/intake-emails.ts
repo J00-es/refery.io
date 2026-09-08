@@ -44,6 +44,7 @@ export function hiringLeadEmail(
   fullName: string,
   companyName: string,
   rolesHiringFor: string | null,
+  opts: { late?: boolean } = {},
 ): OutboundEmail {
   // The roles line only earns its place when they actually told us something;
   // a generic "whatever you're hiring for" reads worse than saying nothing.
@@ -58,6 +59,7 @@ export function hiringLeadEmail(
       `Hi ${firstName(fullName)},`,
       '',
       `Lily from Refery! Saw you're hiring at ${companyName.trim()}. :)`,
+      ...(opts.late ? ['', 'Sorry for the slow reply on this one.'] : []),
       '',
       'We work with a network of scouts and independent recruiters who bring people',
       'out of their own networks, so you see profiles that are not sitting on job',
@@ -95,5 +97,53 @@ export async function sendIntakeEmail(
     return { sent: true }
   } catch (err) {
     return { sent: false, error: (err as Error).message }
+  }
+}
+
+/**
+ * The two follow-ups a hiring lead gets when the first email goes unanswered.
+ * Day 4 adds one concrete thing; day 9 closes the loop and leaves the door
+ * open. Both are short on purpose: a founder who did not answer a long email
+ * will not answer a longer one.
+ */
+export function hiringLeadFollowup(
+  step: 1 | 2,
+  fullName: string,
+  companyName: string,
+  rolesHiringFor: string | null,
+): OutboundEmail {
+  const company = companyName.trim()
+  const roles = (rolesHiringFor ?? '').trim()
+  if (step === 1) {
+    return {
+      subject: `[Refery] ${company} / Lily :)`,
+      text: [
+        `Hi ${firstName(fullName)},`,
+        '',
+        `Quick one on ${company}${roles ? ` and the ${roles} hiring` : ''}.`,
+        '',
+        'If it helps to see what we mean before a call, I can send two or three anonymised profiles for the role that matters most. No agreement needed for that.',
+        '',
+        `Otherwise ${CALL_LINK} is the fastest way to get me the brief.`,
+        '',
+        'Best,',
+        'Lily',
+      ].join('\n'),
+    }
+  }
+  return {
+    subject: `[Refery] ${company} / Lily :)`,
+    text: [
+      `Hi ${firstName(fullName)},`,
+      '',
+      `Closing the loop on this one. I will assume the ${roles ? roles : 'roles'} at ${company} are covered for now.`,
+      '',
+      'If that changes, reply here or grab a slot whenever it suits: ' + CALL_LINK,
+      '',
+      'Good luck with the build.',
+      '',
+      'Best,',
+      'Lily',
+    ].join('\n'),
   }
 }

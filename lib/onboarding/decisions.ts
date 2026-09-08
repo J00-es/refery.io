@@ -126,7 +126,12 @@ export interface DecideInput {
   decision: Decision
   by: string
   slack?: { channel: string; ts: string } | null
+  /** The application sat for more than ten days: the email says so, once. */
+  late?: boolean
 }
+
+/** Ten days is where "we review in two working days" stops being true. */
+export const LATE_AFTER_DAYS = 10
 
 export interface DecideResult {
   ok: boolean
@@ -178,7 +183,7 @@ export async function decideApplication(admin: SupabaseClient, input: DecideInpu
     switch (input.decision) {
       case 'approve': {
         const mode = claimed.contribution_mode as string
-        let email = templateB({ fullName, verifiedDetail: verifiedDetail(app), onboardingLink })
+        let email = templateB({ fullName, verifiedDetail: verifiedDetail(app), onboardingLink, late: input.late })
         if (mode === 'recruit') {
           const preview = await approvedPreview(admin, app)
           if (preview) {
@@ -201,9 +206,10 @@ export async function decideApplication(admin: SupabaseClient, input: DecideInpu
             reason: city ? `Your ${city} network sits right on the searches we are running now` : 'Your network sits right on the searches we are running now',
             previewLink,
             question: `the ${preview.title} search`,
+            late: input.late,
           })
         } else {
-          email = templateB({ fullName, verifiedDetail: detail, onboardingLink })
+          email = templateB({ fullName, verifiedDetail: detail, onboardingLink, late: input.late })
           note = 'No approved preview to point at, so the plain approval (B) went; offer the call from the desk once they join.'
         }
         const q = await queueEmail(admin, { ...common, email, dedupeKey: `${email.templateId}:${app.id}:${now}` })
@@ -216,12 +222,12 @@ export async function decideApplication(admin: SupabaseClient, input: DecideInpu
         const strength = prefs.network_cities.length
           ? `Your network around ${prefs.network_cities.slice(0, 2).join(' and ')}`
           : 'Your network'
-        const email = templateF({ fullName, strength, whereSearchesAre: await whereSearchesAre(admin), applied: true })
+        const email = templateF({ fullName, strength, whereSearchesAre: await whereSearchesAre(admin), applied: true, late: input.late })
         const q = await queueEmail(admin, { ...common, email, dedupeKey: `F:${app.id}:${now}` })
         return { ok: true, status, queued: q.ok ? 'F' : undefined, note: q.ok ? '' : `email not queued: ${q.reason}` }
       }
       case 'decline': {
-        const email = templateE({ fullName, focusLine: await liveFocus(admin) })
+        const email = templateE({ fullName, focusLine: await liveFocus(admin), late: input.late })
         const q = await queueEmail(admin, { ...common, email, dedupeKey: `E:${app.id}:${now}` })
         return { ok: true, status, queued: q.ok ? 'E' : undefined, note: q.ok ? '' : `email not queued: ${q.reason}` }
       }
