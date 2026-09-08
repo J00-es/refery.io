@@ -31,6 +31,30 @@ type Step = 1 | 2 | 3
 
 const roleForKind = (k: SignupKind): Role => (k === 'firm' ? 'recruiter' : k)
 
+type AccountState = 'none' | 'pending' | 'partner' | 'in_firm' | 'not_partner'
+interface KnownAccount {
+  state: AccountState
+  firmName?: string | null
+  firstName?: string | null
+}
+
+/**
+ * The firm details, parked so they survive a trip through the login screen.
+ *
+ * sessionStorage rather than a query string: this is a company's registered
+ * name and number, and it has no business sitting in a URL, in history, or in
+ * a server log. It is read once by /firm/new and cleared.
+ */
+const DRAFT_KEY = 'refery_firm_draft'
+
+function parkFirmDraft(draft: Record<string, string>) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+  } catch {
+    // A blocked storage costs them retyping six fields, not the flow.
+  }
+}
+
 const ROLE_OPTIONS: Array<{
   value: SignupKind
   title: string
@@ -157,11 +181,44 @@ export default function Page() {
   const [hasScrolledAgreement, setHasScrolledAgreement] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  /**
+   * What we found out about this email, and what to offer because of it.
+   *
+   * Held rather than thrown, because every one of these states has a way
+   * forward and the old behaviour had none.
+   */
+  const [known, setKnown] = useState<KnownAccount | null>(null)
+  const [checking, setChecking] = useState(false)
+  /** Somebody who is already signed in and does not need this form at all. */
+  const [signedInAs, setSignedInAs] = useState<string | null>(null)
 
   const agreement = selectedRole ? getAgreementForRole(selectedRole as Role) : null
 
   useEffect(() => {
     track('page_view')
+  }, [])
+
+  /**
+   * Recognise a session before they type anything.
+   *
+   * A partner reaches this page constantly: a link from the guide, an old
+   * bookmark, habit. Letting them fill the form and then telling them the
+   * account exists is the same wall, reached more slowly.
+   */
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const { createClient } = await import('@/lib/supabase/client')
+        const { data } = await createClient().auth.getUser()
+        if (!cancelled && data.user?.email) setSignedInAs(data.user.email)
+      } catch {
+        // No session, or the check failed. Either way the form still works.
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const handleNextFromRole = () => {
@@ -174,7 +231,34 @@ export default function Page() {
     setStep(2)
   }
 
-  const handleNextFromDetails = () => {
+  /**
+   * Recognises an existing account before anything is spent on the form.
+   *
+   * Runs on the way out of the details step rather than on every keystroke: one
+   * request per attempt, and by then the address is complete enough to mean
+   * something.
+   */
+  async function checkAccount(): Promise<KnownAccount | null> {
+    setChecking(true)
+    try {
+      const res = await fetch('/api/auth/account-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
+      if (!res.ok) return null
+      const data = (await res.json()) as KnownAccount
+      return data.state === 'none' ? null : data
+    } catch {
+      // If the check fails we simply carry on and let sign-up answer. Worse
+      // experience, still not a dead end.
+      return null
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const handleNextFromDetails = async () => {
     setError(null)
     if (!fullName.trim()) {
       setError('Please enter your full legal name')
@@ -216,6 +300,26 @@ export default function Page() {
       setError('Please enter the email of the person who can sign')
       return
     }
+    // Before the terms, not after them.
+    const found = await checkAccount()
+    if (found) {
+      if (isFirm) {
+        parkFirmDraft({
+          name: firmName,
+          legal_name: firmLegalName,
+          jurisdiction: firmJurisdiction,
+          company_number: firmCompanyNumber,
+          signer_title: signerTitle,
+          billing_email: firmBillingEmail,
+          signer_self: signerSelf ? 'yes' : 'no',
+          signer_name: nomineeName,
+          signer_email: nomineeEmail,
+        })
+      }
+      setKnown(found)
+      return
+    }
+
     const who = {
       role: selectedRole,
       email,
@@ -347,6 +451,28 @@ export default function Page() {
           </ol>
 
           <Card className="border-0 sm:border shadow-lg sm:shadow-md">
+            {signedInAs && step === 1 && (
+              <div className="px-4 sm:px-6 pt-5">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-sm font-medium text-foreground">
+                    You are already signed in as {signedInAs}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    You do not need a second account. If you want to work as a firm, set it up on the
+                    one you have and keep all your candidates and history.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Button asChild size="sm" className="h-10">
+                      <Link href="/firm">Set up your firm</Link>
+                    </Button>
+                    <Button asChild size="sm" variant="outline" className="h-10">
+                      <Link href="/candidates">Go to your candidates</Link>
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {step === 1 && (
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
@@ -434,7 +560,100 @@ export default function Page() {
               </>
             )}
 
-            {step === 2 && (
+            {step === 2 && known && (
+              <>
+                <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
+                  <CardTitle className="text-xl sm:text-2xl">
+                    {known.firstName ? `Welcome back, ${known.firstName}` : 'You already have an account'}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {known.state === 'partner' && isFirm
+                      ? 'Good news: you do not need a second one. Sign in and we will set the firm up on the account you have.'
+                      : known.state === 'partner'
+                        ? 'Sign in and carry on where you left off.'
+                        : known.state === 'in_firm'
+                          ? `You are already part of ${known.firmName ?? 'a firm'} on Refery.`
+                          : known.state === 'pending'
+                            ? 'Your account is with us and waiting to be approved.'
+                            : 'This email is already registered.'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-6">
+                  <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-foreground/80">
+                    {known.state === 'partner' && isFirm && (
+                      <>
+                        <p className="mb-3">
+                          We have kept everything you just typed about{' '}
+                          <strong className="text-foreground">{firmLegalName.trim() || 'your firm'}</strong>.
+                          Sign in and the form will be waiting, filled in.
+                        </p>
+                        <p className="text-muted-foreground">
+                          Your existing candidates, submissions and history stay exactly as they are.
+                          Setting up a firm adds your company to the account; it does not start a new one.
+                        </p>
+                      </>
+                    )}
+                    {known.state === 'partner' && !isFirm && (
+                      <p>You already have a Refery account with this email. Sign in to keep going.</p>
+                    )}
+                    {known.state === 'in_firm' && (
+                      <p>
+                        Sign in and you will land on your team page, where you can invite colleagues
+                        and see everyone&apos;s submissions.
+                      </p>
+                    )}
+                    {known.state === 'pending' && (
+                      <>
+                        <p className="mb-3">
+                          We review every account by hand, usually the same day, and we will email you
+                          the moment yours is live.
+                        </p>
+                        {isFirm && (
+                          <p className="text-muted-foreground">
+                            We have noted that you want a firm account. Nothing else is needed from
+                            you now.
+                          </p>
+                        )}
+                      </>
+                    )}
+                    {known.state === 'not_partner' && (
+                      <p>
+                        This email is registered, but not as a scout or recruiting partner. Reply to
+                        any email from us, or write to{' '}
+                        <a href="mailto:hello@refery.io" className="underline underline-offset-2">
+                          hello@refery.io
+                        </a>
+                        , and we will sort it out.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-2 mt-5 sm:flex-row">
+                    {(known.state === 'partner' || known.state === 'in_firm') && (
+                      <Button asChild className="flex-1 h-11 sm:h-10 text-base sm:text-sm">
+                        <Link
+                          href={`/auth/login?returnTo=${encodeURIComponent(
+                            known.state === 'in_firm' ? '/firm/members' : isFirm ? '/firm/new' : '/candidates',
+                          )}`}
+                        >
+                          Sign in to continue
+                        </Link>
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => { setKnown(null); setError(null) }}
+                      className="h-11 sm:h-10 text-base sm:text-sm"
+                    >
+                      Use a different email
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {step === 2 && !known && (
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">Your details</CardTitle>
@@ -685,10 +904,11 @@ export default function Page() {
                     <Button
                       type="button"
                       onClick={handleNextFromDetails}
+                      disabled={checking}
                       className="flex-1 h-11 sm:h-10 text-base sm:text-sm"
                     >
-                      Continue
-                      <ArrowRight className="ml-2 h-4 w-4" />
+                      {checking ? 'Checking\u2026' : 'Continue'}
+                      {!checking && <ArrowRight className="ml-2 h-4 w-4" />}
                     </Button>
                   </div>
                 </CardContent>

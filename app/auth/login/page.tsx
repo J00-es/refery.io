@@ -22,7 +22,16 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const returnTo = searchParams.get('returnTo')
+  /**
+   * Two names for one thing, because two callers already disagree.
+   *
+   * The invitation page has always sent `next`, and this screen only ever read
+   * `returnTo`, so an invited colleague who was not signed in lost their
+   * single-use token at the login and landed on the dashboard wondering what
+   * had happened. Accepting both is a smaller fix than making every caller
+   * agree, and it cannot break the ones that were already right.
+   */
+  const returnTo = searchParams.get('returnTo') || searchParams.get('next')
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

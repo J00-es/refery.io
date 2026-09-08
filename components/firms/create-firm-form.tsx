@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FOCUS } from '@/lib/candidate-ui'
 
@@ -32,6 +32,37 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sentTo, setSentTo] = useState<string | null>(null)
+  const [restored, setRestored] = useState(false)
+
+  /**
+   * Whatever they typed on the sign-up form before we recognised their account.
+   *
+   * They filled this in once already and were interrupted by a login. Asking
+   * again would be the friction this whole path exists to remove. Read once,
+   * then cleared, so a later visit starts clean.
+   */
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('refery_firm_draft')
+      if (!raw) return
+      sessionStorage.removeItem('refery_firm_draft')
+      const d = JSON.parse(raw) as Record<string, string>
+      if (d.name) setName(d.name)
+      if (d.legal_name) setLegalName(d.legal_name)
+      if (d.jurisdiction) setJurisdiction(d.jurisdiction)
+      if (d.company_number) setCompanyNumber(d.company_number)
+      if (d.signer_title) setSignerTitle(d.signer_title)
+      if (d.billing_email) setBillingEmail(d.billing_email)
+      if (d.signer_self === 'no') {
+        setSignerSelf(false)
+        if (d.signer_name) setNomineeName(d.signer_name)
+        if (d.signer_email) setNomineeEmail(d.signer_email)
+      }
+      if (d.name || d.legal_name) setRestored(true)
+    } catch {
+      // A draft we cannot read is a draft they retype. Not worth a failure.
+    }
+  }, [])
 
   const ready =
     Boolean(name.trim() && legalName.trim()) &&
@@ -105,6 +136,12 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
     <div className="rounded-[14px] border border-[#E4E3DC] bg-white p-5 sm:p-6">
       <p className="text-[19px] font-semibold tracking-[-0.015em] text-[#161613]">Set up your firm</p>
       <p className="mt-1 text-[13.5px] text-[#6E6E68]">Your firm becomes the Refery partner.</p>
+
+      {restored && (
+        <p className="mt-3 rounded-[10px] border border-[#C6D6CC] bg-[#E7EDE9] px-3.5 py-2.5 text-[13px] leading-[1.55] text-[#1F3A2F]">
+          We kept what you typed during sign-up. Check it over and change anything you like.
+        </p>
+      )}
 
       <div className="mt-5 grid gap-3">
         <label className="block">
