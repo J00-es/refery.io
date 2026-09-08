@@ -27,6 +27,8 @@ import { SPOKEN_OPTIONS, WORK_AUTH_OPTIONS, workAuthFromVisaStatus } from '@/lib
 export interface PitchTarget {
   id: string
   name: string | null
+  /** When present, the partner can have Refery email the one-tap consent note. */
+  email?: string | null
   grade?: string | null
   /** The matcher's reasoning, offered as a draft. */
   hint?: string | null
@@ -70,6 +72,7 @@ export function PitchComposer({
     Object.fromEntries(people.map(p => [p.id, money(p.targetBase)])),
   )
   const [spoken, setSpoken] = useState<Record<string, string>>({})
+  const [askConsent, setAskConsent] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<PitchResult | null>(null)
@@ -94,6 +97,7 @@ export function PitchComposer({
             current_base: currentBase[p.id] || null,
             target_base: targetBase[p.id] || null,
             spoken_to_candidate: spoken[p.id] || null,
+            ask_consent: askConsent[p.id] === true,
             highlights: (highlights[p.id] ?? '')
               .split('\n')
               .map(h => h.trim())
@@ -287,6 +291,20 @@ export function PitchComposer({
                   ))}
                 </div>
               </div>
+
+              {person.email && spoken[person.id] !== 'interested' && (
+                <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-3.5 py-3">
+                  <input
+                    type="checkbox"
+                    checked={askConsent[person.id] === true}
+                    onChange={e => setAskConsent(a => ({ ...a, [person.id]: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 accent-[#1F3A2F]"
+                  />
+                  <span className="text-[13px] leading-snug text-[#2A2A26]">
+                    <span className="font-semibold">Ask them in one tap.</span> We email {person.email} a short note in your name: "I'd like to put you forward for a role. OK?" Their tap is their consent and the start of your protection; the company stays unnamed.
+                  </span>
+                </label>
+              )}
 
               <label className="mt-3 block">
                 <span className={label}>Highlights{optional}<span className="font-normal text-[#9C9C95]">, one per line</span></span>

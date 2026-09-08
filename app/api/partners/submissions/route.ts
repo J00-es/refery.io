@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { requestConsent } from '@/lib/candidate-consent'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { ownsCandidate } from '@/lib/current-user'
@@ -24,6 +25,8 @@ interface Draft {
   spoken_to_candidate: string | null
   /** Nobody else has introduced this person to the client another way. */
   fresh_introduction: boolean | null
+  /** Email the candidate a one-tap note in the partner's name; their tap is the consent. */
+  ask_consent: boolean
 }
 
 const WORK_AUTH = new Set<string>(WORK_AUTH_OPTIONS.map(o => o.value))
@@ -58,6 +61,7 @@ function readDrafts(raw: unknown): Draft[] {
             ? o.spoken_to_candidate
             : null,
         fresh_introduction: typeof o.fresh_introduction === 'boolean' ? o.fresh_introduction : null,
+        ask_consent: o.ask_consent === true,
         highlights: Array.isArray(o.highlights)
           ? o.highlights
               .filter((h): h is string => typeof h === 'string' && !!h.trim())
@@ -159,6 +163,23 @@ export async function POST(req: Request) {
     )
   const alreadyIn = new Set((existing ?? []).map(r => r.candidate_id as string))
 
+  // In play anywhere at this client, by anyone: the ownership rule, enforced
+  // before the card can reach the founder. The other partner is never named.
+  const { data: atClient } = await adminClient
+    .from('role_submissions')
+    .select('candidate_id, submitted_by_user_id, created_at, status')
+    .eq('company_id', companyId)
+    .not('status', 'in', '("declined","withdrawn")')
+    .in(
+      'candidate_id',
+      drafts.map(d => d.candidate_id),
+    )
+  const inPlayElsewhere = new Map<string, { mine: boolean; when: string }>()
+  for (const r of atClient ?? []) {
+    if (alreadyIn.has(r.candidate_id as string)) continue
+    inPlayElsewhere.set(r.candidate_id as string, { mine: r.submitted_by_user_id === access.appUser.id, when: r.created_at as string })
+  }
+
   const cap = role.submission_cap as number | null
   let remaining = cap ? Math.max(0, cap - ((role.live_submission_count as number) ?? 0)) : Infinity
 
@@ -177,6 +198,12 @@ export async function POST(req: Request) {
     }
     if (alreadyIn.has(draft.candidate_id)) {
       rejected.push({ candidate_id: draft.candidate_id, reason: 'Already submitted to this role' })
+      continue
+    }
+    const elsewhere = inPlayElsewhere.get(draft.candidate_id)
+    if (elsewhere && !elsewhere.mine) {
+      const when = new Date(elsewhere.when).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      rejected.push({ candidate_id: draft.candidate_id, reason: `Already in play at this client, submitted by another partner on ${when}. You can still submit them elsewhere.` })
       continue
     }
     // A pitch helps a candidate get read but is not required; Refery asks for
@@ -227,6 +254,15 @@ export async function POST(req: Request) {
     .select('id, candidate_id')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // The one-tap consent note, for anyone the partner asked us to email.
+  for (const a of accepted) {
+    if (!a.ask_consent) continue
+    const row = (inserted ?? []).find(i => i.candidate_id === a.candidate_id)
+    if (!row) continue
+    const sent = await requestConsent(adminClient, { candidateId: a.candidate_id, companyId, submissionId: row.id as string, requestedByUserId: access.appUser.id })
+    if (sent && !sent.sent) console.warn('[consent] not sent:', sent.error)
+  }
 
   // Remember the answers on the candidate, so the next submission of the same
   // person starts full. Only fields the partner actually gave are written; a

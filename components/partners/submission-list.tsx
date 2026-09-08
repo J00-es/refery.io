@@ -111,6 +111,23 @@ export function SubmissionList({
 
             <Track status={submission.status} />
 
+            {submission.status === 'sent_to_client' && submission.client_delivered_at && (
+              <p className={`mt-2 ${META}`}>
+                With the client since {new Date(submission.client_delivered_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                {submission.client_decision === 'later' ? ' · parked by them' : ''}
+                {submission.client_nudged_at ? ' · nudged' : ''}
+              </p>
+            )}
+            {submission.status === 'declined' && submission.decline_reason && (
+              <p className={`mt-2 ${META}`}>Reason: {submission.decline_reason}</p>
+            )}
+            {submission.consent_status && (
+              <p className={`mt-1 ${META}`}>
+                {submission.consent_status === 'agreed' ? 'Candidate said yes' : submission.consent_status === 'declined' ? 'Candidate said not now' : 'Consent note sent, waiting on the candidate'}
+                {submission.consent_at ? ` · ${new Date(submission.consent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}
+              </p>
+            )}
+
             {submission.pitch?.trim() && <p className={`mt-3 whitespace-pre-line ${BODY}`}>{submission.pitch}</p>}
 
             {(submission.work_authorization || submission.current_base || submission.target_base || submission.spoken_to_candidate) && (
