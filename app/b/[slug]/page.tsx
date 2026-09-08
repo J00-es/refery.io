@@ -21,6 +21,7 @@ import { BriefCommentsProvider, type BriefComment } from '@/components/hm/commen
 import { GeneralComments, SectionComments, ChecklistAnswer } from '@/components/hm/brief-comments'
 import { BriefTelemetry } from '@/components/hm/brief-telemetry'
 import { BriefChoice, type BriefAnswer } from '@/components/hm/brief-choice'
+import { BriefInviteForm, type BriefInvite } from '@/components/hm/brief-invite'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -74,6 +75,13 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
     (answerRows ?? []).map(r => [r.key, { value: r.value, authorName: r.author_name, updatedAt: r.updated_at }]),
   )
 
+  const { data: inviteRows } = await createAdminClient()
+    .from('hm_brief_invites')
+    .select('email, status')
+    .eq('brief_id', brief.id)
+    .order('created_at', { ascending: true })
+  const invites: BriefInvite[] = (inviteRows ?? []).map(r => ({ email: r.email, status: r.status as BriefInvite['status'] }))
+
   const comments: BriefComment[] = (rows ?? []).map(r => ({
     id: r.id,
     sectionId: r.section_id,
@@ -104,11 +112,13 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
         recipientName={brief.recipientName}
         publishedAt={brief.publishedAt}
         answers={answers}
+        invites={invites}
         sectionSlots={sectionSlots}
         checklistSlot={(ask, section) => (
           <ChecklistAnswer ask={ask} sectionId={section.id} sectionLabel={section.label} />
         )}
         choiceSlot={block => <BriefChoice slug={brief.slug} block={block} initial={answers[block.key] ?? null} />}
+        inviteSlot={block => <BriefInviteForm slug={brief.slug} block={block} initial={invites} />}
         footerSlot={<GeneralComments />}
       />
     </BriefCommentsProvider>

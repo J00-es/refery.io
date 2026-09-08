@@ -21,6 +21,7 @@ import type {
   BriefContent,
   CardItem,
   ChoiceBlock,
+  InviteBlock,
   PersonItem,
   QuestionItem,
   RoleItem,
@@ -658,17 +659,37 @@ function ChoiceStatic({ block }: { block: ChoiceBlock }) {
   )
 }
 
+/** The read-only rendering of the Slack invite ask, for the desk and print. */
+function InviteStatic({ block }: { block: InviteBlock }) {
+  return (
+    <div className={`${DOC.card} my-5 px-5 py-4 sm:px-6`}>
+      <p className={`text-[14.5px] font-semibold leading-relaxed ${DOC.ink}`}>
+        <Inline text={block.prompt} />
+      </p>
+      {block.note && (
+        <p className={`mt-1 text-[13px] leading-relaxed ${DOC.muted}`}>
+          <Inline text={block.note} />
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** One block. Exported so the client-brief page can fall back to it for the rare kinds. */
 export function Block({
   block,
   checklistSlot,
   choiceSlot,
+  inviteSlot,
 }: {
   block: BriefBlock
   checklistSlot?: (ask: string) => React.ReactNode
   choiceSlot?: (block: ChoiceBlock) => React.ReactNode
+  inviteSlot?: (block: InviteBlock) => React.ReactNode
 }) {
   switch (block.kind) {
+    case 'invite':
+      return inviteSlot ? <>{inviteSlot(block)}</> : <InviteStatic block={block} />
     case 'cta':
       return <Cta block={block} />
     case 'choice':

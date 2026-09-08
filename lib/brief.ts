@@ -175,8 +175,18 @@ export type ChoiceBlock = {
   note?: string
 }
 
+/** "Type your email and we invite you to Slack with Lily." */
+export type InviteBlock = {
+  kind: 'invite'
+  prompt: string
+  note?: string
+  placeholder?: string
+  button?: string
+}
+
 export type BriefBlock =
   | { kind: 'lede'; text: string }
+  | InviteBlock
   /** A button: the one thing on the page that is an action rather than a sentence. */
   | { kind: 'cta'; label: string; url: string; note?: string; secondary?: boolean }
   /** A one-tap question. On the public brief the answer is saved; elsewhere it lists the options. */
@@ -440,6 +450,10 @@ function normalizeBlock(v: unknown): BriefBlock | null {
       const url = str(o.url)
       if (!label || !url || !/^(https?:\/\/|mailto:|#)/.test(url)) return null
       return { kind: 'cta', label, url, note: str(o.note), secondary: o.secondary === true }
+    }
+    case 'invite': {
+      const prompt = str(o.prompt)
+      return prompt ? { kind: 'invite', prompt, note: str(o.note), placeholder: str(o.placeholder), button: str(o.button) } : null
     }
     case 'choice': {
       const key = str(o.key)

@@ -35,7 +35,6 @@ const LILY = '864aa3a4-f9e0-49c6-a35a-7ca02ffe04a7'
 const COMPANY_ID = '9c2b7d10-6f4e-4a8b-9d21-1e5b0a7c3f40'
 const SLUG = 'livo-7kq3mxw'
 const AGREEMENT_URL = 'https://refery.xyz/sign/client-agreement/c7f596952ed166e1e152137b724b6ebafaa7cc0e8b8251efe9264e7800b39631'
-const SLACK_DM_URL = 'https://join.slack.com/shareDM/zt-4960b8goh-v6NajYY5aZxeRsiM1e9ppg'
 
 export const content = {
   kicker: 'Refery · 7 September 2026',
@@ -61,7 +60,7 @@ export const content = {
           kind: 'steps',
           items: [
             '**Agree the terms.** What we discussed: 10% of first-year base, fully contingent, no retainer, one free replacement if the hire leaves within 90 days, invoiced 30 days after start. Anyone with signing authority at Livo can sign, no account needed.',
-            '**Connect on Slack.** One thread for profiles, your yes or no, and scheduling. Nothing sits in an inbox.',
+            '**Connect on Slack.** Type your email below and I invite you to a channel with me. One thread for profiles, your yes or no, and scheduling; nothing sits in an inbox.',
             '**Correct this brief.** A line under any section is plenty. Four short questions at the end.',
             '**Then we kick off.** I check our own pool first, then brief the scouts with your exact bar. The first profiles are as much calibration as shortlist, so a yes or no on each within a day or two, with a reason, is what makes the next batch sharper.',
           ],
@@ -73,11 +72,11 @@ export const content = {
           note: 'Two minutes. Terms as above.',
         },
         {
-          kind: 'cta',
-          label: 'Message Lily on Slack',
-          url: SLACK_DM_URL,
-          secondary: true,
-          note: 'Opens a direct message. I add a shared channel for the team once we are connected.',
+          kind: 'invite',
+          prompt: 'Connect on Slack: type your email and I invite you, or a teammate, to a channel with me.',
+          note: 'One address at a time. You get the invitation from Slack by email.',
+          placeholder: 'you@getlivo.com',
+          button: 'Invite me to Slack',
         },
         {
           kind: 'choice',

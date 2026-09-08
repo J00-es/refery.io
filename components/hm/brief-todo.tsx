@@ -15,6 +15,7 @@ import { useBriefComments } from './comments-provider'
 export type TodoItem =
   | { kind: 'link'; label: string; href: string; external: boolean }
   | { kind: 'choice'; label: string; href: string; done: boolean; detail?: string }
+  | { kind: 'invite'; label: string; href: string; done: boolean; detail?: string }
   | { kind: 'questions'; label: string; href: string; asks: string[] }
 
 function Tick({ done }: { done: boolean }) {
@@ -46,6 +47,9 @@ export function BriefTodo({ items, heading }: { items: TodoItem[]; heading: stri
         label: left === 0 ? `${item.asks.length} questions answered. Thank you.` : done ? `${left} of ${item.asks.length} questions to go` : item.label,
         detail: undefined as string | undefined,
       }
+    }
+    if (item.kind === 'invite') {
+      return { key: item.href + item.label, href: item.href, external: false, done: item.done, label: item.done ? `Slack invitation for ${item.detail}` : item.label, detail: undefined }
     }
     if (item.kind === 'choice') {
       return { key: item.href + item.label, href: item.href, external: false, done: item.done, label: item.done ? `Candidates by ${item.detail}` : item.label, detail: undefined }
