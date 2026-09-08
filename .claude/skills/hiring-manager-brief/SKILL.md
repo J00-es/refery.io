@@ -114,6 +114,13 @@ Put `comp` after `logistics` and `jds` after `how`, so the argument lands before
   not signed yet: the Refery paragraph, four `steps`, the two `cta` buttons, the
   `candidate_delivery` choice, and a speed callout. `how` after logistics is then dropped.
 
+- **`invite`** asks for an email: `{ kind: 'invite', prompt, note?, placeholder?, button? }`. On the
+  public page the address goes to `POST /api/b/<slug>/invites`, which records it in
+  `hm_brief_invites`, tries a Slack Connect invitation to `#<company>-refery` with Lily in it
+  (needs the Refery Ops app to hold `channels:manage` + `conversations.connect:write`; until
+  then it DMs Lily the address and the steps), and tells the founder honestly which happened.
+  Use it instead of a Slack share-DM link, which expires.
+
 The dropped-block checker is `npx tsx scripts/check-brief-content.ts <module exporting content>`.
 
 ### Writing the `roles` block
@@ -213,7 +220,9 @@ URL: `https://refery.xyz/b/<slug>`.
 ## The founder layout (since 2026-09-07)
 
 `/b/<slug>` renders `components/hm/founder-brief.tsx`, not the scout `BriefDocument`.
-Same content JSON, different shape, built for a phone:
+Same content JSON, in the desk's own shape (lib/desk-ui tokens: chips, H1, CARD, BTN_PRIMARY):
+masthead with chips and the primary action beside the title, a sticky rail on desktop with
+"your part", the contents and the signoff, one card per section. Built for a phone:
 
 - Compact hero with a read time. No `confidential.points` are shown; the **"your part"**
   card replaces them, derived from the page: every `cta`, every `choice` (ticked once
