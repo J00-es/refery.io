@@ -186,13 +186,13 @@ export async function runOnboarding(runId: string): Promise<void> {
 
     // ── research ──
     await setStatus(admin, runId, { status: 'researching' })
-    const pages = await gatherSources({ website, companyName, roleInputs: input.roleInputs })
+    const { pages, misses } = await gatherSources({ website, companyName, roleInputs: input.roleInputs })
     const notes = [input.notes, input.bands ? `Comp bands (${input.currency}): ${input.bands}` : '', input.workingPattern ? `Working pattern: ${input.workingPattern}` : '']
       .filter(Boolean)
       .join('\n')
     const research = await researchFacts({ companyName, website, notes, pages })
     let cost = research.usage.costUsd
-    await setStatus(admin, runId, { status: 'drafting', research: research.output, sources: pages.map(p => ({ url: p.url, kind: p.kind, title: p.title })), cost_usd: cost, model: research.usage.model })
+    await setStatus(admin, runId, { status: 'drafting', research: research.output, sources: [...pages.map(p => ({ url: p.url, kind: p.kind, title: p.title, ok: true })), ...misses.map(m => ({ url: m.url, kind: m.kind, reason: m.reason, ok: false }))], cost_usd: cost, model: research.usage.model })
 
     // ── copy ──
     const copy = await writeCopy({

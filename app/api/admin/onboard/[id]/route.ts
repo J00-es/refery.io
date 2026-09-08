@@ -41,7 +41,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
       roles: copy?.roles?.map(r => ({ headline: r.headline, comp: r.comp })) ?? [],
       unknowns: research?.unknowns ?? [],
       conflicts: research?.conflicts ?? [],
-      sources: Array.isArray(run.sources) ? run.sources.length : 0,
+      sources: Array.isArray(run.sources) ? (run.sources as { ok?: boolean }[]).filter(s => s.ok !== false).length : 0,
       createdAt: run.created_at,
       updatedAt: run.updated_at,
       publishedAt: run.published_at,
