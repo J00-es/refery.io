@@ -83,6 +83,19 @@ Rejected from my first proposal:
 6. The placement count. What was hired through Refery to date, so the platform can record it and the recap prompt can stop guessing.
 7. Whether an anonymised preview of one live search may be shown before the agreement, and which searches are approved for that.
 
+## 3b. Built on 8 September
+
+Shipped to main (commits 443cebf, 050f81a). Rule-based throughout; nothing in the workflow calls a model.
+
+- Migration `onboarding_v1_foundations`: anonymous access revoked on the partner-state view and nine tables (RLS on), application statuses extended, `partner_preferences`, `communications` ledger, `outbound_campaigns`, `campaign_audience`, `invitations`, `notification_prefs`, `partner_roles.preview_*`, `users_admin.source/onboarding_done_at/no_match_at`, pg_cron `comms-flush` (every minute) and `onboarding-daily` (09:00 UTC).
+- `lib/voice/templates.ts` (A to P, ASK, S, U), `lib/comms.ts` (queue, 72-hour budget, stop checks at send time, Resend idempotency), `lib/onboarding/{identity,access,matcher,decisions}.ts`.
+- Intake: receipt on every valid application; test rows invalid; existing partners closed as already-partner; the Slack card carries reconciliation, unknowns, deduplicated samples and the rule-based suggestion; five reactions, three-minute queue, `cancel` in the thread, reviewer allowlist via `SLACK_REVIEWER_IDS`.
+- Sign-up: role whitelisted server-side; a preferences step; invite prefill; auto-approval for anyone Lily already said yes to; `/start` with the access check, the suggested search, preferences and notification settings; `/how-it-works`; Searches open to every partner with terms on file.
+- Outbound: `/admin/campaigns`, `/go/[slug]` with who-are-you and audience matching, `/invite/[token]`.
+- Desk: `/admin/partners` regrouped by who can unblock, demand view, ledger summary, suggest-by-rule, offer-a-call (U), propose-to-many kept.
+
+Not built yet, in the plan's order: the identity merge tool (P0-1), claim-result check on submissions (P1-5), proposal history and the non-overwriting propose route (P3), firm search visibility (P4), pipeline update dates, WhatsApp delivery (the number is stored, nothing sends to it), and the marketing site's application success copy (separate repository).
+
 ## 4. Decisions taken on 7 September (Lily)
 
 1. Beta gate: open Searches to every partner who has accepted the partner terms, once the anonymous-access and access-check work (P0-2, P0-5) is done.
