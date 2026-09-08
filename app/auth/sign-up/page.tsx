@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { User, Search, Building, ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { PARTNER_TERMS_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
+import { EMPTY_PREFERENCES, PreferencesFields, preferencesComplete, type PreferencesValue } from '@/components/onboarding/preferences-fields'
 import { AgreementContent } from '@/components/agreement-content'
 
 type Role = 'scout' | 'recruiter'
@@ -27,7 +28,7 @@ type Role = 'scout' | 'recruiter'
  * "firm" out of Role means nothing downstream has to learn a fourth role.
  */
 type SignupKind = 'scout' | 'recruiter' | 'firm'
-type Step = 1 | 2 | 3
+type Step = 1 | 2 | 3 | 4
 
 const roleForKind = (k: SignupKind): Role => (k === 'firm' ? 'recruiter' : k)
 
@@ -188,6 +189,37 @@ export default function Page() {
    * forward and the old behaviour had none.
    */
   const [known, setKnown] = useState<KnownAccount | null>(null)
+  const [prefs, setPrefs] = useState<PreferencesValue>(EMPTY_PREFERENCES)
+  const [inviteToken, setInviteToken] = useState<string | null>(null)
+  const [invited, setInvited] = useState(false)
+
+  /**
+   * Arriving from an approval email: the token prefills what the person
+   * already told us on the application, and the account is active the moment
+   * it exists. Read from the URL directly so the page needs no Suspense.
+   */
+  useEffect(() => {
+    let token: string | null = null
+    try {
+      token = new URLSearchParams(window.location.search).get('invite')
+    } catch {
+      token = null
+    }
+    if (!token) return
+    setInviteToken(token)
+    fetch(`/api/invite/prefill?token=${encodeURIComponent(token)}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!data) return
+        setFullName(prev => prev || data.fullName || '')
+        setEmail(prev => prev || data.email || '')
+        setLinkedinUrl(prev => prev || data.linkedinUrl || '')
+        setSelectedKind(prev => prev || data.kind || 'scout')
+        if (data.preferences) setPrefs(p => ({ ...p, ...data.preferences }))
+        setInvited(true)
+      })
+      .catch(() => {})
+  }, [])
   const [checking, setChecking] = useState(false)
   /** Somebody who is already signed in and does not need this form at all. */
   const [signedInAs, setSignedInAs] = useState<string | null>(null)
@@ -327,9 +359,18 @@ export default function Page() {
       linkedin_url: linkedinUrl,
     }
     track('details_completed', who)
-    // Step 3 is the terms, so reaching it is the moment worth announcing.
-    track('agreement_viewed', who)
     setStep(3)
+  }
+
+  const handleNextFromPreferences = () => {
+    setError(null)
+    if (!preferencesComplete(prefs)) {
+      setError('Pick at least one city and one kind of people, so we know what to suggest')
+      return
+    }
+    // The terms are the last step, so reaching them is the moment worth announcing.
+    track('agreement_viewed', { role: selectedRole, email, full_name: fullName, linkedin_url: linkedinUrl })
+    setStep(4)
   }
 
   const handleSubmit = async () => {
@@ -348,6 +389,8 @@ export default function Page() {
         fullName,
         linkedinUrl,
         role: selectedRole,
+        preferences: prefs,
+        invite: inviteToken,
       }
 
       // A firm is created by the sign-up handler itself. It cannot be done from
@@ -400,7 +443,7 @@ export default function Page() {
         // ignore storage errors
       }
 
-      router.push('/auth/sign-up-success')
+      router.push(data.approved ? '/auth/sign-up-success?approved=1' : '/auth/sign-up-success')
     } catch (err: unknown) {
       track('failed', { role: selectedKind, email })
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -429,7 +472,7 @@ export default function Page() {
 
           {/* Stepper */}
           <ol className="flex items-center justify-center gap-2 text-xs">
-            {[1, 2, 3].map((n) => (
+            {[1, 2, 3, 4].map((n) => (
               <li key={n} className="flex items-center gap-2">
                 <span
                   className={`flex h-6 w-6 items-center justify-center rounded-full font-medium ${
@@ -443,7 +486,7 @@ export default function Page() {
                 >
                   {step > n ? <Check className="h-3.5 w-3.5" /> : n}
                 </span>
-                {n < 3 && (
+                {n < 4 && (
                   <span className={`h-px w-8 ${step > n ? 'bg-primary/40' : 'bg-border'}`} />
                 )}
               </li>
@@ -918,6 +961,34 @@ export default function Page() {
             {step === 3 && (
               <>
                 <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
+                  <CardTitle className="text-xl sm:text-2xl">Where your people are</CardTitle>
+                  <CardDescription className="text-sm">
+                    {invited ? 'Filled in from your application. Fix anything that is off.' : 'We suggest your first search from this.'} You can change it any time.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 sm:px-6 pb-6">
+                  <PreferencesFields value={prefs} onChange={setPrefs} />
+                  {error && (
+                    <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm text-red-600">{error}</p>
+                    </div>
+                  )}
+                  <div className="mt-5 flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => { setError(null); setStep(2) }} className="h-11 sm:h-10">
+                      Back
+                    </Button>
+                    <Button type="button" onClick={handleNextFromPreferences} className="h-11 sm:h-10 flex-1 text-base sm:text-sm">
+                      Continue to the terms
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
+                <CardHeader className="pb-4 sm:pb-6 px-4 sm:px-6">
                   <CardTitle className="text-xl sm:text-2xl">
                     {isFirm && !signerSelf
                       ? 'One last thing'
@@ -1038,7 +1109,7 @@ export default function Page() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => { setError(null); setStep(2) }}
+                      onClick={() => { setError(null); setStep(3) }}
                       disabled={isLoading}
                       className="h-11 sm:h-10"
                     >

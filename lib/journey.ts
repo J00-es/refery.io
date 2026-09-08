@@ -352,7 +352,7 @@ export const JOURNEY_BUCKETS: BucketConfig[] = [
   {
     key: 'bench',
     label: 'Bench',
-    partnerLabel: 'In the pool',
+    partnerLabel: 'Kept for future searches',
     blurb: 'Strong, no live seat for them today. Re-matched the moment one opens.',
     partnerBlurb: "Strong profile, nothing live fits today. You'll hear first when a search opens for them.",
     dot: '#9C9C95',

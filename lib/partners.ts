@@ -454,6 +454,14 @@ export interface SubmissionRow {
   /** Set when a super admin submitted for the partner while viewing as them. */
   acted_by_user_id: string | null
   acted_by_name: string | null
+  client_channel?: string | null
+  client_delivered_at?: string | null
+  client_nudged_at?: string | null
+  client_decision?: string | null
+  client_decision_at?: string | null
+  client_reason_code?: string | null
+  consent_status?: string | null
+  consent_at?: string | null
 }
 
 // ── access ──────────────────────────────────────────────────────────────────

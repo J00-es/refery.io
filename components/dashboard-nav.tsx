@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -47,6 +47,11 @@ interface NavItem {
  * DESK_BETA_ONLY for the desk, the dashboard page itself, and the route
  * layouts and API handlers for Jobs and Companies.
  */
+/**
+ * Start is the partner's first page: account checks, the one suggested search,
+ * preferences, and help. Partners only; admins have the desk.
+ */
+const startItem: NavItem = { href: '/start', label: 'Start', icon: Compass }
 const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon: Users }
 /**
  * Firm accounts opened to every partner on 6 Sep 2026, and a page nobody can
@@ -87,6 +92,7 @@ const adminMenuItems = [
   { href: '/recruiters', label: 'Recruiters', icon: UserPlus },
   { href: '/talents', label: 'Talents', icon: Star },
   { href: '/admin', label: 'Users', icon: Users },
+  { href: '/admin/campaigns', label: 'Outbound links', icon: Send },
 ]
 
 interface DashboardNavProps {
@@ -113,11 +119,15 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, inFirm = f
   const pathname = usePathname()
   const router = useRouter()
   const isSuperAdmin = userRole === 'super_admin'
-  const seesBeta = isBeta || isSuperAdmin
+  // Searches and Pipeline opened to every partner on 8 September 2026. The
+  // page itself still checks partner terms; a partner without them sees why on
+  // Start rather than a missing tab.
+  const seesBeta = true || isBeta || isSuperAdmin
   // One ordered row. Hiding a link is not access control; each page enforces
   // its own gate. This only keeps the row honest.
   const seesFirm = inFirm || isSuperAdmin
   const visibleNavItems: NavItem[] = [
+    ...(isSuperAdmin || isAdmin ? [] : [startItem]),
     candidatesItem,
     ...(seesBeta ? betaNavItems : []),
     ...(seesFirm ? [firmItem] : []),
@@ -125,7 +135,7 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, inFirm = f
   ]
   // The logo goes home. Home is the dashboard for the super admin and the
   // candidates page for everyone else while the dashboard is being redone.
-  const home = isSuperAdmin ? '/dashboard' : '/candidates'
+  const home = isSuperAdmin ? '/dashboard' : isAdmin ? '/candidates' : '/start'
   const supabase = createClient()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 

@@ -216,8 +216,14 @@ export async function GET(request: NextRequest) {
   let skippedNotBeta = 0
   let skippedNothingOn = 0
 
+  // Sunday is optional. A partner who switched it off in "How we reach you"
+  // gets nothing, and an unset row means on.
+  const { data: prefRows } = await adminClient.from('notification_prefs').select('user_id, sunday')
+  const sundayOff = new Set((prefRows ?? []).filter(p => p.sunday === false).map(p => p.user_id as string))
+
   for (const user of users ?? []) {
     if (user.status !== 'active' || !user.email) continue
+    if (sundayOff.has(user.user_id as string)) continue
     // Every link in the digest opens the desk. While the desk is in beta, a
     // partner outside it would land on a 404, so they get no digest yet.
     if (DESK_BETA_ONLY && !user.is_beta) {

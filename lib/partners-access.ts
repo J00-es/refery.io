@@ -58,7 +58,7 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
   // downstream is the persona's without any of them knowing about previews.
   const appUser = preview?.appUser ?? realUser
 
-  const [{ data: assignments }, { data: searchRows }, { data: requests }] = await Promise.all([
+  const [{ data: assignments }, { data: searchRows }, { data: requests }, { data: terms }] = await Promise.all([
     adminClient.from('company_assignments').select('company_id').eq('user_id', appUser.id),
     adminClient.from('search_assignments').select('*').eq('user_id', appUser.id),
     adminClient
@@ -66,7 +66,16 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
       .select('company_id')
       .eq('user_id', appUser.id)
       .eq('status', 'pending'),
+    // Partner terms on file is what opens the desk since 8 September 2026.
+    // Read for the real user, not the persona: reaching the desk is their right.
+    adminClient
+      .from('agreement_acceptances')
+      .select('id')
+      .eq('user_email', realUser.email)
+      .in('agreement_type', ['scout', 'recruiter', 'scout_partner'])
+      .limit(1),
   ])
+  const hasPartnerTerms = Boolean(terms && terms.length)
 
   const searchAssignments = (searchRows ?? []) as SearchAssignmentRow[]
   // A declined search does not unlock its client; anything else does. A
@@ -95,7 +104,7 @@ export async function resolvePartnerAccess(): Promise<PartnerAccess | null> {
       persona here would 404 the moment a super admin previewed a scout who is
       not yet in the beta — which is exactly when previewing is most useful.
     */
-    canUseDesk: DESK_BETA_ONLY ? realUser.isBeta : true,
+    canUseDesk: realUser.isAdmin || realUser.isBeta || (DESK_BETA_ONLY ? false : hasPartnerTerms),
     canManage: appUser.isAdmin,
     seesEverything: appUser.isAdmin,
     seesAllSubmissions: appUser.isAdmin,

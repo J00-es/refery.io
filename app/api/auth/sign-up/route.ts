@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { preferencesFromApplication } from '@/lib/onboarding/decisions'
+import { suggestFirstSearch } from '@/lib/onboarding/matcher'
+import { cancelQueued } from '@/lib/comms'
+import type { ScoutApplication } from '@/lib/intake'
 import {
   generateAgreementHash,
   getAgreementText,
@@ -55,7 +59,12 @@ const PARTNER_TYPES: AgreementType[] = ['scout', 'recruiter']
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { password, fullName, linkedinUrl, role } = body
+    const { password, fullName, linkedinUrl } = body
+    // Only a partner role can be requested from the public form. Anything
+    // else (admin, super_admin, viewer) is refused at the door.
+    const role: 'scout' | 'recruiter' = body.role === 'recruiter' ? 'recruiter' : 'scout'
+    const inviteToken = typeof body.invite === 'string' && body.invite.trim() ? body.invite.trim() : null
+    const preferences = body.preferences && typeof body.preferences === 'object' ? (body.preferences as Record<string, unknown>) : null
     // Supabase Auth lower-cases the address it stores. Match it here so the
     // users_admin row can always be found by the auth email — a mixed-case row
     // is invisible to every lookup and reads back as `pending`.
@@ -64,6 +73,35 @@ export async function POST(req: Request) {
 
     const supabase = await createClient()
     const adminClient = createAdminClient()
+
+    /**
+     * Lily already said yes to this person, either on the Slack card (an
+     * approved application under this email) or by inviting them (a token),
+     * so the account is active the moment it exists. Everyone else stays
+     * pending and is approved from #refery-partners as before.
+     */
+    let approvedApplication: { id: string; status: string; email: string; source_campaign: string | null; source: string | null } | null = null
+    if (inviteToken) {
+      const { data } = await adminClient
+        .from('scout_applications')
+        .select('id, status, email, source_campaign, source')
+        .eq('invite_token', inviteToken)
+        .in('status', ['approved', 'in_conversation'])
+        .maybeSingle()
+      if (data && normalizeEmail(data.email) === email) approvedApplication = data
+    }
+    if (!approvedApplication) {
+      const { data } = await adminClient
+        .from('scout_applications')
+        .select('id, status, email, source_campaign, source')
+        .eq('email', email)
+        .in('status', ['approved', 'in_conversation'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (data) approvedApplication = data
+    }
+    const preApproved = Boolean(approvedApplication)
 
     // Sign up the user with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -90,9 +128,13 @@ export async function POST(req: Request) {
         email: email,
         full_name: fullName,
         linkedin_url: linkedinUrl,
-        role: role || 'viewer',
-        status: 'pending',
+        role,
+        status: preApproved ? 'active' : 'pending',
         accepted_terms_at: new Date().toISOString(),
+        source: approvedApplication?.source_campaign ? 'outbound' : approvedApplication ? 'application' : 'direct',
+        source_campaign: approvedApplication?.source_campaign ?? null,
+        reviewed_at: preApproved ? new Date().toISOString() : null,
+        reviewed_by: preApproved ? 'application decision' : null,
       })
       if (adminError) {
         // Most likely an admin pre-created the row (email is unique). Keep the
@@ -111,6 +153,63 @@ export async function POST(req: Request) {
           console.error('Failed to create user admin record:', adminError, linkError)
           // Don't fail the whole sign-up if admin record creation fails
         }
+      }
+
+      /**
+       * Preferences and the first search.
+       *
+       * Saved from the form when the person confirmed them; otherwise read from
+       * the application they came in on. Confirmed preferences are what let the
+       * daily job suggest a search. Best effort, never fails the sign-up.
+       */
+      try {
+        type PrefsRow = {
+          own_location: string | null
+          network_cities: string[]
+          functions: string[]
+          stages: string[]
+          relationship_types: string[]
+          would_relocate: boolean | null
+          source: string
+          confirmed_at: string | null
+        }
+        const fromForm: PrefsRow | null = preferences
+          ? {
+              own_location: typeof preferences.own_location === 'string' ? preferences.own_location : null,
+              network_cities: Array.isArray(preferences.network_cities) ? (preferences.network_cities as string[]) : [],
+              functions: Array.isArray(preferences.functions) ? (preferences.functions as string[]) : [],
+              stages: Array.isArray(preferences.stages) ? (preferences.stages as string[]) : [],
+              relationship_types: Array.isArray(preferences.relationship_types) ? (preferences.relationship_types as string[]) : [],
+              would_relocate: typeof preferences.would_relocate === 'boolean' ? preferences.would_relocate : null,
+              source: 'signup',
+              confirmed_at: new Date().toISOString(),
+            }
+          : null
+        let prefs: PrefsRow | null = fromForm
+        if (!prefs && approvedApplication) {
+          const { data: app } = await adminClient.from('scout_applications').select('*').eq('id', approvedApplication.id).maybeSingle()
+          if (app) {
+            const p = preferencesFromApplication(app as ScoutApplication)
+            prefs = { own_location: null, network_cities: p.network_cities, functions: p.functions, stages: p.stages, relationship_types: [], would_relocate: null, source: 'application', confirmed_at: null }
+          }
+        }
+        if (prefs && (prefs.network_cities.length || prefs.functions.length)) {
+          await adminClient.from('partner_preferences').upsert({ user_id: authData.user.id, ...prefs, updated_at: new Date().toISOString(), updated_by: email }, { onConflict: 'user_id' })
+        }
+        if (approvedApplication) {
+          await adminClient
+            .from('scout_applications')
+            .update({ status: 'onboarded', partner_user_id: authData.user.id })
+            .eq('id', approvedApplication.id)
+          await cancelQueued(adminClient, { applicationId: approvedApplication.id, templateId: 'G' }, 'account created')
+          await cancelQueued(adminClient, { applicationId: approvedApplication.id, templateId: 'N' }, 'account created')
+        }
+        if (preApproved && prefs?.confirmed_at) {
+          // The Start page shows the suggestion; no email on top of the one they just got.
+          await suggestFirstSearch(adminClient, { userId: authData.user.id, email, fullName }, { by: 'sign-up', sendEmail: false })
+        }
+      } catch (prefErr) {
+        console.error('[sign-up] preferences step threw:', prefErr)
       }
 
       /**
@@ -324,6 +423,8 @@ export async function POST(req: Request) {
       success: true,
       user: authData.user,
       session: authData.session,
+      approved: preApproved,
+      next: preApproved ? '/start' : '/auth/pending-approval',
     })
   } catch (error) {
     console.error('Sign up error:', error)

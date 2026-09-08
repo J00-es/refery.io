@@ -1,178 +1,78 @@
 'use client'
 
 import Link from 'next/link'
-import { FileCheck, ArrowRight } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowRight, FileCheck } from 'lucide-react'
 
+/**
+ * After sign-up. Two truths, said plainly.
+ *
+ * Approved (Lily already said yes on the application, or an invitation
+ * carried her decision): the account is active and Start is next, once the
+ * email is verified. Everyone else: the application is with Lily.
+ */
 export default function Page() {
+  const [approved, setApproved] = useState(false)
+  useEffect(() => {
+    try {
+      setApproved(new URLSearchParams(window.location.search).get('approved') === '1')
+    } catch {
+      setApproved(false)
+    }
+  }, [])
+
   return (
-    <div 
-      className="min-h-svh w-full"
-      style={{ 
-        background: '#F2F1EB',
-        fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
-      fontWeight: 600,
-      }}
-    >
-      {/* Header */}
-      <header 
-        className="fixed top-0 left-0 right-0 z-10"
-        style={{
-          background: 'rgba(242,241,235,0.88)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid rgba(22,22,19,0.10)',
-        }}
-      >
-        <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-          <Link 
-            href="/" 
-            style={{ 
-              fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
-              fontWeight: 600,
-              fontSize: '22px',
-              color: '#161613',
-              textDecoration: 'none',
-            }}
-          >
-            Refery<span style={{ color: '#1F3A2F' }}>.</span>
+    <div className="min-h-svh w-full bg-[#F2F1EB] font-[var(--font-dm-sans),'DM_Sans',system-ui,sans-serif]">
+      <header className="fixed left-0 right-0 top-0 z-10 border-b border-[#161613]/10 bg-[#F2F1EB]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
+          <Link href="/" className="text-[22px] font-semibold text-[#161613]">
+            Refery<span className="text-[#1F3A2F]">.</span>
           </Link>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="pt-32 pb-16 px-6">
-        <div className="max-w-xl mx-auto text-center">
-          {/* Success Icon */}
-          <div 
-            className="mx-auto mb-8 w-16 h-16 rounded-full flex items-center justify-center"
-            style={{ background: '#E7EDE9' }}
-          >
-            <svg 
-              width="28" 
-              height="28" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="#1F3A2F" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
-              strokeLinejoin="round"
-            >
+      <main className="px-6 pb-16 pt-32">
+        <div className="mx-auto max-w-xl text-center">
+          <div className="mx-auto mb-8 flex h-16 w-16 items-center justify-center rounded-full bg-[#E7EDE9]">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1F3A2F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 6 9 17l-5-5" />
             </svg>
           </div>
 
-          {/* Welcome Message */}
-          <h1 
-            className="mb-4"
-            style={{ 
-              fontFamily: "var(--font-dm-sans), 'DM Sans', system-ui, sans-serif",
-              fontWeight: 600,
-              fontSize: '42px',
-              lineHeight: 1.1,
-              color: '#161613',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Thank you for signing up
+          <h1 className="mb-4 text-[36px] font-semibold leading-[1.1] tracking-[-0.02em] text-[#161613] sm:text-[42px]">
+            {approved ? 'You are in.' : 'Thank you for signing up'}
           </h1>
-          
-          <p 
-            className="max-w-md mx-auto mb-10"
-            style={{ 
-              fontSize: '16px',
-              lineHeight: 1.6,
-              color: 'rgba(22,22,19,0.64)',
-            }}
-          >
-            Our team is reviewing your application. We&apos;ll get back to you within 48 hours.
+          <p className="mx-auto mb-10 max-w-md text-[16px] leading-relaxed text-[#161613]/65">
+            {approved
+              ? 'Your account is active. Check your inbox for the verification link, then log in and your Start page has the one search we suggest and what to do first.'
+              : 'Lily reads every application herself. You will hear from her by email within two working days.'}
           </p>
 
-          {/* Status Card */}
-          <div 
-            className="text-left mb-10 p-6"
-            style={{ 
-              background: '#FFFFFF',
-              border: '1px solid rgba(22,22,19,0.10)',
-              borderRadius: '10px',
-            }}
-          >
+          <div className="mb-10 rounded-[10px] border border-[#161613]/10 bg-white p-6 text-left">
             <div className="flex items-start gap-4">
-              <div 
-                className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                style={{ background: '#E7EDE9' }}
-              >
-                <FileCheck className="h-5 w-5" style={{ color: '#1F3A2F' }} />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#E7EDE9]">
+                <FileCheck className="h-5 w-5 text-[#1F3A2F]" />
               </div>
               <div>
-                <h3 
-                  className="mb-1.5"
-                  style={{ 
-                    fontSize: '15px',
-                    fontWeight: 600,
-                    color: '#161613',
-                  }}
-                >
-                  Partner agreement
-                </h3>
-                <p 
-                  style={{ 
-                    fontSize: '14px',
-                    lineHeight: 1.6,
-                    color: 'rgba(22,22,19,0.64)',
-                  }}
-                >
-                  If you&apos;ve already signed your partner agreement, you&apos;re all set. 
-                  Our team will review your application and get you access as soon as possible.
-                </p>
-                <p 
-                  className="mt-3"
-                  style={{ 
-                    fontSize: '14px',
-                    lineHeight: 1.6,
-                    color: 'rgba(22,22,19,0.64)',
-                  }}
-                >
-                  Haven&apos;t received it yet? Check your inbox or reach out to us.
+                <h3 className="mb-1.5 text-[15px] font-semibold text-[#161613]">Partner agreement</h3>
+                <p className="text-[14px] leading-relaxed text-[#161613]/65">
+                  {approved
+                    ? 'Your signed copy is on its way to your inbox. Everything you accepted is readable any time at refery.xyz/partner-terms.'
+                    : 'A signed copy is on its way to your inbox. Once Lily approves the account, you get an email saying so and where to start.'}
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Back to Login */}
-          <Link 
-            href="/auth/login"
-            className="inline-flex items-center gap-2 transition-colors"
-            style={{ 
-              fontSize: '14px',
-              fontWeight: 500,
-              color: '#1F3A2F',
-            }}
-          >
-            Back to login
+          <Link href={approved ? '/start' : '/auth/login'} className="inline-flex items-center gap-2 text-[14px] font-medium text-[#1F3A2F]">
+            {approved ? 'Go to Start' : 'Back to login'}
             <ArrowRight className="h-4 w-4" />
           </Link>
 
-          {/* Footer */}
-          <div 
-            className="mt-16 pt-8"
-            style={{ borderTop: '1px solid rgba(22,22,19,0.06)' }}
-          >
-            <p 
-              style={{ 
-                fontSize: '13px',
-                color: 'rgba(22,22,19,0.40)',
-              }}
-            >
-              Questions?{' '}
-              <a 
-                href="mailto:hello@refery.io" 
-                style={{ 
-                  color: '#1F3A2F',
-                  fontWeight: 500,
-                }}
-              >
-                Contact support
-              </a>
+          <div className="mt-16 border-t border-[#161613]/5 pt-8">
+            <p className="text-[13px] text-[#161613]/40">
+              Questions? Reply to any email from Lily, or write to{' '}
+              <a href="mailto:lily@refery.io" className="font-medium text-[#1F3A2F]">lily@refery.io</a>
             </p>
           </div>
         </div>

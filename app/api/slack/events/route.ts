@@ -27,7 +27,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { botUserId, postThreadReply, verifySlackSignature } from '@/lib/slack-bot'
-import { hiringLeadEmail, scoutApplicationEmail, sendIntakeEmail } from '@/lib/intake-emails'
+import { hiringLeadEmail, sendIntakeEmail } from '@/lib/intake-emails'
+import { DECISION_LABEL, decideApplication, type Decision } from '@/lib/onboarding/decisions'
+import { cancelQueued, queueEmail } from '@/lib/comms'
+import { templateAsk } from '@/lib/voice/templates'
 import { sendPartnerActivationEmail } from '@/lib/partner-activation-email'
 import { partnerSignupChannel } from '@/lib/partner-signup-slack'
 import { sendFirmActivated } from '@/lib/firm-notify'
@@ -48,6 +51,31 @@ export const maxDuration = 60
 
 const APPROVE = new Set(['+1', 'thumbsup', 'thumbsup_all'])
 const REJECT = new Set(['-1', 'thumbsdown'])
+/**
+ * The five admission decisions on a scout application card. :+1: and :-1: are
+ * shared with every other card; the three in the middle are intake's own.
+ */
+const INTAKE_DECISIONS: Record<string, Decision> = {
+  '+1': 'approve',
+  thumbsup: 'approve',
+  thumbsup_all: 'approve',
+  raised_hands: 'approve_call',
+  question: 'clarify',
+  world_map: 'no_match',
+  '-1': 'decline',
+  thumbsdown: 'decline',
+}
+const INTAKE_ONLY = new Set(['raised_hands', 'question', 'world_map'])
+
+/**
+ * Who may decide. SLACK_REVIEWER_IDS is a comma-separated list of Slack user
+ * ids; when unset every human in the channel may react, which is how it has
+ * always worked, so an unconfigured environment does not go dark.
+ */
+function isReviewer(slackUser: string): boolean {
+  const raw = (process.env.SLACK_REVIEWER_IDS ?? '').split(',').map(x => x.trim()).filter(Boolean)
+  return raw.length === 0 || raw.includes(slackUser)
+}
 /** On a submission card only: the candidate has gone to the client. */
 const SEND_TO_CLIENT = new Set(['outbox_tray'])
 /** Everything the candidate desk understands, on any of its cards. */
@@ -168,6 +196,11 @@ async function handleThreadReply(m: MessageEvent): Promise<void> {
     return
   }
 
+  // An intake card's thread: `cancel` stops a queued email; while the row is
+  // waiting on clarification, any other reply goes to the applicant as Lily's
+  // question. Recognised by the message, so it costs nothing on other threads.
+  if (await handleIntakeThreadReply(m)) return
+
   const q = await questionForSlackMessage(m.channel!, m.thread_ts!)
   if (!q) return
 
@@ -193,7 +226,8 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const hide = HIDE_REACTIONS.has(reaction)
   const send = SEND_TO_CLIENT.has(reaction)
   const deskReaction = DESK_REACTIONS.has(reaction)
-  if (!approve && !reject && !hide && !send && !deskReaction) return
+  const intakeOnly = INTAKE_ONLY.has(reaction)
+  if (!approve && !reject && !hide && !send && !deskReaction && !intakeOnly) return
 
   if (!event.user) return
 
@@ -216,6 +250,11 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   const channel = event.item?.channel ?? ''
   const ts = event.item?.ts ?? ''
 
+  if (!isReviewer(event.user)) {
+    await postThreadReply(channel, ts, `<@${event.user}> is not on the reviewer list, so that reaction changed nothing.`)
+    return
+  }
+
   // Candidate desk, recognised by the message. In order: a decision card, an
   // escalation line in a card thread, a draft awaiting :+1:, a bench card, a
   // recap card. Each returns false when the message is not its own.
@@ -229,7 +268,7 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   if (await handleDraftReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
   if (await handleBenchReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
   if (await handleRecapReaction(deskAdmin, { reaction, slackUser: event.user, channel, ts })) return
-  if (!approve && !reject && !hide && !send) return
+  if (!approve && !reject && !hide && !send && !intakeOnly) return
 
   // Question cards: :see_no_evil: hides the question from partners. Recognised
   // by the message, not the channel.
@@ -278,7 +317,6 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
   if (!table) return
 
   const admin = createAdminClient()
-  const nameCol = table === 'scout_applications' ? 'email' : 'work_email'
 
   const { data: row, error: findErr } = await admin
     .from(table)
@@ -292,9 +330,25 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     return
   }
 
-  // Claim the row before acting. A conditional update on status = 'new' is what
-  // makes a double-click, a Slack retry, and a :+1: racing a :-1: all resolve
-  // to exactly one outcome and exactly one email.
+  // Scout applications: five decisions, each queuing its email for three
+  // minutes so a thread reply can still cancel it. See lib/onboarding/decisions.
+  if (table === 'scout_applications') {
+    const decision = INTAKE_DECISIONS[reaction]
+    if (!decision) return
+    const result = await decideApplication(admin, { applicationId: row.id, decision, by: event.user, slack: { channel, ts } })
+    if (!result.ok) {
+      await postThreadReply(channel, ts, `Already decided (${row.status}), so nothing changed. ${result.error ?? ''}`.trim())
+      return
+    }
+    const when = new Date(Date.now() + 3 * 60 * 1000).toISOString().slice(11, 16)
+    const lines = [`<@${event.user}> decided: *${DECISION_LABEL[decision]}*.`]
+    if (result.queued) lines.push(`Email ${result.queued} is *queued* and sends at ${when} UTC. Reply \`cancel\` here before then to stop it.`)
+    if (result.note) lines.push(result.note)
+    await postThreadReply(channel, ts, lines.join('\n'))
+    return
+  }
+
+  // Hiring leads keep the original two-reaction flow.
   const { data: claimed, error: claimErr } = await admin
     .from(table)
     .update({
@@ -311,58 +365,57 @@ async function handleReaction(event: ReactionEvent): Promise<void> {
     return
   }
   if (!claimed?.length) {
-    // Already decided. Say so rather than staying silent, so a second reaction
-    // does not look like the automation quietly failed.
-    await postThreadReply(
-      channel,
-      ts,
-      `Already actioned (currently *${row.status}*), so nothing was sent this time.`,
-    )
+    await postThreadReply(channel, ts, `Already actioned (currently *${row.status}*), so nothing was sent this time.`)
     return
   }
-
   if (reject) {
-    await postThreadReply(
-      channel,
-      ts,
-      `:-1: Marked *rejected* by <@${event.user}>. No email sent.`,
-    )
+    await postThreadReply(channel, ts, `:-1: Marked *rejected* by <@${event.user}>. No email sent.`)
     return
   }
 
-  const to = String(row[nameCol] ?? '')
-  const email =
-    table === 'scout_applications'
-      ? scoutApplicationEmail(String(row.full_name ?? ''))
-      : hiringLeadEmail(
-          String(row.full_name ?? ''),
-          String(row.company_name ?? ''),
-          row.roles_hiring_for ?? null,
-        )
-
+  const to = String(row.work_email ?? '')
+  const email = hiringLeadEmail(String(row.full_name ?? ''), String(row.company_name ?? ''), row.roles_hiring_for ?? null)
   const sent = await sendIntakeEmail(to, email)
-
   if (sent.sent) {
-    await admin
-      .from(table)
-      .update({ outreach_sent_at: new Date().toISOString(), outreach_error: null })
-      .eq('id', row.id)
-    await postThreadReply(
-      channel,
-      ts,
-      `:+1: <@${event.user}> approved. Sent "${email.subject}" to ${to}.`,
-    )
+    await admin.from(table).update({ outreach_sent_at: new Date().toISOString(), outreach_error: null }).eq('id', row.id)
+    await postThreadReply(channel, ts, `:+1: <@${event.user}> approved. Sent "${email.subject}" to ${to}.`)
     return
   }
-
-  // The status stays approved: the decision was real, only the delivery failed.
-  // Surfacing it in-thread is the only way anyone finds out.
   await admin.from(table).update({ outreach_error: sent.error ?? 'unknown' }).eq('id', row.id)
-  await postThreadReply(
-    channel,
-    ts,
-    `:warning: Approved, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`,
-  )
+  await postThreadReply(channel, ts, `:warning: Approved, but the email to ${to} did not send: ${sent.error}. Worth sending by hand.`)
+}
+
+/**
+ * Replies in a scout application's thread.
+ *
+ * `cancel` inside the three-minute window stops the queued email and leaves
+ * the decision standing. When the application is in clarification, the reply
+ * text is the question, and it goes out as an email from Lily immediately.
+ */
+async function handleIntakeThreadReply(m: MessageEvent): Promise<boolean> {
+  const admin = createAdminClient()
+  const { data: app } = await admin
+    .from('scout_applications')
+    .select('id, full_name, email, status')
+    .eq('slack_channel_id', m.channel!)
+    .eq('slack_message_ts', m.thread_ts!)
+    .maybeSingle()
+  if (!app) return false
+
+  const text = (m.text ?? '').trim()
+  if (/^cancel\b/i.test(text)) {
+    const n = await cancelQueued(admin, { applicationId: app.id }, `cancelled by <@${m.user}> in thread`)
+    await postThreadReply(m.channel!, m.thread_ts!, n ? `:no_entry_sign: Cancelled ${n} queued email${n === 1 ? '' : 's'}. The decision stands; nothing was sent.` : 'Nothing was queued, so nothing to cancel.')
+    return true
+  }
+
+  if (app.status === 'clarification') {
+    const email = templateAsk({ fullName: app.full_name, question: text })
+    const q = await queueEmail(admin, { to: app.email, toName: app.full_name, applicationId: app.id, email, slack: { channel: m.channel!, ts: m.thread_ts! } })
+    await postThreadReply(m.channel!, m.thread_ts!, q.ok ? `:envelope: Your question is going to ${app.email} now. Their reply lands in your inbox; decide here when it does.` : `:warning: Could not queue the question: ${q.reason ?? q.error}`)
+    return true
+  }
+  return true
 }
 
 /**

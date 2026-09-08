@@ -1,66 +1,40 @@
 ---
 name: scout-application-email
-description: Draft and send the first reply to someone who applied to the Refery scout network. Use whenever the user wants to reply to a scout application, follow up with a scout applicant, or asks for "the scout application email". Also the reference copy for the automated reply that fires on a :+1: in #refery-scouts-application.
+description: How a scout or partner application is answered. Use whenever the user wants to reply to a scout application, follow up with an applicant, or asks for "the scout application email". The copy lives in lib/voice/templates.ts; the decisions live in lib/onboarding/decisions.ts.
 ---
 
-# Scout application reply
+# Answering a scout application
 
-The first email a scout applicant gets. Its only job is to book a 15 minute call.
+Since 8 September 2026 there is no single "application email". There is a
+receipt and five decisions, and the copy for all of them lives in one place:
+`lib/voice/templates.ts` (templates A to P). Edit there, never here. The voice
+rules are `docs/proposals/2026-09-07-onboarding/01-voice-spec.md`.
 
-## Where this fires automatically
+## What happens without anyone
 
-`:+1:` on a message in `#refery-scouts-application` sends exactly this email and moves the
-row to `in_conversation` in `scout_applications`. The code lives in `lib/intake-emails.ts`
-(`scoutApplicationEmail`), driven by `app/api/slack/events/route.ts`.
+- On a valid application the receipt (A) goes the same minute: "you'll hear by
+  {two working days}". Test rows are marked invalid and get nothing. An active
+  partner who applies again is closed as already-partner and gets nothing.
+- The Slack card in `#refery-scouts-application` shows who we already know this
+  to be, what they told us, what is unverified, and the search we would suggest.
+- 48 hours with no decision: one honest pending note (P), and the card is
+  marked overdue on the desk. Nothing is approved or declined by a timer.
 
-**If you change the copy here, change it there too.** Two copies that drift are worse than
-one that is slightly wrong, because nobody can tell which one an applicant actually got.
+## The five reactions
 
-## The email
+| Reaction | Decision | Email |
+|---|---|---|
+| `:+1:` | approved, independent start | B (scout) or C (recruiter with an approved preview) |
+| `:raised_hands:` | approved, offer a call | D, or B if no preview exists |
+| `:question:` | clarification needed | nothing yet; the next thread reply goes to them as your question |
+| `:world_map:` | no matching search | F |
+| `:-1:` | declined | E to a real person; nothing to spam |
 
-From: `Lily Joo <lily@refery.io>`
-Subject: `[Refery] Scout Application | {Full Name}`
-
-```
-Hi {FirstName},
-
-Lily from Refery! Saw that you're interested in becoming a scout for Refery. :)
-
-Happy to meet you and get to know you better.
-
-cal.com/refery-lily/15 works?
-
-Best,
-Lily
-```
-
-## Rules
-
-- **Plain text.** No HTML shell, no signature block, no logo. The moment it looks like a
-  template it stops reading as a note from a person.
-- **No em dashes.** Colon, comma, or full stop instead.
-- Keep the `:)`. It is in every one of these Lily has sent by hand.
-- Do not pitch the 70% split or explain the model. That is what the call is for.
-- Do not personalise from their application. Tried and rejected: referencing their city or
-  network makes the email longer without making the call more likely, and it signals the
-  applicant was screened, which invites a debate about the screening.
+Each reaction queues its email for three minutes. Reply `cancel` in the
+thread to stop it. The decision stands either way.
 
 ## Sending by hand
 
-Look the applicant up first so the reply is not sent twice:
-
-```sql
-select full_name, email, status, outreach_sent_at
-from scout_applications
-where email = '<their email>';
-```
-
-Send only if `status = 'new'`. Afterwards set `status = 'in_conversation'`,
-`reviewed_at = now()`, and `outreach_sent_at = now()` so the Slack reaction path and the
-manual path cannot both fire.
-
-## When someone is not a fit
-
-Send nothing. Set `status = 'rejected'` and `reviewed_at = now()`. This is what
-`:-1:` does. There is deliberately no rejection email: a network application that goes
-quiet is normal, and a rejection note invites a reply asking why.
+Use the same templates. Fill only facts you can verify. Subjects are
+`[Refery] Full name | context`. No calendar link unless the decision is
+"offer a call", and then it comes after the search, never instead of it.
