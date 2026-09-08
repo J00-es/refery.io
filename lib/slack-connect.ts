@@ -13,10 +13,10 @@
  *             founder is told Lily will send it. Nothing is lost; it is just
  *             one more thing on Lily's plate until the scopes are granted.
  *
- * Today (2026-09-08) the app has chat:write, channels:read/history, groups:*,
- * users:read and reactions:*, so every request lands on the manual path until
- * the app is reinstalled with the two extra scopes. The code below already
- * takes the invited path the moment it can.
+ * Since the evening of 2026-09-08 the app holds channels:manage, groups:write,
+ * im:write, mpim:write and conversations.connect:write, so the invited path is
+ * the normal one; the first real invitation created #livo-refery. The manual
+ * path stays for the day a scope is revoked or Slack Connect is turned off.
  */
 
 import { esc } from '@/lib/slack-bot'
