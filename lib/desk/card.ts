@@ -90,7 +90,9 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
     recipient === 'candidate'
       ? c.intake_source === 'inbound'
         ? 'came in directly (owner: you)'
-        : 'owner: you'
+        : owner && !owner.isUs
+          ? `added their own CV as a ${owner.role || 'partner'}`
+          : 'owner: you'
       : `referred by ${owner?.name ?? owner?.email ?? 'a partner'}${owner?.role ? ` · ${owner.role}` : ''}${owner && !owner.signed ? ' · not signed yet' : ''}`
 
   const logos = (panel.logos ?? [])
