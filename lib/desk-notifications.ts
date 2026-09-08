@@ -19,6 +19,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { deliverSubmission } from '@/lib/client-delivery'
 import { createAdminClient } from '@/lib/supabase/server'
 import { addReaction, esc, postMessage, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
 import { submissionStatus, workAuthLabel } from '@/lib/partners'
@@ -492,6 +493,7 @@ export async function moveSubmissionFromSlack(input: {
   // The same side effect the page applies: the dashboard and the job page count
   // "sent to client" from the pipeline table.
   if (input.to === 'sent_to_client') {
+    await deliverSubmission(input.id).catch(err => console.error('[client-delivery] slack move failed:', err))
     await admin.from('job_candidate_pipeline').upsert(
       {
         job_id: before.job_id,

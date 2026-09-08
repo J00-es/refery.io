@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { deliverSubmission } from '@/lib/client-delivery'
 import { after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
@@ -118,6 +119,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   })
 
   if (status === 'sent_to_client') {
+    // The client gets the card the way they chose; failures are logged on the
+    // desk thread, never surfaced to the partner as an error.
+    await deliverSubmission(id).catch(err => console.error('[client-delivery] page move failed:', err))
     await adminClient.from('job_candidate_pipeline').upsert(
       {
         job_id: submission.job_id,

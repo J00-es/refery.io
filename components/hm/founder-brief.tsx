@@ -75,6 +75,8 @@ export interface FounderBriefProps {
   publishedAt: string | null
   answers: Record<string, BriefAnswer>
   invites: BriefInvite[]
+  /** Candidates delivered to this client, and how many wait on them. */
+  candidates?: { total: number; waiting: number; href: string }
   sectionSlots?: Record<string, React.ReactNode>
   checklistSlot?: (ask: string, section: { id: string; label: string }) => React.ReactNode
   choiceSlot?: (block: ChoiceBlock, section: { id: string; label: string }) => React.ReactNode
@@ -89,6 +91,7 @@ export function FounderBrief({
   publishedAt,
   answers,
   invites,
+  candidates,
   sectionSlots,
   checklistSlot,
   choiceSlot,
@@ -136,6 +139,11 @@ export function FounderBrief({
               <p className={`mt-2 ${META}`}>{meta.join(' · ')}</p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
+              {candidates && candidates.total > 0 && (
+                <a href={candidates.href} className={`${candidates.waiting > 0 ? BTN_PRIMARY : BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                  {candidates.waiting > 0 ? `${candidates.waiting} ${candidates.waiting === 1 ? 'candidate waits' : 'candidates wait'} on you` : `Candidates · ${candidates.total}`}
+                </a>
+              )}
               {primary && (
                 <a
                   href={primary.href}

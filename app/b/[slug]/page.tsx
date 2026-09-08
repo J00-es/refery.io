@@ -82,6 +82,18 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
     .order('created_at', { ascending: true })
   const invites: BriefInvite[] = (inviteRows ?? []).map(r => ({ email: r.email, status: r.status as BriefInvite['status'] }))
 
+  const { data: briefRow } = await createAdminClient().from('hm_briefs').select('company_id').eq('id', brief.id).single()
+  const { data: delivered } = await createAdminClient()
+    .from('role_submissions')
+    .select('id, status, client_decision')
+    .eq('company_id', briefRow?.company_id ?? '')
+    .not('client_delivered_at', 'is', null)
+  const candidateCounts = {
+    total: (delivered ?? []).length,
+    waiting: (delivered ?? []).filter(d => d.status === 'sent_to_client' && d.client_decision !== 'interview' && d.client_decision !== 'not_a_fit').length,
+    href: `/b/${brief.slug}/candidates`,
+  }
+
   const comments: BriefComment[] = (rows ?? []).map(r => ({
     id: r.id,
     sectionId: r.section_id,
@@ -113,6 +125,7 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
         publishedAt={brief.publishedAt}
         answers={answers}
         invites={invites}
+        candidates={candidateCounts}
         sectionSlots={sectionSlots}
         checklistSlot={(ask, section) => (
           <ChecklistAnswer ask={ask} sectionId={section.id} sectionLabel={section.label} />
