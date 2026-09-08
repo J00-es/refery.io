@@ -59,6 +59,10 @@ export async function loadConsent(admin: SupabaseClient, t: string): Promise<Con
     roleTitle = (role?.headline as string | null) || roleTitle
     location = (role?.location as string | null) ?? null
   }
+  const anonCompany = (client?.anon_alias as string | null) ?? 'a company we work with'
+  // The alias usually names the city already ("marketplace, Barcelona"); say it once.
+  const city = location?.split(',')[0]?.trim()
+  if (city && anonCompany.toLowerCase().includes(city.toLowerCase())) location = null
   const partnerName = (partner?.full_name as string | null) || 'Your contact'
   return {
     id: c.id as string,
@@ -68,7 +72,7 @@ export async function loadConsent(admin: SupabaseClient, t: string): Promise<Con
     partnerFirstName: partnerName.split(/\s+/)[0],
     partnerName,
     roleTitle,
-    anonCompany: (client?.anon_alias as string | null) ?? 'a company we work with',
+    anonCompany,
     location,
     answeredAt: (c.answered_at as string | null) ?? null,
   }
@@ -113,7 +117,11 @@ export async function requestConsent(
   try {
     const resend = new Resend(apiKey)
     const { error: sendErr } = await resend.emails.send({ from: FROM, to: email, replyTo: 'lily@refery.io', subject, html, text })
-    if (sendErr) return { token: t, sent: false, error: sendErr.message }
+    if (sendErr) {
+      console.warn('[consent] note not sent', input.submissionId, sendErr.message)
+      return { token: t, sent: false, error: sendErr.message }
+    }
+    console.log('[consent] note sent', input.submissionId)
     return { token: t, sent: true }
   } catch (e) {
     return { token: t, sent: false, error: e instanceof Error ? e.message : 'send failed' }
@@ -155,9 +163,11 @@ export async function answerConsent(t: string, answer: 'agreed' | 'declined', me
         ? `Hi ${first},\n\n${view.candidateFirstName} said yes to being put forward for ${view.roleTitle}. That tap is their consent and the start of your protection on them with this client.\n\nBest,\nLily`
         : `Hi ${first},\n\n${view.candidateFirstName} said not now to ${view.roleTitle}. The submission stays on your pipeline as declined by the candidate; no need to chase.\n\nBest,\nLily`
     try {
-      await new Resend(process.env.RESEND_API_KEY).emails.send({ from: 'Lily at Refery <hello@refery.io>', to: partner.email as string, replyTo: 'lily@refery.io', subject: `[Refery] ${view.candidateFirstName} | ${answer === 'agreed' ? 'said yes' : 'said not now'}`, text: body })
-    } catch {
-      /* the Slack card carries it */
+      const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from: 'Lily at Refery <hello@refery.io>', to: partner.email as string, replyTo: 'lily@refery.io', subject: `[Refery] ${view.candidateFirstName} | ${answer === 'agreed' ? 'said yes' : 'said not now'}`, text: body })
+      if (error) console.warn('[consent] partner email failed', error.message)
+      else console.log('[consent] partner told', answer)
+    } catch (e) {
+      console.warn('[consent] partner email failed', e instanceof Error ? e.message : e)
     }
   }
   return { ok: true, view: { ...view, status: answer, answeredAt: now } }
