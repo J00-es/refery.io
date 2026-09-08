@@ -44,6 +44,9 @@ async function run(request: NextRequest) {
     .select('id, full_name, email, created_at, slack_channel_id, slack_message_ts')
     .eq('status', 'new')
     .is('pending_note_sent_at', null)
+    // Only people who got the receipt: the pending note replies to it, and the
+    // backlog from before this flow existed is worked from the desk by hand.
+    .not('receipt_sent_at', 'is', null)
     .not('slack_message_ts', 'is', null)
     .lt('created_at', new Date(now - 2 * DAY_MS).toISOString())
     .gt('created_at', new Date(now - 14 * DAY_MS).toISOString())
