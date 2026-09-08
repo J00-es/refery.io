@@ -138,6 +138,11 @@ export async function postAgreementChase(admin: SupabaseClient, channel: string)
     // A company with any signed link is a client, whatever older links say.
     const { data: signed } = await admin.from('client_agreement_links').select('id').eq('company_id', l.company_id).eq('status', 'signed').limit(1)
     if (signed?.length) continue
+    // A lost or churned deal is never chased again; Lily reopens it by hand.
+    const { data: co } = await admin.from('companies').select('relationship_status').eq('id', l.company_id).maybeSingle()
+    if (co && ['lost', 'churned'].includes(String(co.relationship_status ?? ''))) continue
+    const { data: cc } = await admin.from('client_companies').select('is_active').eq('company_id', l.company_id).maybeSingle()
+    if (cc && cc.is_active === false) continue
     seen.add(l.company_id)
 
     const now = Date.now()
