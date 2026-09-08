@@ -315,7 +315,7 @@ export async function runFounderFollowups(admin: SupabaseClient, leadsChannel: s
   const out = { checked: 0, replied: 0, sent: 0, dead: 0, errors: [] as string[] }
   const { data: threads } = await admin
     .from('outreach_threads')
-    .select('id, recipient_id, company_id, subject, status, first_touch_at, last_touch_at, outbound_count, gmail_thread_id')
+    .select('id, recipient_id, company_id, subject, status, first_touch_at, last_touch_at, total_touches, outbound_count, gmail_thread_id')
     .eq('status', 'awaiting_reply')
     .not('gmail_thread_id', 'is', null)
   for (const t of threads ?? []) {
