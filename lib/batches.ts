@@ -15,6 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addReaction, esc, postMessage, postThreadReply, updateMessage, type SlackBlock } from '@/lib/slack-bot'
+import { cancelQueued } from '@/lib/comms'
 
 export type BatchKind = 'scout_backlog' | 'lead_backlog' | 'agreement_chase' | 'founder_outreach'
 
@@ -182,12 +183,28 @@ export async function handleBatchThreadReply(
 ): Promise<boolean> {
   const batch = await batchForSlackMessage(admin, input.channel, input.threadTs)
   if (!batch) return false
-  if (batch.status !== 'open') {
+  if (batch.status !== 'open' && !/^cancel\b/i.test(input.text.trim())) {
     await postThreadReply(input.channel, input.threadTs, `This card is already ${batch.status}; edits no longer apply.`)
     return true
   }
   const allowed = new Set([...batch.card.decisions, 'skip'])
   const text = input.text.trim().toLowerCase()
+
+  // `cancel` or `cancel 3, 5`: stop the emails an applied scout card queued,
+  // inside their three-minute window. The decisions stand, as on a single card.
+  if (/^cancel\b/.test(text)) {
+    if (batch.kind !== 'scout_backlog') {
+      await postThreadReply(input.channel, input.threadTs, 'Nothing here is queued; the sends on this card go out at once.')
+      return true
+    }
+    const numbers = [...text.matchAll(/\d+/g)].map(x => Number(x[0]))
+    const targets = batch.items.filter(i => !numbers.length || numbers.includes(i.n))
+    let n = 0
+    for (const item of targets) n += await cancelQueued(admin, { applicationId: item.id }, `cancelled by <@${input.slackUser}> on the batch card`)
+    await postThreadReply(input.channel, input.threadTs, n ? `:no_entry_sign: Cancelled ${n} queued email${n === 1 ? '' : 's'}. The decisions stand; nothing was sent.` : 'Nothing was queued, so nothing to cancel.')
+    return true
+  }
+
   const m = text.match(/^(all|[\d\s,and]+?)\s*[:=→-]?\s*([a-z_]+)\s*$/)
   if (!m || !allowed.has(m[2])) {
     await postThreadReply(input.channel, input.threadTs, `I read edits as \`<line> <decision>\`, for example \`3 skip\`. Decisions here: ${[...allowed].map(d => `\`${d}\``).join(', ')}.`)
