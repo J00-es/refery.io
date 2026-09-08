@@ -170,6 +170,8 @@ export async function POST(req: Request) {
     .select('candidate_id, submitted_by_user_id, created_at, status')
     .eq('company_id', companyId)
     .not('status', 'in', '("declined","withdrawn")')
+    // Partner Terms section 5: a confirmed submission is the partner's for 24 months.
+    .gte('created_at', new Date(Date.now() - 24 * 30.44 * 86_400_000).toISOString())
     .in(
       'candidate_id',
       drafts.map(d => d.candidate_id),

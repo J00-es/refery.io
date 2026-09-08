@@ -12,10 +12,11 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { findPublishedBrief } from '@/lib/hm-brief'
-import { currentRoleOf, cvUrl, workAuthLabel, REASON_CODES } from '@/lib/client-delivery'
+import { clockDate, currentRoleOf, cvUrl, placementClock, workAuthLabel, REASON_CODES } from '@/lib/client-delivery'
 import { money, salaryCurrency } from '@/lib/fees'
 import { BTN_QUIET, CARD, CHIP, CHIP_VALUE, CHIP_WARN, H1, META } from '@/lib/desk-ui'
 import { CandidateDecision } from '@/components/hm/candidate-decisions'
+import { OfferAccepted } from '@/components/hm/offer-accepted'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -55,7 +56,7 @@ export default async function CandidatesPage({
 
   const { data: rows } = await db
     .from('role_submissions')
-    .select('id, job_id, candidate_id, status, pitch, highlights, work_authorization, target_base, client_delivered_at, client_decision, client_decision_at, client_decision_by, client_reason_code, client_reason')
+    .select('id, job_id, candidate_id, status, pitch, highlights, work_authorization, target_base, client_delivered_at, client_decision, client_decision_at, client_decision_by, client_reason_code, client_reason, start_date, base_salary, placed_by')
     .eq('company_id', companyId)
     .not('client_delivered_at', 'is', null)
     .order('client_delivered_at', { ascending: false })
@@ -99,6 +100,9 @@ export default async function CandidatesPage({
       decisionBy: s.client_decision_by as string | null,
       reason: [s.client_reason_code ? REASON_CODES[s.client_reason_code as string] : null, s.client_reason as string | null].filter(Boolean).join(': '),
       later: s.client_decision === 'later',
+      startDate: (s.start_date as string | null) ?? null,
+      placedBy: (s.placed_by as string | null) ?? null,
+      currencySymbol: salaryCurrency(r.salary_currency) === 'EUR' ? '€' : salaryCurrency(r.salary_currency) === 'GBP' ? '£' : '$',
     }
   })
 
@@ -222,12 +226,15 @@ export default async function CandidatesPage({
                   <CandidateDecision slug={slug} submissionId={i.id} candidateFirstName={i.name.split(' ')[0]} preset={isFocus ? decide : null} hasBookingLink={Boolean(client?.booking_url)} />
                 ) : (
                   <p className={`mt-3 ${META}`}>
-                    {i.decision === 'interview' && `Interview requested${i.decisionBy ? ` by ${i.decisionBy}` : ''}${i.decisionAt ? `, ${daysAgo(i.decisionAt)} ago` : ''}. Lily arranges the first call.`}
+                    {i.status === 'placed' && i.startDate && `Hired${i.placedBy ? `, confirmed by ${i.placedBy}` : ''}. Starts ${clockDate(placementClock(i.startDate).startDate, true)}; invoice due ${clockDate(placementClock(i.startDate).invoiceDue)}; free replacement if they leave before ${clockDate(placementClock(i.startDate).guaranteeEnds)}.`}
+                    {i.status === 'placed' && !i.startDate && 'Hired.'}
+                    {i.status !== 'placed' && i.decision === 'interview' && `Interview requested${i.decisionBy ? ` by ${i.decisionBy}` : ''}${i.decisionAt ? `, ${daysAgo(i.decisionAt)} ago` : ''}. Lily arranges the first call.`}
                     {i.decision === 'not_a_fit' && `Passed${i.decisionBy ? ` by ${i.decisionBy}` : ''}${i.reason ? `: ${i.reason}` : ''}.`}
                     {!i.decision && i.state === 'passed' && 'Closed by Refery.'}
-                    {!i.decision && i.state === 'interviewing' && 'In process.'}
+                    {!i.decision && i.state === 'interviewing' && i.status !== 'placed' && 'In process.'}
                   </p>
                 )}
+                {['client_interview', 'offer'].includes(i.status) && <OfferAccepted slug={slug} submissionId={i.id} candidateFirstName={i.name.split(' ')[0]} currencySymbol={i.currencySymbol} />}
               </section>
             )
           })}

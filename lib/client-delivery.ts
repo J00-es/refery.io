@@ -21,7 +21,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { postMessage, postThreadReply, updateMessage, esc, type SlackBlock } from '@/lib/slack-bot'
 import { notifySlack } from '@/lib/slack'
-import { money, salaryCurrency, type SalaryCurrency } from '@/lib/fees'
+import { money, resolveFee, salaryCurrency, type SalaryCurrency } from '@/lib/fees'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Lily at Refery <hello@refery.io>'
@@ -464,6 +464,121 @@ export async function recordClientDecision(input: {
   }
 
   return { ok: true }
+}
+
+// ── the hire, and its three clocks ───────────────────────────────────────────
+
+export interface PlacementClock {
+  startDate: string
+  /** Client v2.8: invoice on day one, due 30 calendar days after the start. */
+  invoiceDue: string
+  /** Client v2.8: one free replacement search if they leave within 90 days. */
+  guaranteeEnds: string
+  /** Partner terms: paid within 14 business days after day 90, once the client has paid. */
+  payoutBy: string
+}
+
+function addDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+function addBusinessDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`)
+  let left = days
+  while (left > 0) {
+    d.setUTCDate(d.getUTCDate() + 1)
+    const wd = d.getUTCDay()
+    if (wd !== 0 && wd !== 6) left--
+  }
+  return d.toISOString().slice(0, 10)
+}
+
+/** The dates the two agreements fix, from a start date. */
+export function placementClock(startDate: string): PlacementClock {
+  const guaranteeEnds = addDays(startDate, 90)
+  return { startDate, invoiceDue: addDays(startDate, 30), guaranteeEnds, payoutBy: addBusinessDays(guaranteeEnds, 14) }
+}
+
+export function clockDate(iso: string, withYear = false): string {
+  return new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}), timeZone: 'UTC' })
+}
+
+/**
+ * The founder confirms an accepted offer with the start date and base salary.
+ * The submission becomes placed, the candidate hired, and everyone who has
+ * money riding on the dates gets them: Lily on the desk, the partner by email.
+ */
+export async function recordOfferAccepted(input: {
+  submissionId: string
+  slug: string
+  startDate: string
+  baseSalary: number
+  decidedBy: string | null
+}): Promise<{ ok: boolean; error?: string; clock?: PlacementClock }> {
+  const admin = createAdminClient()
+  const d = await loadDelivery(admin, input.submissionId)
+  if (!d || d.briefSlug !== input.slug) return { ok: false, error: 'not found' }
+  if (!['client_interview', 'offer', 'sent_to_client'].includes(d.status)) return { ok: false, error: 'This one is already closed.' }
+
+  const now = new Date().toISOString()
+  const clock = placementClock(input.startDate)
+  const { error } = await admin
+    .from('role_submissions')
+    .update({ status: 'placed', offer_accepted_at: now, start_date: input.startDate, base_salary: input.baseSalary, placed_by: input.decidedBy, decided_at: now, updated_at: now })
+    .eq('id', d.id)
+  if (error) return { ok: false, error: error.message }
+  await admin.from('candidates').update({ status: 'hired', updated_at: now }).eq('id', d.candidateId)
+  await admin.from('role_submission_events').insert({
+    submission_id: d.id,
+    from_status: d.status,
+    to_status: 'placed',
+    note: `${input.decidedBy ?? d.companyName} confirmed the hire on the candidates page: starts ${clockDate(input.startDate, true)}, base ${money(input.baseSalary, d.currency)}`,
+    actor_user_id: null,
+  })
+
+  // The fee and the partner's share, from the search's terms.
+  const { data: terms } = await admin.from('partner_roles_v').select('fee_percentage, fee_flat, scout_share, scout_payout, salary_currency').eq('job_id', d.jobId).maybeSingle()
+  const fee = resolveFee({ ...(terms ?? {}), salary_min: input.baseSalary, salary_max: input.baseSalary })
+  const feeText = money(fee.feeLow, fee.currency)
+  const payoutText = money(fee.payoutLow, fee.currency)
+
+  const who = input.decidedBy ?? d.companyName
+  const timeline = `Starts ${clockDate(clock.startDate, true)} · invoice due ${clockDate(clock.invoiceDue)} · guarantee clears ${clockDate(clock.guaranteeEnds)} · partner paid by ${clockDate(clock.payoutBy)}`
+
+  if (d.clientSlack) {
+    const base = slackBlocks(d, input.slug)
+    await updateMessage(d.clientSlack.channel, d.clientSlack.ts, `${d.candidateName}: hired`, [
+      ...base.slice(0, 3),
+      { type: 'section', text: { type: 'mrkdwn', text: `:tada: *Hired*, ${esc(who)}. Starts ${esc(clockDate(clock.startDate, true))}. Invoice due ${esc(clockDate(clock.invoiceDue))}; free replacement if they leave before ${esc(clockDate(clock.guaranteeEnds))}.` } },
+    ])
+  }
+  if (d.deskSlack) {
+    await postThreadReply(d.deskSlack.channel, d.deskSlack.ts, `:tada: *${esc(who)} confirmed ${esc(d.candidateName)} is hired.* Base ${esc(money(input.baseSalary, d.currency) ?? '')}${feeText ? `, fee ${esc(feeText)}` : ''}${payoutText ? `, partner payout ${esc(payoutText)}` : ''}. ${esc(timeline)}. Invoice on the first day.`)
+  }
+  await notifySlack({
+    stream: 'clients',
+    emoji: ':tada:',
+    title: `${d.companyName} hired ${d.candidateName} for ${d.roleTitle}`,
+    context: `${timeline}. Invoice on the first day.`,
+    fields: [
+      { label: 'Base', value: money(input.baseSalary, d.currency) ?? String(input.baseSalary) },
+      { label: 'Fee', value: feeText ?? 'see terms' },
+      { label: 'Partner', value: `${d.partnerName}${payoutText ? ` · ${payoutText}` : ''}` },
+    ],
+    links: [{ label: 'Open the search', url: `${APP_URL}/searches/${d.companyId}/roles/${d.jobId}` }],
+  })
+
+  if (d.partnerEmail) {
+    const first = d.partnerName.split(/\s+/)[0]
+    const candFirst = d.candidateName.split(/\s+/)[0]
+    const subject = `[Refery] ${d.candidateName} | hired at ${d.companyName}`
+    const body = `Hi ${first},\n\n${d.companyName} confirmed it: ${d.candidateName} accepted the ${d.roleTitle} offer and starts on ${clockDate(clock.startDate, true)}.\n\n${payoutText ? `Your payout on this one is ${payoutText}. ` : ''}It is paid within 14 business days after ${candFirst} completes 90 days, so by ${clockDate(clock.payoutBy, true)}, once the client has paid. If ${candFirst} leaves before ${clockDate(clock.guaranteeEnds, true)} we run a replacement search for the client and nothing is paid or owed on this one.\n\nThank you. This is the whole point.\n\nBest,\nLily`
+    await sendEmail(d.partnerEmail, subject, `<pre style="font-family: 'DM Sans', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`, body)
+  }
+
+  return { ok: true, clock }
 }
 
 // ── the nudge ────────────────────────────────────────────────────────────────

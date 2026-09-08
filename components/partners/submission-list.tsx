@@ -118,6 +118,14 @@ export function SubmissionList({
                 {submission.client_nudged_at ? ' · nudged' : ''}
               </p>
             )}
+            {submission.status === 'placed' && submission.start_date && (
+              <p className={`mt-2 ${META}`}>
+                Starts {new Date(`${submission.start_date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                {' · guarantee clears '}
+                {new Date(new Date(`${submission.start_date}T00:00:00Z`).getTime() + 90 * 86_400_000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                {' · your payout within 14 business days after that'}
+              </p>
+            )}
             {submission.status === 'declined' && submission.decline_reason && (
               <p className={`mt-2 ${META}`}>Reason: {submission.decline_reason}</p>
             )}

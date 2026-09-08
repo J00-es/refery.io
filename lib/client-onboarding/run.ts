@@ -290,6 +290,8 @@ export async function runOnboarding(runId: string): Promise<void> {
           job_id: job.id,
           company_id: companyId,
           is_live: true,
+          // Five in play at once per search: enough to calibrate, never a flood.
+          submission_cap: 5,
           priority: role.priority,
           headline: role.headline,
           context: role.partnerContext,

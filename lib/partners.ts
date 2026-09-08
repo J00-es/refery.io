@@ -462,6 +462,9 @@ export interface SubmissionRow {
   client_reason_code?: string | null
   consent_status?: string | null
   consent_at?: string | null
+  offer_accepted_at?: string | null
+  start_date?: string | null
+  base_salary?: number | null
 }
 
 // ── access ──────────────────────────────────────────────────────────────────
