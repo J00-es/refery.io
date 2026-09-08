@@ -49,11 +49,19 @@ export interface DecisionResult {
   error?: string
 }
 
+/**
+ * Met and vouched for. The door decisions still send their email from here
+ * (a manual re-run of the panel puts a fresh card up), but they never move
+ * the person backwards: intro now and bench hold the stage, not a fit files
+ * as "not a fit after the call".
+ */
+const MET = ['committee_call', 'warm']
+
 /** From which stages each decision may be taken. Anything else answers "already past that". */
 const FROM: Record<Decision, string[] | null> = {
-  intro_now: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'not_fit', 'dormant'],
-  bench: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'not_fit', 'dormant'],
-  not_fit: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'dormant'],
+  intro_now: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'not_fit', 'dormant', ...MET],
+  bench: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'not_fit', 'dormant', ...MET],
+  not_fit: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'dormant', ...MET],
   route_elsewhere: ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench'],
   manual: null,
   snooze: null,
@@ -72,22 +80,45 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   const stage = String(c.journey_stage ?? 'uploaded')
   const now = new Date().toISOString()
 
-  const target =
-    input.decision === 'intro_now'
+  const met = MET.includes(stage)
+  const holds = met && (input.decision === 'intro_now' || input.decision === 'bench')
+  const target = holds
+    ? stage
+    : input.decision === 'intro_now'
       ? recipient === 'owner'
         ? 'intro_requested'
         : 'intro_sent'
       : input.decision === 'bench'
         ? 'bench'
         : input.decision === 'not_fit'
-          ? 'not_fit'
+          ? met
+            ? 'post_committee_not_fit'
+            : 'not_fit'
           : null
+
+  // Holding the stage, the guard against a double press is the email itself:
+  // once this read's email has gone out, the same reaction says so and stops.
+  if (holds && panel) {
+    const { data: last } = await admin
+      .from('candidate_emails')
+      .select('sent_at, to_email')
+      .eq('candidate_id', c.id)
+      .eq('kind', `decision_${input.decision}`)
+      .gt('created_at', String((panel as PanelRow).created_at))
+      .not('sent_at', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (last?.sent_at) {
+      return { ok: false, message: `That email already went to ${last.to_email} on ${String(last.sent_at).slice(0, 10)} for this read. Run the panel again for a fresh one.`, error: 'already_sent' }
+    }
+  }
 
   // The same decision a second time is a no-op, with one exception: if the
   // email for it never went out (credentials, a bounce), pressing the button
   // again resends it. Nothing else moves; the decision already stands.
   let resend = false
-  if (target && stage === target) {
+  if (target && stage === target && !holds) {
     const { data: last } = await admin
       .from('candidate_emails')
       .select('sent_at, error, to_email')
@@ -148,11 +179,13 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       .eq('journey_stage', stage)
       .select('id')
     if (!claimed?.length) return { ok: false, message: 'Someone moved this a moment ago, so nothing changed.', error: 'race' }
-    await logActivity(admin, c.id, 'journey_stage_changed', `${input.decision.replace(/_/g, ' ')} by ${input.via === 'auto' ? 'the desk' : 'Lily'}.`, {
-      from: stage,
-      to: target,
-      metadata: { by: input.by, via: input.via, decision: input.decision },
-    })
+    if (!holds) {
+      await logActivity(admin, c.id, 'journey_stage_changed', `${input.decision.replace(/_/g, ' ')} by ${input.via === 'auto' ? 'the desk' : 'Lily'}.`, {
+        from: stage,
+        to: target,
+        metadata: { by: input.by, via: input.via, decision: input.decision },
+      })
+    }
     await cancelFollowups(admin, c.id, ['decision_reminder', 'snooze_repost', 'bench_autosend'])
   }
 
@@ -245,7 +278,8 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   }
 
   // ── what happens next ──────────────────────────────────────────────────────
-  if (input.decision === 'intro_now') {
+  // Someone already met needs no nudge to book a call; the seats email stands alone.
+  if (input.decision === 'intro_now' && !holds) {
     const jobIds = input.jobIds?.length ? input.jobIds : strongSeatIds(p, seats)
     if (resend) await cancelFollowups(admin, c.id, ['referrer_nudge_1', 'referrer_nudge_2', 'referrer_escalate', 'candidate_book_nudge', 'candidate_book_escalate'], 'resent')
     await admin.from('candidates').update({ availability_status: c.availability_status === 'off_market' ? 'off_market' : 'active' }).eq('id', c.id)
@@ -267,8 +301,12 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       ? `${resend ? 'Resent' : 'Sent'} to ${to}.`
       : `:warning: The email to ${to ?? 'nobody'} did not send: ${emailError}. Worth sending by hand; the decision stands.`
 
-  const next =
-    input.decision === 'intro_now'
+  const stageWord = stage.replace(/_/g, ' ')
+  const next = holds
+    ? `${first} stays *${stageWord}*. ${input.decision === 'intro_now' ? 'The seats are in front of them; move them on from the profile when they answer.' : 'Re-matched automatically when a seat opens.'}`
+    : input.decision === 'not_fit' && met
+      ? `${first} is *not a fit after the call*.`
+      : input.decision === 'intro_now'
       ? recipient === 'owner'
         ? `${first} is *intro requested*. I nudge ${owner?.firstName ?? 'the owner'} on day 3 and 7 if nothing lands, and ask you on day 12.`
         : `${first} is *intro sent*. I nudge on day 4 if they have not booked, and ask you on day 10.`

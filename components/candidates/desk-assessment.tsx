@@ -8,7 +8,7 @@ import { Audience } from '@/components/candidates/audience'
 import { forwardableIntro, mailtoFor } from '@/lib/desk/intro'
 import { properName } from '@/lib/desk/people'
 import { CARD } from '@/lib/candidate-ui'
-import { journeyConfig, pastTheDoor, type JourneyStage } from '@/lib/journey'
+import { journeyConfig, type JourneyStage } from '@/lib/journey'
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
@@ -89,11 +89,7 @@ export async function DeskAssessment({
       {!panel ? (
         <p className="mt-2 text-[13.5px] text-[#6E6E68]">
           Not read by the panel yet.{' '}
-          {!isSuperAdmin
-            ? "You'll see the read here once it's done."
-            : pastTheDoor(journeyStage)
-              ? `Queue it below and the read lands here within a minute. No decision card: ${properName(person?.name ?? '').split(/\s+/)[0] || 'this person'} is already ${journeyConfig(journeyStage).label.toLowerCase()}, so intro, bench and not-a-fit no longer apply.`
-              : 'Queue it below and the card lands in #refery-desk within a minute.'}
+          {isSuperAdmin ? 'Queue it below and the card lands in #refery-desk within a minute.' : "You'll see the read here once it's done."}
         </p>
       ) : (
         <>

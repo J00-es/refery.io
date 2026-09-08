@@ -183,6 +183,9 @@ export interface PanelContext {
 
 export function recipientFor(candidate: Record<string, unknown>, owner: Owner | null): 'candidate' | 'owner' {
   if (!owner || owner.isUs) return 'candidate'
+  // Someone who registered themselves is their own owner; the email goes to them, about them.
+  if (candidate.user_id && owner.userId === candidate.user_id) return 'candidate'
+  if (candidate.email && owner.email.toLowerCase() === String(candidate.email).toLowerCase()) return 'candidate'
   if (candidate.intake_source === 'inbound') return 'candidate'
   return 'owner'
 }

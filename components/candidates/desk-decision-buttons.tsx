@@ -18,7 +18,7 @@ export function DeskDecisionButtons({ candidateId, journeyStage, hasPanel }: { c
   const [reason, setReason] = useState('')
   const [askReason, setAskReason] = useState(false)
 
-  const decidable = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'not_fit', 'dormant'].includes(journeyStage)
+  const decidable = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro', 'bench', 'not_fit', 'dormant', 'committee_call', 'warm'].includes(journeyStage)
 
   async function post(path: string, body: Record<string, unknown>, key: string) {
     setBusy(key)

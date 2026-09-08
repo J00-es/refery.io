@@ -11,6 +11,7 @@ import type { PanelRow } from '@/lib/desk/panel'
 import { seatBand, type Seat } from '@/lib/desk/seats'
 import { tierWord } from '@/lib/desk/tiers'
 import { firstNameOf, properName, type Owner } from '@/lib/desk/people'
+import { pastTheDoor } from '@/lib/journey'
 import type { ParsedResumeData } from '@/lib/types'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
@@ -20,6 +21,10 @@ export const DECISION_REACTIONS = ['fire', '+1', '-1', 'raising_hand', 'zzz'] as
 
 export const DECISION_LEGEND =
   ':fire: intro now (sends the email)  ·  :+1: bench (sends the note)  ·  :-1: not a fit, then one line in the thread, or "send"  ·  :raising_hand: you handle it  ·  :zzz: a week  ·  reply "edit: …" to change the email first'
+
+/** The same reactions on someone already met: emails go, the stage holds. */
+export const DECISION_LEGEND_MET =
+  ':fire: intro now (sends the seats email, stage holds)  ·  :+1: bench (sends the note, stage holds)  ·  :-1: not a fit after the call, then one line in the thread, or "send"  ·  :raising_hand: you handle it  ·  :zzz: a week  ·  reply "edit: …" to change the email first'
 
 const money = (n: unknown) => (typeof n === 'number' && Number.isFinite(n) && n > 0 ? `$${Math.round(n / 1000)}k` : null)
 
@@ -80,6 +85,7 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
   const { candidate: c, panel, owner, seats, recipient } = input
   const name = properName(c.name as string)
   const grade = panel.grade
+  const met = pastTheDoor(String(c.journey_stage ?? ''))
   const byLine =
     recipient === 'candidate'
       ? c.intake_source === 'inbound'
@@ -119,7 +125,7 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `:inbox_tray: *${esc(name)}* · *${esc(grade)}* · ${esc(byLine)} · ${esc(input.latencyLine)}`,
+        text: `:inbox_tray: *${esc(name)}* · *${esc(grade)}* · ${esc(byLine)}${met ? ` · already *${esc(String(c.journey_stage).replace(/_/g, ' '))}*` : ''} · ${esc(input.latencyLine)}`,
       },
     },
     { type: 'context', elements: [{ type: 'mrkdwn', text: esc(headline(c)) || 'no background on record' }] },
@@ -195,7 +201,7 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
         },
       ],
     },
-    { type: 'context', elements: [{ type: 'mrkdwn', text: DECISION_LEGEND }] },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: met ? DECISION_LEGEND_MET : DECISION_LEGEND }] },
   ]
 
   return { text: `${name} · ${grade} · suggested ${suggested.replace(/_/g, ' ')}`, blocks }

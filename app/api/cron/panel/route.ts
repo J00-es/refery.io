@@ -4,8 +4,10 @@
  *
  * A candidate who arrived through a partner submission already has a card in
  * #refery-desk, so the panel's read goes into that card's thread instead of
- * making a second card. A re-run (facts updated, manual re-panel) only speaks
- * up when the grade crossed the A- bar.
+ * making a second card. An automatic re-run (facts updated) only speaks up
+ * when the grade crossed the A- bar; a manual re-run always refreshes or
+ * posts the card, even for someone already met, because the press is Lily
+ * asking for the drafts.
  */
 
 import { NextRequest, NextResponse, after } from 'next/server'
@@ -16,7 +18,6 @@ import { postThreadReply, updateMessage, esc } from '@/lib/slack-bot'
 import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
 import { meetsBar, pastTheDoor as isPastTheDoor, type PanelGrade } from '@/lib/journey'
 import { properName } from '@/lib/desk/people'
-import { seatLabel } from '@/lib/desk/seats'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -135,10 +136,13 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
     return { grade: panel.grade, posted: 'submission thread', cost: panel.cost_usd }
   }
 
+  const manualRerun = reason === 'manual'
   if (before && c.desk_card_channel && c.desk_card_ts && (pastTheDoor || !crossed)) {
     // Still undecided: the card is rewritten in place so what Lily reads is
     // what the latest panel said, drafts included. Decided: a thread note only.
-    const undecided = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'].includes(String(c.journey_stage))
+    // Lily pressing "Run the panel" on someone already met also gets the
+    // card refreshed, since that press is her asking for the drafts again.
+    const undecided = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'].includes(String(c.journey_stage)) || (pastTheDoor && manualRerun)
     if (undecided) {
       const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf: null, latencyLine })
       await updateMessage(c.desk_card_channel as string, c.desk_card_ts as string, card.text, card.blocks)
@@ -148,34 +152,10 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
     }
     return { grade: panel.grade, posted: undecided ? 'card updated' : 'thread note', cost: panel.cost_usd }
   }
-  if (pastTheDoor) {
-    // No decision card: intro / bench / not-fit are door decisions and this
-    // person is already through it. A manual press still deserves an answer,
-    // so the read goes to the feed, where there is nothing to press.
-    if (reason === 'manual') {
-      const { postToFeed } = await import('@/lib/desk-notifications')
-      const stage = String(c.journey_stage).replace(/_/g, ' ')
-      const bySeat = new Map(ctx.seats.map(s => [s.jobId, s]))
-      const fits = (panel.seat_fits ?? []).filter(f => bySeat.has(f.job_id) && f.fit !== 'no').sort((a, b) => (a.fit === b.fit ? 0 : a.fit === 'strong' ? -1 : 1)).slice(0, 3)
-      const seatLines = fits.map(f => {
-        const s = bySeat.get(f.job_id)!
-        return `${f.fit === 'strong' ? ':large_green_circle:' : ':large_yellow_circle:'} *${esc(seatLabel(s, true))}* · ${f.fit} · ${esc(f.reason)}`
-      })
-      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
-      await postToFeed(
-        [
-          `:brain: *Panel re-read: ${esc(properName(c.name as string))} · ${esc(panel.grade)} · ${esc(panel.positioning ?? '')}.* Already *${esc(stage)}*, so no decision card. ${esc(panel.summary ?? '')}`,
-          ...seatLines,
-          fits.length ? '' : '_No live seat reads as a fit._',
-          `<${appUrl}/candidates/${candidateId}|Open the profile> to move ${esc(properName(c.name as string).split(/\s+/)[0])} on from here.`,
-        ]
-          .filter(l => l !== '')
-          .join('\n'),
-      )
-      return { grade: panel.grade, posted: 'feed note (past the door)', cost: panel.cost_usd }
-    }
-    return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
-  }
+  // Past the door the panel only speaks when asked: the door decisions no
+  // longer apply on their own, but Lily pressing "Run the panel" wants the
+  // card, drafts and all. The reactions then hold the stage (see decide.ts).
+  if (pastTheDoor && !manualRerun) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
 
   // Already known under another owner?
   let duplicateOf: { name: string; ownerName: string | null; since: string } | null = null
@@ -194,11 +174,15 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf, latencyLine })
   if (!posted.ok) throw new Error(`card not posted: ${posted.error}`)
 
-  const reminderDays = await deskSetting<number[]>(admin, 'decision_reminder_days', [2, 7])
-  await scheduleFollowup(admin, { candidateId, kind: 'decision_reminder', inDays: reminderDays[0] ?? 2 })
-  const autosend = await deskSetting<number | null>(admin, 'bench_autosend_hours', null)
-  if (autosend !== null && panel.suggested_decision === 'bench') {
-    await scheduleFollowup(admin, { candidateId, kind: 'bench_autosend', inHours: autosend })
+  // Reminders and the bench autosend are for people at the door. Someone
+  // already met is Lily's call, on her clock.
+  if (!pastTheDoor) {
+    const reminderDays = await deskSetting<number[]>(admin, 'decision_reminder_days', [2, 7])
+    await scheduleFollowup(admin, { candidateId, kind: 'decision_reminder', inDays: reminderDays[0] ?? 2 })
+    const autosend = await deskSetting<number | null>(admin, 'bench_autosend_hours', null)
+    if (autosend !== null && panel.suggested_decision === 'bench') {
+      await scheduleFollowup(admin, { candidateId, kind: 'bench_autosend', inHours: autosend })
+    }
   }
   return { grade: panel.grade, posted: 'card', cost: panel.cost_usd, suggested: panel.suggested_decision }
 }
