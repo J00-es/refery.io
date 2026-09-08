@@ -21,7 +21,7 @@ import { lookupLogos, tierWord, type Logo } from '@/lib/desk/tiers'
 import { firstNameOf, loadOwner, properName, type Owner } from '@/lib/desk/people'
 import type { ParsedResumeData, WorkExperience } from '@/lib/types'
 
-export const PANEL_PROMPT_VERSION = 1
+export const PANEL_PROMPT_VERSION = 2
 
 const SeatFit = z.object({
   job_id: z.string().describe('The SEAT id exactly as given.'),
@@ -79,7 +79,7 @@ GRADES. Grade against the bar for the seats Refery works, not against the genera
   pass  below that, or a profile Refery cannot place (wrong country with no path, career change with nothing to show yet).
 Calibrate to Lily's judgement: she cares about ownership, speed, shipping, customer contact, and AI-native work (agents, RAG, evals, ML in production). She discounts titles, pedigree without output, and long tenures with nothing shipped. Around 7 in 21 people she takes calls with are below A-, on purpose; when you give B+ to someone with an exact seat fit, say so in flags.
 
-SEAT FIT. Return only the seats rated strong or possible; every other seat is a no and is not listed. strong means Lily should ask for the intro today; possible means worth a look if the strong ones fall through. Blockers are facts, not opinions: a seat marked "us authorized" is a blocker for anyone needing new sponsorship (an H-1B transfer is a warning, not a blocker); an onsite seat is a blocker for someone who will not relocate; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. A person with a strong seat but a hard blocker is NOT intro_now; suggest bench and say why. strong requires every Must line met by evidence on the CV, and nothing in the seat's "Not for" line describing the person. If "Not for" describes them (a product leader for a seat that wants someone who still runs the queue, a big-company operator for a blank-page seat), the seat is at most possible, and the reason says which line.
+SEAT FIT. Return only the seats rated strong or possible; every other seat is a no and is not listed. strong means Lily should ask for the intro today; possible means worth a look if the strong ones fall through. Blockers are facts, not opinions. A seat marked "us authorized" means the company will not file a new petition; it is a blocker only for someone with no US work authorisation at all, or whose authorisation runs out within two years of today. It is NOT a blocker, and not a warning against the seat, for: OPT or STEM OPT with more than two years left from today (they can start tomorrow; sponsorship is a later conversation), an existing H-1B or H-1B1 that transfers, TN, O-1, L-1, EAD, green card or citizenship. Mention the visa once in flags when it will matter later; never repeat it under every seat. An onsite seat is a blocker for someone who will not relocate; a pay band $30k under the ask is a warning; years outside the asked range by more than three is a warning. A person with a strong seat but a hard blocker is NOT intro_now; suggest bench and say why. strong requires every Must line met by evidence on the CV, and nothing in the seat's "Not for" line describing the person. If "Not for" describes them (a product leader for a seat that wants someone who still runs the queue, a big-company operator for a blank-page seat), the seat is at most possible, and the reason says which line.
 
 SUGGESTED DECISION.
   intro_now       A- or better, at least one strong seat, no hard blocker.
@@ -205,6 +205,7 @@ function factsBlock(ctx: PanelContext): string {
     `Email on record: ${c.email ? 'yes' : 'no'}`,
     `Location on record: ${(c.location as string) ?? p.location ?? 'unknown'} · relocation: ${c.relocation_ok === true ? 'open to it' : c.relocation_ok === false ? 'no' : p.willing_to_relocate === true ? 'CV says open to it' : 'unknown'}`,
     `Work preference: ${(c.remote_preference as string) ?? p.remote_preference ?? 'unknown'}`,
+    `Today: ${new Date().toISOString().slice(0, 10)}`,
     `Work authorisation on record: ${(c.visa_status as string) ?? p.work_authorization ?? 'unknown'}`,
     `Comp: asks ${ask ?? 'unknown'}${cur ? `, currently ${cur}` : ''}`,
     `Years of experience: ${(c.experience_years as number) ?? p.experience_years ?? 'unknown'}`,
