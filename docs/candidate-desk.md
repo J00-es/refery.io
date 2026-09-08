@@ -74,7 +74,13 @@ numbered card, 1️⃣..6️⃣ act on one, 🔥 all strong, 💤 dismiss
 ## Setup that has to happen once
 
 1. The Google refresh token behind `GOOGLE_REFRESH_TOKEN` needs `gmail.send` and `gmail.readonly` in addition to `gmail.compose`. Until it does, every send answers 403 and the card thread says so.
-2. The Refery Ops bot must be in `#refery-desk` (it is) and `SLACK_CHANNEL_CALLS` set for recap cards.
+2. The Refery Ops bot must be in `#refery-desk`, `#refery-desk-feed` and `#refery-alerts` (it is) and `SLACK_CHANNEL_CALLS` set for recap cards.
+   Since 8 Sep 2026 the desk posts to three channels, split by what Lily has to do, not by source:
+   `#refery-desk` for anything carrying reactions (decision, submission and bench cards, escalations),
+   `#refery-desk-feed` for read-once notes (résumé arrivals, declined proposals, withdrawals), and
+   `#refery-alerts` for breakage (panel failed three times, Gmail token dead, résumé ingest crashed).
+   Thread notes follow their card. Reactions resolve by message channel and timestamp, so nothing
+   depends on which channel a card sits in. All three are plain bot posts, no model, no paid API.
 3. The nightly automation does not re-panel. A candidate is panelled once, at upload or submission, and the desk owns the grade from then on. The nightly job's only work on candidates is the embedding used by the GTM matcher, and the guard trigger throws away any grade or stage the old panel step might still write.
 
 ## Cost

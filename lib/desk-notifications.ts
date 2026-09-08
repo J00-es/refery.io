@@ -26,26 +26,47 @@ import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
-/** #refery-desk, private, created 6 Sep 2026. Invite @Refery Ops once. */
-const DESK_CHANNEL = 'C0BVB3YPABB'
-/** Until the bot is in #refery-desk, cards fall through to #refery-search-access. */
-const FALLBACK_CHANNEL = 'C0BV751LTJS'
+/**
+ * Three private channels, split by what Lily has to do with the message, not by
+ * where it came from. All three are plain bot posts: no model, no paid API.
+ *
+ *   decide  #refery-desk       cards that carry reactions: panel decisions, submissions, bench picks, escalations
+ *   feed    #refery-desk-feed  read once a day: résumé arrivals, declined proposals, withdrawals
+ *   alert   #refery-alerts     something is broken and nothing sends until it is fixed
+ *
+ * Created 6 Sep (desk) and 8 Sep 2026 (feed, alerts). @Refery Ops is a member of all three.
+ */
+export type DeskStream = 'decide' | 'feed' | 'alert'
 
+const CHANNEL_BY_STREAM: Record<DeskStream, { env: string; id: string }> = {
+  decide: { env: 'SLACK_CHANNEL_DESK', id: 'C0BVB3YPABB' },
+  feed: { env: 'SLACK_CHANNEL_DESK_FEED', id: 'C0C0FM4MZ7B' },
+  alert: { env: 'SLACK_CHANNEL_ALERTS', id: 'C0C0BQHLJT0' },
+}
+
+export function deskChannel(stream: DeskStream = 'decide'): string {
+  const { env, id } = CHANNEL_BY_STREAM[stream]
+  return process.env[env] || id
+}
+
+/** Every channel the desk posts to, for lookups that need to scan all of them. */
 export function deskChannels(): string[] {
-  return [...new Set([process.env.SLACK_CHANNEL_DESK || DESK_CHANNEL, FALLBACK_CHANNEL].filter(Boolean))]
+  return [...new Set((Object.keys(CHANNEL_BY_STREAM) as DeskStream[]).map(deskChannel))]
 }
 
 const money = (n: unknown) =>
   typeof n === 'number' && Number.isFinite(n) ? `$${Math.round(n).toLocaleString('en-US')}` : null
 
-export async function postToDesk(text: string, blocks?: SlackBlock[]): Promise<{ ok: boolean; ts?: string; channel?: string; error?: string }> {
-  let last: { ok: boolean; ts?: string; channel?: string; error?: string } = { ok: false, error: 'no channel' }
-  for (const channel of deskChannels()) {
-    last = await postMessage(channel, text, blocks ?? [{ type: 'section', text: { type: 'mrkdwn', text } }])
-    if (last.ok && last.ts) return last
-  }
-  return last
+async function postToStream(stream: DeskStream, text: string, blocks?: SlackBlock[]): Promise<{ ok: boolean; ts?: string; channel?: string; error?: string }> {
+  return postMessage(deskChannel(stream), text, blocks ?? [{ type: 'section', text: { type: 'mrkdwn', text } }])
 }
+
+/** #refery-desk: the message wants a reaction from Lily. */
+export const postToDesk = (text: string, blocks?: SlackBlock[]) => postToStream('decide', text, blocks)
+/** #refery-desk-feed: worth knowing, nothing to press. */
+export const postToFeed = (text: string, blocks?: SlackBlock[]) => postToStream('feed', text, blocks)
+/** #refery-alerts: something is broken; loud on purpose. */
+export const postAlert = (text: string, blocks?: SlackBlock[]) => postToStream('alert', text, blocks)
 
 // ── 1. a submission ──────────────────────────────────────────────────────────
 
@@ -537,7 +558,7 @@ export async function noteProposalDeclined(assignmentId: string, reason: string 
   const who = (partner?.full_name as string | null) || (partner?.email as string | null) || 'A partner'
   const where = `${(role?.headline as string | null) || (role?.title as string | null) || 'a search'} at ${(role?.company_name as string | null) ?? 'a client'}`
   const url = `${APP_URL}/searches/${a.company_id}/roles/${a.job_id}/coverage`
-  await postToDesk(
+  await postToFeed(
     `:no_entry: *${esc(who)}* declined *${esc(where)}*${reason ? `: “${esc(reason)}”` : '.'}  ·  <${url}|propose someone else>`,
   )
 }
@@ -556,7 +577,7 @@ export async function noteWithdrawal(submissionId: string, fromStatus: string): 
     .maybeSingle()
   if (!s) return
   const url = `${APP_URL}/searches/${s.company_id}/roles/${s.job_id}`
-  await postToDesk(
+  await postToFeed(
     `:rotating_light: *${esc(s.submitted_by_name || s.submitted_by_email || 'A partner')}* withdrew *${esc(s.candidate_name as string)}* from *${esc(s.job_title as string)}* at ${esc(s.company_name as string)} while ${esc(submissionStatus(fromStatus).label.toLowerCase())}. The client may need to hear it from us.  ·  <${url}|open the search>`,
   )
 }

@@ -6,7 +6,7 @@ import { candidateRowFromParsed, toText } from '@/lib/resume'
 import { embedCandidate } from '@/lib/embeddings'
 import { normalizeEmail, SUPER_ADMIN_EMAILS } from '@/lib/current-user'
 import { getSubmissionTermsStatus } from '@/lib/submission-terms'
-import { postToDesk } from '@/lib/desk-notifications'
+import { postAlert, postToFeed } from '@/lib/desk-notifications'
 import { sendDeskEmail } from '@/lib/desk/outbound'
 import { inboundCvAck } from '@/lib/desk/emails'
 import { esc } from '@/lib/slack-bot'
@@ -507,7 +507,7 @@ export async function ingestInboundResume(
         detail: `already in the database as ${duplicate.match.name}`,
       })
 
-      await postToDesk(
+      await postToFeed(
         `:twisted_rightwards_arrows: *${esc(name)}* was emailed in again by ${esc(senderLabel(email))}; already on file as *${esc(duplicate.match.name)}*. Nothing created.  ·  <${email.origin}/candidates/${duplicate.match.id}|open the existing profile>`,
       )
 
@@ -580,10 +580,10 @@ export async function ingestInboundResume(
       })
     }
     if (termsWarning) {
-      await postToDesk(`:warning: *${esc(name)}* arrived by email from ${esc(owner.ownerLabel)}. ${esc(termsWarning)}`)
+      await postToFeed(`:warning: *${esc(name)}* arrived by email from ${esc(owner.ownerLabel)}. ${esc(termsWarning)}`)
     }
     if (outcome === 'possible_duplicate' && duplicate) {
-      await postToDesk(`:grey_question: *${esc(name)}* arrived by email and shares a name with an existing profile. Check before working it.  ·  <${email.origin}/candidates/${duplicate.match.id}|the same-name profile>`)
+      await postToFeed(`:grey_question: *${esc(name)}* arrived by email and shares a name with an existing profile. Check before working it.  ·  <${email.origin}/candidates/${duplicate.match.id}|the same-name profile>`)
     }
 
     return { outcome, candidateId: candidate.id, duplicateOf: duplicate?.match.id }
@@ -593,7 +593,7 @@ export async function ingestInboundResume(
 
     await recordEvent(admin, email, attachment, { outcome: 'error', detail: detail.slice(0, 500) })
 
-    await postToDesk(
+    await postAlert(
       `:warning: Could not ingest *${esc(attachment.filename)}* from ${esc(senderLabel(email))}: ${esc(detail.slice(0, 300))}. The email is in your inbox; this one needs uploading by hand.`,
     )
 

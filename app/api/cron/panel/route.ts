@@ -80,8 +80,8 @@ async function work(req: NextRequest): Promise<{ ok: boolean; processed: number;
       await admin.from('candidate_panel_queue').update({ status: giveUp ? 'failed' : 'queued', error: message.slice(0, 500), finished_at: giveUp ? new Date().toISOString() : null }).eq('candidate_id', id)
       if (giveUp) {
         const { data: c } = await admin.from('candidates').select('name, desk_card_channel, desk_card_ts').eq('id', id).maybeSingle()
-        const { postToDesk } = await import('@/lib/desk-notifications')
-        await postToDesk(`:warning: The panel failed three times on *${esc(properName(c?.name as string))}*: ${esc(message.slice(0, 200))}. Open the profile and press "Run the panel" once the cause is fixed.`)
+        const { postAlert } = await import('@/lib/desk-notifications')
+        await postAlert(`:warning: The panel failed three times on *${esc(properName(c?.name as string))}*: ${esc(message.slice(0, 200))}. Open the profile and press "Run the panel" once the cause is fixed.`)
       }
       results.push({ id, error: message })
     }

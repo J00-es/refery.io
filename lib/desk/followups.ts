@@ -15,8 +15,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addReaction, esc, postThreadReply } from '@/lib/slack-bot'
-import { deskChannels } from '@/lib/desk-notifications'
-import { postMessage } from '@/lib/slack-bot'
+import { postAlert, postToDesk } from '@/lib/desk-notifications'
 import { calendarReply, candidateNudge, referrerNudge, referrerOutcome } from '@/lib/desk/emails'
 import { bookingFound, bounced, candidateWrote, classifyReply, introLanded, repliesSince } from '@/lib/desk/signals'
 import { directSubject, partnerSubject, partnerUpdateSubject } from '@/lib/desk/subjects'
@@ -54,11 +53,8 @@ async function threadNote(c: Record<string, unknown>, text: string): Promise<{ t
     return { ts: r.ts, channel: c.desk_card_channel as string }
   }
   // No card (older candidate). Post a line to the desk instead so it is seen.
-  for (const ch of deskChannels()) {
-    const r = await postMessage(ch, text, [{ type: 'section', text: { type: 'mrkdwn', text } }])
-    if (r.ok) return { ts: r.ts, channel: ch }
-  }
-  return {}
+  const r = await postToDesk(text)
+  return r.ok ? { ts: r.ts, channel: r.channel } : {}
 }
 
 function ms(iso: string | null | undefined): number {
@@ -490,7 +486,7 @@ async function watchThreads(admin: SupabaseClient): Promise<{ replies: number; b
   return { replies, bounces }
 }
 
-/** Once a day: can the desk still mint a Gmail token? If not, say so in the desk channel, loudly, before anyone presses send. */
+/** Once a day: can the desk still mint a Gmail token? If not, say so in #refery-alerts, loudly, before anyone presses send. */
 async function googleHealth(admin: SupabaseClient): Promise<'ok' | 'down' | 'skipped'> {
   const last = await deskSetting<string | null>(admin, 'google_health_checked_at', null)
   if (last && Date.now() - ms(last) < 20 * 3_600_000) return 'skipped'
@@ -499,7 +495,7 @@ async function googleHealth(admin: SupabaseClient): Promise<'ok' | 'down' | 'ski
   await admin.from('desk_settings').upsert({ key: 'google_health_checked_at', value: new Date().toISOString() as never, updated_at: new Date().toISOString() }, { onConflict: 'key' })
   if (!ok) {
     const text = ':rotating_light: The desk cannot reach Gmail: the Google connection failed its daily check. Nothing sends until it is reconnected at refery.xyz/admin/settings (one button).'
-    for (const ch of deskChannels()) await postMessage(ch, text, [{ type: 'section', text: { type: 'mrkdwn', text } }])
+    await postAlert(text)
   }
   return ok ? 'ok' : 'down'
 }
