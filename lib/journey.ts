@@ -194,6 +194,14 @@ export function stripIndexOf(stage: JourneyStage): number {
  */
 const AT_OR_ABOVE_BAR: PanelGrade[] = ['A+', 'A', 'A-']
 
+/**
+ * Past the door: the desk's door decisions (intro now, bench, not a fit) no
+ * longer apply, so the panel never posts a decision card for these stages.
+ */
+export function pastTheDoor(stage: string): boolean {
+  return ['intro_requested', 'intro_sent', 'committee_call', 'warm', 'placed', 'post_committee_not_fit'].includes(stage)
+}
+
 export function meetsBar(grade: PanelGrade | null): boolean {
   return grade !== null && AT_OR_ABOVE_BAR.includes(grade)
 }

@@ -14,8 +14,9 @@ import { buildPanelContext, latestPanel, runPanel } from '@/lib/desk/panel'
 import { buildDecisionCard, postDecisionCard, suggestedLine } from '@/lib/desk/card'
 import { postThreadReply, updateMessage, esc } from '@/lib/slack-bot'
 import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
-import { meetsBar, type PanelGrade } from '@/lib/journey'
+import { meetsBar, pastTheDoor as isPastTheDoor, type PanelGrade } from '@/lib/journey'
 import { properName } from '@/lib/desk/people'
+import { seatLabel } from '@/lib/desk/seats'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -122,7 +123,7 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
     .limit(1)
     .maybeSingle()
 
-  const pastTheDoor = ['intro_requested', 'intro_sent', 'committee_call', 'warm', 'placed', 'post_committee_not_fit'].includes(String(c.journey_stage))
+  const pastTheDoor = isPastTheDoor(String(c.journey_stage))
   const crossed = priorGrade && meetsBar(priorGrade) !== meetsBar(panel.grade as PanelGrade)
 
   if (sub?.slack_channel_id && sub.slack_message_ts) {
@@ -147,7 +148,34 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
     }
     return { grade: panel.grade, posted: undecided ? 'card updated' : 'thread note', cost: panel.cost_usd }
   }
-  if (pastTheDoor) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
+  if (pastTheDoor) {
+    // No decision card: intro / bench / not-fit are door decisions and this
+    // person is already through it. A manual press still deserves an answer,
+    // so the read goes to the feed, where there is nothing to press.
+    if (reason === 'manual') {
+      const { postToFeed } = await import('@/lib/desk-notifications')
+      const stage = String(c.journey_stage).replace(/_/g, ' ')
+      const bySeat = new Map(ctx.seats.map(s => [s.jobId, s]))
+      const fits = (panel.seat_fits ?? []).filter(f => bySeat.has(f.job_id) && f.fit !== 'no').sort((a, b) => (a.fit === b.fit ? 0 : a.fit === 'strong' ? -1 : 1)).slice(0, 3)
+      const seatLines = fits.map(f => {
+        const s = bySeat.get(f.job_id)!
+        return `${f.fit === 'strong' ? ':large_green_circle:' : ':large_yellow_circle:'} *${esc(seatLabel(s, true))}* · ${f.fit} · ${esc(f.reason)}`
+      })
+      const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
+      await postToFeed(
+        [
+          `:brain: *Panel re-read: ${esc(properName(c.name as string))} · ${esc(panel.grade)} · ${esc(panel.positioning ?? '')}.* Already *${esc(stage)}*, so no decision card. ${esc(panel.summary ?? '')}`,
+          ...seatLines,
+          fits.length ? '' : '_No live seat reads as a fit._',
+          `<${appUrl}/candidates/${candidateId}|Open the profile> to move ${esc(properName(c.name as string).split(/\s+/)[0])} on from here.`,
+        ]
+          .filter(l => l !== '')
+          .join('\n'),
+      )
+      return { grade: panel.grade, posted: 'feed note (past the door)', cost: panel.cost_usd }
+    }
+    return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
+  }
 
   // Already known under another owner?
   let duplicateOf: { name: string; ownerName: string | null; since: string } | null = null
