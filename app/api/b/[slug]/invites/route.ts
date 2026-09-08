@@ -99,6 +99,15 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ slug: 
     : await db.from('hm_brief_invites').insert(row)
   if (error) console.error('[hm-brief] invite write failed:', error)
 
+  // The room is the client's from now on: candidate cards go there.
+  if (outcome.channelId) {
+    await db
+      .from('client_companies')
+      .update({ slack_channel_id: outcome.channelId, slack_channel_name: outcome.channelName })
+      .eq('company_id', companyId)
+      .is('slack_channel_id', null)
+  }
+
   // The clients stream too, so it sits next to the comments and the delivery choice.
   await notifySlack({
     stream: 'clients',

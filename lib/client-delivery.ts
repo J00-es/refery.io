@@ -197,7 +197,7 @@ export function cvUrl(slug: string, submissionId: string): string {
 
 export function workAuthLabel(v: string | null): string | null {
   if (!v) return null
-  return v.replace(/_/g, ' ')
+  return v.replace(/_/g, ' ').replace(/(eu|us|uk|h1b|opt|stem)/gi, m => m.toUpperCase())
 }
 
 function factsLine(d: DeliveryRecord): string {
