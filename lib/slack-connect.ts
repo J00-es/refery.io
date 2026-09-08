@@ -13,7 +13,9 @@
  *             founder is told Lily will send it. Nothing is lost; it is just
  *             one more thing on Lily's plate until the scopes are granted.
  *
- * Since the evening of 2026-09-08 the app holds channels:manage, groups:write,
+ * Client channels are created private (Lily's call, 2026-09-08); the finder
+ * looks through private channels too, and the bot is a member of the ones it
+ * creates. Since the evening of 2026-09-08 the app holds channels:manage, groups:write,
  * im:write, mpim:write and conversations.connect:write, so the invited path is
  * the normal one; the first real invitation created #livo-refery. The manual
  * path stays for the day a scope is revoked or Slack Connect is turned off.

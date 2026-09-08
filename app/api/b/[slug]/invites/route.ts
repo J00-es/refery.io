@@ -74,6 +74,8 @@ export async function POST(request: NextRequest, ctx: { params: Promise<{ slug: 
     email,
     requestedBy: authorName,
     briefUrl: briefUrl(brief.slug),
+    // Client rooms are private: a founder's hiring is nobody else's business.
+    isPrivate: true,
   })
 
   const row = {
