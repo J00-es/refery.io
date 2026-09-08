@@ -1,15 +1,20 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
-import { resolveFee, payoutAmount, feeExplanation } from '@/lib/fees'
+import { resolveFee, payoutAmount, feeExplanation, type ResolvedFee } from '@/lib/fees'
+import { featuredSearches, FUNCTION_LABEL, type FeaturedSearch } from '@/lib/outreach/featured'
 import { WhoAreYou } from '@/components/onboarding/who-are-you'
 
 export const dynamic = 'force-dynamic'
 
 /**
- * The campaign page behind a universal link in a mass LinkedIn DM.
+ * The page behind a universal link in a mass LinkedIn DM or a cold email.
  *
- * One anonymised search, how it works in three lines, and a who-are-you step.
+ * A general link shows the two searches that need people most right now, one
+ * engineering and one GTM, chosen by rule when the page renders and
+ * anonymised. A search link shows the one search it was made for. Below
+ * either: how it works in three lines, and a who-are-you step.
+ *
  * Anyone can open the link, so the page decides nothing by itself: a person
  * on the campaign's audience list goes straight to account setup, already
  * approved; anyone else becomes a normal application for Lily to read.
@@ -21,9 +26,18 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
   if (!campaign) notFound()
 
   const closed = campaign.active_to && new Date(campaign.active_to as string).getTime() < Date.now()
-  const { data: role } = await admin.from('partner_roles_v').select('*').eq('job_id', campaign.job_id).maybeSingle()
-  const live = role && role.is_live && role.job_status === 'open'
-  const fee = role ? resolveFee(role) : null
+  const general = campaign.kind !== 'search' || !campaign.job_id
+
+  let cards: SearchCard[] = []
+  if (general) {
+    const f = await featuredSearches(admin)
+    cards = [f.engineering, f.gtm].filter((x): x is FeaturedSearch => x !== null).map(cardFromFeatured)
+  } else {
+    const { data: role } = await admin.from('partner_roles_v').select('*').eq('job_id', campaign.job_id).maybeSingle()
+    if (role && role.is_live && role.job_status === 'open') {
+      cards = [{ key: role.job_id, tag: null, title: role.headline || role.title, facts: role.location ?? '', summary: campaign.summary as string, hiringNow: role.priority === 'urgent', fee: resolveFee(role) }]
+    }
+  }
 
   return (
     <div className="min-h-svh bg-[#F2F1EB] text-[#161613]">
@@ -32,31 +46,41 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
 
         <section className="mt-8">
           <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">{campaign.sender_name} sent you here.</h1>
-          <p className="mt-2 text-[14px] text-[#6E6E68]">One of the searches we&rsquo;re working on right now, what you&rsquo;d do, and how to join. About four minutes.</p>
+          <p className="mt-2 text-[14px] text-[#6E6E68]">
+            {general
+              ? 'Two of the searches we’re working on right now, what you’d do, and how to join. About four minutes.'
+              : 'One of the searches we’re working on right now, what you’d do, and how to join. About four minutes.'}
+          </p>
         </section>
 
-        {live && role ? (
-          <section className="mt-5 rounded-[14px] border border-[#E4E3DC] bg-white p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-[16px] font-semibold leading-tight">{role.headline || role.title}</p>
-                {role.location && <p className="mt-0.5 text-[12.5px] text-[#9C9C95]">{role.location}</p>}
-              </div>
-              {role.priority === 'urgent' && <span className="shrink-0 rounded-full bg-[#FBEDEB] px-2.5 py-0.5 text-[12px] font-semibold text-[#A3423A]">Hiring now</span>}
-            </div>
-            <p className="mt-3 text-[13px] text-[#2A2A26]">{campaign.summary}</p>
-            {fee && (
-              <p className="mt-3 text-[12.5px]">
-                <span className="font-semibold text-[#1F3A2F]">{payoutAmount(fee) ? `${payoutAmount(fee)} to you on a placement` : `${fee.scoutSharePercentage}% of the fee to you`}</span>
-                <span className="text-[#9C9C95]"> · {feeExplanation(fee)}</span>
-              </p>
-            )}
-            <p className="mt-3 text-[12px] text-[#9C9C95]">The company&rsquo;s name and the full brief open after the partner terms. Every client has a confidentiality agreement with us.</p>
-          </section>
+        {cards.length > 0 ? (
+          <div className="mt-5 grid gap-3">
+            {cards.map(c => (
+              <section key={c.key} className="rounded-[14px] border border-[#E4E3DC] bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    {c.tag && <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#5E8571]">{c.tag}</p>}
+                    <p className="mt-0.5 text-[16px] font-semibold leading-tight">{c.title}</p>
+                    {c.facts && <p className="mt-0.5 text-[12.5px] text-[#9C9C95]">{c.facts}</p>}
+                  </div>
+                  {c.hiringNow && <span className="shrink-0 rounded-full bg-[#FBEDEB] px-2.5 py-0.5 text-[12px] font-semibold text-[#A3423A]">Hiring now</span>}
+                </div>
+                {c.summary && <p className="mt-3 text-[13px] text-[#2A2A26]">{c.summary}</p>}
+                <p className="mt-3 text-[12.5px]">
+                  <span className="font-semibold text-[#1F3A2F]">{payoutAmount(c.fee) ? `${payoutAmount(c.fee)} to you on a placement` : `${c.fee.scoutSharePercentage}% of the fee to you`}</span>
+                  <span className="text-[#9C9C95]"> · {feeExplanation(c.fee)}</span>
+                </p>
+              </section>
+            ))}
+            <p className="px-1 text-[12px] text-[#9C9C95]">
+              {general ? 'Company names and full briefs open after the partner terms, along with every other live search. ' : 'The company’s name and the full brief open after the partner terms. '}
+              Every client has a confidentiality agreement with us.
+            </p>
+          </div>
         ) : (
           <section className="mt-5 rounded-[14px] border border-[#E4E3DC] bg-white p-4">
-            <p className="text-[14px] font-semibold">That search has filled since the message went out.</p>
-            <p className="mt-1 text-[13px] text-[#6E6E68]">There are usually others in the same cities and functions. Tell us who you are below and we&rsquo;ll point you at the closest one.</p>
+            <p className="text-[14px] font-semibold">{general ? 'The searches move quickly.' : 'That search has filled since the message went out.'}</p>
+            <p className="mt-1 text-[13px] text-[#6E6E68]">Tell us who you are below and we&rsquo;ll point you at the closest live search to the people you know.</p>
           </section>
         )}
 
@@ -86,4 +110,18 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
       </div>
     </div>
   )
+}
+
+interface SearchCard {
+  key: string
+  tag: string | null
+  title: string
+  facts: string
+  summary: string | null
+  hiringNow: boolean
+  fee: ResolvedFee
+}
+
+function cardFromFeatured(f: FeaturedSearch): SearchCard {
+  return { key: f.jobId, tag: FUNCTION_LABEL[f.fn], title: f.title, facts: f.facts, summary: f.summary, hiringNow: f.hiringNow, fee: f.fee }
 }
