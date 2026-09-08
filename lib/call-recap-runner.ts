@@ -41,6 +41,26 @@ const MIN_SUMMARY_CHARS = 400
 export const MAX_ATTEMPTS = 3
 
 /**
+ * A pending claim younger than this belongs to a run that is still working.
+ *
+ * With two triggers, the poll routinely sees the webhook's claim while the
+ * webhook is mid-summary. Without this guard it would read that as a crashed
+ * attempt, bump the counter and run the same call again. Six minutes is the
+ * function's 300 s ceiling with room for the clock: a claim older than that
+ * and still pending really is dead, and the retry path is right to take it.
+ */
+export const IN_FLIGHT_MINUTES = 6
+
+export function inFlight(
+  row: { status?: string | null; updated_at?: string | null } | null | undefined,
+  now: number = Date.now(),
+): boolean {
+  if (!row || row.status !== 'pending' || !row.updated_at) return false
+  const age = now - new Date(row.updated_at).getTime()
+  return Number.isFinite(age) && age < IN_FLIGHT_MINUTES * 60 * 1000
+}
+
+/**
  * Resolution order is load-bearing, and is the same order the Python ingester
  * uses. A person can sit in several tables at once, so the most specific
  * relationship has to win.

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { verifyStandardWebhookSignature } from '@/lib/resend-webhook'
-import { MAX_ATTEMPTS, recapNote, refreshMirror } from '@/lib/call-recap-runner'
+import { MAX_ATTEMPTS, inFlight, recapNote, refreshMirror } from '@/lib/call-recap-runner'
 
 /**
  * Granola webhook: the fast path for post-call recaps.
@@ -104,7 +104,7 @@ async function handleEvent(
 ): Promise<Record<string, unknown>> {
   const { data: existing } = await admin
     .from('call_recaps')
-    .select('status, attempts')
+    .select('status, attempts, updated_at')
     .eq('granola_note_id', noteId)
     .maybeSingle()
 
@@ -116,6 +116,10 @@ async function handleEvent(
       ? await refreshMirror(admin, noteId)
       : { note: noteId, skipped: 'already posted' }
   }
+
+  // `note.edited` often follows `note.generated` within seconds, and the poll
+  // may have the note as well. Whoever claimed it first finishes it.
+  if (inFlight(existing)) return { note: noteId, skipped: 'another run has it' }
 
   if (existing && (existing.attempts as number) >= MAX_ATTEMPTS) {
     return { note: noteId, skipped: `given up after ${MAX_ATTEMPTS} attempts` }

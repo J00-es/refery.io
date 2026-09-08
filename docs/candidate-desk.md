@@ -22,7 +22,7 @@ any door ─▶ candidates insert ─▶ trigger queues panel ─▶ /api/cron/p
         booking detection, escalations back to the card thread, a sweep so nobody waits
         without a timer
                    │
-        Granola note ─▶ /api/cron/call-recaps ─▶ recap card ─▶ 🔥 👍 👎 💤 verdict,
+        Granola note ─▶ /api/webhooks/granola (or the ten-minute poll) ─▶ recap card ─▶ 🔥 👍 👎 💤 verdict,
         thread reply = Lily's note, drafts for the founder blurb and the referrer update
         each with their own 👍 to send
 

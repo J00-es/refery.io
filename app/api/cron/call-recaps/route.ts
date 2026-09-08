@@ -26,7 +26,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { recentNotes } from '@/lib/granola'
-import { MAX_ATTEMPTS, recapNote } from '@/lib/call-recap-runner'
+import { MAX_ATTEMPTS, inFlight, recapNote } from '@/lib/call-recap-runner'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -109,7 +109,7 @@ async function run(request: NextRequest) {
   // has already failed is worth another model call.
   const { data: seenRows } = await admin
     .from('call_recaps')
-    .select('granola_note_id, status, attempts')
+    .select('granola_note_id, status, attempts, updated_at')
     .in('granola_note_id', notes.map(n => n.id))
 
   const seen = new Map((seenRows ?? []).map(r => [r.granola_note_id as string, r]))
@@ -125,6 +125,10 @@ async function run(request: NextRequest) {
 
     const already = seen.get(note.id)
     if (already?.status === 'posted') continue
+    if (inFlight(already)) {
+      results.push({ note: note.id, skipped: 'another run has it' })
+      continue
+    }
     if (already && (already.attempts as number) >= MAX_ATTEMPTS) {
       results.push({ note: note.id, skipped: `given up after ${MAX_ATTEMPTS} attempts` })
       continue
