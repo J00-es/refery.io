@@ -97,15 +97,22 @@ export async function inviteToSlackWithLily(input: {
   email: string
   requestedBy: string | null
   briefUrl: string
+  /**
+   * Partners get a private `#<name>-refery` room rather than the public client
+   * channel, and the link Lily sees points at their profile, not a brief.
+   */
+  isPrivate?: boolean
+  linkLabel?: string
 }): Promise<InviteOutcome> {
   const name = clientChannelName(input.companyName)
+  const linkLabel = input.linkLabel ?? 'Open the brief'
   let detail: string | null = null
 
   // ── invited path ────────────────────────────────────────────────────────
   const existing = await findChannel(name)
   let channel = existing
   if (!channel) {
-    const created = await slack('conversations.create', { name, is_private: false })
+    const created = await slack('conversations.create', { name, is_private: Boolean(input.isPrivate) })
     if (created.ok) {
       const c = created.channel as { id: string; name: string }
       channel = { id: c.id, name: c.name }
@@ -120,7 +127,7 @@ export async function inviteToSlackWithLily(input: {
     const shared = await slack('conversations.inviteShared', { channel: channel.id, emails: [input.email], external_limited: false })
     if (shared.ok) {
       await dmLily(
-        `:handshake: *${esc(input.companyName)}*: Slack Connect invitation sent to ${esc(input.email)}${input.requestedBy ? ` (requested by ${esc(input.requestedBy)})` : ''} for #${channel.name}. They accept from their inbox and land in the channel with you.\n<${input.briefUrl}|Open the brief>`,
+        `:handshake: *${esc(input.companyName)}*: Slack Connect invitation sent to ${esc(input.email)}${input.requestedBy ? ` (requested by ${esc(input.requestedBy)})` : ''} for #${channel.name}. They accept from their inbox and land in the channel with you.\n<${input.briefUrl}|${esc(linkLabel)}>`,
       )
       return { mode: 'invited', channelId: channel.id, channelName: channel.name, detail: null }
     }
@@ -132,7 +139,7 @@ export async function inviteToSlackWithLily(input: {
     ? `Open #${channel.name} → channel name → *Share channel* (Slack Connect) → enter the email.`
     : `Create #${name} (or open your DM), then *Share channel* (Slack Connect) → enter the email. Or Invite people → by email.`
   await dmLily(
-    `:email: *${esc(input.companyName)}* asked for Slack access: *${esc(input.email)}*${input.requestedBy ? ` (${esc(input.requestedBy)})` : ''}.\nThe app could not send the invitation itself (${esc(detail ?? 'no Slack Connect scope')}), so please send it by hand: ${steps}\nThey were told you will send it shortly.\n<${input.briefUrl}|Open the brief>`,
+    `:email: *${esc(input.companyName)}* asked for Slack access: *${esc(input.email)}*${input.requestedBy ? ` (${esc(input.requestedBy)})` : ''}.\nThe app could not send the invitation itself (${esc(detail ?? 'no Slack Connect scope')}), so please send it by hand: ${steps}\nThey were told you will send it shortly.\n<${input.briefUrl}|${esc(linkLabel)}>`,
   )
   return { mode: 'manual', channelId: channel?.id ?? null, channelName: channel?.name ?? null, detail }
 }
