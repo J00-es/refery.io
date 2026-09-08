@@ -166,35 +166,6 @@ export function FounderBrief({
         )}
 
         <div className="mt-7 grid gap-8 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-          {/* Rail: first on a phone, beside the content on a desk. */}
-          <aside className="order-first space-y-4 lg:order-none lg:sticky lg:top-6">
-            {todo.length > 0 && <BriefTodo items={todo} heading={firstName ? `${firstName}, your part` : 'Your part'} />}
-            <nav aria-label="On this page" className={`hidden p-4 lg:block ${CARD}`}>
-              <p className="text-[12.5px] font-semibold text-[#6E6E68]">On this page</p>
-              <ol className="mt-2 space-y-1">
-                {sections.map((s, i) => (
-                  <li key={s.id}>
-                    <a href={`#${s.id}`} className={`flex items-baseline gap-2 py-0.5 text-[13.5px] text-[#2A2A26] transition-colors hover:text-[#1F3A2F]`}>
-                      <span className="w-5 shrink-0 text-[11.5px] font-semibold text-[#8A6A1F]">{String(i + 1).padStart(2, '0')}</span>
-                      <span>{s.nav ?? s.heading}</span>
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-            {content.signoff && (
-              <div className={`hidden p-4 lg:block ${CARD}`}>
-                <p className="text-[12.5px] font-semibold text-[#6E6E68]">Written by</p>
-                <p className="mt-1.5 text-[15px] font-semibold text-[#161613]">{content.signoff.name}</p>
-                {content.signoff.lines.map((line, i) => (
-                  <p key={i} className={`mt-0.5 text-[13px] leading-relaxed ${MUTED}`}>
-                    <Inline text={line} />
-                  </p>
-                ))}
-              </div>
-            )}
-          </aside>
-
           {/* Main column: one card per section, folded to its "in short" line. */}
           <div className="min-w-0 space-y-4">
             {sections.map((section, index) => {
@@ -257,6 +228,35 @@ export function FounderBrief({
 
             {footerSlot}
           </div>
+          {/* Rail: first on a phone, beside the content on a desk. */}
+          <aside className="order-first space-y-4 lg:order-none lg:sticky lg:top-6">
+            {todo.length > 0 && <BriefTodo items={todo} heading={firstName ? `${firstName}, your part` : 'Your part'} />}
+            <nav aria-label="On this page" className={`hidden p-4 lg:block ${CARD}`}>
+              <p className="text-[12.5px] font-semibold text-[#6E6E68]">On this page</p>
+              <ol className="mt-2 space-y-1">
+                {sections.map((s, i) => (
+                  <li key={s.id}>
+                    <a href={`#${s.id}`} className={`flex items-baseline gap-2 py-0.5 text-[13.5px] text-[#2A2A26] transition-colors hover:text-[#1F3A2F]`}>
+                      <span className="w-5 shrink-0 text-[11.5px] font-semibold text-[#8A6A1F]">{String(i + 1).padStart(2, '0')}</span>
+                      <span>{s.nav ?? s.heading}</span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+            {content.signoff && (
+              <div className={`hidden p-4 lg:block ${CARD}`}>
+                <p className="text-[12.5px] font-semibold text-[#6E6E68]">Written by</p>
+                <p className="mt-1.5 text-[15px] font-semibold text-[#161613]">{content.signoff.name}</p>
+                {content.signoff.lines.map((line, i) => (
+                  <p key={i} className={`mt-0.5 text-[13px] leading-relaxed ${MUTED}`}>
+                    <Inline text={line} />
+                  </p>
+                ))}
+              </div>
+            )}
+          </aside>
+
         </div>
       </div>
 
