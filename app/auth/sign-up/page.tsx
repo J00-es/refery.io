@@ -14,7 +14,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { User, Search, Building, ArrowLeft, ArrowRight, Check } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { PARTNER_TERMS_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { EMPTY_PREFERENCES, PreferencesFields, preferencesComplete, type PreferencesValue } from '@/components/onboarding/preferences-fields'
 import { AgreementContent } from '@/components/agreement-content'
@@ -60,33 +60,21 @@ const ROLE_OPTIONS: Array<{
   value: SignupKind
   title: string
   description: string
-  icon: typeof User
-  bg: string
-  fg: string
 }> = [
   {
     value: 'scout',
     title: 'Scout',
     description: 'You have a great network and want to share talented people you know.',
-    icon: Search,
-    bg: 'bg-[#E7EDE9]',
-    fg: 'text-[#1F3A2F]',
   },
   {
     value: 'recruiter',
     title: 'Recruiting Partner',
     description: 'A professional recruiter or independent talent partner looking to collaborate.',
-    icon: User,
-    bg: 'bg-[#EDE8DF]',
-    fg: 'text-[#6A5636]',
   },
   {
     value: 'firm',
     title: 'Recruiting Firm',
     description: 'One authorised person signs the commercial agreement for your company. Each colleague accepts short team-access terms when joining.',
-    icon: Building,
-    bg: 'bg-[#E5E9EE]',
-    fg: 'text-[#3D5468]',
   },
 ]
 
@@ -525,36 +513,36 @@ export default function Page() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="px-4 sm:px-6 pb-6">
-                  <div className="grid gap-2.5">
+                  <div role="radiogroup" aria-label="What best describes you" className="grid gap-2.5">
                     {ROLE_OPTIONS.map((opt) => {
-                      const Icon = opt.icon
                       const active = selectedKind === opt.value
                       return (
                         <button
                           key={opt.value}
                           type="button"
+                          role="radio"
+                          aria-checked={active}
                           onClick={() => setSelectedKind(opt.value)}
-                          className={`flex items-start gap-3 rounded-lg border p-3 sm:p-4 text-left transition-colors ${
-                            active ? 'border-primary bg-primary/5' : 'hover:bg-muted/40'
+                          className={`flex items-start gap-3 rounded-lg border px-4 py-3.5 sm:px-5 sm:py-4 text-left transition-colors ${
+                            active
+                              ? 'border-primary bg-primary/5'
+                              : 'border-border hover:border-foreground/25 hover:bg-muted/40'
                           }`}
                         >
-                          <span
-                            className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full ${opt.bg} ${opt.fg}`}
-                          >
-                            <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
-                          </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block font-medium text-sm sm:text-base">{opt.title}</span>
-                            <span className="block text-xs sm:text-sm text-muted-foreground leading-snug mt-0.5">
+                            <span className="block font-medium text-[15px] sm:text-base leading-tight">{opt.title}</span>
+                            <span className="block text-[13px] sm:text-sm text-muted-foreground leading-snug mt-1">
                               {opt.description}
                             </span>
                           </span>
                           <span
-                            className={`mt-1 h-4 w-4 rounded-full border-2 shrink-0 ${
-                              active ? 'border-primary bg-primary' : 'border-muted-foreground/30'
+                            className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                              active ? 'border-primary' : 'border-muted-foreground/30'
                             }`}
                             aria-hidden
-                          />
+                          >
+                            {active && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </span>
                         </button>
                       )
                     })}
