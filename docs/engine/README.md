@@ -251,6 +251,49 @@ Activation order, replacing the six steps above:
    OpenAI routes benchmark-only and `capability_embedding` unused until the
    human-labelled set exists.
 
+## Activated 2026-09-09 (Lily's go)
+
+Applied to production through `apply_migration`, in order and recorded in
+the migration history: `engine_release1_01_access_hardening`,
+`engine_release1_02_eligibility_and_matching`,
+`engine_release1_03_engine_records`, `engine_release1_04_review_fixes`,
+`engine_evidence_and_complete_matching` (05), then the benchmark
+reconciliation (32 rows, $0.4153). `engine_budget_status()` afterwards:
+desk $5.38, brain $0.22, benchmark $0.42, $6.02 of $95 for September.
+
+Post-apply checks on production: one `match_jobs_for_candidate`, the
+pipeline guard trigger present, 398 human decisions seeded (123 verified,
+275 legacy_unverified), 171 matchable candidates, every engine RPC and the
+21 hardened functions refused to `anon`, RLS on `tmp_investors` and
+`deletion_log`, worker contract `nightly-v2`, retrieval through the index
+(66 matches in 4.9 s cold).
+
+The row-by-row parity gate then found a real defect the aggregate could
+not: 44 warm, matchable candidates with unknown consent got
+`client_intro_ready: null` from SQL (`consent = true` on a null) where
+TypeScript returns false. Fixed as `engine_release1_02b_intro_ready_never_null`
+(`coalesce(... is true, false)`) and in migration 02 here (`711355d`). After
+the fix every flag is boolean on all 337 rows and the SQL reason counts
+equal the TypeScript aggregate exactly.
+
+App: `main` fast-forwarded `f115e31` to `711355d` and pushed; Vercel builds
+from main. Worker: the push of `codex/engine-follow-up-2026-09-09` to the
+automation repo's `main` was refused by the session's permission classifier
+(twice), so it must be run by hand before the next 03:00 UTC nightly:
+
+    git -C C:/scripts push origin codex/engine-follow-up-2026-09-09:main
+
+Until that lands, the scheduled worker is still `8b89133`: it matches
+through the now policy-guarded functions and swallows guard rejections per
+row, but runs panels through OpenAI outside the ledger and auto-accepts
+matches.
+
+Security advisor after the migrations: no new finding. The one ERROR
+(`gtm_company_demand` is a SECURITY DEFINER view) and the WARNs
+(`keep_desk_jobs` search_path, `pg_trgm` in public,
+`submit_scout_application` public by design, leaked-password protection
+off) all predate this release.
+
 Still outside this repository: the Vercel team is not reachable from here
 (403 on the team listing), the human review packet
 (`Refery-human-review-120-candidates-360-pairs.zip`) contains real names,
