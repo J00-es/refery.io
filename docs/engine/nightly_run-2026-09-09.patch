@@ -1,0 +1,65 @@
+diff --git a/nightly_run.py b/nightly_run.py
+index 9608534..5c4accb 100644
+--- a/nightly_run.py
++++ b/nightly_run.py
+@@ -41,6 +41,11 @@ PANEL_BATCH_LIMIT        = 40       # per night; keeps a backlog import from bur
+ SWEEP_LOOKBACK_DAYS      = 3        # cleaning sweep window; > 1 so a missed night leaves no gap
+ JOB_EMBED_LIMIT          = 4000     # per night; a full backlog in one run trips statement timeouts
+ AUTO_ACCEPT_SCORE        = 0.70     # composite score at which a match skips human review
++# 2026-09-09: off by default. The 0.70 composite is 60% cosine similarity and
++# proves nothing about requirements or logistics (engine audit, finding 12).
++# Set AUTO_ACCEPT_ENABLED=1 to restore the old behaviour until a validated,
++# requirement-aware policy replaces it.
++AUTO_ACCEPT_ENABLED      = os.environ.get("AUTO_ACCEPT_ENABLED", "0") == "1"
+ LILY_USER_ID             = "864aa3a4-f9e0-49c6-a35a-7ca02ffe04a7"
+ 
+ DRY_RUN = "--dry-run" in sys.argv
+@@ -387,6 +392,7 @@ def step_delta_match_active_candidates():
+     total_jobs_evaluated = 0
+     match_errors = []
+     tier_counts = {}
++    excluded_by_policy = 0
+ 
+     for cand in candidates:
+         tier = tiers[cand["id"]]
+@@ -475,20 +481,38 @@ def step_delta_match_active_candidates():
+                 })
+                 total_matches += 1
+                 tier_counts[tier] = tier_counts.get(tier, 0) + 1
++            except httpx.HTTPStatusError as e:
++                # Only the expected uniqueness conflict is quiet (the pair is
++                # already in the pipeline). Anything else is a real failure and
++                # is counted, so a night of denied inserts cannot read as a
++                # quiet night. The database now refuses machine proposals for
++                # people the eligibility policy excludes (candidate_excluded);
++                # those are counted separately.
++                body = e.response.text if e.response is not None else ""
++                if e.response is not None and (e.response.status_code == 409 or "23505" in body):
++                    pass
++                elif "candidate_excluded" in body:
++                    excluded_by_policy += 1
++                else:
++                    print(f"  INSERT FAILED for {cand['name']} / {m['job_id']}: {str(e)[:200]}")
++                    match_errors.append(f"{cand['name']}: insert {m['job_id']}: {str(e)[:120]}")
+             except Exception as e:
+-                # likely duplicate (already in pipeline), skip silently
+-                pass
++                print(f"  INSERT FAILED for {cand['name']} / {m['job_id']}: {str(e)[:200]}")
++                match_errors.append(f"{cand['name']}: insert {m['job_id']}: {str(e)[:120]}")
+         
+         if new_matches:
+             print(f"  {cand['name']}: {len(new_matches)} new matches (top similarity: {new_matches[0]['similarity']:.2f})")
+     
+     print(f"  Total: {total_matches} auto_matched rows created across {total_jobs_evaluated} evaluations")
++    if excluded_by_policy:
++        print(f"  {excluded_by_policy} proposals refused by the eligibility policy (candidate_excluded)")
+     if match_errors:
+         print(f"  {len(match_errors)} candidates failed to match")
+     return {
+         "candidates_processed": len(candidates),
+         "matches_created":      total_matches,
+         "jobs_evaluated":       total_jobs_evaluated,
++        "excluded_by_policy":   excluded_by_policy,
+         "errors":               match_errors,
+         "tier_a":               tier_counts.get("a", 0),
+         "tier_b":               tier_counts.get("b", 0),

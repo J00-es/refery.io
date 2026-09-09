@@ -24,6 +24,8 @@ import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
 import { missingFactsAsk, missingFactsNow } from '@/lib/desk/emails'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { suggestedLine } from '@/lib/desk/card'
+import { evaluateEligibility, REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
+import { policyInputsFor, recordHumanDecision } from '@/lib/engine/decisions'
 
 export type Decision = 'intro_now' | 'bench' | 'not_fit' | 'manual' | 'snooze' | 'route_elsewhere'
 
@@ -138,16 +140,51 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
     return { ok: false, message: `${first} is already *${stage.replace(/_/g, ' ')}*, so nothing changed. Later moves happen on the profile.`, error: 'already_past' }
   }
 
-  const record = async (extra: Record<string, unknown> = {}) =>
-    admin.from('candidate_decisions').insert({
-      candidate_id: c.id,
-      decision: input.decision,
-      reason: input.reasonLine ?? null,
-      decided_by: input.by,
-      via: input.via,
-      job_ids: input.jobIds ?? [],
-      ...extra,
+  const record = async (extra: Record<string, unknown> = {}) => {
+    const { data: row } = await admin
+      .from('candidate_decisions')
+      .insert({
+        candidate_id: c.id,
+        decision: input.decision,
+        reason: input.reasonLine ?? null,
+        decided_by: input.by,
+        via: input.via,
+        job_ids: input.jobIds ?? [],
+        ...extra,
+      })
+      .select('id')
+      .single()
+    // The normalised record beside the legacy one: a role decision, with actor and time.
+    if (row?.id && input.via !== 'auto') {
+      await recordHumanDecision(admin, {
+        candidateId: c.id,
+        kind: 'role_decision',
+        value: input.decision,
+        actor: input.by,
+        sourceEvent: `desk.${input.via}`,
+        sourceRef: { decision_id: row.id, job_ids: (extra.job_ids as string[] | undefined) ?? input.jobIds ?? [] },
+        reason: input.reasonLine ?? null,
+        dedupeKey: `candidate_decisions:${row.id}`,
+      })
+    }
+  }
+
+  // Contact is checked at the moment of action, not when the card was posted.
+  if (input.decision === 'intro_now' && recipient === 'candidate') {
+    const policy = evaluateEligibility({
+      journey_stage: c.journey_stage ?? null,
+      journey_stage_source: c.journey_stage_source ?? null,
+      availability_status: c.availability_status ?? null,
+      person_type: c.person_type ?? null,
+      intake_source: c.intake_source ?? null,
+      consent_told_candidate: c.consent_told_candidate ?? null,
+      ...(await policyInputsFor(admin, c.id)),
     })
+    if (policy.can_contact === 'no') {
+      const why = explainEligibility(policy).blocking.map(r => REASON_TEXT[r]).join('; ')
+      return { ok: false, message: `Not sent: ${first} cannot be written to (${why}). Nothing changed.`, error: 'contact_blocked' }
+    }
+  }
 
   // ── the quiet ones ─────────────────────────────────────────────────────────
   if (input.decision === 'manual') {

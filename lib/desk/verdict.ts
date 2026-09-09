@@ -19,14 +19,23 @@ import { cancelFollowups, logActivity, moveJourney, scheduleFollowup, sendDeskEm
 import { referrerOutcome } from '@/lib/desk/emails'
 import { changeRecapFromSlack, sendRecapFromSlack } from '@/lib/desk/recap-send'
 import type { ParsedResumeData } from '@/lib/types'
+import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
+import { recordHumanDecision } from '@/lib/engine/decisions'
+import { evaluateEligibility, REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
+import { policyInputsFor } from '@/lib/engine/decisions'
 
-const VERDICT_BY_REACTION: Record<string, { lily: string; stage: string; label: string }> = {
-  fire: { lily: 'very_strong', stage: 'warm', label: 'very strong' },
-  '+1': { lily: 'strong', stage: 'warm', label: 'strong' },
-  thumbsup: { lily: 'strong', stage: 'warm', label: 'strong' },
-  '-1': { lily: 'weak', stage: 'post_committee_not_fit', label: 'not a fit after the call' },
-  thumbsdown: { lily: 'weak', stage: 'post_committee_not_fit', label: 'not a fit after the call' },
-  zzz: { lily: 'moderate', stage: 'warm', label: 'hold, off market for now' },
+/**
+ * A reaction is one decision of one kind. :zzz: is an availability decision
+ * (off the market for now) and says nothing about ability, so it no longer
+ * writes `moderate` into the capability field (audit finding 1).
+ */
+const VERDICT_BY_REACTION: Record<string, { lily: string | null; kind: 'capability' | 'availability'; value: string; stage: string; label: string }> = {
+  fire: { lily: 'very_strong', kind: 'capability', value: 'very_strong', stage: 'warm', label: 'very strong' },
+  '+1': { lily: 'strong', kind: 'capability', value: 'strong', stage: 'warm', label: 'strong' },
+  thumbsup: { lily: 'strong', kind: 'capability', value: 'strong', stage: 'warm', label: 'strong' },
+  '-1': { lily: 'weak', kind: 'capability', value: 'weak', stage: 'post_committee_not_fit', label: 'not a fit after the call' },
+  thumbsdown: { lily: 'weak', kind: 'capability', value: 'weak', stage: 'post_committee_not_fit', label: 'not a fit after the call' },
+  zzz: { lily: null, kind: 'availability', value: 'off_market_hold', stage: 'warm', label: 'hold, off market for now' },
 }
 
 /** The recap whose card is this message. */
@@ -77,7 +86,7 @@ The referrer update is to the person who sent the candidate: we spoke, the hones
   const user = [
     `CANDIDATE: ${name}. Verdict from Lily: ${input.verdict}. ${input.note ? `Lily's note: ${input.note}` : ''}`,
     `Facts: ${c.visa_status ?? p.work_authorization ?? 'visa unknown'} · ${c.location ?? p.location ?? 'location unknown'} · asks ${c.salary_expectation_min ? `$${Math.round(c.salary_expectation_min / 1000)}k` : 'unknown'} · ${c.experience_years ?? p.experience_years ?? '?'} yrs`,
-    panel ? `Panel: ${panel.grade}. ${panel.positioning}. ${panel.summary}\nHighlights: ${panel.highlights.join(' | ')}` : '',
+    panel ? `Panel: ${gradeLabel(panel.grade)}. ${stripPercentiles(panel.positioning)}. ${panel.summary}\nHighlights: ${panel.highlights.join(' | ')}` : '',
     recapText ? `Recap of the call: ${recapText}` : '',
     `REFERRER: ${owner ? (owner.isUs ? 'none (ours)' : `${owner.name ?? owner.email}, first name ${owner.firstName}`) : 'none'}`,
     targets.length ? `SEATS to write a founder blurb for:\n${targets.map(seatBrief).join('\n\n')}` : 'SEATS: none live; return an empty hm_blurbs array.',
@@ -227,11 +236,22 @@ export async function handleRecapReaction(admin: SupabaseClient, input: { reacti
   }
   const cid = recap.entity_id as string
   const now = new Date().toISOString()
-  await admin.from('candidates').update({ lily_verdict: v.lily, updated_at: now, ...(input.reaction === 'zzz' ? { availability_status: 'off_market' } : {}) }).eq('id', cid)
+  await admin
+    .from('candidates')
+    .update({ ...(v.lily ? { lily_verdict: v.lily } : {}), updated_at: now, ...(input.reaction === 'zzz' ? { availability_status: 'off_market' } : {}) })
+    .eq('id', cid)
   await moveJourney(admin, cid, v.stage, `Lily after the call: ${v.label}.`, { by: input.slackUser })
   await cancelFollowups(admin, cid, ['candidate_book_nudge', 'candidate_book_escalate', 'referrer_nudge_1', 'referrer_nudge_2', 'referrer_escalate'], 'call happened')
-  await logActivity(admin, cid, 'decision_made', `Verdict after the call: ${v.label}.`, { metadata: { by: input.slackUser, lily_verdict: v.lily } })
-  await admin.from('candidate_decisions').insert({ candidate_id: cid, decision: input.reaction === 'fire' ? 'verdict_very_strong' : input.reaction === 'zzz' ? 'verdict_hold' : v.stage === 'warm' ? 'verdict_strong' : 'verdict_not_fit', decided_by: input.slackUser, via: 'slack' })
+  await logActivity(admin, cid, 'decision_made', `Verdict after the call: ${v.label}.`, { metadata: { by: input.slackUser, lily_verdict: v.lily, kind: v.kind, value: v.value } })
+  const { data: decisionRow } = await admin
+    .from('candidate_decisions')
+    .insert({ candidate_id: cid, decision: input.reaction === 'fire' ? 'verdict_very_strong' : input.reaction === 'zzz' ? 'verdict_hold' : v.stage === 'warm' ? 'verdict_strong' : 'verdict_not_fit', decided_by: input.slackUser, via: 'slack' })
+    .select('id')
+    .single()
+  // The normalised record: actor, event, time, kind. A call happened, and Lily decided.
+  const decisionId = (decisionRow?.id as string | undefined) ?? `${input.channel}:${input.ts}:${input.reaction}`
+  await recordHumanDecision(admin, { candidateId: cid, kind: 'met', value: 'call_recap_verdict', actor: input.slackUser, sourceEvent: 'call_recaps.reaction', sourceRef: { recap_id: recap.id, channel: input.channel, ts: input.ts }, decidedAt: now, dedupeKey: `call_recaps:${recap.id}:met` })
+  await recordHumanDecision(admin, { candidateId: cid, kind: v.kind, value: v.value, actor: input.slackUser, sourceEvent: 'call_recaps.reaction', sourceRef: { recap_id: recap.id, decision_id: decisionRow?.id ?? null, reaction: input.reaction }, decidedAt: now, dedupeKey: `candidate_decisions:${decisionId}` })
 
   const first = firstNameOf(recap.person_name as string)
   await postThreadReply(input.channel, input.ts, `:white_check_mark: <@${input.slackUser}> ${first}: *${v.label}*. Journey: *${v.stage.replace(/_/g, ' ')}*. Drafting the follow-ups now.`)
@@ -277,6 +297,23 @@ export async function draftHmBlurb(admin: SupabaseClient, input: { candidate: Re
   if (!seat) return { ok: false, error: 'seat is not live' }
   const c = input.candidate
   const { data: full } = await admin.from('candidates').select('*').eq('id', c.id).maybeSingle()
+  if (!full) return { ok: false, error: 'candidate not found' }
+  // Client readiness is the policy's call, at the moment of the action, not the card's.
+  const policy = evaluateEligibility({
+    journey_stage: full.journey_stage ?? null,
+    journey_stage_source: full.journey_stage_source ?? null,
+    availability_status: full.availability_status ?? null,
+    person_type: full.person_type ?? null,
+    intake_source: full.intake_source ?? null,
+    consent_told_candidate: full.consent_told_candidate ?? null,
+    job_id: input.jobId,
+    ...(await policyInputsFor(admin, c.id as string, input.jobId)),
+  })
+  if (policy.can_contact === 'no' || !policy.can_match) {
+    const why = explainEligibility(policy).blocking.map(r => REASON_TEXT[r]).join('; ')
+    return { ok: false, error: `not sent to a client: ${why || 'the eligibility policy excludes this person for this seat'}` }
+  }
+  const notReady = policy.client_intro_ready ? [] : explainEligibility(policy).unknown.concat(explainEligibility(policy).info).map(r => REASON_TEXT[r])
   const panel = await latestPanel(admin, c.id as string)
   const p = ((full?.parsed_data ?? {}) as Partial<ParsedResumeData>)
   const { data: notes } = await admin.from('recruiter_notes').select('content').eq('candidate_id', c.id).eq('note_type', 'call').order('created_at', { ascending: false }).limit(2)
@@ -294,7 +331,7 @@ export async function draftHmBlurb(admin: SupabaseClient, input: { candidate: Re
       jobId: seat.jobId,
       channel: input.channel,
       ts: input.ts,
-      label: `${properName(c.name as string)} → ${seat.hiringManagerName ?? 'the founder'} at ${seat.companyName}${seat.hiringManagerEmail ? '' : ' · :warning: no HM email on record'}`,
+      label: `${properName(c.name as string)} → ${seat.hiringManagerName ?? 'the founder'} at ${seat.companyName}${seat.hiringManagerEmail ? '' : ' · :warning: no HM email on record'}${notReady.length ? ` · :grey_question: not client-ready yet: ${notReady.join(', ')}` : ''}`,
       by: input.by,
     })
     return { ok: true }

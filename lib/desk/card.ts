@@ -7,12 +7,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { addReaction, esc, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
 import { knownToYou, postToDesk } from '@/lib/desk-notifications'
-import type { PanelRow } from '@/lib/desk/panel'
+import type { PanelEngine, PanelRow } from '@/lib/desk/panel'
 import { seatBand, type Seat } from '@/lib/desk/seats'
 import { tierWord } from '@/lib/desk/tiers'
 import { firstNameOf, properName, type Owner } from '@/lib/desk/people'
 import { pastTheDoor } from '@/lib/journey'
 import type { ParsedResumeData } from '@/lib/types'
+import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
+import { REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -65,6 +67,20 @@ function seatMeta(seat: Seat): string {
   return [city, seat.stage, seat.industry].filter(Boolean).join(', ')
 }
 
+const NEXT_ACTION_TEXT: Record<string, string> = {
+  screening_call: 'a screening call with Lily',
+  request_information: 'ask for the missing facts first',
+  human_review: 'your read',
+  client_intro: 'client-ready',
+  hold: 'hold: a confirmed blocker on the strong seat',
+  no_current_role: 'no live seat for them today',
+}
+
+function engineOf(panel: PanelRow): PanelEngine | null {
+  const e = panel.engine as PanelEngine | undefined
+  return e && typeof e === 'object' && 'derived' in e ? e : null
+}
+
 export function suggestedLine(panel: PanelRow, recipient: 'candidate' | 'owner', owner: Owner | null): string {
   const emoji = { intro_now: ':fire: Intro now', bench: ':+1: Bench', not_fit: ':-1: Not a fit', route_elsewhere: ':compass: Not a candidate' }[panel.suggested_decision] ?? panel.suggested_decision
   const who =
@@ -73,7 +89,30 @@ export function suggestedLine(panel: PanelRow, recipient: 'candidate' | 'owner',
       : recipient === 'candidate'
         ? ' The email goes to them directly.'
         : ` The email goes to ${owner?.firstName ?? 'the owner'}.`
-  return `*Suggested: ${emoji}.* ${esc(panel.suggested_reason ?? '')}${who}`
+  const e = engineOf(panel)
+  const next = e ? ` Next: *${NEXT_ACTION_TEXT[e.derived.next_action] ?? e.derived.next_action}*.` : ''
+  const ask = e?.derived.questions.length ? ` Ask: ${esc(e.derived.questions.slice(0, 3).join(' '))}` : ''
+  return `*Suggested: ${emoji}.* ${esc(stripPercentiles(panel.suggested_reason ?? ''))}${who}${next}${ask}`
+}
+
+/** The eligibility line under the read: what blocks, what is unknown. Nothing when all clear. */
+export function eligibilityLine(panel: PanelRow): string | null {
+  const e = engineOf(panel)
+  if (!e) return null
+  const { blocking, unknown } = explainEligibility(e.policy)
+  const parts: string[] = []
+  if (blocking.length) parts.push(`:no_entry: ${blocking.map(r => REASON_TEXT[r]).join('; ')}`)
+  if (unknown.length) parts.push(`:grey_question: ${unknown.map(r => REASON_TEXT[r]).join('; ')}`)
+  if (e.derived.client_intro_ready) parts.push(':white_check_mark: client-ready')
+  return parts.length ? esc(parts.join('   ')) : null
+}
+
+const BLOCKER_ICON: Record<string, string> = { hard: ':no_entry:', preference: ':warning:', unknown: ':grey_question:', question: ':speech_balloon:' }
+
+/** "hard: seat is US-authorised only ..." → ":no_entry: seat is US-authorised only ..." */
+export function renderBlocker(text: string): string {
+  const m = text.match(/^(hard|preference|unknown|question):\s*(.*)$/)
+  return m ? `${BLOCKER_ICON[m[1]]} ${esc(m[2])}` : `:warning: ${esc(text)}`
 }
 
 export function draftFor(panel: PanelRow, decision: 'intro_now' | 'bench' | 'not_fit'): { subject: string; body: string } {
@@ -110,13 +149,13 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
     const s = bySeat.get(f.job_id)!
     const dot = f.fit === 'strong' ? ':large_green_circle:' : ':large_yellow_circle:'
     const meta = [seatMeta(s), seatBand(s)].filter(Boolean).join(' · ')
-    const block = f.blockers?.length ? ` · :warning: ${esc(f.blockers.join('; '))}` : ''
-    return `${dot} *${esc(seatName(s))}*${meta ? ` (${esc(meta)})` : ''} · ${f.fit} · ${esc(f.reason)}${block}`
+    const block = f.blockers?.length ? ` · ${f.blockers.map(renderBlocker).join(' · ')}` : ''
+    return `${dot} *${esc(seatName(s))}*${meta ? ` (${esc(meta)})` : ''} · ${f.fit} · ${esc(stripPercentiles(f.reason))}${block}`
   })
 
-  const flags = (panel.flags ?? []).slice(0, 5).map(f => `:warning: ${esc(f)}`).join('   ')
+  const flags = (panel.flags ?? []).slice(0, 5).map(f => `:warning: ${esc(stripPercentiles(f))}`).join('   ')
   const missing = (panel.missing_facts ?? []).filter(m => m !== 'email')
-  const missingLine = missing.length ? `:grey_question: not on record: ${missing.join(', ')}` : null
+  const missingLine = [missing.length ? `:grey_question: not on record: ${missing.join(', ')}` : null, eligibilityLine(panel)].filter(Boolean).join('\n') || null
 
   const suggested = panel.suggested_decision as 'intro_now' | 'bench' | 'not_fit' | 'route_elsewhere'
   const draft = suggested === 'route_elsewhere' ? null : draftFor(panel, suggested)
@@ -135,11 +174,11 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Panel: ${esc(grade)} · ${esc(panel.positioning ?? '')}.* ${esc(panel.summary ?? '')}`,
+        text: `*Panel: ${esc(gradeLabel(grade))}${panel.positioning ? ` · ${esc(stripPercentiles(panel.positioning))}` : ''}.* ${esc(stripPercentiles(panel.summary ?? ''))}`,
       },
     },
     ...(panel.highlights?.length
-      ? [{ type: 'section', text: { type: 'mrkdwn', text: panel.highlights.map(h => `• ${esc(h)}`).join('\n') } }]
+      ? [{ type: 'section', text: { type: 'mrkdwn', text: panel.highlights.map(h => `• ${esc(stripPercentiles(h))}`).join('\n') } }]
       : []),
     ...(logos.length ? [{ type: 'context', elements: [{ type: 'mrkdwn', text: `:label: ${logos.join(' · ')}` }] }] : []),
     ...(flags || missingLine

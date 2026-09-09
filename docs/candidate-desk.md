@@ -42,7 +42,8 @@ numbered card, 1️⃣..6️⃣ act on one, 🔥 all strong, 💤 dismiss
 | The decision card | `lib/desk/card.ts` → `candidates.desk_card_channel / desk_card_ts` |
 | Decisions and their side effects | `lib/desk/decide.ts` → `candidate_decisions`, `candidate_emails`, `candidate_followups` |
 | Follow-up engine and escalations | `lib/desk/followups.ts`, signals in `lib/desk/signals.ts` |
-| Bench re-match | `lib/desk/bench.ts` → `search_match_runs`; RPC `bench_candidates_for_job` |
+| Bench re-match | `lib/desk/bench.ts` → `search_match_runs` (`pool`, `results`, `shown`); RPC `bench_candidates_for_job`, `bench_candidates_for_job_v2` behind `ENGINE_BENCH_V2` |
+| Eligibility, fit, grade contract, routes, ledger, queues | `lib/engine/` (see `docs/engine/README.md`); SQL twins in `scripts/engine/` |
 | Post-call verdicts and drafts | `lib/desk/verdict.ts` (on `call_recaps` cards) |
 | Every email the desk sends | `lib/desk/outbound.ts` → `candidate_emails`; Gmail in `lib/google.ts` |
 | Fixed-wording emails | `lib/desk/emails.ts` |

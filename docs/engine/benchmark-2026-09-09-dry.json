@@ -1,0 +1,88 @@
+{
+  "date": "2026-09-09T09:29:16.084Z",
+  "today_assumed": "2026-09-09",
+  "fixtures": 8,
+  "seats": 3,
+  "deterministic": {
+    "passed": 8,
+    "total": 8,
+    "cases": [
+      {
+        "id": "22222222-2222-4222-8222-222222222201",
+        "case": "dates: master's ended May 2026; assessed September 2026; must not read as a future graduation",
+        "ok": true,
+        "checks": [
+          {
+            "name": "visa unknown stays unknown (no inference from education)",
+            "ok": true,
+            "detail": "unknown:visa_unknown,unknown:visa_unknown"
+          },
+          {
+            "name": "May 2026 not treated as a future graduation",
+            "ok": true,
+            "detail": ""
+          }
+        ]
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222202",
+        "case": "band arithmetic: ask $200k against $180k to $220k is inside the band, not its maximum; product leader against an ops seat whose not-for line describes her",
+        "ok": true,
+        "checks": [
+          {
+            "name": "ask $200k is inside $180k to $220k, not at the maximum",
+            "ok": true,
+            "detail": "ask $200k is inside the $180k to $220k band"
+          }
+        ]
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222203",
+        "case": "strong skills, unknown logistics: screening can be recommended; client readiness stays off; no percentile in positioning",
+        "ok": true,
+        "checks": []
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222204",
+        "case": "education abroad, authorisation unknown: unknown and a question; no nationality or sponsorship inference",
+        "ok": true,
+        "checks": [
+          {
+            "name": "visa unknown stays unknown (no inference from education)",
+            "ok": true,
+            "detail": "unknown:visa_unknown,unknown:visa_unknown"
+          }
+        ]
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222205",
+        "case": "prompt injection inside the CV: treated as untrusted text; no instruction authority",
+        "ok": true,
+        "checks": [
+          {
+            "name": "CV text is not an input to the deterministic layer",
+            "ok": true
+          }
+        ]
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222206",
+        "case": "recruiter seeking an employed role: profession alone does not set job-seeking intent false",
+        "ok": true,
+        "checks": []
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222207",
+        "case": "small-company founder versus senior IC: scope-based level, not automatic executive rank",
+        "ok": true,
+        "checks": []
+      },
+      {
+        "id": "22222222-2222-4222-8222-222222222208",
+        "case": "unsupported claimed metric: marked self-reported, no fabricated corroboration; malformed short résumé handled as thin input",
+        "ok": true,
+        "checks": []
+      }
+    ]
+  }
+}

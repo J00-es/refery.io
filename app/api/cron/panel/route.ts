@@ -1,6 +1,7 @@
 /**
- * The one-minute panel worker. pg_cron rings this every minute; it takes the
- * oldest queued candidates, runs the panel, and posts the decision card.
+ * The one-minute panel worker. pg_cron rings this every minute; it claims the
+ * oldest queued candidates under a lease, runs the panel, and posts the
+ * decision card.
  *
  * A candidate who arrived through a partner submission already has a card in
  * #refery-desk, so the panel's read goes into that card's thread instead of
@@ -8,6 +9,11 @@
  * when the grade crossed the A- bar; a manual re-run always refreshes or
  * posts the card, even for someone already met, because the press is Lily
  * asking for the drafts.
+ *
+ * Outcomes are typed (queue.outcome): succeeded, empty, deferred_budget,
+ * input_error, provider_error, policy_excluded, skipped, failed. A budget
+ * deferral keeps the item queued with a retry time and does not count as an
+ * attempt; the person is never rejected because the month ran out.
  */
 
 import { NextRequest, NextResponse, after } from 'next/server'
@@ -18,12 +24,17 @@ import { postThreadReply, updateMessage, esc } from '@/lib/slack-bot'
 import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
 import { meetsBar, pastTheDoor as isPastTheDoor, type PanelGrade } from '@/lib/journey'
 import { properName } from '@/lib/desk/people'
+import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
+import { claimPanelItems, completePanelItem, type QueueOutcome } from '@/lib/engine/queue'
+import { BudgetDeferredError } from '@/lib/engine/ledger'
+import { drainOutbox, enqueueOutbox } from '@/lib/engine/outbox'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
 
 const MAX_PER_RUN = 3
 const MAX_ATTEMPTS = 3
+const BUDGET_RETRY_SECONDS = 30 * 60
 
 function authorised(request: NextRequest): boolean {
   const secret = process.env.CRON_SECRET
@@ -52,40 +63,60 @@ async function run(req: NextRequest) {
   return NextResponse.json({ ok: true, accepted: true })
 }
 
+class SkipPanel extends Error {
+  constructor(message: string, public readonly outcome: QueueOutcome) {
+    super(message)
+  }
+}
+
+/** A card whose post failed after the panel was saved: post it from the saved read, no model call. */
+async function repostDecisionCard(admin: Admin, payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
+  const candidateId = String(payload.candidate_id ?? '')
+  const ctx = await buildPanelContext(admin, candidateId)
+  if (!ctx) return { ok: true }
+  if (ctx.candidate.desk_card_ts) return { ok: true }
+  const panel = await latestPanel(admin, candidateId)
+  if (!panel || (payload.panel_id && panel.id !== payload.panel_id)) return { ok: true }
+  const posted = await postDecisionCard(admin, { candidate: ctx.candidate, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf: null, latencyLine: String(payload.latency_line ?? 'posted after a retry') })
+  return posted.ok ? { ok: true } : { ok: false, error: posted.error }
+}
+
 async function work(req: NextRequest): Promise<{ ok: boolean; processed: number; results: Record<string, unknown>[] }> {
   const admin = createAdminClient()
-
-  // Stale "running" rows are a worker that died mid-call. Give them back.
-  await admin
-    .from('candidate_panel_queue')
-    .update({ status: 'queued' })
-    .eq('status', 'running')
-    .lt('started_at', new Date(Date.now() - 6 * 60_000).toISOString())
-
   const only = req.nextUrl.searchParams.get('candidate')
-  let q = admin.from('candidate_panel_queue').select('*').eq('status', 'queued').lt('attempts', MAX_ATTEMPTS).order('enqueued_at').limit(MAX_PER_RUN)
-  if (only) q = admin.from('candidate_panel_queue').select('*').eq('candidate_id', only).limit(1)
-  const { data: queued } = await q
+  await drainOutbox(admin, { decision_card: payload => repostDecisionCard(admin, payload) }, 5)
+  const { items, leased } = await claimPanelItems(admin, MAX_PER_RUN, only, MAX_ATTEMPTS)
 
   const results: Record<string, unknown>[] = []
-  for (const item of queued ?? []) {
-    const id = item.candidate_id as string
-    await admin.from('candidate_panel_queue').update({ status: 'running', started_at: new Date().toISOString(), attempts: (item.attempts as number) + 1 }).eq('candidate_id', id)
+  for (const item of items) {
+    const id = item.candidate_id
     try {
       const outcome = await panelOne(admin, id, String(item.reason ?? 'created'))
-      await admin.from('candidate_panel_queue').update({ status: outcome.skipped ? 'skipped' : 'done', error: outcome.skipped ?? null, finished_at: new Date().toISOString() }).eq('candidate_id', id)
-      results.push({ id, ...outcome })
+      await completePanelItem(admin, item, { status: outcome.skipped ? 'skipped' : 'done', outcome: outcome.skipped ? 'skipped' : (outcome.outcome as QueueOutcome) ?? 'succeeded', error: outcome.skipped ?? null })
+      results.push({ id, leased, ...outcome })
     } catch (err) {
+      if (err instanceof BudgetDeferredError) {
+        // Queue with a visible reason; not an attempt, not a rejection.
+        await completePanelItem(admin, item, { status: 'queued', outcome: 'deferred_budget', error: err.message.slice(0, 400), retryInSeconds: BUDGET_RETRY_SECONDS })
+        results.push({ id, deferred: err.reservation.reason })
+        continue
+      }
+      if (err instanceof SkipPanel) {
+        await completePanelItem(admin, item, { status: 'skipped', outcome: err.outcome, error: err.message })
+        results.push({ id, skipped: err.message })
+        continue
+      }
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[desk:panel] ${id} threw:`, err)
-      const giveUp = (item.attempts as number) + 1 >= MAX_ATTEMPTS
-      await admin.from('candidate_panel_queue').update({ status: giveUp ? 'failed' : 'queued', error: message.slice(0, 500), finished_at: giveUp ? new Date().toISOString() : null }).eq('candidate_id', id)
+      const outcome: QueueOutcome = /no model answered|timeout|abort|429|quota/i.test(message) ? 'provider_error' : /could not save|could not be updated|insert|permission denied/i.test(message) ? 'failed' : 'failed'
+      const giveUp = item.attempts >= MAX_ATTEMPTS
+      await completePanelItem(admin, item, { status: giveUp ? 'failed' : 'queued', outcome, error: message.slice(0, 500) })
       if (giveUp) {
         const { data: c } = await admin.from('candidates').select('name, desk_card_channel, desk_card_ts').eq('id', id).maybeSingle()
         const { postAlert } = await import('@/lib/desk-notifications')
         await postAlert(`:warning: The panel failed three times on *${esc(properName(c?.name as string))}*: ${esc(message.slice(0, 200))}. Open the profile and press "Run the panel" once the cause is fixed.`)
       }
-      results.push({ id, error: message })
+      results.push({ id, error: message, outcome })
     }
   }
   return { ok: true, processed: results.length, results }
@@ -93,21 +124,23 @@ async function work(req: NextRequest): Promise<{ ok: boolean; processed: number;
 
 type Admin = ReturnType<typeof createAdminClient>
 
-async function panelOne(admin: Admin, candidateId: string, reason: string): Promise<Record<string, unknown> & { skipped?: string }> {
+async function panelOne(admin: Admin, candidateId: string, reason: string): Promise<Record<string, unknown> & { skipped?: string; outcome?: QueueOutcome }> {
   const ctx = await buildPanelContext(admin, candidateId)
-  if (!ctx) return { skipped: 'candidate not found' }
+  if (!ctx) return { skipped: 'candidate not found', outcome: 'input_error' }
   const c = ctx.candidate
-  if (c.intake_source === 'calibration') return { skipped: 'calibration sample' }
-  const hasText = Boolean(ctx.parsed?.raw_text) || (ctx.parsed?.work_history?.length ?? 0) > 0 || Boolean(c.ai_analysis)
-  if (!hasText) return { skipped: 'no résumé text on record' }
+  if (!ctx.policy.can_assess) throw new SkipPanel(`policy: ${ctx.policy.reasons.join(', ')}`, 'policy_excluded')
+  const hasText = Boolean(ctx.parsed?.raw_text) || (ctx.parsed?.work_history?.length ?? 0) > 0 || (Array.isArray(c.work_history) && (c.work_history as unknown[]).length > 0) || Boolean(c.ai_analysis)
+  if (!hasText) throw new SkipPanel('no résumé text on record', 'input_error')
 
   const before = await latestPanel(admin, candidateId)
   const priorGrade = (c.panel_grade as PanelGrade | null) ?? null
   const startedAt = Date.now()
-  const panel = await runPanel(admin, ctx)
+  const panel = await runPanel(admin, ctx, { reason })
+  const reused = Boolean((panel.engine as { reused?: boolean } | undefined)?.reused)
   const secondsSinceArrival = Math.max(1, Math.round((Date.now() - new Date(String(c.created_at)).getTime()) / 1000))
-  const latencyLine =
-    reason === 'created'
+  const latencyLine = reused
+    ? 'same read as before: nothing it reads has changed'
+    : reason === 'created'
       ? secondsSinceArrival < 180
         ? `graded ${secondsSinceArrival} s after upload`
         : `graded ${Math.round(secondsSinceArrival / 60)} min after upload`
@@ -128,12 +161,14 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   const crossed = priorGrade && meetsBar(priorGrade) !== meetsBar(panel.grade as PanelGrade)
 
   if (sub?.slack_channel_id && sub.slack_message_ts) {
-    await postThreadReply(
-      sub.slack_channel_id as string,
-      sub.slack_message_ts as string,
-      `:brain: *Panel: ${esc(panel.grade)} · ${esc(panel.positioning ?? '')}.* ${esc(panel.summary ?? '')}\n${panel.highlights.map(h => `• ${esc(h)}`).join('\n')}${panel.flags.length ? `\n${panel.flags.map(f => `:warning: ${esc(f)}`).join('   ')}` : ''}\n${suggestedLine(panel, ctx.recipient, ctx.owner)}`,
-    )
-    return { grade: panel.grade, posted: 'submission thread', cost: panel.cost_usd }
+    if (!reused) {
+      await postThreadReply(
+        sub.slack_channel_id as string,
+        sub.slack_message_ts as string,
+        `:brain: *Panel: ${esc(gradeLabel(panel.grade))} · ${esc(stripPercentiles(panel.positioning ?? ''))}.* ${esc(stripPercentiles(panel.summary ?? ''))}\n${panel.highlights.map(h => `• ${esc(stripPercentiles(h))}`).join('\n')}${panel.flags.length ? `\n${panel.flags.map(f => `:warning: ${esc(stripPercentiles(f))}`).join('   ')}` : ''}\n${suggestedLine(panel, ctx.recipient, ctx.owner)}`,
+      )
+    }
+    return { grade: panel.grade, posted: reused ? 'nothing (reused)' : 'submission thread', cost: panel.cost_usd, reused }
   }
 
   const manualRerun = reason === 'manual'
@@ -148,14 +183,14 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
       await updateMessage(c.desk_card_channel as string, c.desk_card_ts as string, card.text, card.blocks)
     }
     if (priorGrade !== panel.grade) {
-      await postThreadReply(c.desk_card_channel as string, c.desk_card_ts as string, `:brain: Re-graded after ${reason.replace(/_/g, ' ')}: *${esc(priorGrade ?? '?')} → ${esc(panel.grade)}*. ${esc(panel.suggested_reason ?? '')}`)
+      await postThreadReply(c.desk_card_channel as string, c.desk_card_ts as string, `:brain: Re-graded after ${reason.replace(/_/g, ' ')}: *${esc(priorGrade ?? '?')} → ${esc(panel.grade)}*. ${esc(stripPercentiles(panel.suggested_reason ?? ''))}`)
     }
-    return { grade: panel.grade, posted: undecided ? 'card updated' : 'thread note', cost: panel.cost_usd }
+    return { grade: panel.grade, posted: undecided ? 'card updated' : 'thread note', cost: panel.cost_usd, reused }
   }
   // Past the door the panel only speaks when asked: the door decisions no
   // longer apply on their own, but Lily pressing "Run the panel" wants the
   // card, drafts and all. The reactions then hold the stage (see decide.ts).
-  if (pastTheDoor && !manualRerun) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd }
+  if (pastTheDoor && !manualRerun) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd, reused }
 
   // Already known under another owner?
   let duplicateOf: { name: string; ownerName: string | null; since: string } | null = null
@@ -172,7 +207,11 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   }
 
   const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf, latencyLine })
-  if (!posted.ok) throw new Error(`card not posted: ${posted.error}`)
+  if (!posted.ok) {
+    // The assessment is saved and paid for; only the card failed. Retry the card, not the call.
+    await enqueueOutbox(admin, { kind: 'decision_card', idempotencyKey: `decision_card:${panel.id}`, payload: { candidate_id: candidateId, panel_id: panel.id, latency_line: latencyLine } })
+    throw new Error(`card not posted: ${posted.error}`)
+  }
 
   // Reminders and the bench autosend are for people at the door. Someone
   // already met is Lily's call, on her clock.
@@ -184,5 +223,5 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
       await scheduleFollowup(admin, { candidateId, kind: 'bench_autosend', inHours: autosend })
     }
   }
-  return { grade: panel.grade, posted: 'card', cost: panel.cost_usd, suggested: panel.suggested_decision }
+  return { grade: panel.grade, posted: 'card', cost: panel.cost_usd, suggested: panel.suggested_decision, reused }
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { metEvidence } from '@/lib/engine/decisions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { H2, LEDE, META } from '@/lib/desk-ui'
 import { FOCUS } from '@/lib/candidate-ui'
@@ -56,6 +57,7 @@ export async function BenchBlock({ jobId, viewerId, canManage }: { jobId: string
     admin.from('candidate_emails').select('candidate_id, kind, sent_at, meta').in('candidate_id', ids).not('sent_at', 'is', null).order('sent_at', { ascending: false }),
     admin.from('role_submissions').select('candidate_id, status').eq('job_id', jobId).in('candidate_id', ids),
   ])
+  const metIds = await metEvidence(admin, ids)
   const ownerIds = [...new Set((cands ?? []).map(c => c.owner_user_id as string).filter(Boolean))]
   const { data: owners } = ownerIds.length ? await admin.from('users_admin').select('user_id, full_name, email').in('user_id', ownerIds) : { data: [] }
   const ownerName = new Map((owners ?? []).map(o => [o.user_id as string, ((o.full_name as string) || (o.email as string)).split(' ')[0]]))
@@ -97,7 +99,7 @@ export async function BenchBlock({ jobId, viewerId, canManage }: { jobId: string
       candidateId: c.id as string,
       name: c.name as string,
       grade: (c.panel_grade as string) || info.grade || null,
-      met: String(c.journey_stage) === 'warm' || String(c.journey_stage) === 'committee_call' || !!c.lily_verdict,
+      met: String(c.journey_stage) === 'warm' || String(c.journey_stage) === 'committee_call' || metIds.has(c.id as string),
       ownerName: ownerName.get(c.owner_user_id as string) ?? null,
       ownerId: (c.owner_user_id as string) ?? null,
       reason: info.reason,

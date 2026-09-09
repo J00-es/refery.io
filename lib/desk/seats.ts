@@ -18,6 +18,7 @@ export interface Seat {
   remotePolicy: string | null
   salaryMin: number | null
   salaryMax: number | null
+  salaryCurrency: string | null
   visaRequirement: string | null
   yearsMin: number | null
   yearsMax: number | null
@@ -87,7 +88,7 @@ export async function loadLiveSeats(admin: SupabaseClient, jobIds?: string[]): P
   let q = admin
     .from('partner_roles_v')
     .select(
-      'job_id, company_id, company_name, company_stage, title, headline, location, remote_policy, salary_min, salary_max, visa_requirement, experience_years_min, experience_years_max, hard_requirements, not_for, context, search_stage, hiring_manager_name, is_live, job_status, decision_days',
+      'job_id, company_id, company_name, company_stage, title, headline, location, remote_policy, salary_min, salary_max, visa_requirement, experience_years_min, experience_years_max, hard_requirements, not_for, context, search_stage, hiring_manager_name, is_live, job_status, decision_days, salary_currency',
     )
     .eq('is_live', true)
     .eq('job_status', 'open')
@@ -120,6 +121,7 @@ export async function loadLiveSeats(admin: SupabaseClient, jobIds?: string[]): P
       remotePolicy: (r.remote_policy as string) ?? null,
       salaryMin: (r.salary_min as number) ?? null,
       salaryMax: (r.salary_max as number) ?? null,
+      salaryCurrency: (r.salary_currency as string) ?? null,
       visaRequirement: (r.visa_requirement as string) ?? null,
       yearsMin: (r.experience_years_min as number) ?? null,
       yearsMax: (r.experience_years_max as number) ?? null,

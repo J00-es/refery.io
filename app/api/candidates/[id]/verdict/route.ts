@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireCandidateAccess } from '@/lib/current-user'
+import { recordHumanDecision } from '@/lib/engine/decisions'
 
 export async function PATCH(
   request: NextRequest,
@@ -61,6 +62,22 @@ export async function PATCH(
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // The attributable record: who set it, when, from where. The legacy
+    // column keeps the chip; this row is what calibration may read.
+    if (type === 'lily' && verdict) {
+      const now = new Date().toISOString()
+      await recordHumanDecision(createAdminClient(), {
+        candidateId: id,
+        kind: 'capability',
+        value: verdict,
+        actor: appUser.email ?? appUser.id ?? 'super_admin',
+        sourceEvent: 'web.verdict_chip',
+        sourceRef: { user_id: appUser.id ?? null },
+        decidedAt: now,
+        dedupeKey: `web.verdict_chip:${id}:${now}`,
+      })
     }
 
     return NextResponse.json({ success: true, data })

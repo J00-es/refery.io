@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/server'
+import { stripPercentiles } from '@/lib/engine/grade'
 import { latestPanel } from '@/lib/desk/panel'
 import { loadLiveSeats, seatBand } from '@/lib/desk/seats'
 import { tierWord } from '@/lib/desk/tiers'
@@ -95,7 +96,7 @@ export async function DeskAssessment({
         <>
           <div className="mt-3 flex flex-wrap items-baseline gap-3">
             <span className="text-[28px] font-bold leading-none tracking-[-0.02em] text-[#161613]">{panel.grade}</span>
-            <span className="text-[14px] font-semibold text-[#161613]">{panel.positioning}</span>
+            <span className="text-[14px] font-semibold text-[#161613]">{stripPercentiles(panel.positioning)}</span>
             {panel.person_type !== 'job_seeker' && <span className="rounded-full bg-[#F5EEDD] px-2.5 py-0.5 text-[12px] font-semibold text-[#8A6A1F]">reads as a {panel.person_type}</span>}
           </div>
           <p className="mt-2 text-[13.5px] leading-relaxed text-[#161613]">{panel.summary}</p>
