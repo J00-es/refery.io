@@ -38,6 +38,7 @@ import { evaluateEligibility, POLICY_VERSION, REASON_TEXT, explainEligibility } 
 import { keepKnownIds } from '@/lib/engine/fit'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
 import { drainOutbox, enqueueOutbox } from '@/lib/engine/outbox'
+import { benchExclusions } from '@/lib/apply/profile'
 import { claimMatchItems, completeMatchItem, LeaseLostError, renewMatchLease, type QueueOutcome } from '@/lib/engine/queue'
 import { stripPercentiles } from '@/lib/engine/grade'
 
@@ -96,7 +97,10 @@ async function retrieveV2(admin: SupabaseClient, jobId: string, limit: number, e
   return (data ?? []) as Retrieved[]
 }
 
-async function hydrate(admin: SupabaseClient, retrieved: Retrieved[]): Promise<BenchPerson[]> {
+async function hydrate(admin: SupabaseClient, retrieved: Retrieved[], companyName: string | null = null): Promise<BenchPerson[]> {
+  // A self-submitted person who paused, deleted, or never-listed this company is not on the bench for it.
+  const excluded = await benchExclusions(admin, retrieved.map(r => r.candidate_id), companyName)
+  retrieved = retrieved.filter(r => !excluded.has(r.candidate_id))
   const ids = retrieved.map(r => r.candidate_id)
   if (!ids.length) return []
   const [{ data: rows }, met] = await Promise.all([
@@ -190,7 +194,7 @@ export async function runBenchMatch(admin: SupabaseClient, jobId: string, trigge
     }
   }
 
-  const pool = await hydrate(admin, retrieved)
+  const pool = await hydrate(admin, retrieved, seat.companyName)
   if (!pool.length) return { posted: false, checked: 0, strong: 0, outcome: 'empty', error: retrieved.length ? 'nobody new' : 'bench is empty' }
 
   const system = `You match people on a recruiting bench to one open seat. Facts first: logistics (visa, location, pay, years) are shown as facts and are the desk's call, not yours; do not list them as blockers and do not downgrade a fit for them. "strong" means the evidence in the summary meets every Must line; at most a handful strong. Return only strong and possible; everyone else is a no and is not listed. Grade is a hint, not a rule: a B+ or an ungraded person with an exact fit can be strong, and say so in the reason. Never write a percentile.\n\nTHE SEAT\n${seatBrief(seat)}`
@@ -318,7 +322,7 @@ async function repostBenchCard(admin: SupabaseClient, payload: Record<string, un
   if (!seat) return { ok: true } // the seat closed; nothing to post
   const shown = ((run.shown ?? run.results) as { candidate_id: string; fit: string; reason: string; blockers: string[]; met?: boolean }[]).map(r => ({ ...r, met: !!r.met }))
   const poolRows = (run.pool as { candidate_id: string }[] | null) ?? shown
-  const pool = await hydrate(admin, poolRows.map(p => ({ candidate_id: p.candidate_id })))
+  const pool = await hydrate(admin, poolRows.map(p => ({ candidate_id: p.candidate_id })), seat.companyName)
   return postBenchCard(admin, { runId, seat, trigger: String(run.trigger), shown, pool, callModel: String(run.model ?? 'model'), costUsd: Number(run.cost_usd ?? 0), strongCount: shown.filter(r => r.fit === 'strong').length })
 }
 

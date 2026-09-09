@@ -103,7 +103,16 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
           <WhoAreYou slug={slug} />
         )}
 
-        <section className="mt-6 flex items-center justify-between gap-3 rounded-[14px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3">
+        <section className="mt-4 rounded-[14px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3.5">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#1F3A2F]">Not here to refer, but open to a move yourself?</p>
+          <p className="mt-1 text-[13px] text-[#2A2A26]">Share your CV once. Lily reads it herself, you hear either way within two working days, and nothing goes to a company until you say yes to that role.</p>
+          <div className="mt-2.5 flex items-center justify-between gap-3">
+            <span className="text-[12px] text-[#9C9C95]">Three minutes · CV as a PDF</span>
+            <Link href={`/apply?from=${encodeURIComponent(slug)}`} className="shrink-0 rounded-full border border-[#D2D1C7] bg-white px-3 py-2 text-[12.5px] font-semibold">Share my CV</Link>
+          </div>
+        </section>
+
+        <section className="mt-4 flex items-center justify-between gap-3 rounded-[14px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3">
           <div>
             <p className="text-[13px] font-semibold">Prefer to talk it through first?</p>
             <p className="text-[12.5px] text-[#6E6E68]">Lily, Refery&rsquo;s founder, does 15-minute calls. Optional.</p>

@@ -5,6 +5,7 @@ import { queueEmail } from '@/lib/comms'
 import { sendPendingNote } from '@/lib/onboarding/decisions'
 import { suggestFirstSearch } from '@/lib/onboarding/matcher'
 import { templateG, templateN } from '@/lib/voice/templates'
+import { runCandidateTimers } from '@/lib/apply/profile'
 
 /**
  * The onboarding timers, once a day at 09:00 UTC.
@@ -19,6 +20,8 @@ import { templateG, templateN } from '@/lib/voice/templates'
  *      setup" (G) at day 3 and day 10, then "pausing reminders" (N) at day 17.
  *   3. Active partners with confirmed preferences and no search get one
  *      suggested (H) or an honest no-match (F).
+ *   4. People who shared their own CV: a pending note at 48 hours with no
+ *      decision, a six-month "still open?", and the 24-month consent lapse.
  */
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -100,8 +103,14 @@ async function run(request: NextRequest) {
     if (r.outcome === 'no_match' && !r.reason) out.noMatch++
   }
 
-  console.log('[onboarding]', JSON.stringify(out))
-  return NextResponse.json({ ok: true, ...out })
+  // 4. Self-submitted candidates.
+  const candidates = await runCandidateTimers(admin).catch(err => {
+    console.error('[onboarding] candidate timers failed:', err)
+    return { pending: -1, checkins: -1, lapsed: -1 }
+  })
+
+  console.log('[onboarding]', JSON.stringify({ ...out, candidates }))
+  return NextResponse.json({ ok: true, ...out, candidates })
 }
 
 export async function GET(request: NextRequest) {

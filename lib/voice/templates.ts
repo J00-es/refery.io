@@ -416,3 +416,103 @@ export function focusLine(input: { functions: string[]; cities: string[]; stages
   const ci = input.cities.length ? input.cities.join(' and ') : 'San Francisco and New York'
   return `${fn} at ${st} startups, mainly in ${ci}`
 }
+
+// ── CS · a person who shared their own CV ───────────────────────────────────
+
+export function templateCS1(p: { fullName: string; reviewDate: string | null; profileLink: string }): RenderedEmail {
+  const link = need(p.profileLink, 'profile_link')
+  const when = p.reviewDate ? ` by ${p.reviewDate}` : ' within two working days'
+  return {
+    templateId: 'CS1',
+    version: VOICE_VERSION,
+    job: 'receipt',
+    essential: true,
+    subject: subject(p.fullName, 'Your profile is in'),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      'Thanks for sharing your CV with Refery :)',
+      '',
+      `I read every profile myself. You'll hear from me${when}, either way: a short call if a live search fits, or a note that I'm keeping you in mind.`,
+      '',
+      'Nothing about you goes to a company until you say yes to that specific role.',
+      '',
+      `Your private profile, to update what you're looking for, pause, or delete: ${link}`,
+    ]),
+  }
+}
+
+export function templateCS1Dup(p: { fullName: string; profileLink: string }): RenderedEmail {
+  const link = need(p.profileLink, 'profile_link')
+  return {
+    templateId: 'CS1-dup',
+    version: VOICE_VERSION,
+    job: 'receipt',
+    essential: true,
+    subject: subject(p.fullName, 'Your profile, already with us'),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      'Good news: your profile is already with Refery, so nothing was created twice.',
+      '',
+      `If what you're looking for has changed, update it here: ${link}. Anything you change re-runs the match the same day.`,
+    ]),
+  }
+}
+
+export function templateCSLink(p: { fullName: string; profileLink: string }): RenderedEmail {
+  const link = need(p.profileLink, 'profile_link')
+  return {
+    templateId: 'CS-link',
+    version: VOICE_VERSION,
+    job: 'support',
+    essential: true,
+    subject: subject(p.fullName, 'Your private profile link'),
+    text: sign([`Hi ${first(p.fullName)},`, '', `Here is your private Refery profile, to update what you're looking for, pause, or delete: ${link}`, '', 'This link is yours alone. If you did not ask for it, ignore this email and nothing changes.']),
+  }
+}
+
+export function templateCSP(p: { fullName: string; newReviewDate: string }): RenderedEmail {
+  const date = need(p.newReviewDate, 'new_review_date')
+  return {
+    templateId: 'CSP',
+    version: VOICE_VERSION,
+    job: 'update',
+    essential: true,
+    subject: `Re: ${subject(p.fullName, 'Your profile is in')}`,
+    text: sign([`Hi ${first(p.fullName)},`, '', `Quick note so you're not left wondering: your profile is still with me, and I'll come back to you by ${date}.`]),
+  }
+}
+
+export function templateCS6(p: { fullName: string; keptUntil: string; lookingLink: string; pauseLink: string; deleteLink: string; lapsed: boolean }): RenderedEmail {
+  const until = need(p.keptUntil, 'kept_until')
+  return {
+    templateId: p.lapsed ? 'CS6-lapse' : 'CS6',
+    version: VOICE_VERSION,
+    job: 'reengagement',
+    essential: false,
+    subject: subject(p.fullName, p.lapsed ? 'your profile is paused' : 'still open to a move?'),
+    text: sign(
+      p.lapsed
+        ? [
+            `Hi ${first(p.fullName)},`,
+            '',
+            `It has been two years since you shared your profile with me, so as promised I've paused it: nothing more is suggested to you unless you say so.`,
+            '',
+            `Still open to a move? One tap keeps you in mind for another two years: ${need(p.lookingLink, 'looking_link')}`,
+            `Or delete everything: ${need(p.deleteLink, 'delete_link')}`,
+          ]
+        : [
+            `Hi ${first(p.fullName)},`,
+            '',
+            'Six months since you shared your profile with me. Still open?',
+            '',
+            `Still looking: ${need(p.lookingLink, 'looking_link')}`,
+            `Pause for now: ${need(p.pauseLink, 'pause_link')}`,
+            `Delete my profile: ${need(p.deleteLink, 'delete_link')}`,
+            '',
+            `If I don't hear back, nothing changes: your profile stays with me until ${until}, and you can change your mind any time from the same links.`,
+          ],
+    ),
+  }
+}

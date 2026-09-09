@@ -52,6 +52,7 @@ import { formatMoney } from '@/lib/engine/money'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
 import { LeaseLostError, renewPanelLease } from '@/lib/engine/queue'
 import { persistFactBundle } from '@/lib/engine/fact-bundle'
+import { profileById, summarise, type ProfileSummary } from '@/lib/apply/profile'
 
 export const PANEL_PROMPT_VERSION = 3
 
@@ -234,6 +235,8 @@ export interface PanelContext {
   logos: Logo[]
   /** Direct to the candidate, or to the partner who owns them. */
   recipient: 'candidate' | 'owner'
+  /** What a self-submitted person told us on the form. */
+  selfProfile: ProfileSummary | null
   /** The partner's pitch, when they submitted to a search. */
   pitch: string | null
   submittedJobId: string | null
@@ -252,7 +255,7 @@ export function recipientFor(candidate: Record<string, unknown>, owner: Owner | 
   // them, about them. Matched on email only: candidates.user_id is the
   // uploader's account, so it names the scout for everyone they add.
   if (candidate.email && owner.email.toLowerCase() === String(candidate.email).toLowerCase()) return 'candidate'
-  if (candidate.intake_source === 'inbound') return 'candidate'
+  if (candidate.intake_source === 'inbound' || candidate.intake_source === 'self') return 'candidate'
   return 'owner'
 }
 
@@ -279,6 +282,7 @@ export function factsBlock(ctx: PanelContext): string {
     `Availability on record: ${(c.availability_status as string) ?? 'unknown'}`,
     `Told they are being shared: ${c.consent_told_candidate === true ? 'yes' : c.consent_told_candidate === false ? 'no' : 'unknown'}`,
     `Came in as: ${(c.intake_source as string) ?? 'unknown'}`,
+    ...(ctx.selfProfile ? [`They told us on the form (self-submitted ${ctx.selfProfile.on}; their own stated preferences, not a fact about level): ${ctx.selfProfile.says}${ctx.selfProfile.never ? `. Never show to: ${ctx.selfProfile.never}` : ''}${ctx.selfProfile.note ? `. Their note: "${ctx.selfProfile.note}"` : ''}`] : []),
     logos ? `Logos and schools, tier-checked: ${logos}` : 'Logos and schools: none recognised',
   ].join('\n')
 }
@@ -316,7 +320,7 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
   const { data: candidate } = await admin.from('candidates').select('*').eq('id', candidateId).maybeSingle()
   if (!candidate) return null
   const parsed = (candidate.parsed_data ?? null) as Partial<ParsedResumeData> | null
-  const [owner, seats, subRes, globalInputs] = await Promise.all([
+  const [owner, seats, subRes, globalInputs, profileRow] = await Promise.all([
     loadOwner(admin, (candidate.owner_user_id as string) ?? null),
     loadLiveSeats(admin),
     admin
@@ -327,8 +331,10 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
       .limit(1)
       .maybeSingle(),
     policyInputsFor(admin, candidateId),
+    candidate.intake_source === 'self' ? profileById(admin, candidateId) : Promise.resolve(null),
   ])
   const sub = subRes.data
+  const selfProfile = profileRow ? summarise(profileRow) : null
   const companies = (parsed?.work_history ?? []).map(w => w.company).filter((x): x is string => !!x)
   const schools = (parsed?.education ?? []).map(e => e.institution).filter((x): x is string => !!x)
   const logos = await lookupLogos(admin, companies.slice(0, 8), schools.slice(0, 4))
@@ -349,6 +355,7 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
     seats,
     logos,
     recipient: recipientFor(candidate, owner),
+    selfProfile,
     pitch: (sub?.pitch as string) ?? null,
     submittedJobId: (sub?.job_id as string) ?? null,
     policy,

@@ -84,7 +84,7 @@ async function repostDecisionCard(admin: Admin, payload: Record<string, unknown>
   if (ctx.candidate.desk_card_ts) return { ok: true }
   const panel = await latestPanel(admin, candidateId)
   if (!panel || (payload.panel_id && panel.id !== payload.panel_id)) return { ok: true }
-  const posted = await postDecisionCard(admin, { candidate: ctx.candidate, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf: null, latencyLine: String(payload.latency_line ?? 'posted after a retry') })
+  const posted = await postDecisionCard(admin, { candidate: ctx.candidate, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf: null, latencyLine: String(payload.latency_line ?? 'posted after a retry') })
   return posted.ok ? { ok: true } : { ok: false, error: posted.error }
 }
 
@@ -196,7 +196,7 @@ async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Pro
     // card refreshed, since that press is her asking for the drafts again.
     const undecided = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'].includes(String(c.journey_stage)) || (pastTheDoor && manualRerun)
     if (undecided) {
-      const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf: null, latencyLine })
+      const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf: null, latencyLine })
       await updateMessage(c.desk_card_channel as string, c.desk_card_ts as string, card.text, card.blocks)
     }
     if (priorGrade !== panel.grade) {
@@ -225,7 +225,7 @@ async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Pro
     }
   }
 
-  const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, duplicateOf, latencyLine })
+  const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf, latencyLine })
   if (!posted.ok) {
     // The assessment is saved and paid for; only the card failed. Retry the card, not the call.
     await enqueueOutbox(admin, { kind: 'decision_card', idempotencyKey: `decision_card:${panel.id}`, payload: { candidate_id: candidateId, panel_id: panel.id, latency_line: latencyLine } })

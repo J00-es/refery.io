@@ -15,6 +15,7 @@ import { pastTheDoor } from '@/lib/journey'
 import type { ParsedResumeData } from '@/lib/types'
 import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
 import { REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
+import type { ProfileSummary } from '@/lib/apply/profile'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -36,6 +37,8 @@ export interface CardInput {
   owner: Owner | null
   seats: Seat[]
   recipient: 'candidate' | 'owner'
+  /** What a self-submitted person told us on the form, when there is a profile. */
+  selfProfile?: ProfileSummary | null
   /** Someone else already owns this person: name and since when. */
   duplicateOf: { name: string; ownerName: string | null; since: string } | null
   latencyLine: string
@@ -127,7 +130,9 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
   const met = pastTheDoor(String(c.journey_stage ?? ''))
   const byLine =
     recipient === 'candidate'
-      ? c.intake_source === 'inbound'
+      ? c.intake_source === 'self'
+        ? `shared their own CV at refery.xyz/apply · self-submission${input.selfProfile?.paused ? ' · PAUSED by them' : ''} · owner: you`
+        : c.intake_source === 'inbound'
         ? 'came in directly (owner: you)'
         : owner && !owner.isUs
           ? `added their own CV as a ${owner.role || 'partner'}`
@@ -170,6 +175,9 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
       },
     },
     { type: 'context', elements: [{ type: 'mrkdwn', text: esc(headline(c)) || 'no background on record' }] },
+    ...(input.selfProfile
+      ? [{ type: 'section', text: { type: 'mrkdwn', text: `>*They say · from the form, ${esc(input.selfProfile.on)}*\n>${esc(input.selfProfile.says) || '_nothing beyond the CV_'}${input.selfProfile.never ? `\n>Never show to: ${esc(input.selfProfile.never)}` : ''}${input.selfProfile.note ? `\n>_"${esc(input.selfProfile.note)}"_` : ''}` } }]
+      : []),
     {
       type: 'section',
       text: {

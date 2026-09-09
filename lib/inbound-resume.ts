@@ -435,6 +435,8 @@ function senderLabel(email: InboundEmail): string {
  * to Slack, because the alternative is a résumé that vanished with nothing to
  * show that it ever arrived.
  */
+export { defaultOwnerUserId }
+
 export async function ingestInboundResume(
   email: InboundEmail,
   attachment: InboundAttachment,
