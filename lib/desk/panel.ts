@@ -13,17 +13,25 @@
  *
  * Since 2026-09-09 (prompt v3):
  *   - the model reads the evidence and writes; code decides. Blockers are
- *     typed by lib/engine/fit.ts from facts on record; the suggested decision
- *     and the next action are derived, and the model's own suggestion is kept
- *     beside them so a disagreement is visible.
+ *     typed by lib/engine/fit.ts from facts on record, each seat is judged
+ *     under the candidate-role policy (a rejection for one role never touches
+ *     another), the suggested decision and the next action are derived, and
+ *     the model's own suggestion is kept beside them so a disagreement is
+ *     visible.
  *   - no percentiles. The grade is a rubric label (lib/engine/grade.ts); the
  *     peer line says what kind of work, not where in a population.
  *   - dates, pay and authorisation are computed before the prompt; the model
  *     is told not to infer any of them and never from a school or a name.
  *   - calibration examples come only from verified post-call decisions, never
  *     from the legacy verdict text, and never include the person being read.
- *   - the run is versioned by the evidence it read; the same version is not
- *     paid for twice unless Lily asks, and every call is on the shared ledger.
+ *   - the model's read is versioned by the whole prompt it saw (evidence,
+ *     facts, seats, recipient permissions, calibration). The same version is
+ *     not paid for twice unless Lily asks; a reuse still produces a new row,
+ *     recomputes policy and actions from today's facts, and completes any
+ *     persistence an earlier run left unfinished.
+ *   - the panel never moves a person out of a state a human set. It grades;
+ *     only a human reopens.
+ *   - a worker persists only while it still holds its queue lease.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -36,12 +44,13 @@ import { firstNameOf, loadOwner, properName, type Owner } from '@/lib/desk/peopl
 import type { ParsedResumeData, WorkExperience } from '@/lib/types'
 import { GRADES, GRADE_CONTRACT_VERSION, gradeLabel, positioningLine, stripPercentiles } from '@/lib/engine/grade'
 import { candidateFactsFrom, deriveDecision, keepKnownIds, seatVerdict, type Derived, type SeatVerdict } from '@/lib/engine/fit'
-import { evaluateEligibility, POLICY_VERSION, type Eligibility } from '@/lib/engine/policy'
+import { evaluateEligibility, logisticsWaived, POLICY_VERSION, type Eligibility } from '@/lib/engine/policy'
 import { policyInputsFor } from '@/lib/engine/decisions'
 import { candidateSourceText, recordSourceVersion, sha256, type SourceVersion } from '@/lib/engine/evidence'
 import { describeEducationTiming } from '@/lib/engine/dates'
 import { formatMoney } from '@/lib/engine/money'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
+import { LeaseLostError, renewPanelLease } from '@/lib/engine/queue'
 
 export const PANEL_PROMPT_VERSION = 3
 
@@ -227,7 +236,12 @@ export interface PanelContext {
   /** The partner's pitch, when they submitted to a search. */
   pitch: string | null
   submittedJobId: string | null
+  /** The person-level policy. */
   policy: Eligibility
+  /** The candidate-role policy per live seat: the person plus that job's rejections and overrides. */
+  seatPolicies: Record<string, Eligibility>
+  /** Seats where a recorded human exception waives unresolved logistics. */
+  seatWaivers: Record<string, boolean>
   today: Date
 }
 
@@ -286,11 +300,22 @@ function seatLabels(ctx: PanelContext): string {
     .join('\n')
 }
 
+function policyRowOf(candidate: Record<string, unknown>) {
+  return {
+    journey_stage: (candidate.journey_stage as string) ?? null,
+    journey_stage_source: (candidate.journey_stage_source as string) ?? null,
+    availability_status: (candidate.availability_status as string) ?? null,
+    person_type: (candidate.person_type as string) ?? null,
+    intake_source: (candidate.intake_source as string) ?? null,
+    consent_told_candidate: (candidate.consent_told_candidate as boolean | null) ?? null,
+  }
+}
+
 export async function buildPanelContext(admin: SupabaseClient, candidateId: string, today = new Date()): Promise<PanelContext | null> {
   const { data: candidate } = await admin.from('candidates').select('*').eq('id', candidateId).maybeSingle()
   if (!candidate) return null
   const parsed = (candidate.parsed_data ?? null) as Partial<ParsedResumeData> | null
-  const [owner, seats, subRes, policyInputs] = await Promise.all([
+  const [owner, seats, subRes, globalInputs] = await Promise.all([
     loadOwner(admin, (candidate.owner_user_id as string) ?? null),
     loadLiveSeats(admin),
     admin
@@ -306,14 +331,15 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
   const companies = (parsed?.work_history ?? []).map(w => w.company).filter((x): x is string => !!x)
   const schools = (parsed?.education ?? []).map(e => e.institution).filter((x): x is string => !!x)
   const logos = await lookupLogos(admin, companies.slice(0, 8), schools.slice(0, 4))
-  const policy = evaluateEligibility({
-    journey_stage: (candidate.journey_stage as string) ?? null,
-    journey_stage_source: (candidate.journey_stage_source as string) ?? null,
-    availability_status: (candidate.availability_status as string) ?? null,
-    person_type: (candidate.person_type as string) ?? null,
-    intake_source: (candidate.intake_source as string) ?? null,
-    consent_told_candidate: (candidate.consent_told_candidate as boolean | null) ?? null,
-    ...policyInputs,
+  const row = policyRowOf(candidate)
+  const policy = evaluateEligibility({ ...row, ...globalInputs })
+  // The same policy, once per live seat, with that job's rejections and overrides.
+  const perSeat = await Promise.all(seats.map(s => policyInputsFor(admin, candidateId, s.jobId)))
+  const seatPolicies: Record<string, Eligibility> = {}
+  const seatWaivers: Record<string, boolean> = {}
+  seats.forEach((s, i) => {
+    seatPolicies[s.jobId] = evaluateEligibility({ ...row, ...perSeat[i], job_id: s.jobId })
+    seatWaivers[s.jobId] = logisticsWaived(perSeat[i].overrides, s.jobId)
   })
   return {
     candidate,
@@ -325,8 +351,30 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
     pitch: (sub?.pitch as string) ?? null,
     submittedJobId: (sub?.job_id as string) ?? null,
     policy,
+    seatPolicies,
+    seatWaivers,
     today,
   }
+}
+
+/** The model's read, kept verbatim so a reuse can rebuild the row without a call. */
+export interface ModelRead {
+  person_type: PanelOutput['person_type']
+  grade: PanelOutput['grade']
+  level: PanelOutput['level']
+  scope: PanelOutput['scope']
+  function: PanelOutput['function']
+  peer_line: string
+  summary: string
+  highlights: string[]
+  unknowns: string[]
+  logos_from_knowledge: { name: string; why: string }[]
+  flags: string[]
+  missing_facts: PanelOutput['missing_facts']
+  seat_fits: PanelOutput['seat_fits']
+  suggested_decision: PanelOutput['suggested_decision']
+  suggested_reason: string
+  drafts: PanelOutput['drafts']
 }
 
 export interface PanelEngine {
@@ -334,13 +382,16 @@ export interface PanelEngine {
   policy_version: string
   grade_contract: string
   policy: Eligibility
+  seat_policies: Record<string, Eligibility>
   seats: SeatVerdict[]
   derived: Derived
+  model: ModelRead
   model_suggested: string
   dropped_seat_ids: number
   input_hash: string
   source: { kind: string; hash: string; chars: number }
   reused: boolean
+  reused_from: string | null
 }
 
 export interface PanelRow {
@@ -373,6 +424,8 @@ export interface PanelRow {
 export interface RunPanelOptions {
   /** 'manual' always pays for a fresh read; other reasons reuse the same input version. */
   reason?: string
+  /** The queue lease this worker holds; persistence is fenced on it. */
+  lease?: { candidateId: string; token: string } | null
 }
 
 /** The two halves of the prompt. Exported so the benchmark runs the production prompt on synthetic fixtures. */
@@ -398,9 +451,55 @@ export function panelPrompt(ctx: PanelContext, parts: { cv?: string; facts?: str
   return { system, user }
 }
 
-/** The hash of everything the model reads: the evidence version, the facts, the seats, the prompt. */
-export function panelInputHash(parts: { source: SourceVersion; facts: string; seats: Seat[]; recipient: string; pitch: string | null }): string {
-  return sha256([`prompt:${PANEL_PROMPT_VERSION}`, `source:${parts.source.kind}:${parts.source.contentHash}`, parts.facts, parts.seats.map(seatBrief).join('\n'), parts.recipient, parts.pitch ?? ''].join('\n---\n'))
+/**
+ * The version of what the model read: the prompt version, the evidence
+ * version, and the whole prompt (facts, seats, recipient permissions, labels,
+ * pitch, calibration, CV). Policy and overrides are deliberately not in it:
+ * they are recomputed on every run, reuse or not.
+ */
+export function panelInputHash(parts: { source: SourceVersion; system: string; user: string }): string {
+  return sha256([`prompt:${PANEL_PROMPT_VERSION}`, `source:${parts.source.kind}:${parts.source.contentHash}`, parts.system, parts.user].join('\n---\n'))
+}
+
+/** Stages the panel may move to decision_pending. Anything a human set stays put. */
+export const PANEL_MAY_REOPEN_FROM = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'] as const
+
+/**
+ * What the panel writes on the candidate. The assessment fields always;
+ * the lifecycle fields only from a stage the panel owns. A human's not_fit,
+ * dormant, bench, intro or warm is never touched by a rerun.
+ */
+export function lifecyclePatch(input: { priorStage: string; personType: string; now: string }): { lifecycle: Record<string, unknown> | null; reason: string } {
+  const from = input.priorStage
+  if (!(PANEL_MAY_REOPEN_FROM as readonly string[]).includes(from)) return { lifecycle: null, reason: `stage ${from} was set by a human or a decision; the panel grades only` }
+  if (from === 'decision_pending') return { lifecycle: null, reason: 'already at decision_pending' }
+  const target = input.personType === 'job_seeker' || from === 'uploaded' || from === 'calibrating' ? 'decision_pending' : from
+  if (target === from) return { lifecycle: null, reason: 'no move' }
+  return { lifecycle: { journey_stage: target, journey_stage_at: input.now, journey_stage_source: 'desk', decision_pending_since: input.now }, reason: `${from} → ${target}` }
+}
+
+function modelReadFromRow(prior: PanelRow): ModelRead {
+  const e = (prior.engine as PanelEngine | undefined)?.model
+  if (e) return e
+  // Rows written before the read was kept verbatim: rebuild what can be rebuilt.
+  return {
+    person_type: prior.person_type as ModelRead['person_type'],
+    grade: prior.grade as ModelRead['grade'],
+    level: (prior.level ?? 'L2') as ModelRead['level'],
+    scope: 'unknown',
+    function: (prior.function ?? 'other') as ModelRead['function'],
+    peer_line: stripPercentiles(prior.positioning),
+    summary: prior.summary ?? '',
+    highlights: prior.highlights ?? [],
+    unknowns: [],
+    logos_from_knowledge: (prior.logos ?? []).filter(l => l.source === 'model').map(l => ({ name: l.name, why: '' })),
+    flags: prior.flags ?? [],
+    missing_facts: (prior.missing_facts ?? []) as ModelRead['missing_facts'],
+    seat_fits: (prior.seat_fits ?? []).filter(f => f.fit !== 'no').map(f => ({ job_id: f.job_id, fit: f.fit, reason: f.reason, blockers: [] })),
+    suggested_decision: ((prior.engine as PanelEngine | undefined)?.model_suggested ?? prior.suggested_decision) as ModelRead['suggested_decision'],
+    suggested_reason: prior.suggested_reason ?? '',
+    drafts: prior.drafts,
+  }
 }
 
 /** Run the panel and write everything it produced. */
@@ -410,167 +509,194 @@ export async function runPanel(admin: SupabaseClient, ctx: PanelContext, opts: R
   const sourceText = candidateSourceText(ctx.candidate, (ctx.parsed as Record<string, unknown> | null) ?? null)
   const source = await recordSourceVersion(admin, candidateId, sourceText, { resume_filename: ctx.candidate.resume_filename ?? null })
   const facts = factsBlock(ctx)
-  const inputHash = panelInputHash({ source, facts, seats: ctx.seats, recipient: ctx.recipient, pitch: ctx.pitch })
+  const calibration = await calibrationExamples(admin, candidateId)
+  const { system, user } = panelPrompt(ctx, { cv, facts, calibration })
+  const inputHash = panelInputHash({ source, system, user })
 
-  // Idempotent by input version: the same evidence, seats and prompt reuse
-  // the saved read. A manual press is Lily asking for a fresh one.
-  if (opts.reason !== 'manual') {
-    const { data: prior } = await admin
-      .from('candidate_panels')
-      .select('*')
-      .eq('candidate_id', candidateId)
-      .eq('prompt_version', PANEL_PROMPT_VERSION)
-      .eq('input_hash', inputHash)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (prior) {
-      console.log(`[desk:panel] reused panel ${prior.id} for ${candidateId} (same input version)`)
-      await admin.from('candidate_activity_log').insert({
-        candidate_id: candidateId,
-        activity_type: 'panel_reused',
-        description: `Panel read reused: nothing it reads has changed since ${String(prior.created_at).slice(0, 10)}.`,
-        source: 'panel',
-        metadata: { panel_id: prior.id, input_hash: inputHash, reason: opts.reason ?? null },
-      })
-      return { ...(prior as PanelRow), engine: { ...((prior.engine as PanelEngine) ?? {}), reused: true } as PanelEngine }
-    }
+  // ── the model's read: reused when nothing it read has changed ─────────────
+  let read: ModelRead
+  let model: string
+  let costUsd = 0
+  let latencyMs = 0
+  let tokens: { in: number | null; out: number | null } = { in: null, out: null }
+  let usageId: string | null = null
+  let requestId: string | null = null
+  let reusedFrom: string | null = null
+  const prior =
+    opts.reason === 'manual'
+      ? null
+      : ((await admin.from('candidate_panels').select('*').eq('candidate_id', candidateId).eq('prompt_version', PANEL_PROMPT_VERSION).eq('input_hash', inputHash).order('created_at', { ascending: false }).limit(1).maybeSingle()).data as PanelRow | null)
+  if (prior) {
+    read = modelReadFromRow(prior)
+    model = prior.model
+    reusedFrom = prior.id
+    console.log(`[desk:panel] reusing the read from panel ${prior.id} for ${candidateId} (same input version); policy and actions recomputed`)
+  } else {
+    // Thinking tokens count against this on adaptive models, so it is generous.
+    const call = await structured('panel', { system, user, schema: PanelSchema, maxOutputTokens: 12000 }, { admin, source: 'desk', task: 'panel', metadata: { candidate_id: candidateId, input_hash: inputHash } })
+    const out = call.output
+    const repaired = await repairDrafts(admin, ctx, out)
+    read = { ...out, drafts: out.drafts }
+    model = call.model
+    costUsd = call.costUsd + repaired
+    latencyMs = call.latencyMs
+    tokens = { in: call.tokensIn, out: call.tokensOut }
+    usageId = call.usageId
+    requestId = call.requestId
   }
 
-  const { system, user } = panelPrompt(ctx, { cv, facts, calibration: await calibrationExamples(admin, candidateId) })
-
-  // Thinking tokens count against this on adaptive models, so it is generous.
-  const call = await structured('panel', { system, user, schema: PanelSchema, maxOutputTokens: 12000 }, { admin, source: 'desk', task: 'panel', metadata: { candidate_id: candidateId, input_hash: inputHash } })
-  const out = call.output
-  await repairDrafts(admin, ctx, out)
+  // ── nothing is written unless this worker still owns the item ─────────────
+  if (opts.lease) {
+    const held = await renewPanelLease(admin, opts.lease.candidateId, opts.lease.token)
+    if (!held) throw new LeaseLostError(opts.lease.candidateId)
+  }
 
   const logos: Logo[] = [
     ...ctx.logos,
-    ...out.logos_from_knowledge.map(l => ({ name: l.name, kind: 'company' as const, tier: null, source: 'model' as const })),
+    ...read.logos_from_knowledge.map(l => ({ name: l.name, kind: 'company' as const, tier: null, source: 'model' as const })),
   ]
   const seatIds = new Set(ctx.seats.map(s => s.jobId))
-  const { kept: seatFits, dropped } = keepKnownIds(out.seat_fits, 'job_id', seatIds)
+  const { kept: seatFits, dropped } = keepKnownIds(read.seat_fits, 'job_id', seatIds)
   if (dropped) console.warn(`[desk:panel] dropped ${dropped} seat fit(s) for ids the model was not given`)
 
-  // ── the deterministic layer ────────────────────────────────────────────────
+  // ── the deterministic layer, from today's facts and policy ─────────────────
   const cFacts = candidateFactsFrom(ctx.candidate, (ctx.parsed as Parameters<typeof candidateFactsFrom>[1]) ?? null)
   const readById = new Map(seatFits.map(f => [f.job_id, f]))
   const verdicts = ctx.seats.map(s =>
-    seatVerdict(readById.get(s.jobId) ?? null, cFacts, { jobId: s.jobId, visaRequirement: s.visaRequirement, location: s.location, remotePolicy: s.remotePolicy, salaryMin: s.salaryMin, salaryMax: s.salaryMax, salaryCurrency: s.salaryCurrency ?? null, yearsMin: s.yearsMin, yearsMax: s.yearsMax }, ctx.today),
+    seatVerdict(
+      readById.get(s.jobId) ?? null,
+      cFacts,
+      { jobId: s.jobId, visaRequirement: s.visaRequirement, location: s.location, remotePolicy: s.remotePolicy, salaryMin: s.salaryMin, salaryMax: s.salaryMax, salaryCurrency: s.salaryCurrency ?? null, yearsMin: s.yearsMin, yearsMax: s.yearsMax },
+      ctx.today,
+      { pairPolicy: ctx.seatPolicies[s.jobId] ?? ctx.policy, logisticsWaived: ctx.seatWaivers[s.jobId] ?? false },
+    ),
   )
-  const derived = deriveDecision({ seats: verdicts, policy: ctx.policy, personType: out.person_type, modelSuggested: out.suggested_decision })
+  const derived = deriveDecision({ seats: verdicts, policy: ctx.policy, personType: read.person_type, modelSuggested: read.suggested_decision })
   const engine: PanelEngine = {
     fit_version: derived.fit_version,
     policy_version: POLICY_VERSION,
     grade_contract: GRADE_CONTRACT_VERSION,
     policy: ctx.policy,
+    seat_policies: ctx.seatPolicies,
     seats: verdicts.filter(v => v.role_fit !== 'not_assessed' || v.blockers.some(b => b.kind === 'hard')),
     derived,
-    model_suggested: out.suggested_decision,
+    model: read,
+    model_suggested: read.suggested_decision,
     dropped_seat_ids: dropped,
     input_hash: inputHash,
     source: { kind: source.kind, hash: source.contentHash, chars: source.chars },
-    reused: false,
+    reused: !!prior,
+    reused_from: reusedFrom,
   }
-  const positioning = positioningLine({ grade: out.grade, level: out.level, fn: out.function, peerLine: out.peer_line })
+  const positioning = positioningLine({ grade: read.grade, level: read.level, fn: read.function, peerLine: read.peer_line })
   // The seat_fits column keeps the legacy shape; the blockers on it are the typed ones, rendered.
   const seatFitsForRow = seatFits.map(f => {
     const v = verdicts.find(x => x.job_id === f.job_id)
     return { job_id: f.job_id, fit: f.fit, reason: stripPercentiles(f.reason), blockers: (v?.blockers ?? []).map(b => `${b.kind}: ${b.detail}`) }
   })
-  const flags = [...out.flags.map(stripPercentiles), ...(derived.overridden ? [`Desk changed the suggestion from ${out.suggested_decision.replace(/_/g, ' ')} to ${derived.suggested_decision.replace(/_/g, ' ')}: ${derived.override_reason}`] : [])].slice(0, 6)
+  const flags = [...read.flags.map(stripPercentiles), ...(derived.overridden ? [`Desk changed the suggestion from ${read.suggested_decision.replace(/_/g, ' ')} to ${derived.suggested_decision.replace(/_/g, ' ')}: ${derived.override_reason}`] : [])].slice(0, 6)
 
   const { data: row, error } = await admin
     .from('candidate_panels')
     .insert({
       candidate_id: candidateId,
-      model: call.model,
+      model,
       prompt_version: PANEL_PROMPT_VERSION,
-      grade: out.grade,
-      level: out.level,
-      function: out.function,
+      grade: read.grade,
+      level: read.level,
+      function: read.function,
       positioning,
-      summary: stripPercentiles(out.summary),
-      highlights: out.highlights.map(stripPercentiles),
+      summary: stripPercentiles(read.summary),
+      highlights: read.highlights.map(stripPercentiles),
       logos,
       flags,
-      person_type: out.person_type,
+      person_type: read.person_type,
       seat_fits: seatFitsForRow,
       suggested_decision: derived.suggested_decision,
-      suggested_reason: stripPercentiles(out.suggested_reason),
-      drafts: out.drafts,
-      missing_facts: [...new Set([...out.missing_facts, ...(cFacts.visaStatus ? [] : ['visa' as const]), ...(cFacts.location ? [] : ['location' as const]), ...(cFacts.salaryAsk ? [] : ['comp' as const])])],
-      tokens_in: call.tokensIn,
-      tokens_out: call.tokensOut,
-      cost_usd: call.costUsd,
-      latency_ms: call.latencyMs,
+      suggested_reason: stripPercentiles(read.suggested_reason),
+      drafts: read.drafts,
+      missing_facts: [...new Set([...read.missing_facts, ...(cFacts.visaStatus ? [] : ['visa' as const]), ...(cFacts.location ? [] : ['location' as const]), ...(cFacts.salaryAsk ? [] : ['comp' as const])])],
+      tokens_in: tokens.in,
+      tokens_out: tokens.out,
+      cost_usd: costUsd,
+      latency_ms: latencyMs,
       input_hash: inputHash,
       source_version_id: source.id,
       policy_version: POLICY_VERSION,
       engine,
-      usage_id: call.usageId,
+      usage_id: usageId,
+      reused_from: reusedFrom,
     })
     .select('*')
     .single()
   if (error || !row) throw new Error(`could not save panel: ${error?.message}`)
 
+  // ── the candidate: assessment always, lifecycle only from a stage the panel owns ──
   const now = new Date().toISOString()
-  const isSeeker = out.person_type === 'job_seeker'
   const priorStage = String(ctx.candidate.journey_stage ?? 'uploaded')
-  // A person already past the door (met, warm, placed) keeps their stage; the
-  // panel refreshes the grade and the seat fits, not the relationship.
-  const pastTheDoor = ['intro_requested', 'intro_sent', 'committee_call', 'warm', 'placed', 'post_committee_not_fit'].includes(priorStage)
-  const patch: Record<string, unknown> = {
-    panel_grade: out.grade,
-    recruiter_verdict: `${gradeLabel(out.grade)}. ${positioning}. ${stripPercentiles(out.summary)}`.slice(0, 2000),
-    person_type: out.person_type,
+  const assessment: Record<string, unknown> = {
+    panel_grade: read.grade,
+    recruiter_verdict: `${gradeLabel(read.grade)}. ${positioning}. ${stripPercentiles(read.summary)}`.slice(0, 2000),
+    person_type: read.person_type,
     panel_at: now,
     updated_at: now,
   }
-  if (!pastTheDoor) {
-    patch.journey_stage = isSeeker ? 'decision_pending' : priorStage === 'uploaded' || priorStage === 'calibrating' ? 'decision_pending' : priorStage
-    patch.journey_stage_at = now
-    patch.journey_stage_source = 'desk'
-    patch.decision_pending_since = now
+  const life = lifecyclePatch({ priorStage, personType: read.person_type, now })
+  let moved = false
+  if (life.lifecycle) {
+    // Conditional on the stage the panel read: a human who decided while the model was running wins.
+    const { data: claimed, error: moveError } = await admin
+      .from('candidates')
+      .update({ ...assessment, ...life.lifecycle })
+      .eq('id', candidateId)
+      .eq('journey_stage', priorStage)
+      .select('id')
+    if (moveError) throw new Error(`panel ${row.id} saved but the candidate could not be updated: ${moveError.message}`)
+    moved = !!claimed?.length
   }
-  const { error: patchError } = await admin.from('candidates').update(patch).eq('id', candidateId)
-  if (patchError) throw new Error(`panel ${row.id} saved but the candidate could not be updated: ${patchError.message}`)
+  if (!moved) {
+    const { error: patchError } = await admin.from('candidates').update(assessment).eq('id', candidateId)
+    if (patchError) throw new Error(`panel ${row.id} saved but the candidate could not be updated: ${patchError.message}`)
+  }
 
   const { error: logError } = await admin.from('candidate_activity_log').insert({
     candidate_id: candidateId,
-    activity_type: 'panel_graded',
-    description: `Panel: ${gradeLabel(out.grade)}. ${positioning}. Suggested ${derived.suggested_decision.replace(/_/g, ' ')}; next: ${derived.next_action.replace(/_/g, ' ')}.`,
+    activity_type: prior ? 'panel_reused' : 'panel_graded',
+    description: `Panel: ${gradeLabel(read.grade)}. ${positioning}. Suggested ${derived.suggested_decision.replace(/_/g, ' ')}; next: ${derived.next_action.replace(/_/g, ' ')}.${prior ? ' Read reused: nothing it reads has changed.' : ''}${moved ? '' : ` Stage kept: ${life.reason}.`}`,
     source: 'panel',
     from_state: (ctx.candidate.panel_grade as string) ?? null,
-    to_state: out.grade,
-    metadata: { panel_id: row.id, model: call.model, cost_usd: call.costUsd, latency_ms: call.latencyMs, input_hash: inputHash, usage_id: call.usageId, request_id: call.requestId },
+    to_state: read.grade,
+    metadata: { panel_id: row.id, model, cost_usd: costUsd, latency_ms: latencyMs, input_hash: inputHash, usage_id: usageId, request_id: requestId, reused_from: reusedFrom, lifecycle: life.reason },
   })
   if (logError) console.warn(`[desk:panel] activity log failed for ${row.id}: ${logError.message}`)
 
-  // Every seat decision, whatever it was, is a match assessment row.
-  await recordMatchAssessments(admin, candidateId, row.id as string, source, verdicts, derived, ctx.policy, call.model)
+  // Every seat decision, whatever it was, is a match assessment row under its pair policy.
+  await recordMatchAssessments(admin, candidateId, row.id as string, source, verdicts, derived, ctx, model)
 
   return row as PanelRow
 }
 
-async function recordMatchAssessments(admin: SupabaseClient, candidateId: string, panelId: string, source: SourceVersion, verdicts: SeatVerdict[], derived: Derived, policy: Eligibility, model: string): Promise<void> {
+async function recordMatchAssessments(admin: SupabaseClient, candidateId: string, panelId: string, source: SourceVersion, verdicts: SeatVerdict[], derived: Derived, ctx: PanelContext, model: string): Promise<void> {
   if (!verdicts.length) return
-  const rows = verdicts.map(v => ({
-    job_id: v.job_id,
-    candidate_id: candidateId,
-    candidate_version_id: source.id,
-    policy_version: POLICY_VERSION,
-    rubric_version: `panel-v${PANEL_PROMPT_VERSION}`,
-    retrieval_routes: ['live_seats'],
-    requirement_decisions: [],
-    eligibility: { seat: v.eligibility, person: policy },
-    role_fit: v.role_fit,
-    blockers: v.blockers,
-    next_action: v.role_fit === 'strong' ? (v.eligibility === 'ineligible' ? 'hold' : derived.next_action) : v.role_fit === 'possible' ? (v.eligibility === 'ineligible' ? 'hold' : 'request_information') : 'no_current_role',
-    client_intro_ready: v.role_fit === 'strong' && v.eligibility === 'eligible' && policy.client_intro_ready,
-    model,
-    panel_id: panelId,
-  }))
+  const rows = verdicts.map(v => {
+    const pair = v.pair_policy ?? ctx.policy
+    return {
+      job_id: v.job_id,
+      candidate_id: candidateId,
+      candidate_version_id: source.id,
+      policy_version: POLICY_VERSION,
+      rubric_version: `panel-v${PANEL_PROMPT_VERSION}`,
+      retrieval_routes: ['live_seats'],
+      requirement_decisions: [],
+      eligibility: { seat: v.eligibility, person: ctx.policy, pair, logistics_waived: v.logistics_waived },
+      role_fit: v.role_fit,
+      blockers: v.blockers,
+      next_action: v.role_fit === 'strong' ? (v.eligibility === 'ineligible' ? 'hold' : derived.next_action) : v.role_fit === 'possible' ? (v.eligibility === 'ineligible' ? 'hold' : 'request_information') : 'no_current_role',
+      client_intro_ready: v.role_fit === 'strong' && v.eligibility === 'eligible' && pair.client_intro_ready,
+      model,
+      panel_id: panelId,
+    }
+  })
   const { error } = await admin.from('match_assessments').insert(rows)
   if (error) console.warn(`[desk:panel] match assessments not recorded: ${error.message}`)
 }
@@ -579,6 +705,7 @@ async function recordMatchAssessments(admin: SupabaseClient, candidateId: string
  * The panel occasionally economises on the drafts it did not suggest. A draft
  * that is a greeting and a sign-off is useless the day Lily picks it, so any
  * thin one is rewritten by a focused second call before anything is saved.
+ * Returns what the repair cost.
  */
 const DraftsRepair = z.object({
   intro_now: Draft,
@@ -591,10 +718,10 @@ function thin(d: { body: string } | undefined): boolean {
   return !d || d.body.replace(/\s+/g, ' ').trim().length < 160 || /placeholder|\[insert|\[name\]/i.test(d.body)
 }
 
-async function repairDrafts(admin: SupabaseClient, ctx: PanelContext, out: PanelOutput): Promise<void> {
+async function repairDrafts(admin: SupabaseClient, ctx: PanelContext, out: PanelOutput): Promise<number> {
   const d = out.drafts
   const needs = thin(d.intro_now) || thin(d.bench) || thin(d.not_fit) || !d.not_fit_reason_line || /placeholder/i.test(d.not_fit_reason_line) || !d.not_fit.body.includes(d.not_fit_reason_line)
-  if (!needs) return
+  if (!needs) return 0
   const strong = out.seat_fits.filter(f => f.fit === 'strong').map(f => f.job_id)
   const system = RUBRIC.slice(RUBRIC.indexOf('EMAILS.'))
   const user = [
@@ -610,12 +737,14 @@ async function repairDrafts(admin: SupabaseClient, ctx: PanelContext, out: Panel
     .filter(Boolean)
     .join('\n\n')
   try {
-    const r = await structured('draft', { system, user, schema: DraftsRepair, maxOutputTokens: 2500 }, { admin, source: 'desk', task: 'panel_draft_repair', metadata: { candidate_id: ctx.candidate.id } })
+    const r = await structured('draft', { system, user, schema: DraftsRepair, maxOutputTokens: 2500 }, { admin, source: 'desk', task: 'panel_draft_repair', discretionary: true, metadata: { candidate_id: ctx.candidate.id } })
     out.drafts = r.output
     console.log(`[desk:panel] drafts repaired for ${ctx.candidate.id} via ${r.model} ($${r.costUsd.toFixed(3)})`)
+    return r.costUsd
   } catch (err) {
     if (err instanceof BudgetDeferredError) console.warn('[desk:panel] draft repair deferred by budget; thin drafts kept')
     else console.warn('[desk:panel] draft repair failed:', err instanceof Error ? err.message : err)
+    return 0
   }
 }
 

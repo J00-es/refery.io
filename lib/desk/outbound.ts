@@ -125,7 +125,7 @@ export async function moveJourney(
   candidateId: string,
   to: string,
   description: string,
-  opts: { by?: string | null; metadata?: Record<string, unknown> } = {},
+  opts: { by?: string | null; metadata?: Record<string, unknown>; source?: 'desk' | 'human' } = {},
 ): Promise<{ from: string | null }> {
   const { data: before } = await admin.from('candidates').select('journey_stage').eq('id', candidateId).maybeSingle()
   const from = (before?.journey_stage as string | null) ?? null
@@ -133,7 +133,7 @@ export async function moveJourney(
   const now = new Date().toISOString()
   await admin
     .from('candidates')
-    .update({ journey_stage: to, journey_stage_at: now, journey_stage_source: 'desk', updated_at: now })
+    .update({ journey_stage: to, journey_stage_at: now, journey_stage_source: opts.source ?? 'desk', updated_at: now })
     .eq('id', candidateId)
   await logActivity(admin, candidateId, 'journey_stage_changed', description, {
     from,

@@ -10,10 +10,15 @@
  * posts the card, even for someone already met, because the press is Lily
  * asking for the drafts.
  *
+ * Ownership: a claim is exclusive while its lease lives, a targeted rerun
+ * cannot take a running item, the panel renews the lease before it writes,
+ * and a completion that comes back false (the lease was lost) is logged and
+ * nothing outward is done for it.
+ *
  * Outcomes are typed (queue.outcome): succeeded, empty, deferred_budget,
- * input_error, provider_error, policy_excluded, skipped, failed. A budget
- * deferral keeps the item queued with a retry time and does not count as an
- * attempt; the person is never rejected because the month ran out.
+ * input_error, provider_error, policy_excluded, skipped, failed, lease_lost.
+ * A budget deferral keeps the item queued with a retry time and does not
+ * count as an attempt; the person is never rejected because the month ran out.
  */
 
 import { NextRequest, NextResponse, after } from 'next/server'
@@ -25,7 +30,7 @@ import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
 import { meetsBar, pastTheDoor as isPastTheDoor, type PanelGrade } from '@/lib/journey'
 import { properName } from '@/lib/desk/people'
 import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
-import { claimPanelItems, completePanelItem, type QueueOutcome } from '@/lib/engine/queue'
+import { claimPanelItems, completePanelItem, LeaseLostError, type PanelQueueItem, type QueueOutcome } from '@/lib/engine/queue'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
 import { drainOutbox, enqueueOutbox } from '@/lib/engine/outbox'
 
@@ -69,6 +74,8 @@ class SkipPanel extends Error {
   }
 }
 
+type Admin = ReturnType<typeof createAdminClient>
+
 /** A card whose post failed after the panel was saved: post it from the saved read, no model call. */
 async function repostDecisionCard(admin: Admin, payload: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> {
   const candidateId = String(payload.candidate_id ?? '')
@@ -81,36 +88,47 @@ async function repostDecisionCard(admin: Admin, payload: Record<string, unknown>
   return posted.ok ? { ok: true } : { ok: false, error: posted.error }
 }
 
+async function finish(admin: Admin, item: PanelQueueItem, result: Parameters<typeof completePanelItem>[2]): Promise<void> {
+  const done = await completePanelItem(admin, item, result)
+  if (!done) console.warn(`[desk:panel] completion refused for ${item.candidate_id}: the lease was lost; another worker owns the item`)
+}
+
 async function work(req: NextRequest): Promise<{ ok: boolean; processed: number; results: Record<string, unknown>[] }> {
   const admin = createAdminClient()
   const only = req.nextUrl.searchParams.get('candidate')
   await drainOutbox(admin, { decision_card: payload => repostDecisionCard(admin, payload) }, 5)
-  const { items, leased } = await claimPanelItems(admin, MAX_PER_RUN, only, MAX_ATTEMPTS)
+  const items = await claimPanelItems(admin, MAX_PER_RUN, only, MAX_ATTEMPTS)
+  if (only && !items.length) return { ok: true, processed: 0, results: [{ id: only, skipped: 'not claimable now: not queued, or another worker holds it' }] }
 
   const results: Record<string, unknown>[] = []
   for (const item of items) {
     const id = item.candidate_id
     try {
-      const outcome = await panelOne(admin, id, String(item.reason ?? 'created'))
-      await completePanelItem(admin, item, { status: outcome.skipped ? 'skipped' : 'done', outcome: outcome.skipped ? 'skipped' : (outcome.outcome as QueueOutcome) ?? 'succeeded', error: outcome.skipped ?? null })
-      results.push({ id, leased, ...outcome })
+      const outcome = await panelOne(admin, item, String(item.reason ?? 'created'))
+      await finish(admin, item, { status: outcome.skipped ? 'skipped' : 'done', outcome: outcome.skipped ? 'skipped' : (outcome.outcome as QueueOutcome) ?? 'succeeded', error: outcome.skipped ?? null })
+      results.push({ id, ...outcome })
     } catch (err) {
+      if (err instanceof LeaseLostError) {
+        // The result was discarded before any write; the current owner's run stands.
+        results.push({ id, outcome: 'lease_lost' })
+        continue
+      }
       if (err instanceof BudgetDeferredError) {
         // Queue with a visible reason; not an attempt, not a rejection.
-        await completePanelItem(admin, item, { status: 'queued', outcome: 'deferred_budget', error: err.message.slice(0, 400), retryInSeconds: BUDGET_RETRY_SECONDS })
+        await finish(admin, item, { status: 'queued', outcome: 'deferred_budget', error: err.message.slice(0, 400), retryInSeconds: BUDGET_RETRY_SECONDS })
         results.push({ id, deferred: err.reservation.reason })
         continue
       }
       if (err instanceof SkipPanel) {
-        await completePanelItem(admin, item, { status: 'skipped', outcome: err.outcome, error: err.message })
+        await finish(admin, item, { status: 'skipped', outcome: err.outcome, error: err.message })
         results.push({ id, skipped: err.message })
         continue
       }
       const message = err instanceof Error ? err.message : String(err)
       console.error(`[desk:panel] ${id} threw:`, err)
-      const outcome: QueueOutcome = /no model answered|timeout|abort|429|quota/i.test(message) ? 'provider_error' : /could not save|could not be updated|insert|permission denied/i.test(message) ? 'failed' : 'failed'
+      const outcome: QueueOutcome = /no model answered|timeout|abort|429|quota/i.test(message) ? 'provider_error' : 'failed'
       const giveUp = item.attempts >= MAX_ATTEMPTS
-      await completePanelItem(admin, item, { status: giveUp ? 'failed' : 'queued', outcome, error: message.slice(0, 500) })
+      await finish(admin, item, { status: giveUp ? 'failed' : 'queued', outcome, error: message.slice(0, 500) })
       if (giveUp) {
         const { data: c } = await admin.from('candidates').select('name, desk_card_channel, desk_card_ts').eq('id', id).maybeSingle()
         const { postAlert } = await import('@/lib/desk-notifications')
@@ -122,9 +140,8 @@ async function work(req: NextRequest): Promise<{ ok: boolean; processed: number;
   return { ok: true, processed: results.length, results }
 }
 
-type Admin = ReturnType<typeof createAdminClient>
-
-async function panelOne(admin: Admin, candidateId: string, reason: string): Promise<Record<string, unknown> & { skipped?: string; outcome?: QueueOutcome }> {
+async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Promise<Record<string, unknown> & { skipped?: string; outcome?: QueueOutcome }> {
+  const candidateId = item.candidate_id
   const ctx = await buildPanelContext(admin, candidateId)
   if (!ctx) return { skipped: 'candidate not found', outcome: 'input_error' }
   const c = ctx.candidate
@@ -135,7 +152,7 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   const before = await latestPanel(admin, candidateId)
   const priorGrade = (c.panel_grade as PanelGrade | null) ?? null
   const startedAt = Date.now()
-  const panel = await runPanel(admin, ctx, { reason })
+  const panel = await runPanel(admin, ctx, { reason, lease: item.lease_token ? { candidateId, token: item.lease_token } : null })
   const reused = Boolean((panel.engine as { reused?: boolean } | undefined)?.reused)
   const secondsSinceArrival = Math.max(1, Math.round((Date.now() - new Date(String(c.created_at)).getTime()) / 1000))
   const latencyLine = reused
@@ -191,6 +208,8 @@ async function panelOne(admin: Admin, candidateId: string, reason: string): Prom
   // longer apply on their own, but Lily pressing "Run the panel" wants the
   // card, drafts and all. The reactions then hold the stage (see decide.ts).
   if (pastTheDoor && !manualRerun) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd, reused }
+  // A person a human closed or parked gets no new card from an automatic rerun either.
+  if (['not_fit', 'dormant', 'bench'].includes(String(c.journey_stage)) && !manualRerun) return { grade: panel.grade, posted: `nothing (${String(c.journey_stage)} stays)`, cost: panel.cost_usd, reused }
 
   // Already known under another owner?
   let duplicateOf: { name: string; ownerName: string | null; since: string } | null = null

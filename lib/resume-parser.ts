@@ -1,4 +1,5 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { BudgetDeferredError, paidGenerateText } from '@/lib/engine/paid'
 import { z } from 'zod'
 import { get } from '@vercel/blob'
 import { extractPdfText } from '@/lib/pdf-text'
@@ -297,7 +298,7 @@ async function transcribeResume(base64: string, deadline: number): Promise<strin
     if (remaining < MIN_ATTEMPT_MS) break
 
     try {
-      const { text } = await generateText({
+      const { result: { text } } = await paidGenerateText({
         model,
         system: TRANSCRIBE_PROMPT,
         maxOutputTokens: 16000,
@@ -312,11 +313,13 @@ async function transcribeResume(base64: string, deadline: number): Promise<strin
             ],
           },
         ],
-      })
+      }, { source: 'parser', task: 'resume_transcribe', discretionary: true })
 
       const trimmed = text?.trim()
       if (trimmed) return trimmed
     } catch (error) {
+      // Transcription is the part we can afford to lose: a deferred budget ends it quietly.
+      if (error instanceof BudgetDeferredError) return null
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`Résumé transcription failed on ${model}: ${message}`)
       if (isAccountError(message)) return null
@@ -367,7 +370,7 @@ async function analyzeWithFallback(
 
     const startedAt = Date.now()
     try {
-      const { output, usage } = await generateText({
+      const { result: { output, usage } } = await paidGenerateText<z.infer<typeof ParsedResumeSchema>>({
         model,
         output: Output.object({ schema: ParsedResumeSchema }),
         system: SYSTEM_PROMPT,
@@ -381,7 +384,7 @@ async function analyzeWithFallback(
         abortSignal: AbortSignal.timeout(remaining),
         ...reasoningOptions(),
         messages: [{ role: 'user', content }],
-      })
+      }, { source: 'parser', task: 'resume_parse' })
 
       // Kept permanently: without it, "uploads feel slow" is unanswerable.
       // Reads as one line per extraction in the runtime logs.
@@ -394,6 +397,8 @@ async function analyzeWithFallback(
       preferredModel = model
       return { parsed: output, model }
     } catch (error) {
+      // The month's envelope is closed: nothing else in the chain may be dispatched either.
+      if (error instanceof BudgetDeferredError) throw error
       console.warn(`[resume-parser] fail model=${model} ms=${Date.now() - startedAt}`)
       lastError = error
       const message = error instanceof Error ? error.message : String(error)

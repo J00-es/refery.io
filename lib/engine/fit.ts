@@ -26,8 +26,14 @@ export interface Blocker {
   kind: BlockerKind
   code: string
   detail: string
-  /** For unknowns: what to ask on the call. */
+  /** For unknowns and questions: what to ask on the call. */
   question?: string
+  /**
+   * For questions: `required` means client readiness waits for the answer
+   * (a comparison the engine could not make, an unknown start date);
+   * `optional` is a screening topic that never gates anything.
+   */
+  readiness?: 'required' | 'optional'
 }
 
 export type RoleFit = 'strong' | 'possible' | 'not_supported' | 'not_assessed'
@@ -58,21 +64,61 @@ export interface CandidateFacts {
 
 // ── work authorisation ──────────────────────────────────────────────────────
 
-export type VisaClass = 'authorized' | 'transfer' | 'time_limited' | 'needs_sponsorship' | 'not_us' | 'unknown'
+export type VisaClass = 'authorized' | 'transfer' | 'time_limited' | 'pending' | 'needs_sponsorship' | 'not_us' | 'conflicting' | 'unknown'
+
+// Statements that deny US authorisation or say sponsorship is needed. Read first.
+const VISA_NEGATIVE: [RegExp, VisaClass][] = [
+  [/\b(not|no|without|un)\s*-?\s*(authori[sz]ed|authori[sz]ation|permitted|eligible)\b[^.;|]*(us|u\.s\.|united states|america)/, 'needs_sponsorship'],
+  [/\b(not|no|without|un)\s*-?\s*(authori[sz]ed|authori[sz]ation)\b/, 'needs_sponsorship'],
+  [/not\s+(us|u\.s\.)[- ]based|no\s+(us|u\.s\.)\s+(work\s+)?(visa|auth|permit)|\bno visa\b(?!\s+(required|needed|necessary))|autonomo/, 'not_us'],
+  // "needs sponsorship later" on an OPT holder is a future need, read below as time-limited; a present need is a negative.
+  [/needs?( a)?( new)?\s+(us\s+)?(visa|sponsor)(?![^.;|]*\b(later|eventually|down the line|in the future|in \d+ years?))|\bneeds?\b[^.;|]*\bsponsor(?![^.;|]*\b(later|eventually|down the line|in the future|in \d+ years?))|sponsorship\s+(required|needed)|requires?\s+sponsorship|(?<!no )visa\s+required|needs_us_sponsorship|visa is the blocker/, 'needs_sponsorship'],
+]
+
+// "needs H-1B or green card sponsorship later": a future need. Not a denial of
+// today's authorisation, and not a statement of it either; the clause is set
+// aside so the visa names inside it do not read as possession.
+const VISA_FUTURE_NEED = /\bneeds?\b[^.;|]*\bsponsor[^.;|]*\b(later|eventually|down the line|in the future|in \d+ years?)[^.;|]*/
+
+// Statements that establish US work authorisation. A citizenship word alone
+// does not: "Canadian citizen" is a fact about Canada.
+const VISA_POSITIVE = /\b(us|u\.s\.|united states|american)[- ]citizen|\bus_citizen\b|green[ _]card|permanent resident|\bgc\b|\blpr\b|\beb-?\d\b|\bus_authorized\b|authori[sz]ed to work (in|for)[^.;|]*(us|u\.s\.|united states|any employer)|\bead\b|\bw-?2\b/
+const VISA_PENDING = /arriving|pending|in progress|applied|awaiting|approval in progress|activation/
+const VISA_TRANSFER = /h-?1b1?|\btn\b|\bo-?1\b|\bl-?1\b|transfer/
+const VISA_TIME_LIMITED = /\bopt\b|f-?1\b|\bstem\b|\bcpt\b|\bj-?1\b/
 
 /**
- * From the free text on record. Nothing here is inferred from a school, a
- * name or a country of education: an empty or unrecognised field is unknown.
+ * From the free text on record. Negations and sponsorship needs are read
+ * before anything positive; a positive and a negative statement together
+ * are a contradiction for a human, not a certification. Nothing here is
+ * inferred from a school, a name or a country of education: an empty,
+ * foreign-only or unrecognised field is unknown.
  */
 export function classifyVisa(raw: string | null | undefined): VisaClass {
-  const t = (raw ?? '').toLowerCase().trim()
+  const t = (raw ?? '').toLowerCase().replace(/\s+/g, ' ').trim()
   if (!t) return 'unknown'
-  if (/not us based|no us visa|no us work|no us auth|non.?us|autonomo/.test(t) && !/citizen/.test(t)) return 'not_us'
-  if (/needs?( new)? (us )?sponsor|sponsorship required|needs_us_sponsorship|visa required|visa is the blocker/.test(t)) return 'needs_sponsorship'
-  if (/citizen|green card|permanent resident|\bgc\b|\blpr\b|us_authorized|authori[sz]ed to work|w-2|\bead\b|us_citizen|green_card/.test(t) && !/arriving|pending|in progress/.test(t)) return 'authorized'
-  if (/h-?1b1?|\btn\b|o-?1|l-?1|transfer/.test(t)) return 'transfer'
-  if (/\bopt\b|f-?1|stem/.test(t)) return 'time_limited'
-  if (/green card arriving|pending/.test(t)) return 'transfer'
+
+  let negative: VisaClass | null = null
+  let rest = t.replace(VISA_FUTURE_NEED, ' ')
+  for (const [re, cls] of VISA_NEGATIVE) {
+    if (re.test(rest)) {
+      negative = negative ?? cls
+      rest = rest.replace(re, ' ')
+    }
+  }
+  const positive = VISA_POSITIVE.test(rest)
+  const pending = VISA_PENDING.test(t) && (positive || /green|card|residen|h-?1b|visa/.test(t))
+  const transfer = VISA_TRANSFER.test(rest)
+  const timeLimited = VISA_TIME_LIMITED.test(rest)
+
+  // A statement of authorisation next to a denial is a contradiction for a
+  // human. A visa merely mentioned as a possible path ("O-1 likely") is not.
+  if (negative && positive) return 'conflicting'
+  if (negative) return negative
+  if (pending && !transfer) return 'pending'
+  if (positive) return 'authorized'
+  if (transfer) return 'transfer'
+  if (timeLimited) return 'time_limited'
   return 'unknown'
 }
 
@@ -88,6 +134,16 @@ export function visaDecision(candidate: VisaClass, seatRequirement: string | nul
       return {
         eligibility: 'needs_review',
         blocker: { kind: 'unknown', code: 'visa_time_limited', detail: 'OPT or STEM OPT on record; how long it runs is not', question: 'How long does the current work authorisation run, and does an employer training plan apply?' },
+      }
+    case 'pending':
+      return {
+        eligibility: 'needs_review',
+        blocker: { kind: 'unknown', code: 'visa_pending', detail: 'authorisation on record is pending or in progress', question: 'When does the pending authorisation take effect, and what can you work on until then?' },
+      }
+    case 'conflicting':
+      return {
+        eligibility: 'needs_review',
+        blocker: { kind: 'unknown', code: 'visa_conflicting', detail: 'the record both asserts and denies US authorisation', question: 'What exactly is your current US work authorisation?' },
       }
     case 'needs_sponsorship':
     case 'not_us':
@@ -152,7 +208,8 @@ export function payDecision(c: CandidateFacts, s: SeatFacts): Blocker | null {
         ? { kind: 'preference', code: 'ask_above_band', detail: cmp.detail }
         : null
     case 'not_comparable':
-      return { kind: 'question', code: 'comp_not_comparable', detail: cmp.detail, question: 'Can you confirm base versus total, and the currency?' }
+      // The engine itself says it could not compare: client readiness waits for the answer.
+      return { kind: 'question', code: 'comp_not_comparable', detail: cmp.detail, question: 'Can you confirm base versus total, and the currency?', readiness: 'required' }
     case 'unknown':
       return null
     default:
@@ -176,8 +233,8 @@ export function yearsDecision(c: CandidateFacts, s: SeatFacts): Blocker | null {
 export function availabilityDecision(c: CandidateFacts, today: Date): Blocker | null {
   if (!c.educationEnd || c.educationEnd.year == null) return null
   const t = educationTiming(c.educationEnd, today)
-  if (t === 'in_progress') return { kind: 'question', code: 'education_in_progress', detail: describeEducationTiming(c.educationEnd, today), question: 'When could you start full time?' }
-  if (t === 'ends_this_year_month_unknown') return { kind: 'question', code: 'education_end_month_unknown', detail: describeEducationTiming(c.educationEnd, today), question: 'When does the programme finish?' }
+  if (t === 'in_progress') return { kind: 'question', code: 'education_in_progress', detail: describeEducationTiming(c.educationEnd, today), question: 'When could you start full time?', readiness: 'required' }
+  if (t === 'ends_this_year_month_unknown') return { kind: 'question', code: 'education_end_month_unknown', detail: describeEducationTiming(c.educationEnd, today), question: 'When does the programme finish?', readiness: 'required' }
   return null
 }
 
@@ -197,6 +254,10 @@ export interface SeatVerdict {
   eligibility: SeatEligibility
   blockers: Blocker[]
   questions: string[]
+  /** The candidate-role policy this seat was judged under (global plus this job's rejections and overrides). */
+  pair_policy: Eligibility | null
+  /** A recorded human exception waived unresolved logistics for this seat. */
+  logistics_waived: boolean
   /** What the model wrote, for the record; never the control input. */
   model_reason: string
   model_blockers: string[]
@@ -217,20 +278,40 @@ export function seatBlockers(c: CandidateFacts, s: SeatFacts, today: Date): Bloc
   return out
 }
 
-export function seatEligibility(blockers: Blocker[]): SeatEligibility {
+/**
+ * hard → ineligible; an unknown, or a question the engine says must be
+ * answered first → needs_review; anything else → eligible. A recorded
+ * waiver clears unknowns and required questions, never a hard blocker.
+ */
+export function seatEligibility(blockers: Blocker[], waived = false): SeatEligibility {
   if (blockers.some(b => b.kind === 'hard')) return 'ineligible'
-  if (blockers.some(b => b.kind === 'unknown')) return 'needs_review'
+  if (waived) return 'eligible'
+  if (blockers.some(b => b.kind === 'unknown' || (b.kind === 'question' && b.readiness === 'required'))) return 'needs_review'
   return 'eligible'
 }
 
-export function seatVerdict(read: ModelSeatRead | null, c: CandidateFacts, s: SeatFacts, today: Date): SeatVerdict {
+export interface SeatVerdictOptions {
+  /** The policy for this candidate and this job. When it excludes the pair, the seat is ineligible with the reason, whatever the read said. */
+  pairPolicy?: Eligibility | null
+  logisticsWaived?: boolean
+}
+
+export function seatVerdict(read: ModelSeatRead | null, c: CandidateFacts, s: SeatFacts, today: Date, opts: SeatVerdictOptions = {}): SeatVerdict {
   const blockers = seatBlockers(c, s, today)
+  const pair = opts.pairPolicy ?? null
+  if (pair && !pair.can_match) {
+    const roleSpecific = pair.reasons.filter(r => r === 'rejected_for_this_role' || r === 'human_override_block_match')
+    blockers.unshift({ kind: 'hard', code: roleSpecific.length ? 'rejected_for_this_role' : 'policy_excluded', detail: (roleSpecific.length ? roleSpecific : pair.reasons).join(', ') })
+  }
+  const waived = !!opts.logisticsWaived
   return {
     job_id: s.jobId,
     role_fit: read ? (read.fit === 'no' ? 'not_supported' : read.fit) : 'not_assessed',
-    eligibility: seatEligibility(blockers),
+    eligibility: seatEligibility(blockers, waived),
     blockers,
     questions: blockers.map(b => b.question).filter((q): q is string => !!q),
+    pair_policy: pair,
+    logistics_waived: waived,
     model_reason: read?.reason ?? '',
     model_blockers: read?.blockers ?? [],
   }
@@ -278,7 +359,10 @@ export function deriveDecision(input: { seats: SeatVerdict[]; policy: Eligibilit
   if (!input.policy.can_match) return finish('hold', 'bench', 'the eligibility policy excludes this person from matching')
 
   if (strongEligible.length || strongReview.length) {
-    if (input.policy.client_intro_ready && strongEligible.length && !strongReview.length) return finish('client_intro', 'intro_now', 'strong, eligible and client-ready')
+    // Client-ready only when the person is (policy), every strong seat's logistics are resolved,
+    // and every strong seat's own candidate-role policy agrees.
+    const pairsReady = input.seats.filter(s => s.role_fit === 'strong' && s.eligibility === 'eligible').every(s => (s.pair_policy ?? input.policy).client_intro_ready)
+    if (input.policy.client_intro_ready && strongEligible.length && !strongReview.length && pairsReady) return finish('client_intro', 'intro_now', 'strong, eligible and client-ready')
     // Lily's screening call is the next step; unknown logistics are questions for it.
     return finish('screening_call', 'intro_now', 'a strong seat with no confirmed blocker')
   }

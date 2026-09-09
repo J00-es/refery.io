@@ -12,7 +12,8 @@
  * only if OpenAI fails. Cost is recorded per run.
  */
 
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { BudgetDeferredError, paidGenerateText } from '@/lib/engine/paid'
 import { z } from 'zod'
 import { costOf } from '@/lib/desk/model'
 import type { SourcePage } from './research'
@@ -31,22 +32,23 @@ async function structured<T>(input: { system: string; user: string; schema: z.Zo
   for (const model of CHAIN) {
     const startedAt = Date.now()
     try {
-      const { output, usage } = await generateText({
+      const { result: { output, usage } } = await paidGenerateText<T>({
         model,
         output: Output.object({ schema: input.schema }),
         maxOutputTokens: input.maxOutputTokens,
-        maxRetries: 1,
+        maxRetries: 0,
         abortSignal: AbortSignal.timeout(170_000),
         messages: [
           { role: 'system', content: input.system },
           { role: 'user', content: input.user },
         ],
-      })
+      }, { source: 'onboarding', task: `onboarding_${input.label}`, discretionary: true })
       const tokensIn = usage?.inputTokens ?? 0
       const tokensOut = usage?.outputTokens ?? 0
       console.log(`[onboarding:${input.label}] model=${model} ms=${Date.now() - startedAt} in=${tokensIn} out=${tokensOut}`)
       return { output: output as T, usage: { model, tokensIn, tokensOut, costUsd: costOf(model, tokensIn, tokensOut) } }
     } catch (err) {
+      if (err instanceof BudgetDeferredError) throw err
       lastError = err
       console.warn(`[onboarding:${input.label}] model=${model} failed: ${err instanceof Error ? err.message.slice(0, 200) : String(err)}`)
     }

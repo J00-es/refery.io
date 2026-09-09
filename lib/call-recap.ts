@@ -15,7 +15,8 @@
 
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { BudgetDeferredError, paidGenerateText } from '@/lib/engine/paid'
 import { z } from 'zod'
 import { esc, type SlackBlock } from '@/lib/slack-bot'
 
@@ -220,7 +221,7 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
   for (const candidate of MODEL_CHAIN) {
     const startedAt = Date.now()
     try {
-      const { output, usage } = await generateText({
+      const { result: { output, usage } } = await paidGenerateText<z.infer<typeof RecapSchema>>({
         model: candidate.id,
         output: Output.object({ schema: RecapSchema }),
         system,
@@ -232,7 +233,7 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
         abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
         ...(candidate.options ? { providerOptions: candidate.options } : {}),
         messages: [{ role: 'user', content: prompt }],
-      })
+      }, { source: 'transcript', task: 'call_recap' })
 
       console.log(
         `[call-recap] ok model=${candidate.id} ms=${Date.now() - startedAt} ` +
@@ -240,6 +241,7 @@ export async function summariseCall(input: SummariseInput): Promise<SummariseRes
       )
       return { recap: output, model: candidate.id }
     } catch (err) {
+      if (err instanceof BudgetDeferredError) throw err
       lastError = err
       console.error(`[call-recap] model=${candidate.id} failed after ${Date.now() - startedAt}ms:`, err)
     }

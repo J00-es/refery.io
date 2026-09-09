@@ -75,6 +75,18 @@ export const ROUTES: Record<string, Route> = {
     supports: { structuredOutput: true, effort: ['none', 'low', 'medium', 'high'], promptCache: true }, effortOption: 'openai.reasoningEffort',
     notes: 'Audit proposal: assessment, scorecards, detailed matching.',
   },
+  'openai/text-embedding-3-small': {
+    id: 'openai/text-embedding-3-small', provider: 'openai', candidateData: true, benchmark: false,
+    price: { input: 0.02, output: 0, cacheRead: null, cacheWrite: null }, priceCheckedOn: '2026-09-09',
+    supports: { structuredOutput: false, effort: [], promptCache: false }, effortOption: null,
+    notes: 'The only embedding route; the vector column is sized for it.',
+  },
+  'openai/gpt-4o': {
+    id: 'openai/gpt-4o', provider: 'openai', candidateData: true, benchmark: false,
+    price: { input: 2.5, output: 10, cacheRead: 1.25, cacheWrite: null }, priceCheckedOn: '2026-09-09',
+    supports: { structuredOutput: true, effort: [], promptCache: false }, effortOption: null,
+    notes: 'Two legacy routes (generate-email, jobs/parse-url) and the old Python panel still name it.',
+  },
   'openai/gpt-5.4-mini': {
     id: 'openai/gpt-5.4-mini', provider: 'openai', candidateData: false, benchmark: true,
     price: { input: 0.75, output: 4.5, cacheRead: 0.075, cacheWrite: null }, priceCheckedOn: '2026-09-09',

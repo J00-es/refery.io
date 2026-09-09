@@ -6,6 +6,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { OverrideEffect } from '@/lib/engine/policy'
 
 export type DecisionKind = 'capability' | 'role_decision' | 'availability' | 'contact' | 'met'
 
@@ -69,9 +70,11 @@ export async function metEvidence(admin: SupabaseClient, candidateIds: string[])
   return met
 }
 
-/** Do-not-contact and job-scoped rejections, the two inputs the policy needs beyond the candidate row. */
-export async function policyInputsFor(admin: SupabaseClient, candidateId: string, jobId?: string | null): Promise<{ do_not_contact: boolean; rejected_for_job: boolean; overrides: { effect: 'allow_match' | 'block_match' | 'allow_contact' | 'block_contact'; scope: 'global' | 'job'; job_id: string | null }[] }> {
-  const out = { do_not_contact: false, rejected_for_job: false, overrides: [] as { effect: 'allow_match' | 'block_match' | 'allow_contact' | 'block_contact'; scope: 'global' | 'job'; job_id: string | null }[] }
+export type OverrideRow = { effect: OverrideEffect; scope: 'global' | 'job'; job_id: string | null }
+
+/** Do-not-contact, job-scoped rejections and overrides: the inputs the policy needs beyond the candidate row. */
+export async function policyInputsFor(admin: SupabaseClient, candidateId: string, jobId?: string | null): Promise<{ do_not_contact: boolean; rejected_for_job: boolean; overrides: OverrideRow[] }> {
+  const out = { do_not_contact: false, rejected_for_job: false, overrides: [] as OverrideRow[] }
   const { data: dnc } = await admin.from('candidate_human_decisions').select('id').eq('candidate_id', candidateId).eq('kind', 'contact').eq('value', 'do_not_contact').is('revoked_at', null).limit(1)
   out.do_not_contact = !!dnc?.length
   const { data: ov } = await admin
@@ -80,7 +83,7 @@ export async function policyInputsFor(admin: SupabaseClient, candidateId: string
     .eq('candidate_id', candidateId)
     .is('revoked_at', null)
     .order('created_at')
-  out.overrides = ((ov ?? []) as { effect: 'allow_match' | 'block_match' | 'allow_contact' | 'block_contact'; scope: 'global' | 'job'; job_id: string | null; expires_at: string | null }[])
+  out.overrides = ((ov ?? []) as { effect: OverrideEffect; scope: 'global' | 'job'; job_id: string | null; expires_at: string | null }[])
     .filter(o => !o.expires_at || new Date(o.expires_at) > new Date())
     .map(o => ({ effect: o.effect, scope: o.scope, job_id: o.job_id }))
   if (jobId) {

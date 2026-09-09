@@ -89,7 +89,7 @@ Kinds:
   other      anything else, including out-of-office and thanks.`
   const user = `The reply is from the ${input.who}${input.who === 'candidate' ? ` (${input.candidateName})` : ` about ${input.candidateName}`}:\n\n${input.text.slice(0, 3000)}`
   try {
-    const r = await structured('classify', { system, user, schema: ReplySchema, maxOutputTokens: 200 })
+    const r = await structured('classify', { system, user, schema: ReplySchema, maxOutputTokens: 200 }, { task: 'classify_reply' })
     return r.output
   } catch (err) {
     console.warn('[desk:signals] classify failed:', err instanceof Error ? err.message : err)

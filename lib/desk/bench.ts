@@ -38,7 +38,7 @@ import { evaluateEligibility, POLICY_VERSION, REASON_TEXT, explainEligibility } 
 import { keepKnownIds } from '@/lib/engine/fit'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
 import { drainOutbox, enqueueOutbox } from '@/lib/engine/outbox'
-import { claimMatchItems, completeMatchItem, type QueueOutcome } from '@/lib/engine/queue'
+import { claimMatchItems, completeMatchItem, LeaseLostError, renewMatchLease, type QueueOutcome } from '@/lib/engine/queue'
 import { stripPercentiles } from '@/lib/engine/grade'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
@@ -150,7 +150,7 @@ export interface BenchRunResult {
   runId?: string | null
 }
 
-export async function runBenchMatch(admin: SupabaseClient, jobId: string, trigger: string): Promise<BenchRunResult> {
+export async function runBenchMatch(admin: SupabaseClient, jobId: string, trigger: string, lease?: string | null): Promise<BenchRunResult> {
   const [seat] = await loadLiveSeats(admin, [jobId])
   if (!seat) return { posted: false, checked: 0, strong: 0, outcome: 'input_error', error: 'seat is not live' }
 
@@ -213,6 +213,9 @@ export async function runBenchMatch(admin: SupabaseClient, jobId: string, trigge
     .sort((a, b) => Number(byId.get(b.candidate_id)!.met) - Number(byId.get(a.candidate_id)!.met))
     .slice(0, MAX_SHOWN)
     .map(r => ({ ...r, met: byId.get(r.candidate_id)!.met }))
+
+  // Nothing is written unless this worker still owns the item.
+  if (lease && !(await renewMatchLease(admin, jobId, lease))) throw new LeaseLostError(jobId)
 
   const { data: run, error: runError } = await admin
     .from('search_match_runs')
@@ -331,11 +334,11 @@ export async function processBenchQueue(admin: SupabaseClient, weekly: boolean):
   // Cards that failed to post after their run was saved go out first.
   const outbox = await drainOutbox(admin, { bench_card: payload => repostBenchCard(admin, payload) })
 
-  const { items, leased } = await claimMatchItems(admin, 5)
+  const items = await claimMatchItems(admin, 5)
   const out: Record<string, unknown>[] = []
   for (const q of items) {
     try {
-      const r = await runBenchMatch(admin, q.job_id, q.trigger)
+      const r = await runBenchMatch(admin, q.job_id, q.trigger, q.lease_token)
       if (r.outcome === 'deferred_budget') {
         await completeMatchItem(admin, q, { status: 'queued', outcome: 'deferred_budget', error: r.error ?? null, retryInSeconds: 30 * 60 })
       } else if (r.outcome === 'provider_error') {
@@ -343,10 +346,15 @@ export async function processBenchQueue(admin: SupabaseClient, weekly: boolean):
       } else {
         await completeMatchItem(admin, q, { status: r.outcome === 'failed' ? 'failed' : 'done', outcome: r.outcome, error: r.error ?? null })
       }
-      out.push({ job: q.job_id, leased, ...r })
+      out.push({ job: q.job_id, ...r })
     } catch (err) {
+      if (err instanceof LeaseLostError) {
+        out.push({ job: q.job_id, outcome: 'lease_lost' })
+        continue
+      }
       const message = err instanceof Error ? err.message : String(err)
-      await completeMatchItem(admin, q, { status: q.attempts >= 3 ? 'failed' : 'queued', outcome: 'failed', error: message.slice(0, 400) })
+      const done = await completeMatchItem(admin, q, { status: q.attempts >= 3 ? 'failed' : 'queued', outcome: 'failed', error: message.slice(0, 400) })
+      if (!done) console.warn(`[desk:bench] lease lost for ${q.job_id} before completion`)
       out.push({ job: q.job_id, error: message })
     }
   }

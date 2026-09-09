@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { generateText } from 'ai'
+import { paidGenerateText } from '@/lib/engine/paid'
 import { createClient } from '@/lib/supabase/server'
 
 export async function POST(req: Request) {
@@ -99,10 +99,7 @@ Write a professional email that:
 
 Keep it professional and actionable. Do not include placeholder brackets.`
 
-      const { text } = await generateText({
-        model: 'openai/gpt-4o',
-        prompt,
-      })
+      const { result: { text } } = await paidGenerateText({ model: 'openai/gpt-4o', prompt, maxOutputTokens: 1500 }, { source: 'legacy_api', task: 'generate_email_candidates', discretionary: true })
 
       return NextResponse.json({ 
         email: text,
@@ -178,10 +175,7 @@ Write a personalized email that:
 
 Make it warm, enthusiastic, but professional. Include the job links naturally in the text.`
 
-      const { text } = await generateText({
-        model: 'openai/gpt-4o',
-        prompt,
-      })
+      const { result: { text } } = await paidGenerateText({ model: 'openai/gpt-4o', prompt, maxOutputTokens: 1500 }, { source: 'legacy_api', task: 'generate_email_opportunities', discretionary: true })
 
       return NextResponse.json({ 
         email: text,

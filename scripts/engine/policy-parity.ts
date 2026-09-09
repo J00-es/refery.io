@@ -2,12 +2,13 @@
  * Does the TypeScript policy agree with the SQL policy on every production
  * candidate? Read-only.
  *
- *   pnpm engine:parity
+ *   pnpm engine:parity                    row by row against the SQL policy; any RPC error fails the gate
+ *   pnpm engine:parity -- --pre-migration  aggregate against the rolled-back validation run of
+ *                                          2026-09-09 (a diagnostic, never a release gate)
  *
- * Before the migration lands, public.candidate_eligibility does not exist;
- * the script then compares the TypeScript aggregate against the aggregate
- * the SQL function produced inside the rolled-back validation run of
- * 2026-09-09 (recorded below). After the migration it compares row by row.
+ * The release gate is the row-by-row mode: every candidate, every reason, in
+ * order, plus the candidate-role pairs that carry a declined submission or a
+ * job-scoped override, asked of both sides for the same job.
  *
  * Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the
  * environment (.env.local). Prints nothing personal: ids are truncated and
@@ -92,10 +93,9 @@ async function main() {
   console.log(`candidates: ${rows?.length ?? 0}`)
   console.log('typescript aggregate:', JSON.stringify(agg))
 
-  // Row by row against SQL when the function exists.
-  const probe = await admin.rpc('candidate_eligibility', { p_candidate_id: rows?.[0]?.id })
-  if (probe.error) {
-    console.log(`sql policy not deployed yet (${probe.error.message.slice(0, 80)}); comparing with the 2026-09-09 validation aggregate`)
+  const preMigration = process.argv.includes('--pre-migration')
+  if (preMigration) {
+    console.log('pre-migration diagnostic: comparing with the 2026-09-09 validation aggregate (not a release gate)')
     const diffs: string[] = []
     for (const k of ['can_match', 'can_match_bplus', 'can_match_ungraded', 'client_intro_ready'] as const) {
       if (agg[k] !== SQL_AGGREGATE_2026_09_09[k]) diffs.push(`${k}: ts=${agg[k]} sql=${SQL_AGGREGATE_2026_09_09[k]}`)
@@ -107,9 +107,21 @@ async function main() {
     process.exit(diffs.length ? 1 : 0)
   }
 
+  // Release gate: every RPC must answer, and answer the same.
+  const probe = await admin.rpc('candidate_eligibility', { p_candidate_id: rows?.[0]?.id })
+  if (probe.error) {
+    console.log(`GATE FAILED: candidate_eligibility is not callable (${probe.error.message.slice(0, 120)})`)
+    process.exit(1)
+  }
   let mismatches = 0
+  let rpcErrors = 0
   for (const c of rows ?? []) {
-    const { data: sql } = await admin.rpc('candidate_eligibility', { p_candidate_id: c.id })
+    const { data: sql, error: rpcError } = await admin.rpc('candidate_eligibility', { p_candidate_id: c.id })
+    if (rpcError || !sql) {
+      rpcErrors++
+      console.log(`RPC ERROR ${String(c.id).slice(0, 8)}: ${rpcError?.message ?? 'empty'}`)
+      continue
+    }
     const s = sql as { can_assess: boolean; can_match: boolean; can_contact: string; client_intro_ready: boolean; reasons: ReasonCode[] }
     const t = ts.get(c.id as string)!
     const same = s.can_assess === t.can_assess && s.can_match === t.can_match && s.can_contact === t.can_contact && s.client_intro_ready === t.client_intro_ready && JSON.stringify(s.reasons) === JSON.stringify(t.reasons)
@@ -118,8 +130,51 @@ async function main() {
       console.log(`MISMATCH ${String(c.id).slice(0, 8)} sql=${JSON.stringify(s)} ts=${JSON.stringify({ can_assess: t.can_assess, can_match: t.can_match, can_contact: t.can_contact, client_intro_ready: t.client_intro_ready, reasons: t.reasons })}`)
     }
   }
+  // Candidate-role pairs on record, read-only: both sides asked about the same job.
+  const { data: declined } = await admin.from('role_submissions').select('candidate_id, job_id').eq('status', 'declined').limit(5)
+  const { data: jobOverrides } = await admin.from('candidate_eligibility_overrides').select('candidate_id, job_id').is('revoked_at', null).not('job_id', 'is', null).limit(10)
+  const pairs = [...(declined ?? []), ...(jobOverrides ?? [])].map(p => ({ candidate_id: p.candidate_id as string, job_id: p.job_id as string }))
+  let pairMismatches = 0
+  for (const p of pairs) {
+    const c = (rows ?? []).find(r => r.id === p.candidate_id)
+    if (!c) continue
+    const { data: sql, error: rpcError } = await admin.rpc('candidate_eligibility', { p_candidate_id: p.candidate_id, p_job_id: p.job_id })
+    if (rpcError || !sql) {
+      rpcErrors++
+      continue
+    }
+    const [{ data: sub }, { data: pipe }] = await Promise.all([
+      admin.from('role_submissions').select('id').eq('candidate_id', p.candidate_id).eq('job_id', p.job_id).eq('status', 'declined').limit(1),
+      admin.from('job_candidate_pipeline').select('id, stage').eq('candidate_id', p.candidate_id).eq('job_id', p.job_id),
+    ])
+    let hmPassed = false
+    const ids = (pipe ?? []).map(x => x.id as string)
+    if (ids.length) {
+      const { data: internal } = await admin.from('pipeline_internal_state').select('pipeline_id').in('pipeline_id', ids).eq('internal_stage', 'hm_passed')
+      hmPassed = !!internal?.length
+    }
+    const t = evaluateEligibility({
+      journey_stage: c.journey_stage,
+      journey_stage_source: c.journey_stage_source,
+      availability_status: c.availability_status,
+      person_type: c.person_type,
+      intake_source: c.intake_source,
+      consent_told_candidate: c.consent_told_candidate,
+      do_not_contact: dnc.has(p.candidate_id),
+      overrides: overrides.get(p.candidate_id) ?? [],
+      job_id: p.job_id,
+      rejected_for_job: !!sub?.length || (pipe ?? []).some(x => x.stage === 'rejected') || hmPassed,
+    })
+    const s = sql as { can_match: boolean; can_contact: string; client_intro_ready: boolean; reasons: ReasonCode[] }
+    if (s.can_match !== t.can_match || s.can_contact !== t.can_contact || s.client_intro_ready !== t.client_intro_ready || JSON.stringify(s.reasons) !== JSON.stringify(t.reasons)) {
+      pairMismatches++
+      console.log(`PAIR MISMATCH ${p.candidate_id.slice(0, 8)}/${p.job_id.slice(0, 8)} sql=${JSON.stringify(s)} ts=${JSON.stringify(t)}`)
+    }
+  }
+  console.log(`pair checks: ${pairs.length} pairs, ${pairMismatches} mismatches`)
   console.log(mismatches ? `row parity: ${mismatches} mismatches` : `row parity: OK on ${rows?.length ?? 0} candidates`)
-  process.exit(mismatches ? 1 : 0)
+  console.log(`rpc errors: ${rpcErrors}`)
+  process.exit(mismatches || pairMismatches || rpcErrors ? 1 : 0)
 }
 
 main().catch(err => {

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { paidGenerateText } from '@/lib/engine/paid'
 import { z } from 'zod'
 import { jobsAccessDenied } from '@/lib/admin-auth'
 
@@ -61,9 +62,10 @@ export async function POST(req: Request) {
       .slice(0, 15000) // Limit content length for AI
 
     // Use AI to extract job information
-    const { output } = await generateText({
+    const { result: { output } } = await paidGenerateText({
       model: 'openai/gpt-4o',
       output: Output.object({ schema: ParsedJobSchema }),
+      maxOutputTokens: 4000,
       system: `You are an expert at extracting structured job posting information from webpage content. Your goal is to extract as much useful information as possible to minimize manual data entry.
 
 EXTRACTION RULES:
@@ -88,7 +90,7 @@ URL: ${url}
 
 Content:
 ${cleanedContent}`,
-    })
+    }, { source: 'legacy_api', task: 'parse_job_url', discretionary: true })
 
     return NextResponse.json({ 
       parsed_data: output,

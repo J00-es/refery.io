@@ -1,4 +1,4 @@
-import { embed } from 'ai'
+import { BudgetDeferredError, paidEmbed } from '@/lib/engine/paid'
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildEmbeddingText } from '@/lib/resume'
 import type { ParsedResumeData } from '@/lib/types'
@@ -42,7 +42,7 @@ ${text}`)
     const { data: current } = await admin.from('candidates').select('embedding_input_hash, embedding_version').eq('id', candidateId).maybeSingle()
     if (current?.embedding_input_hash === inputHash && current?.embedding_version === EMBEDDING_VERSION) return true
 
-    const { embedding } = await embed({ model: EMBEDDING_MODEL, value: text })
+    const { result: { embedding } } = await paidEmbed({ model: EMBEDDING_MODEL, value: text }, { source: 'embedding', task: 'candidate_embedding', metadata: { candidate_id: candidateId } })
 
     const { error } = await admin
       .from('candidates')
@@ -58,7 +58,8 @@ ${text}`)
     if (error) throw error
     return true
   } catch (error) {
-    console.error(`Could not embed candidate ${candidateId}:`, error)
+    if (error instanceof BudgetDeferredError) console.warn(`[embeddings] deferred for ${candidateId}: ${error.message}; the nightly job picks it up`)
+    else console.error(`Could not embed candidate ${candidateId}:`, error)
     return false
   }
 }

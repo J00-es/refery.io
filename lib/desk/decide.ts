@@ -211,7 +211,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   if (!resend) {
     const { data: claimed } = await admin
       .from('candidates')
-      .update({ journey_stage: target ?? 'not_fit', journey_stage_at: now, journey_stage_source: 'desk', updated_at: now, desk_reason_pending_at: null, desk_snoozed_until: null })
+      .update({ journey_stage: target ?? 'not_fit', journey_stage_at: now, journey_stage_source: input.via === 'auto' ? 'desk' : 'human', updated_at: now, desk_reason_pending_at: null, desk_snoozed_until: null })
       .eq('id', c.id)
       .eq('journey_stage', stage)
       .select('id')
@@ -258,7 +258,21 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
   const toName = recipient === 'owner' ? owner?.name ?? null : name
   const decided = input.decision as 'intro_now' | 'bench' | 'not_fit'
   const subject = decisionSubject(decided, recipient, name)
-  const chosenSeatIds = input.jobIds?.length ? input.jobIds : strongSeatIds(p, seats)
+  let chosenSeatIds = input.jobIds?.length ? input.jobIds : strongSeatIds(p, seats)
+  if (decided === 'intro_now' && chosenSeatIds.length) {
+    // Each seat named in the intro is checked under the candidate-role policy at the moment of action.
+    const row = { journey_stage: c.journey_stage ?? null, journey_stage_source: c.journey_stage_source ?? null, availability_status: c.availability_status ?? null, person_type: c.person_type ?? null, intake_source: c.intake_source ?? null, consent_told_candidate: c.consent_told_candidate ?? null }
+    const kept: string[] = []
+    const excluded: string[] = []
+    for (const jobId of chosenSeatIds) {
+      const pair = evaluateEligibility({ ...row, job_id: jobId, ...(await policyInputsFor(admin, c.id, jobId)) })
+      if (pair.can_match) kept.push(jobId)
+      else excluded.push(jobId)
+    }
+    if (excluded.length) await logActivity(admin, c.id, 'seats_excluded', `Seats left out of the intro under the candidate-role policy: ${excluded.join(', ')}.`, { metadata: { by: input.by, excluded } })
+    if (!kept.length) return { ok: false, message: `Not sent: every seat named for ${first} is excluded for them (declined, rejected or blocked for that role). Nothing changed.`, error: 'seats_excluded' }
+    chosenSeatIds = kept
+  }
 
   // To a partner, the intro request carries the kit: email, LinkedIn, the
   // page, a forwardable intro, a pre-filled mailto and the "have Lily reach
@@ -370,7 +384,7 @@ async function rewriteWithNote(draft: { subject: string; body: string }, note: s
       user: `Recipient first name: ${recipientFirst}. About: ${candidateName}.\n\nDRAFT:\n${draft.body}\n\nLILY'S NOTE (what she actually wants to say):\n${note}`,
       schema: z.object({ body: z.string() }),
       maxOutputTokens: 1500,
-    })
+    }, { task: 'decision_rewrite' })
     return r.output.body.trim()
   } catch (err) {
     console.warn('[desk:decide] rewrite failed, using the note as the reason:', err instanceof Error ? err.message : err)

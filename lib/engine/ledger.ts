@@ -6,23 +6,27 @@
  * uncertain and kept on the books until reconciled. The ledger is
  * brain_ai_usage, the envelope is engine_settings (part 3 of the migration).
  *
- * Until the migration is applied the RPCs do not exist; the ledger then logs
- * and lets the call through, so a deploy that lands before the SQL does not
- * take the desk down. `ENGINE_LEDGER=strict` makes a missing ledger a failure.
+ * The ledger is not optional. No client, a missing RPC, an error, an empty
+ * or malformed row: each one defers the call without dispatching it. A
+ * deferral is never a rejection of a person; callers queue the work with the
+ * reason and retry later. Tests inject an in-memory adapter through
+ * lib/engine/paid.ts; nothing here opens a network connection on its own.
  */
 
-import type { SupabaseClient } from '@supabase/supabase-js'
+export type LedgerSource = 'desk' | 'parser' | 'transcript' | 'brain' | 'embedding' | 'benchmark' | 'legacy_api' | 'onboarding'
 
-export type LedgerSource = 'desk' | 'parser' | 'transcript' | 'brain' | 'embedding' | 'benchmark'
+/** The one method the ledger needs from a Supabase client. */
+export interface LedgerAdapter {
+  rpc(fn: string, args?: Record<string, unknown>): PromiseLike<{ data: unknown; error: { message: string } | null }>
+}
 
 export interface Reservation {
   allowed: boolean
+  /** Not allowed, and the right response is to queue and retry, not to fail the person. */
   deferred: boolean
   usageId: string | null
   remainingUsd: number | null
   reason: string
-  /** The ledger RPC was missing or failed; the call went ahead unrecorded. */
-  unrecorded: boolean
 }
 
 export class BudgetDeferredError extends Error {
@@ -32,51 +36,78 @@ export class BudgetDeferredError extends Error {
   }
 }
 
+const deferred = (reason: string): Reservation => ({ allowed: false, deferred: true, usageId: null, remainingUsd: null, reason })
+
 export async function reserve(
-  admin: SupabaseClient | null,
+  ledger: LedgerAdapter | null,
   input: { source: LedgerSource; task: string; model: string; estimateUsd: number; discretionary?: boolean; metadata?: Record<string, unknown> },
 ): Promise<Reservation> {
-  if (!admin) return { allowed: true, deferred: false, usageId: null, remainingUsd: null, reason: 'no_ledger_client', unrecorded: true }
-  const { data, error } = await admin.rpc('engine_reserve_budget', {
-    p_source: input.source,
-    p_task: input.task,
-    p_model: input.model,
-    p_estimated_usd: input.estimateUsd,
-    p_discretionary: input.discretionary ?? false,
-    p_metadata: input.metadata ?? {},
-  })
-  if (error) {
-    if (process.env.ENGINE_LEDGER === 'strict') throw new Error(`ledger unavailable: ${error.message}`)
-    console.warn(`[engine:ledger] reserve failed, call proceeds unrecorded: ${error.message}`)
-    return { allowed: true, deferred: false, usageId: null, remainingUsd: null, reason: 'ledger_error', unrecorded: true }
+  if (!ledger) return deferred('no_ledger_client')
+  let res: { data: unknown; error: { message: string } | null }
+  try {
+    res = await ledger.rpc('engine_reserve_budget', {
+      p_source: input.source,
+      p_task: input.task,
+      p_model: input.model,
+      p_estimated_usd: input.estimateUsd,
+      p_discretionary: input.discretionary ?? false,
+      p_metadata: input.metadata ?? {},
+    })
+  } catch (err) {
+    return deferred(`ledger_error: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`)
   }
-  const row = (Array.isArray(data) ? data[0] : data) as { allowed: boolean; deferred: boolean; usage_id: string; remaining_usd: number; reason: string } | undefined
-  if (!row) return { allowed: true, deferred: false, usageId: null, remainingUsd: null, reason: 'ledger_empty', unrecorded: true }
-  return { allowed: !!row.allowed, deferred: !!row.deferred, usageId: row.usage_id ?? null, remainingUsd: row.remaining_usd ?? null, reason: row.reason ?? 'ok', unrecorded: false }
+  if (res.error) return deferred(`ledger_error: ${res.error.message.slice(0, 120)}`)
+  const row = (Array.isArray(res.data) ? res.data[0] : res.data) as Record<string, unknown> | null | undefined
+  if (!row || typeof row !== 'object' || typeof row.allowed !== 'boolean') return deferred('ledger_malformed')
+  if (row.allowed && typeof row.usage_id !== 'string') return deferred('ledger_malformed')
+  return {
+    allowed: row.allowed,
+    deferred: !row.allowed,
+    usageId: typeof row.usage_id === 'string' ? row.usage_id : null,
+    remainingUsd: typeof row.remaining_usd === 'number' ? row.remaining_usd : row.remaining_usd != null ? Number(row.remaining_usd) : null,
+    reason: typeof row.reason === 'string' ? row.reason : row.allowed ? 'ok' : 'refused',
+  }
 }
 
-export async function finalize(
-  admin: SupabaseClient | null,
-  usageId: string | null,
-  outcome: { status: 'completed' | 'failed' | 'uncertain'; actualUsd: number; inputTokens: number; outputTokens: number; cachedTokens?: number; reasoningTokens?: number; providerRequestId?: string | null; attempts?: number },
-): Promise<void> {
-  if (!admin || !usageId) return
-  const { error } = await admin.rpc('engine_finalize_budget', {
-    p_usage_id: usageId,
-    p_actual_usd: outcome.actualUsd,
-    p_input_tokens: outcome.inputTokens,
-    p_output_tokens: outcome.outputTokens,
-    p_status: outcome.status,
-    p_cached_tokens: outcome.cachedTokens ?? null,
-    p_reasoning_tokens: outcome.reasoningTokens ?? null,
-    p_provider_request_id: outcome.providerRequestId ?? null,
-    p_attempts: outcome.attempts ?? null,
-  })
-  if (error) console.warn(`[engine:ledger] finalize failed for ${usageId}: ${error.message}`)
+export interface FinalizeOutcome {
+  status: 'completed' | 'failed' | 'uncertain'
+  actualUsd: number
+  inputTokens: number
+  outputTokens: number
+  cachedTokens?: number
+  reasoningTokens?: number
+  providerRequestId?: string | null
+  attempts?: number
 }
 
-export async function budgetStatus(admin: SupabaseClient): Promise<Record<string, unknown> | null> {
-  const { data, error } = await admin.rpc('engine_budget_status')
+/** Returns false when the ledger could not be told; the caller logs it and the row stays reserved for reconciliation. */
+export async function finalize(ledger: LedgerAdapter | null, usageId: string | null, outcome: FinalizeOutcome): Promise<boolean> {
+  if (!ledger || !usageId) return false
+  try {
+    const { error } = await ledger.rpc('engine_finalize_budget', {
+      p_usage_id: usageId,
+      p_actual_usd: outcome.actualUsd,
+      p_input_tokens: outcome.inputTokens,
+      p_output_tokens: outcome.outputTokens,
+      p_status: outcome.status,
+      p_cached_tokens: outcome.cachedTokens ?? null,
+      p_reasoning_tokens: outcome.reasoningTokens ?? null,
+      p_provider_request_id: outcome.providerRequestId ?? null,
+      p_attempts: outcome.attempts ?? null,
+    })
+    if (error) {
+      console.warn(`[engine:ledger] finalize failed for ${usageId}: ${error.message}`)
+      return false
+    }
+    return true
+  } catch (err) {
+    console.warn(`[engine:ledger] finalize threw for ${usageId}: ${err instanceof Error ? err.message : err}`)
+    return false
+  }
+}
+
+export async function budgetStatus(ledger: LedgerAdapter): Promise<Record<string, unknown> | null> {
+  const { data, error } = await ledger.rpc('engine_budget_status')
   if (error) return null
   return (data as Record<string, unknown>) ?? null
 }

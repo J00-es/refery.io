@@ -1,11 +1,12 @@
 # Engine release 1: correctness and access
 
 Implemented 2026-09-09 from `Claude-Code-Refery-implementation-brief.md` and
-`Refery-core-engine-audit.md` (the handoff bundle of the same date). This is
-the first of the brief's three releases: access, deterministic correctness,
-one eligibility policy, versioned records, a shared cost ledger, atomic
-queues, and the benchmark harness. It is built and tested; nothing here has
-been deployed or applied to production.
+`Refery-core-engine-audit.md`, then revised the same day against the
+independent review `Claude-Code-Release-1-review.md` (eight findings, all
+closed below). This is the first of the brief's three releases: access,
+deterministic correctness, one eligibility policy, versioned records, a
+shared cost ledger, fenced queues, and the benchmark harness. It is built
+and tested; nothing has been deployed or applied to production.
 
 ## What was verified before anything was written
 
@@ -31,154 +32,143 @@ SECURITY DEFINER functions are anon-executable with no caller check
 production 4-argument matching function fails for `max_results` above 166
 because it passes the raw pool size to `hnsw.ef_search` (capped at 1000).
 
+## The review's eight findings and what changed
+
+The reviewer's own probe script (`review-probes-2026-09-09-before.json`,
+eight of nine expectations failing at `4a8e143`) was rerun against this
+commit with one shim (their SDK mock lacks the error class the gateway
+imports): `review-probes-2026-09-09-after.json`, nine of nine passing.
+
+| # | Finding | Fix | Regression coverage |
+|---|---|---|---|
+| 1 | The $95 budget was optional: drafts, classification, the parser, transcripts, the recap, embeddings and the legacy routes called the SDK directly; a missing client or an empty ledger row let calls through. | `lib/engine/paid.ts` is the only file that imports `generateText` or `embed`. Every caller goes through `paidGenerateText` / `paidEmbed`; `structured()` requires a ledger entry and will not compile or run without one. No client, a missing RPC, an error, an empty or malformed row: each defers without dispatching (`BudgetDeferredError`). `ENGINE_LEDGER=strict` is gone; there is no lenient mode. Month-to-date desk spend that predates the ledger is imported once (part 4). | `tests/engine/paid.test.ts`: budget exhausted → zero provider requests for panel, bench, classify, draft, transcript extraction and embeddings; ledger missing, erroring, empty and malformed; six concurrent callers with two allowed → exactly two dispatches. |
+| 2 | One reservation per chain; a timeout on the first model was lost when the second answered; cache writes not priced; validation failures not billed. | One reservation per dispatched attempt, priced for that model at the dearer of input and cache-write rates and the full output budget. Timeout → `uncertain`, reservation kept. Output that fails validation with usage → `completed` (billed). Cache read, cache write, reasoning tokens and the response id are finalised. The caller's stored cost is the sum of every attempt. A refusal mid-chain stops the chain. | `paid.test.ts`: timeout then success → two rows, `uncertain` then `completed`; billed invalid JSON then success; all attempts fail; refusal past the cap stops the fallback; cost equals the sum of charges. |
+| 3 | A panel rerun could move a human `not_fit` or `dormant` to `decision_pending` with source `desk`. | The panel updates assessment fields always and lifecycle fields only from `uploaded`, `calibrating`, `decision_pending`, `ready_for_intro`, with a conditional update on the stage it read (a human deciding mid-run wins). Reactions and web decisions now write source `human`. The database guard refuses any move out of a closed or held state into an in-review state unless the source is `human`. The cron posts no new card for `not_fit`, `dormant` or `bench` on an automatic rerun. | `review-findings.test.ts` (3); SQL validation: rerun reopen blocked with source kept, human reopen allowed, grade refresh allowed. |
+| 4 | `classifyVisa('not authorized to work in the US')` was `authorized`; so was `Canadian citizen`. | Negations and sponsorship needs are read first and their clause removed before any positive pattern; a positive next to a denial is `conflicting`; a pending status is `pending`; foreign citizenship alone is `unknown`; a future sponsorship need on OPT stays `time_limited`. `pending` and `conflicting` go to a human. | `review-findings.test.ts` (4): positive, negative, foreign-only, pending, conflicting, transfer, time-limited, empty. |
+| 5 | A `question` blocker (EUR vs USD, OTE vs base, unknown start date) left the seat `eligible` and the action `client_intro`. | Blockers carry `readiness: required \| optional`. A required question makes the seat `needs_review`; client readiness also requires every strong seat's own pair policy to agree. A recorded `waive_logistics` override (job or global scope, actor and reason on the row) clears unknowns and required questions, never a hard blocker. | `review-findings.test.ts` (5), through `deriveDecision`, not only the blocker array. |
+| 6 | Reuse returned the old row with its old policy; the hash omitted calibration and recipient permissions; a failed candidate update was never repaired. | The version is the whole prompt the model saw (evidence hash, facts, seats, recipient block, labels, pitch, calibration) plus the prompt version; policy and overrides are recomputed on every run. A reuse writes a new row (`reused_from`, cost 0) from the stored read and then performs the same persistence as a fresh run, so an interrupted write completes without a purchase. | `review-findings.test.ts` (6): calibration and recipient change the hash; a restriction changes the action without changing the hash. |
+| 7 | A targeted rerun could claim a running item; writes were not fenced on the lease; the outbox was drained without a claim; a false completion was ignored. | `claim_panel_queue` no longer has the targeted bypass. `renew_panel_lease` / `renew_match_lease` are called just before any write; a lost lease discards the result (`LeaseLostError`). `enqueue_candidate_panel` no longer resets a running row; it records `rerun_requested` and the row returns to queued when the run completes. The outbox is claimed under a lease (`claim_outbox`) and completed against it; `uncertain` parks an item for a human. A false completion is logged. The unleased fallback paths are gone. | SQL validation: targeted claim while running → 0 rows; expired lease reclaimable, stale renew and stale complete refused; enqueue-while-running keeps ownership and requeues after; outbox claims disjoint, wrong lease refused, `uncertain` recorded. |
+| 8 | Panel seat verdicts used the global policy; a declined role could keep a strong, client-ready assessment. | `buildPanelContext` evaluates the policy once per live seat with that job's rejections and overrides; `seatVerdict` takes the pair policy and makes an excluded pair `ineligible` with `rejected_for_this_role` while keeping the capability read; `match_assessments` store the pair policy; `applyDecision` re-checks every seat named in an intro. | `review-findings.test.ts` (8): two seats, one declined, one eligible; a job-scoped block override with provenance. |
+
+Also from the review: `pnpm engine:parity` is now a gate that fails on any
+RPC error and checks candidate-role pairs (declined submissions, job-scoped
+overrides) on both sides; the aggregate comparison is `--pre-migration`, a
+named diagnostic. The benchmark and the probe script are metered like
+everything else.
+
 ## Migrations (not applied)
 
-Three SQL files under `scripts/engine/`, applied in order. All three were
+Four SQL files under `scripts/engine/`, applied in order. All four were
 executed against production inside one transaction that was then aborted
 on purpose, with assertions computed inside it; nothing persisted (checked
-afterwards). Every assertion passed:
+afterwards: no `candidate_eligibility`, no `engine_settings`, overloads still
+2, RLS still off).
 
-| File | What it does | Validated inside the rolled-back run |
-|---|---|---|
-| `2026-09-09-01-access-hardening.sql` | Bench retrieval and 21 other privileged functions become service-role only; RLS on `tmp_investors` and `deletion_log`; anon and authenticated SELECT revoked. Public forms, RLS helpers and key-gated dashboards are left alone. | anon and authenticated calls denied with 42501; service role allowed; RLS on. |
-| `2026-09-09-02-eligibility-and-matching.sql` | `candidate_eligibility(uuid, uuid)` (policy eligibility-v1); `candidate_human_decisions` and `candidate_eligibility_overrides`; drops the plain 3-argument overload and adds `match_jobs_for_candidate_v2` with the legacy signature delegating to it; the nightly matcher's function gets the policy guard; `bench_candidates_for_job_v2` (no grade gate, exclusion before the limit, embedding plus lexical routes fused by reciprocal rank); a BEFORE INSERT trigger that refuses machine proposals for excluded people. | one overload left; the legacy 3-argument call resolves; policy on the four audit candidates as expected; matchable pool 171 vs 159 under the old gate, 24 B+ and 6 ungraded now reachable; v2 returns 40 per live seat and another 40 after excluding the first 40; the guard refused `auto_matched` for a not_fit person and allowed a human `job_shared`. |
-| `2026-09-09-03-engine-records.sql` | `engine_settings` (95 / 85 / 70), `engine_reserve_budget` and `engine_finalize_budget` on the existing `brain_ai_usage` ledger, with the Brain's own entry point delegating to them; leased queue claims (`claim_panel_queue`, `claim_match_queue`, completion conditioned on the lease); `candidate_source_versions`, `candidate_facts`, `role_scorecard_versions`, `candidate_assessments`, `match_assessments`, `match_slates`, `engine_runs`, `desk_outbox`; new columns on panels, runs, queues and candidates; the seed of `candidate_human_decisions` with provenance. | two claims of one item are disjoint; completion with a wrong lease is refused; a $0.40 desk reservation is allowed and finalised; a Brain reservation still works; $200 is refused at the hard line; a discretionary $90 is deferred; seeded rows: 275 legacy_unverified capability, 114 verified met, 9 verified role decisions. |
-
-Apply order matters (3 depends on 2). Rollback notes are in the file headers.
-After applying: run `pnpm engine:parity` (row-by-row TypeScript versus SQL
-policy) and the Supabase security advisor (RLS-without-policy INFO rows on
-the new server-only tables are expected).
-
-## Code (this repository)
-
-New, under `lib/engine/`:
-
-| Module | Purpose |
+| File | What it does |
 |---|---|
-| `policy.ts` | eligibility-v1, the TypeScript twin of the SQL function: reasons with classes, overrides, `client_intro_ready`. |
-| `fit.ts` | Typed blockers (hard / preference / unknown / question) from facts on record; visa, location, pay, years, education timing; `role_fit`, seat eligibility, `next_action`, and the derived decision with the model's own suggestion kept beside it. |
-| `money.ts`, `dates.ts` | Band comparison with currency, period and base/OTE kinds; education end timing. |
-| `grade.ts` | The grade contract (grade-v1): labels and criteria, no percentiles; `stripPercentiles` for legacy rows. |
-| `labels.ts` | Legacy verdict parsing as a migration aid; both historical mappings kept visible. |
-| `routes.ts` | The model route register: candidate-data approval, benchmark-only routes, list prices (Sol corrected to 4/20), effort options per provider. |
-| `ledger.ts` | Reserve before dispatch, finalise after, `uncertain` on a timeout. |
-| `queue.ts` | Leased claims with a logged fallback to the old path until the RPCs exist. |
-| `evidence.ts` | Content hashes and source versions. |
-| `decisions.ts` | Writes human decisions as they happen; met evidence; policy inputs. |
-| `outbox.ts` | Side effects retried without repurchasing the model call. |
-
-Changed:
-
-| File | Change |
-|---|---|
-| `lib/desk/model.ts` | Allowlist and prices from the register; ledger reservation and finalisation around every call; provider request id kept; duplicate routes in a chain removed. Production chains unchanged. |
-| `lib/desk/panel.ts` | Prompt v3: no percentiles, evidence rules (untrusted CV text, no inference of authorisation from schools or names, no level from pay, dates and pay computed by code), scope field, unknowns field. Calibration reads only verified post-call decisions and never the person being read. Idempotent by input hash (manual reruns excepted). Deterministic layer derives the decision; every seat becomes a `match_assessments` row; a failed candidate update is an error. |
-| `lib/desk/card.ts`, `app/api/cron/panel/route.ts`, `components/candidates/desk-assessment.tsx`, `lib/desk/verdict.ts` | Grade label from the contract, percentiles stripped from legacy text, typed blockers rendered by kind, next action and eligibility lines on the card. |
-| `app/api/cron/panel/route.ts` | Leased claims, typed outcomes, budget deferral keeps the item queued without counting an attempt, decision cards retried from the outbox. |
-| `lib/desk/bench.ts` | `ENGINE_BENCH_V2` = off / shadow / on; met from evidence, not the legacy verdict; whole pool, positives and slate stored separately (`results` never overwritten); outbox for the card; reactions re-check the policy at the moment of action. |
-| `lib/desk/decide.ts` | Contact check before writing to a candidate directly; role decisions recorded with actor and time. |
-| `lib/desk/verdict.ts` | `:zzz:` is an availability decision and no longer writes `moderate` into the capability field; verdicts and met events recorded; HM blurbs refused when the policy forbids contact, and marked when not client-ready. |
-| `lib/embeddings.ts` | `embedding_input_hash` and `embedding_version`; unchanged content is not re-embedded. |
-| `app/api/candidates/[id]/verdict/route.ts` | The web chip records a verified capability decision beside the legacy column. |
-| `components/searches/bench-block.tsx` | Same met rule as the bench. |
-| `lib/desk/seats.ts` | Seats carry `salaryCurrency`. |
-
-Outside this repository: `C:/scripts/nightly_run.py` patched (diff in
-`docs/engine/nightly_run-2026-09-09.patch`): only the uniqueness conflict is
-swallowed on insert, policy refusals are counted, and the 0.70 auto-accept
-is off unless `AUTO_ACCEPT_ENABLED=1`. Whether that file is the copy that
-runs is not established (the memory notes say the scheduled jobs run from
-private repositories); the database guard applies regardless of caller.
+| `2026-09-09-01-access-hardening.sql` | Bench retrieval and 21 other privileged functions become service-role only; RLS on `tmp_investors` and `deletion_log`. |
+| `2026-09-09-02-eligibility-and-matching.sql` | `candidate_eligibility(uuid, uuid)`; human-decision and override tables; one matching implementation with a versioned signature; the nightly function guarded; `bench_candidates_for_job_v2`; a BEFORE INSERT guard on machine proposals. |
+| `2026-09-09-03-engine-records.sql` | `engine_settings` (95 / 85 / 70); `engine_reserve_budget` / `engine_finalize_budget` on `brain_ai_usage`, the Brain's entry point delegating; leased queue claims; versioned sources, facts, scorecards, assessments, slates; the outbox; the provenance-labelled seed of human decisions. |
+| `2026-09-09-04-review-fixes.sql` | The journey guard against non-human reopening; the `waive_logistics` effect; strict claims, lease renewal, rerun-while-running, leased outbox; the import of this month's pre-ledger desk spend ($5.38, 66 rows on 2026-09-09). |
 
 ## Tests and results
 
-`pnpm test` (vitest): 50 tests in 3 files, all passing.
-
-| Brief case | Where |
-|---|---|
-| Legacy three-argument matching call | SQL validation: resolves after the migration (and exposed the ef_search bug, fixed in v2) |
-| Anonymous bench caller; unauthorised authenticated caller | SQL validation: 42501 on both |
-| B+ with exact evidence included | SQL validation: 24 B+ matchable; `policy.test.ts` |
-| Do-not-contact, applicable rejection, role-specific rejection | `policy.test.ts` |
-| Missing visa or relocation: unknown plus a question | `fit.test.ts` |
-| Strong skills, unknown logistics: screening, not client-ready | `fit.test.ts` |
-| Confirmed hard mismatch plus a strong read: no client-ready match | `fit.test.ts` |
-| Master's ended May 2026 | `deterministic.test.ts`, `fit.test.ts`, benchmark dry run |
-| $200k in $180k to $220k: inside, not maximum | `deterministic.test.ts`, benchmark dry run |
-| EUR vs USD, OTE vs base: not compared | `deterministic.test.ts`, `fit.test.ts` |
-| Low ask does not lower capability | `fit.test.ts` |
-| Legacy `strong` plus prose; `low` alias; prose is not a grade | `deterministic.test.ts` |
-| CV instructions have no authority | `fit.test.ts` (deterministic layer); prompt v3 rule; benchmark fixture 5 for the model layer |
-| Foreign candidate or role id rejected | `fit.test.ts`; `keepKnownIds` in panel and bench |
-| Two workers claim one item | SQL validation |
-| Assessment succeeds, Slack fails | outbox (`decision_card`, `bench_card`) |
-| Provider response uncertain after timeout | ledger `uncertain` |
-| Budget exhausted: queue with reason | SQL validation (defer and hard line); panel route |
-| Role reopened / brief edited; capped delta run; top-40 fence | v2 exclusion before the limit and refill validated; the delta cursor is release 2 (see below) |
-
-Policy parity (`pnpm engine:parity`) against production rows: the
-TypeScript aggregate equals the SQL aggregate exactly (171 matchable, 24
-B+, 6 ungraded, 0 client-ready, identical reason counts). Row-by-row
-comparison runs automatically once the SQL function exists.
-
-Benchmark harness (`pnpm engine:benchmark -- --dry`): 8 synthetic
-fixtures, deterministic layer 8/8. The model runs (`--routes ...`) could
-not be executed here: the AI gateway refuses unauthenticated calls and the
-key is not in the local environment. Run it where `AI_GATEWAY_API_KEY` is
-set; the report lands in `docs/engine/benchmark-<date>.md`. The proposed
-OpenAI routes (Luna, Terra, 5.4 mini) are registered as benchmark-only and
-are refused candidate data by the allowlist.
-
-## Cost
-
-Observed this session: $0 in model calls (none were made). Ledger
-envelope after the migration: hard $95, defer $85, alert $70, shared by
-the desk, the parser, transcripts, the Brain (which keeps its own $20
-inside it) and embeddings. Reservations are worst case (no cache, full
-output budget) and finalised to the provider's usage; timeouts are kept as
-uncertain for reconciliation. The audit's planning envelope ($87.02 for
-500 candidates a month) is unchanged; nothing here validates it.
+- `pnpm test`: 80 vitest cases in 5 files, all passing (`policy`, `fit`,
+  `deterministic`, `paid`, `review-findings`).
+- Typecheck of every changed file: clean (the repository's build ignores
+  type errors, so this was run explicitly with `tsc --noEmit`).
+- Policy parity, pre-migration diagnostic: the TypeScript aggregate equals
+  the SQL aggregate from the validation run on all 337 rows. The row-by-row
+  gate runs once the SQL exists.
+- Benchmark, deterministic layer: 8 of 8 synthetic fixtures. The model runs
+  could not be executed here (no gateway key locally) and remain unfinished.
+- The reviewer's probes: nine of nine pass (see above).
 
 ## Deployment steps, in order
 
-1. Apply the three migrations (Supabase SQL editor or `apply_migration`),
-   part 1, 2, 3.
-2. Run `pnpm engine:parity` and the security advisor.
-3. Deploy the code (push to main). Until the migrations exist the code
-   degrades: claims fall back to the old path with a log line, the ledger
-   lets calls through unrecorded, human decisions are logged as not
-   recorded. `ENGINE_LEDGER=strict` turns a missing ledger into a failure.
-4. Set `ENGINE_BENCH_V2=shadow` for a week; compare `search_match_runs.shadow`
-   against the v1 pool; then `on`.
-5. Run the model benchmark with the gateway key; keep the incumbent routes
-   unless the blinded comparison and the human-labelled set both pass the
-   brief's gates.
+The code now requires the SQL. Deploying the application before the
+migrations would defer every paid call (parser uploads, panels, recaps),
+because a missing ledger is a refusal, not a pass. So:
 
-## Not done in this release, and why
+1. Staging first, if a staging database exists: apply parts 1 to 4, run
+   `pnpm engine:parity`, exercise a sign-up form (`submit_scout_application`
+   still public), a super-admin candidate page, a manual panel run.
+2. Production: apply parts 1, 2, 3, 4 in order (Supabase SQL editor or
+   `apply_migration`). Each is idempotent (`if not exists`,
+   `create or replace`, keyed imports).
+3. Run `pnpm engine:parity` (must exit 0) and the security advisor
+   (RLS-without-policy INFO rows on the new server-only tables are expected).
+4. Deploy the code (merge the branch, push main).
+5. Watch `engine_budget_status()` for the first day: every paid call from
+   every source appears there, and `uncertain` rows are the ones to
+   reconcile against the provider's usage export.
+6. `ENGINE_BENCH_V2=shadow`; compare `search_match_runs.shadow` with the v1
+   pool until the numbers say the same people are found, then `on`.
 
-- Release 2 items: the delta cursor replacing `last_match_date`, the
-  capability-only embedding builder and a re-embed of all rows, role
-  scorecards from hiring-manager briefs, the fact extraction step that
-  fills `candidate_facts`. The tables exist; nothing populates facts or
-  scorecards yet.
-- The human-adjudicated benchmark (section 8) needs Lily's labels; the
-  harness measures invariants and economics only.
-- The 0.70 auto-accept is turned off in the local copy of the nightly
-  script; if the scheduled copy lives elsewhere, the same patch applies.
+## Rollback plan
+
+- Code: revert the merge on main (Vercel redeploys the previous commit). The
+  previous code does not read the new tables and calls the old queue path;
+  it will work against a database that has the migrations applied, except
+  that `bench_candidates_for_job` and `enqueue_candidate_panel` are now
+  service-role only, which the old code already satisfies.
+- SQL, in reverse order, only if needed:
+  - Part 4: `create or replace` the previous `candidates_guard_journey_trg`,
+    `claim_panel_queue`, `enqueue_candidate_panel`, `complete_panel_queue`
+    bodies from part 3 / production; drop `renew_*`, `claim_outbox`,
+    `complete_outbox`. Imported ledger rows are identifiable by
+    `metadata->>'import_key'` and can be deleted, then `spent_usd` recomputed.
+  - Part 3: the new tables are additive; `brain_reserve_budget` can be
+    restored to its pre-release body (it is in the audit's evidence file).
+  - Part 2: `drop trigger pipeline_guard_eligibility`; restore the
+    pre-release `match_new_jobs_for_candidate` body (in the audit's evidence
+    file). The dropped 3-argument overload was already failing with 42725
+    and has no working caller to restore for.
+  - Part 1: `grant execute ... to anon, authenticated` and
+    `disable row level security` per the file header. Not recommended.
+
+## Cost
+
+Observed this session: $0 in model calls (none were made). Envelope after
+the migration: hard $95, defer $85, alert $70, shared by the desk, the
+parser, transcripts, onboarding, the two legacy routes, the Brain (which
+keeps its own $20 inside it), embeddings and the benchmark. Month to date at
+validation: $5.61 ($5.38 desk, imported; $0.22 Brain). Reservations are
+worst case and finalised to the provider's usage; timeouts stay `uncertain`
+for reconciliation. The audit's planning envelope is unchanged; nothing here
+validates it.
+
+## Not done, and why
+
+- The model benchmark (`pnpm engine:benchmark -- --routes ...`) needs the
+  gateway key; the proposed OpenAI routes stay benchmark-only and refused
+  candidate data until it runs and Lily's labelled set exists.
+- Release 2: the delta cursor replacing `last_match_date`, capability-only
+  embeddings and a re-embed, role scorecards from hiring-manager briefs, the
+  fact extraction that fills `candidate_facts`. The tables exist; nothing
+  populates facts or scorecards yet.
+- The nightly script patch (auto-accept off, only uniqueness conflicts
+  swallowed) is applied to the local copy at `C:/scripts` and saved as
+  `docs/engine/nightly_run-2026-09-09.patch`; whether that copy is the one
+  that runs is not established.
+- Database concurrency was validated inside one transaction on one
+  connection (SKIP LOCKED between two claims in the same transaction proves
+  the row set is disjoint, not that two sessions interleave correctly). A
+  two-session test needs a staging database.
 - The 6 grade-pointer mismatches and the 127 unverified legacy `not_fit`
-  rows are listed for review, not changed.
-- Brain edge functions still call `brain_reserve_budget`; its body now
-  delegates to the shared authority. The functions themselves were not
-  redeployed and did not need to be.
+  rows are listed in the reconciliation for review, not changed.
+- No dormant candidate exists today, so the guard's dormant case was
+  exercised only in the unit test, not the SQL run.
 
 ## Unverified assumptions
 
-- That pg-meta's `execute_sql` ran the validation batch on one connection
-  in one transaction; the post-run checks (function absent, RLS still off,
-  overloads still 2) say it did.
+- That pg-meta's `execute_sql` ran each validation batch on one connection
+  in one transaction; the post-run checks say nothing persisted.
 - That `role_submissions.reviewed_by` and `acted_by_user_id` identify the
   human who declined; the seed uses them as the actor.
-- That the Brain's per-source allocation should stay at its current $20;
-  the envelope treats it as a sub-cap inside $95.
+- That the Brain's per-source allocation should stay at $20 inside $95.
 - That no browser code calls the 21 restricted functions (grep of app/,
   lib/, components/, hooks/ and C:/scripts found none).
+- That a PDF page costs no more than the gateway's conservative estimate
+  (base64 length / 6, minimum 8,000 tokens) for the reservation; the
+  finalised row uses the provider's real usage either way.

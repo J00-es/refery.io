@@ -95,7 +95,7 @@ The referrer update is to the person who sent the candidate: we spoke, the hones
     .join('\n\n')
 
   try {
-    const call = await structured('draft', { system, user, schema: AfterCallSchema, maxOutputTokens: 3000 })
+    const call = await structured('draft', { system, user, schema: AfterCallSchema, maxOutputTokens: 3000 }, { admin, task: 'after_call_drafts', metadata: { candidate_id: c.id } })
     const seatById = new Map(seats.map(s => [s.jobId, s]))
     for (const b of call.output.hm_blurbs) {
       const seat = seatById.get(b.job_id)
@@ -240,7 +240,7 @@ export async function handleRecapReaction(admin: SupabaseClient, input: { reacti
     .from('candidates')
     .update({ ...(v.lily ? { lily_verdict: v.lily } : {}), updated_at: now, ...(input.reaction === 'zzz' ? { availability_status: 'off_market' } : {}) })
     .eq('id', cid)
-  await moveJourney(admin, cid, v.stage, `Lily after the call: ${v.label}.`, { by: input.slackUser })
+  await moveJourney(admin, cid, v.stage, `Lily after the call: ${v.label}.`, { by: input.slackUser, source: 'human' })
   await cancelFollowups(admin, cid, ['candidate_book_nudge', 'candidate_book_escalate', 'referrer_nudge_1', 'referrer_nudge_2', 'referrer_escalate'], 'call happened')
   await logActivity(admin, cid, 'decision_made', `Verdict after the call: ${v.label}.`, { metadata: { by: input.slackUser, lily_verdict: v.lily, kind: v.kind, value: v.value } })
   const { data: decisionRow } = await admin
@@ -320,7 +320,7 @@ export async function draftHmBlurb(admin: SupabaseClient, input: { candidate: Re
   const system = `You write one anonymised email from Lily Joo at Refery to a founder about a person she has met and vouches for. No name, no current employer name, no school name. State work authorisation, comp expectation and location as facts, give two or three reasons for this seat, and ask if they want an intro. Short, warm, plain, no em dash, signed "Best,\\nLily". Subject: "<Seat headline>: a profile for you".`
   const user = `SEAT\n${seatBrief(seat)}\n\nPERSON\n${panel ? `${panel.positioning}. ${panel.summary}\nHighlights: ${panel.highlights.join(' | ')}` : String(full?.recruiter_verdict ?? p.summary ?? '')}\nFacts: ${full?.visa_status ?? p.work_authorization ?? 'visa unknown'} · ${full?.location ?? p.location ?? 'location unknown'} · asks ${full?.salary_expectation_min ? `$${Math.round(full.salary_expectation_min / 1000)}k` : 'unknown'} · ${full?.experience_years ?? p.experience_years ?? '?'} yrs\n${(notes ?? []).length ? `Lily's notes after meeting them: ${(notes ?? []).map(n => n.content).join(' | ')}` : ''}`
   try {
-    const call = await structured('draft', { system, user, schema: z.object({ subject: z.string(), body: z.string() }), maxOutputTokens: 1200 })
+    const call = await structured('draft', { system, user, schema: z.object({ subject: z.string(), body: z.string() }), maxOutputTokens: 1200 }, { admin, task: 'hm_blurb', metadata: { candidate_id: c.id, job_id: input.jobId } })
     await postDraftForSend(admin, {
       candidateId: c.id as string,
       kind: 'hm_blurb',

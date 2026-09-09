@@ -1,0 +1,105 @@
+{
+  "commit": "4a8e143",
+  "date": "2026-09-09",
+  "method": "Actual production TypeScript modules loaded with Node type stripping; AI SDK and Supabase RPC mocked. No network calls or database writes.",
+  "results": [
+    {
+      "id": "clean_candidate_control",
+      "expected": "eligible",
+      "actual": "eligible",
+      "passes": true
+    },
+    {
+      "id": "explicit_authorization_negation",
+      "expected": false,
+      "actual": true,
+      "passes": false
+    },
+    {
+      "id": "non_us_citizenship_is_not_us_authorization",
+      "expected": false,
+      "actual": true,
+      "passes": false
+    },
+    {
+      "id": "unresolved_currency_does_not_certify_client_ready",
+      "expected": false,
+      "actual": true,
+      "passes": false
+    },
+    {
+      "id": "currency_details",
+      "blockers": [
+        {
+          "kind": "question",
+          "code": "comp_not_comparable",
+          "detail": "ask in EUR, band in USD; not compared until converted on the call",
+          "question": "Can you confirm base versus total, and the currency?"
+        }
+      ],
+      "eligibility": "eligible",
+      "next_action": "client_intro"
+    },
+    {
+      "id": "strict_missing_client_denies",
+      "expected": false,
+      "actual": true,
+      "passes": false
+    },
+    {
+      "id": "strict_empty_response_denies",
+      "expected": false,
+      "actual": true,
+      "passes": false
+    },
+    {
+      "id": "reserve_each_provider_attempt",
+      "expected": 2,
+      "actual": 1,
+      "passes": false
+    },
+    {
+      "id": "retain_uncertain_timeout_on_fallback_success",
+      "expected": true,
+      "actual": false,
+      "passes": false
+    },
+    {
+      "id": "fallback_details",
+      "provider_attempts": 2,
+      "rpc_calls": [
+        {
+          "name": "engine_reserve_budget",
+          "args": {
+            "p_source": "desk",
+            "p_task": "synthetic",
+            "p_model": "anthropic/claude-sonnet-5",
+            "p_estimated_usd": 0.010016,
+            "p_discretionary": false,
+            "p_metadata": {}
+          }
+        },
+        {
+          "name": "engine_finalize_budget",
+          "args": {
+            "p_usage_id": "synthetic-reservation",
+            "p_actual_usd": 0.0075,
+            "p_input_tokens": 1000,
+            "p_output_tokens": 100,
+            "p_status": "completed",
+            "p_cached_tokens": 0,
+            "p_reasoning_tokens": null,
+            "p_provider_request_id": "synthetic-provider-request",
+            "p_attempts": 2
+          }
+        }
+      ]
+    },
+    {
+      "id": "strict_no_ledger_option_blocks_dispatch",
+      "expected": 0,
+      "actual": 1,
+      "passes": false
+    }
+  ]
+}

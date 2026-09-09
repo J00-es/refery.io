@@ -1,4 +1,5 @@
-import { generateText, Output } from 'ai'
+import { Output } from 'ai'
+import { BudgetDeferredError, paidGenerateText } from '@/lib/engine/paid'
 import { z } from 'zod'
 
 /**
@@ -160,7 +161,7 @@ export async function extractFromTranscripts(
   for (const model of modelChain()) {
     const startedAt = Date.now()
     try {
-      const { output, usage } = await generateText({
+      const { result: { output, usage } } = await paidGenerateText<z.infer<typeof ExtractionSchema>>({
         model,
         output: Output.object({ schema: ExtractionSchema }),
         system: SYSTEM_PROMPT,
@@ -168,7 +169,7 @@ export async function extractFromTranscripts(
         maxRetries: 0,
         abortSignal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
         messages: [{ role: 'user', content: prompt }],
-      })
+      }, { source: 'transcript', task: 'transcript_extract', metadata: { calls: transcripts.length } })
 
       console.log(
         `[transcript-extract] ok model=${model} calls=${transcripts.length} ms=${Date.now() - startedAt} ` +
@@ -178,6 +179,7 @@ export async function extractFromTranscripts(
       preferredModel = model
       return { extraction: output, model }
     } catch (error) {
+      if (error instanceof BudgetDeferredError) throw error
       lastError = error
       const message = error instanceof Error ? error.message : String(error)
       console.warn(`[transcript-extract] fail model=${model} ms=${Date.now() - startedAt}: ${message}`)

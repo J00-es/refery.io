@@ -246,7 +246,7 @@ async function rewrite(recap: RecapRow, instruction: string): Promise<string> {
   ]
     .filter(Boolean)
     .join('\n\n')
-  const call = await structured('draft', { system, user, schema: RewriteSchema, maxOutputTokens: 2500 })
+  const call = await structured('draft', { system, user, schema: RewriteSchema, maxOutputTokens: 2500 }, { task: 'recap_rewrite', metadata: { recap_id: recap.id } })
   const body = call.output.body.trim()
   if (body.length < 40) throw new Error('the rewrite came back empty')
   return body

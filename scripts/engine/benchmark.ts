@@ -64,7 +64,9 @@ function contextFor(c: Fixture['candidates'][number], seats: Seat[]): PanelConte
     intake_source: (candidate.intake_source as string) ?? null,
     consent_told_candidate: (candidate.consent_told_candidate as boolean | null) ?? null,
   })
-  return { candidate, parsed: c.parsed as PanelContext['parsed'], owner: null, seats, logos: [], recipient: 'candidate', pitch: null, submittedJobId: null, policy, today: TODAY }
+  const seatPolicies = Object.fromEntries(seats.map(s => [s.jobId, policy]))
+  const seatWaivers = Object.fromEntries(seats.map(s => [s.jobId, false]))
+  return { candidate, parsed: c.parsed as PanelContext['parsed'], owner: null, seats, logos: [], recipient: 'candidate', pitch: null, submittedJobId: null, policy, seatPolicies, seatWaivers, today: TODAY }
 }
 
 interface Check { name: string; ok: boolean; detail?: string }
@@ -131,8 +133,9 @@ function modelChecks(c: Fixture['candidates'][number], ctx: PanelContext, out: P
 }
 
 async function runRoute(route: string, fixture: Fixture, seats: Seat[]) {
-  const { generateText, Output } = await import('ai')
-  const { costOf, effortOptions } = await import('../../lib/engine/routes')
+  const { Output } = await import('ai')
+  const { paidGenerateText } = await import('../../lib/engine/paid')
+  const { effortOptions } = await import('../../lib/engine/routes')
   const results: Record<string, unknown>[] = []
   let cost = 0
   for (const c of fixture.candidates) {
@@ -140,7 +143,7 @@ async function runRoute(route: string, fixture: Fixture, seats: Seat[]) {
     const { system, user } = panelPrompt(ctx, {})
     const t0 = Date.now()
     try {
-      const res = await generateText({
+      const { result: res, charge } = await paidGenerateText({
         model: route,
         output: Output.object({ schema: PanelSchema }),
         maxOutputTokens: 12000,
@@ -151,12 +154,11 @@ async function runRoute(route: string, fixture: Fixture, seats: Seat[]) {
           { role: 'system', content: system },
           { role: 'user', content: user },
         ],
-      })
+      }, { source: 'benchmark', task: `benchmark_${route}`, discretionary: true })
       const out = res.output as PanelOutput
       const usage = res.usage
-      const u = usage as { cachedInputTokens?: number; inputTokenDetails?: { cacheReadTokens?: number } } | undefined
-      const cached = u?.inputTokenDetails?.cacheReadTokens ?? u?.cachedInputTokens ?? 0
-      const callCost = costOf(route, usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, cached)
+      const cached = charge.cachedTokens
+      const callCost = charge.costUsd
       cost += callCost
       const checks = modelChecks(c, ctx, out)
       results.push({ id: c.id, case: c.case, ok: checks.every(x => x.ok), checks, grade: out.grade, level: out.level, scope: out.scope, person_type: out.person_type, positioning: positioningLine({ grade: out.grade, level: out.level, fn: out.function, peerLine: out.peer_line }), suggested: out.suggested_decision, strong: out.seat_fits.filter(f => f.fit === 'strong').map(f => f.job_id), ms: Date.now() - t0, tokens: { in: usage?.inputTokens ?? 0, out: usage?.outputTokens ?? 0, cached }, cost_usd: Number(callCost.toFixed(4)) })

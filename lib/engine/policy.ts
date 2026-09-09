@@ -64,11 +64,18 @@ export const REASON_CLASS: Record<ReasonCode, ReasonClass> = {
 
 export type ContactState = 'yes' | 'needs_review' | 'no'
 
+export type OverrideEffect = 'allow_match' | 'block_match' | 'allow_contact' | 'block_contact' | 'waive_logistics'
+
 export interface Override {
-  effect: 'allow_match' | 'block_match' | 'allow_contact' | 'block_contact'
+  effect: OverrideEffect
   scope: 'global' | 'job'
   job_id?: string | null
   /** Ordered oldest first by the caller; expired or revoked rows are not passed. */
+}
+
+/** A recorded human exception that lets a seat's unresolved logistics not block client readiness. Read by lib/engine/fit.ts, ignored here. */
+export function logisticsWaived(overrides: Override[] | undefined, jobId: string | null | undefined): boolean {
+  return (overrides ?? []).some(o => o.effect === 'waive_logistics' && (o.scope === 'global' || (!!jobId && o.job_id === jobId)))
 }
 
 export interface PolicyInput {
