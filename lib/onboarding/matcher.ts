@@ -52,7 +52,7 @@ export interface Match {
 }
 
 /** The city chips a partner picks map onto the job location buckets. */
-const CITY_TO_BUCKET: Record<string, string> = {
+const CITY_TO_BUCKET: Record<string, string | string[]> = {
   'san francisco': 'sf-bay',
   'san francisco / bay area': 'sf-bay',
   'bay area': 'sf-bay',
@@ -66,7 +66,48 @@ const CITY_TO_BUCKET: Record<string, string> = {
   miami: 'florida',
   'remote us': 'anywhere',
   london: 'uk',
+  'uk / europe': ['uk', 'europe'],
   toronto: 'canada',
+}
+
+/**
+ * A city typed under "Other" is not in the chip list. Read what we can from
+ * the text so "Berlin" or "Paris, France" still reaches a European search;
+ * anything unrecognised scores nothing and is left for Lily to read.
+ */
+const FREE_TEXT_BUCKETS: Array<{ bucket: string; patterns: string[] }> = [
+  { bucket: 'uk', patterns: ['uk', 'u.k.', 'united kingdom', 'england', 'britain', 'london', 'manchester', 'edinburgh', 'scotland'] },
+  { bucket: 'europe', patterns: ['europe', 'eu', 'berlin', 'paris', 'amsterdam', 'dublin', 'ireland', 'germany', 'france', 'netherlands', 'spain', 'madrid', 'barcelona', 'lisbon', 'portugal', 'stockholm', 'sweden', 'copenhagen', 'denmark', 'zurich', 'switzerland', 'munich', 'vienna', 'austria', 'italy', 'milan', 'poland', 'warsaw', 'tallinn', 'helsinki', 'oslo', 'brussels', 'belgium'] },
+  { bucket: 'canada', patterns: ['canada', 'vancouver', 'montreal', 'toronto'] },
+  { bucket: 'india', patterns: ['india', 'bangalore', 'bengaluru', 'mumbai', 'delhi', 'hyderabad', 'pune', 'chennai'] },
+  { bucket: 'apac', patterns: ['singapore', 'sydney', 'melbourne', 'australia', 'tokyo', 'japan', 'seoul', 'korea', 'hong kong', 'taipei', 'asia'] },
+  { bucket: 'latam', patterns: ['mexico', 'brazil', 'sao paulo', 'argentina', 'buenos aires', 'colombia', 'bogot', 'chile', 'latam', 'latin america'] },
+  { bucket: 'mea', patterns: ['dubai', 'uae', 'tel aviv', 'israel', 'africa', 'lagos', 'nairobi', 'cairo', 'riyadh', 'middle east'] },
+  { bucket: 'sf-bay', patterns: ['san francisco', 'bay area', 'palo alto', 'oakland', 'san jose', 'sf'] },
+  { bucket: 'nyc', patterns: ['new york', 'nyc', 'brooklyn', 'manhattan'] },
+  { bucket: 'la', patterns: ['los angeles', 'la'] },
+  { bucket: 'san-diego', patterns: ['san diego', 'orange county', 'irvine'] },
+  { bucket: 'seattle', patterns: ['seattle', 'bellevue'] },
+  { bucket: 'boston', patterns: ['boston', 'cambridge, ma'] },
+  { bucket: 'austin', patterns: ['austin'] },
+  { bucket: 'texas', patterns: ['dallas', 'houston', 'texas'] },
+  { bucket: 'denver', patterns: ['denver', 'boulder'] },
+  { bucket: 'chicago', patterns: ['chicago'] },
+  { bucket: 'dc', patterns: ['washington', 'dc', 'd.c.', 'arlington'] },
+  { bucket: 'atlanta', patterns: ['atlanta'] },
+  { bucket: 'florida', patterns: ['miami', 'florida', 'tampa', 'orlando'] },
+  { bucket: 'anywhere', patterns: ['remote', 'anywhere'] },
+]
+
+/** Short tokens ("uk", "la", "sf", "eu", "dc") only count as whole words. */
+function bucketsFromText(raw: string): string[] {
+  const words = raw.toLowerCase().replace(/[^a-z0-9.& ]+/g, ' ').replace(/\s+/g, ' ').trim()
+  const padded = ` ${words} `
+  const out: string[] = []
+  for (const { bucket, patterns } of FREE_TEXT_BUCKETS) {
+    if (patterns.some(p => (p.length <= 3 ? padded.includes(` ${p} `) : padded.includes(p)))) out.push(bucket)
+  }
+  return out
 }
 
 const STAGE_ALIASES: Record<string, string[]> = {
@@ -80,7 +121,8 @@ function bucketsFor(cities: string[]): Set<string> {
   const out = new Set<string>()
   for (const c of cities) {
     const b = CITY_TO_BUCKET[c.trim().toLowerCase()]
-    if (b) out.add(b)
+    const list = b ? (Array.isArray(b) ? b : [b]) : bucketsFromText(c)
+    for (const x of list) out.add(x)
   }
   return out
 }

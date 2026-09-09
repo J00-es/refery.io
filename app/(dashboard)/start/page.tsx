@@ -9,6 +9,7 @@ import { resolveFee, payoutAmount, feeExplanation } from '@/lib/fees'
 import { ProposalActions } from '@/components/partners/proposal-card'
 import { PreferencesEditor } from '@/components/onboarding/preferences-editor'
 import { NotificationPrefs } from '@/components/onboarding/notification-prefs'
+import { ReferralEarnings } from '@/components/onboarding/referral-earnings'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,9 @@ export const dynamic = 'force-dynamic'
 export default async function StartPage() {
   const user = await getAppUser()
   if (!user) redirect('/auth/login')
-  if (user.isAdmin) redirect('/admin/partners')
+  // The super admin sees this page as a partner would, on their own account.
+  // A plain admin has the desk instead.
+  if (user.isAdmin && !user.isSuperAdmin) redirect('/admin/partners')
 
   const admin = createAdminClient()
   const check = await accessCheck(admin, user.id)
@@ -31,7 +34,9 @@ export default async function StartPage() {
   // A partner with confirmed preferences and no search gets one suggested on
   // the spot, so this page never says "nothing yet" while a match exists.
   const { data: prefs } = await admin.from('partner_preferences').select('*').eq('user_id', user.id).maybeSingle()
-  if (prefs?.confirmed_at && check.searches.ok) {
+  // Not for the super admin: a proposal on Lily's own account is a row the
+  // desk would then count.
+  if (prefs?.confirmed_at && check.searches.ok && !user.isSuperAdmin) {
     await suggestFirstSearch(admin, { userId: user.id, email: user.email, fullName: user.fullName }, { by: 'start-page', sendEmail: false })
   }
 
@@ -200,6 +205,11 @@ export default async function StartPage() {
 
       <div className="mb-5">
         <NotificationPrefs />
+      </div>
+
+      {/* Two more ways to earn: a company or a partner they bring. Terms section 9. */}
+      <div className="mb-5">
+        <ReferralEarnings partnerName={user.fullName ?? ''} />
       </div>
 
       {/* Background and help, always here, never a gate. */}

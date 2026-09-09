@@ -49,7 +49,8 @@ interface NavItem {
  */
 /**
  * Start is the partner's first page: account checks, the one suggested search,
- * preferences, and help. Partners only; admins have the desk.
+ * preferences, and help. Partners, plus the super admin who needs to see what
+ * a partner sees; a plain admin has the desk.
  */
 const startItem: NavItem = { href: '/start', label: 'Start', icon: Compass }
 const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon: Users }
@@ -127,7 +128,8 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, inFirm = f
   // its own gate. This only keeps the row honest.
   const seesFirm = inFirm || isSuperAdmin
   const visibleNavItems: NavItem[] = [
-    ...(isSuperAdmin || isAdmin ? [] : [startItem]),
+    // Partners and the super admin. A plain admin has the desk instead.
+    ...(isAdmin && !isSuperAdmin ? [] : [startItem]),
     candidatesItem,
     ...(seesBeta ? betaNavItems : []),
     ...(seesFirm ? [firmItem] : []),
