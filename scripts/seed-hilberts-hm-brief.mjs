@@ -63,7 +63,17 @@ export const content = {
             '**Then the shortlist.** Partners are already sourcing against this bar. The first profiles are as much calibration as shortlist, so a yes or no on each within a day or two, with a reason, is what makes the next batch sharper.',
           ],
         },
-        { kind: 'cta', label: 'Sign the client agreement', url: AGREEMENT_URL, note: 'Two minutes. Terms as above.' },
+        {
+          kind: 'facts',
+          rows: [
+            { label: 'Fee', value: '10% of first-year base salary, per hire. Bonus, equity and commission not counted.' },
+            { label: 'When', value: 'Invoiced on the first day, due 30 days after the start date. Nothing before a hire, no retainer.' },
+            { label: 'Guarantee', value: 'One free replacement search if the hire leaves within 90 days, any reason.' },
+            { label: 'Window', value: 'A fee applies to anyone we introduced who you hire within 12 months, in any role. No fee if someone reached them before us: send us the dated record.' },
+            { label: 'Commitment', value: 'None. No exclusivity, no minimums, cancel any time in writing. Covers every search with us.' },
+          ],
+        },
+        { kind: 'cta', label: 'Sign the client agreement', url: AGREEMENT_URL, note: 'Two minutes, digital, no account. The full text is on the signing page; the five lines above are all of it.' },
         {
           kind: 'invite',
           prompt: 'Connect on Slack: type your email and I invite you, or a teammate, to a private channel with me.',
