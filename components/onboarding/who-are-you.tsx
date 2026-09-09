@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
  * honest result: straight to account setup when the person is on the
  * campaign's list, otherwise a receipt and Lily reads it.
  */
-export function WhoAreYou({ slug, senderName }: { slug: string; senderName: string }) {
+export function WhoAreYou({ slug }: { slug: string }) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -68,7 +68,7 @@ export function WhoAreYou({ slug, senderName }: { slug: string; senderName: stri
   return (
     <form onSubmit={submit} className="mt-5 rounded-[14px] border border-[#1F3A2F] bg-white p-4">
       <p className="text-[13px] font-semibold">Who are you?</p>
-      <p className="text-[12.5px] text-[#6E6E68]">So we can match you to {senderName}&rsquo;s message and skip the application.</p>
+      <p className="text-[12.5px] text-[#6E6E68]">So we can match you to the invitation and skip the application.</p>
       <div className="mt-3 grid gap-2">
         <input value={name} onChange={e => setName(e.target.value)} placeholder="Your name" autoComplete="name" className="h-11 rounded-[10px] border border-[#D2D1C7] px-3 text-[14px]" />
         <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" type="email" autoComplete="email" autoCapitalize="none" className="h-11 rounded-[10px] border border-[#D2D1C7] px-3 text-[14px]" />
@@ -78,7 +78,7 @@ export function WhoAreYou({ slug, senderName }: { slug: string; senderName: stri
       <button type="submit" disabled={busy} className="mt-3 inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-[#1F3A2F] text-[14px] font-semibold text-white disabled:opacity-60">
         {busy ? 'One moment' : 'Continue'}
       </button>
-      <p className="mt-2 text-center text-[12px] text-[#9C9C95]">If you&rsquo;re on {senderName}&rsquo;s list, you go straight to account setup. If not, Lily reads it within two working days.</p>
+      <p className="mt-2 text-center text-[12px] text-[#9C9C95]">If the invitation was addressed to you, you go straight to account setup. If not, Lily reads it within two working days.</p>
     </form>
   )
 }

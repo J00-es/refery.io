@@ -8,7 +8,9 @@ import { WhoAreYou } from '@/components/onboarding/who-are-you'
 export const dynamic = 'force-dynamic'
 
 /**
- * The page behind a universal link in a mass LinkedIn DM or a cold email.
+ * The page behind a universal invitation link: a mass LinkedIn DM, a cold
+ * email, a post, a signature. Whoever carried the link, the page speaks as
+ * Lily inviting the reader; the sender is recorded internally only.
  *
  * A general link shows the two searches that need people most right now, one
  * engineering and one GTM, chosen by rule when the page renders and
@@ -45,7 +47,8 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
         <p className="text-[18px] font-semibold">Refery<span className="text-[#1F3A2F]">.</span></p>
 
         <section className="mt-8">
-          <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.02em]">{campaign.sender_name} sent you here.</h1>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1F3A2F]">An invitation from Refery</p>
+          <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.02em]">Lily invited you to join Refery.</h1>
           <p className="mt-2 text-[14px] text-[#6E6E68]">
             {general
               ? 'Two of the searches we’re working on right now, what you’d do, and how to join. About four minutes.'
@@ -97,7 +100,7 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
         {closed ? (
           <p className="mt-5 rounded-[14px] border border-[#E4D9B8] bg-[#FFF8EC] px-4 py-3 text-[13px]">This link has closed. If you&rsquo;d still like to join, apply at <a href="https://refery.io/join-as-scout" className="font-semibold underline underline-offset-2">refery.io/join-as-scout</a>.</p>
         ) : (
-          <WhoAreYou slug={slug} senderName={campaign.sender_name as string} />
+          <WhoAreYou slug={slug} />
         )}
 
         <section className="mt-6 flex items-center justify-between gap-3 rounded-[14px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3">

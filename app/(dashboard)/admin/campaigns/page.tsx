@@ -67,7 +67,7 @@ const FN_LABEL = { engineering: 'Engineering', gtm: 'Sales & GTM' } as const
 export default function CampaignsPage() {
   const [data, setData] = useState<Data | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [form, setForm] = useState({ kind: 'general' as 'general' | 'search', name: '', slug: '', job_id: '', sender_name: 'Marj', channel: 'linkedin', summary: '', audience: '' })
+  const [form, setForm] = useState({ kind: 'general' as 'general' | 'search', name: '', slug: '', job_id: '', sender_name: 'Lily', channel: 'linkedin', summary: '', audience: '' })
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<string | null>(null)
   const [more, setMore] = useState<Record<string, string>>({})
@@ -106,7 +106,7 @@ export default function CampaignsPage() {
       return
     }
     setMsg(`Created. ${body.audienceAdded} people in the audience.`)
-    setForm({ kind: 'general', name: '', slug: '', job_id: '', sender_name: 'Marj', channel: 'linkedin', summary: '', audience: '' })
+    setForm({ kind: 'general', name: '', slug: '', job_id: '', sender_name: 'Lily', channel: 'linkedin', summary: '', audience: '' })
     load()
   }
 
@@ -202,7 +202,7 @@ export default function CampaignsPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1 text-sm"><span className="font-medium">Name (internal)</span><input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder={form.kind === 'general' ? 'LinkedIn outreach · September' : ''} className={INPUT} /></label>
             <label className="grid gap-1 text-sm"><span className="font-medium">Slug</span><input value={form.slug} onChange={e => setForm({ ...form, slug: e.target.value })} placeholder={form.kind === 'general' ? 'join' : 'sf-engineering'} className={`${INPUT} font-mono`} /></label>
-            <label className="grid gap-1 text-sm"><span className="font-medium">Sender</span><input value={form.sender_name} onChange={e => setForm({ ...form, sender_name: e.target.value })} className={INPUT} /></label>
+            <label className="grid gap-1 text-sm"><span className="font-medium">Sent by (internal, never shown on the page)</span><input value={form.sender_name} onChange={e => setForm({ ...form, sender_name: e.target.value })} className={INPUT} /></label>
             <label className="grid gap-1 text-sm"><span className="font-medium">Channel</span><select value={form.channel} onChange={e => setForm({ ...form, channel: e.target.value })} className={INPUT}><option value="linkedin">LinkedIn DM</option><option value="email">Email</option><option value="other">Other</option></select></label>
           </div>
           {form.kind === 'search' && (

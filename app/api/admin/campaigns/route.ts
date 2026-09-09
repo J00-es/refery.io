@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   const kind = body.kind === 'search' ? 'search' : 'general'
   const jobId = kind === 'search' ? String(body.job_id ?? '').trim() : null
   const summary = String(body.summary ?? '').trim()
-  const senderName = String(body.sender_name ?? 'Marj').trim() || 'Marj'
+  const senderName = String(body.sender_name ?? 'Lily').trim() || 'Lily'
   const channel = ['linkedin', 'email', 'other'].includes(body.channel) ? body.channel : 'linkedin'
   if (!slug || !name) return NextResponse.json({ error: 'A slug and a name.' }, { status: 400 })
   if (kind === 'search' && (!jobId || summary.length < 40)) {
