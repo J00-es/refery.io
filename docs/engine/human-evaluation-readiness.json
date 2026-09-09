@@ -1,0 +1,16 @@
+{
+  "promotion_ready": false,
+  "labels_ready": false,
+  "errors": [
+    "missing human attribution"
+  ],
+  "candidate_count": 120,
+  "reviewed_candidates": 0,
+  "pair_count": 360,
+  "precision_at_3": null,
+  "precision_candidates": 0,
+  "judged_pool_recall_at_k": null,
+  "recall_candidates": 0,
+  "k": 10,
+  "limitation": "Judged-pool recall only. Human authorship must be verified; this schema cannot authenticate a reviewer. Production promotion also needs safety, outcome and retrieval coverage review."
+}

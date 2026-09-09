@@ -1,0 +1,20 @@
+{
+  "app_base": "d3a2ece",
+  "worker_base": "8b89133efb520a41f3b5a924dd983dd02ce84853",
+  "app_tests_passed": 88,
+  "worker_tests_passed": 12,
+  "database_scenarios_passed": 15,
+  "database_connections": "two independent PostgreSQL 17.6 sessions",
+  "database_failure_probe_exit": 1,
+  "app_build": "passed; existing configuration bypasses type errors",
+  "baseline_type_errors": 93,
+  "current_type_errors": 93,
+  "additional_type_diagnostics": 0,
+  "benchmark_calls": 32,
+  "benchmark_cost_usd": 0.41529342,
+  "human_candidates": 120,
+  "human_pairs": 360,
+  "human_labels": 0,
+  "production_changed": false,
+  "deployed": false
+}

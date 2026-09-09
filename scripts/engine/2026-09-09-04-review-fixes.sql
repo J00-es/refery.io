@@ -260,12 +260,20 @@ end $$;
 -- before the shared ledger existed. Those rows are imported once, keyed by
 -- their source row, so the envelope starts from what was really spent.
 
+-- Create/lock the month before imports, including on an account whose Brain
+-- has not spent anything yet. Reapplying must not import already-metered runs.
+insert into public.brain_budget_months (month_start, hard_limit_usd)
+select date_trunc('month', now())::date, s.hard_limit_usd from public.engine_settings s where s.id = 1
+on conflict (month_start) do nothing;
+select month_start from public.brain_budget_months where month_start=date_trunc('month',now())::date for update;
+
 insert into public.brain_ai_usage (month_start, request_kind, model, reservation_usd, actual_usd, input_tokens, output_tokens, status, metadata, finalized_at, source, task, estimate_usd, created_at)
 select date_trunc('month', p.created_at)::date, 'panel', p.model, 0, coalesce(p.cost_usd, 0), p.tokens_in, p.tokens_out, 'completed',
        jsonb_build_object('import_key', 'candidate_panels:' || p.id::text, 'imported_at', now()), p.created_at, 'desk', 'panel', coalesce(p.cost_usd, 0), p.created_at
 from public.candidate_panels p
 where p.created_at >= date_trunc('month', now())
   and p.cost_usd is not null
+  and p.usage_id is null
   and not exists (select 1 from public.brain_ai_usage u where u.metadata->>'import_key' = 'candidate_panels:' || p.id::text);
 
 insert into public.brain_ai_usage (month_start, request_kind, model, reservation_usd, actual_usd, status, metadata, finalized_at, source, task, estimate_usd, created_at)
@@ -274,6 +282,7 @@ select date_trunc('month', r.created_at)::date, 'bench', coalesce(r.model, 'unkn
 from public.search_match_runs r
 where r.created_at >= date_trunc('month', now())
   and r.cost_usd is not null
+  and r.usage_id is null
   and not exists (select 1 from public.brain_ai_usage u where u.metadata->>'import_key' = 'search_match_runs:' || r.id::text);
 
 -- The month row's spent total is the sum of every completed row, imported or not.

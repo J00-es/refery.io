@@ -51,6 +51,7 @@ import { describeEducationTiming } from '@/lib/engine/dates'
 import { formatMoney } from '@/lib/engine/money'
 import { BudgetDeferredError } from '@/lib/engine/ledger'
 import { LeaseLostError, renewPanelLease } from '@/lib/engine/queue'
+import { persistFactBundle } from '@/lib/engine/fact-bundle'
 
 export const PANEL_PROMPT_VERSION = 3
 
@@ -505,6 +506,9 @@ function modelReadFromRow(prior: PanelRow): ModelRead {
 /** Run the panel and write everything it produced. */
 export async function runPanel(admin: SupabaseClient, ctx: PanelContext, opts: RunPanelOptions = {}): Promise<PanelRow> {
   const candidateId = ctx.candidate.id as string
+  if (process.env.ENGINE_EVIDENCE_ENABLED === '1' && ctx.parsed) {
+    await persistFactBundle(admin, candidateId, ctx.parsed as unknown as Record<string, unknown>)
+  }
   const cv = cvText(ctx.parsed, ctx.candidate)
   const sourceText = candidateSourceText(ctx.candidate, (ctx.parsed as Record<string, unknown> | null) ?? null)
   const source = await recordSourceVersion(admin, candidateId, sourceText, { resume_filename: ctx.candidate.resume_filename ?? null })

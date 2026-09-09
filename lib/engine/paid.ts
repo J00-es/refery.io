@@ -153,7 +153,15 @@ export async function paidGenerateText<O = unknown>(args: GenerateArgs, meta: Pa
   const startedAt = Date.now()
   const base = { model, usageId: r.usageId, tokensIn: 0, tokensOut: 0, cachedTokens: 0, cacheWriteTokens: 0, reasoningTokens: null as number | null, requestId: null as string | null }
   try {
-    const result = (await generateText({ ...args, maxRetries: 0 })) as unknown as PaidTextResult<O>
+    // An explicit synthetic-benchmark transport uses the same route price and
+    // ledger, while allowing the existing OpenAI account to be tested directly.
+    let providerModel: Parameters<typeof generateText>[0]['model'] = args.model
+    if (meta.source === 'benchmark' && process.env.ENGINE_BENCHMARK_DIRECT_OPENAI === '1') {
+      if (!args.model.startsWith('openai/') || !routeFor(args.model)?.benchmark) throw new Error('Direct benchmark requires a registered OpenAI route')
+      const { createOpenAI } = await import('@ai-sdk/openai')
+      providerModel = createOpenAI({ apiKey: process.env.OPENAI_API_KEY }).responses(args.model.slice('openai/'.length))
+    }
+    const result = (await generateText({ ...args, model: providerModel, maxRetries: 0 })) as unknown as PaidTextResult<O>
     const u = usageOf(result.usage)
     const costUsd = costOf(model, u.tokensIn, u.tokensOut, u.cached, u.cacheWrite)
     const requestId = (result as { response?: { id?: string } }).response?.id ?? null

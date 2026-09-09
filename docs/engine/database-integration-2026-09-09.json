@@ -1,0 +1,65 @@
+{
+  "scope": "real PostgreSQL 17.6, two sessions, synthetic baseline; vector retrieval and hosted Supabase not covered",
+  "results": [
+    {
+      "case": "policy and complete record/review migrations apply to the synthetic baseline",
+      "passed": true
+    },
+    {
+      "case": "two independent sessions claim disjoint candidates concurrently",
+      "passed": true
+    },
+    {
+      "case": "targeted rerun cannot steal an unexpired lease",
+      "passed": true
+    },
+    {
+      "case": "expired lease can be reclaimed; stale worker cannot renew or complete",
+      "passed": true
+    },
+    {
+      "case": "enqueue during an active run preserves ownership and requests a later rerun",
+      "passed": true
+    },
+    {
+      "case": "real SQL preserves synthetic human not-fit and dormant states and permits explicit human reopening",
+      "passed": true
+    },
+    {
+      "case": "concurrent reservations obey one cap and uncertain calls retain their allowance",
+      "passed": true
+    },
+    {
+      "case": "two independent sessions claim disjoint outbox items without sending anything",
+      "passed": true
+    },
+    {
+      "case": "new worker mutation RPC is restricted to the service role",
+      "passed": true
+    },
+    {
+      "case": "concurrent nightly transactions create proposals once; same-run restart preserves completed progress",
+      "passed": true
+    },
+    {
+      "case": "zero-result candidates still complete and record progress",
+      "passed": true
+    },
+    {
+      "case": "failed assessment rolls back progress; reopened old job is reconsidered on retry without a pipeline-date cursor",
+      "passed": true
+    },
+    {
+      "case": "fact bundles are idempotent and stale source snapshots are refused",
+      "passed": true
+    },
+    {
+      "case": "scorecard draft importer cannot forge human confirmation",
+      "passed": true
+    },
+    {
+      "case": "migration reapplication imports legacy costs once and never double-counts already-metered panels",
+      "passed": true
+    }
+  ]
+}

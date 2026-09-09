@@ -30,6 +30,8 @@ import { evaluateEligibility } from '../../lib/engine/policy'
 import { hasPercentile, positioningLine } from '../../lib/engine/grade'
 import { isBenchmarkRoute, routeFor } from '../../lib/engine/routes'
 import { compareAskToBand } from '../../lib/engine/money'
+import { benchmarkLedger } from './benchmark-ledger'
+import { setLedgerAdapter } from '../../lib/engine/paid'
 
 const TODAY = new Date('2026-09-09T12:00:00Z')
 
@@ -164,6 +166,7 @@ async function runRoute(route: string, fixture: Fixture, seats: Seat[]) {
       results.push({ id: c.id, case: c.case, ok: checks.every(x => x.ok), checks, grade: out.grade, level: out.level, scope: out.scope, person_type: out.person_type, positioning: positioningLine({ grade: out.grade, level: out.level, fn: out.function, peerLine: out.peer_line }), suggested: out.suggested_decision, strong: out.seat_fits.filter(f => f.fit === 'strong').map(f => f.job_id), ms: Date.now() - t0, tokens: { in: usage?.inputTokens ?? 0, out: usage?.outputTokens ?? 0, cached }, cost_usd: Number(callCost.toFixed(4)) })
     } catch (err) {
       results.push({ id: c.id, case: c.case, ok: false, error: (err as Error).message.slice(0, 300), ms: Date.now() - t0 })
+      if ((err as Error).name === 'BudgetDeferredError') break
     }
   }
   return { route, cost_usd: Number(cost.toFixed(4)), passed: results.filter(r => r.ok).length, total: results.length, results }
@@ -171,6 +174,19 @@ async function runRoute(route: string, fixture: Fixture, seats: Seat[]) {
 
 async function main() {
   const args = process.argv.slice(2)
+  const option = (name: string) => { const i = args.indexOf(name); return i < 0 ? undefined : args[i + 1] }
+  const envFile = option('--openai-env-file')
+  if (envFile && !process.env.OPENAI_API_KEY) {
+    const line = readFileSync(envFile, 'utf8').split(/\r?\n/).find(s => /^OPENAI_API_KEY\s*=/.test(s))
+    process.env.OPENAI_API_KEY = (line?.slice(line.indexOf('=') + 1).trim() ?? '').replace(/^(['"])(.*)\1$/, '$2')
+  }
+  const direct = args.includes('--direct-openai')
+  const allowance = direct ? benchmarkLedger(path.resolve(option('--ledger-file') ?? '.engine/benchmark-allowance.sqlite'), Number(option('--max-usd') ?? '5')) : null
+  if (direct) {
+    if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY is required for direct benchmarking')
+    process.env.ENGINE_BENCHMARK_DIRECT_OPENAI = '1'
+    setLedgerAdapter(allowance!)
+  }
   const dry = args.includes('--dry')
   const routesArg = args[args.indexOf('--routes') + 1]
   const fixture = loadFixture()
@@ -191,11 +207,14 @@ async function main() {
       const spec = routeFor(r)
       if (!spec || !isBenchmarkRoute(r)) throw new Error(`${r} is not a registered benchmark route (lib/engine/routes.ts)`)
     }
-    if (!process.env.AI_GATEWAY_API_KEY) console.warn('AI_GATEWAY_API_KEY is not set; the gateway will refuse the calls')
+    if (!direct && !process.env.AI_GATEWAY_API_KEY) throw new Error('AI_GATEWAY_API_KEY is required, or use --direct-openai with an existing OpenAI key')
     report.routes = []
     for (const r of routes) (report.routes as unknown[]).push(await runRoute(r, fixture, seats))
   }
 
+  if (allowance) { report.allowance = allowance.summary(); allowance.close(); setLedgerAdapter(undefined) }
+  report.transport = direct ? 'direct_openai' : dry ? 'none' : 'vercel_gateway'
+  report.quality_labels = 'synthetic expectations; not human hiring validation'
   const outDir = path.resolve(__dirname, '../../docs/engine')
   mkdirSync(outDir, { recursive: true })
   const stamp = new Date().toISOString().slice(0, 10)

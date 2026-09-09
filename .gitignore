@@ -16,3 +16,7 @@ node_modules
 .DS_Store
 .vercel
 dev.log
+
+# Local synthetic benchmark allowances and database files
+.engine/
+supabase/.temp/

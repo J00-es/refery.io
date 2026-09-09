@@ -1,0 +1,2 @@
+allowBuilds:
+  '@embedded-postgres/windows-x64@17.6.0-beta.15': true

@@ -1,0 +1,9 @@
+{
+  "scope": "real PostgreSQL 17.6, two sessions, synthetic baseline; vector retrieval and hosted Supabase not covered",
+  "results": [
+    {
+      "case": "Intentional harness failure probe",
+      "passed": false
+    }
+  ]
+}
