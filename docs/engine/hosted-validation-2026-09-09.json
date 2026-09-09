@@ -1,0 +1,43 @@
+{
+  "date": "2026-09-09",
+  "project": "ofujlvuejuvhpzemjaic",
+  "method": "migrations 01-05 executed inside one transaction through pg-meta execute_sql, then aborted with RAISE EXCEPTION; post-run checks found no engine function, table, trigger, column or proposal row",
+  "persisted": false,
+  "contract": {"version": "nightly-v2", "retrieval": "all-open-jobs", "automatic_acceptance": false, "facts": "structured-facts-v1"},
+  "nightly_loop": {
+    "queued_candidates": 337,
+    "restart_adds": 0,
+    "candidates_processed": 6,
+    "ms_each": [5313, 9402, 5494, 6168, 4401, 2458],
+    "evaluated_pairs": 379,
+    "assessments_written": 376,
+    "proposals_written": 151,
+    "proposals_with_owner": 151,
+    "proposals_for_excluded_candidate": 0,
+    "proposals_to_do_not_contact_company": 0,
+    "status_after": {"done": 6, "queued": 331, "excluded": 0, "missing_embedding": 0}
+  },
+  "evidence": {
+    "fact_bundle_idempotent": true,
+    "facts_rows_after_two_saves": 1,
+    "stale_snapshot": "candidate source changed",
+    "scorecard_hard_gate": "drafts cannot confirm hard requirements",
+    "scorecard_draft_ok": true
+  },
+  "access": {
+    "anon_engine_process_next_candidate": false,
+    "anon_engine_worker_contract": false,
+    "anon_engine_start_nightly_match": false,
+    "authenticated_engine_save_fact_bundle": false,
+    "service_role_engine_process_next_candidate": true
+  },
+  "schema": {"capability_embedding_columns_added": 2, "candidates_alter_ms": 95, "jobs_alter_ms": 98},
+  "retrieval_finding": {
+    "symptom": "match_jobs_for_candidate_v2 took 50 s for one candidate; two earlier validation batches timed out",
+    "cause": "redundant 'j.embedding is not null' in the job pool query; with jobs.embedding null_frac 0.51 (last analyse 2026-09-06) the planner chose idx_jobs_status plus a full sort over 22,484 open jobs instead of jobs_embedding_hnsw_open_idx",
+    "proof": "same query without the clause: index scan, 600 rows, 10,227 ms cold and 17 ms warm; with enable_sort=off the original query also used the index",
+    "fix": "clause removed from both job pool queries in scripts/engine/2026-09-09-02-eligibility-and-matching.sql; results identical because the partial index holds no null vector",
+    "production_today": "the 4-argument match_jobs_for_candidate in production has the same clause; last six nightly workflow runs took 3, 4, 19, 5, 5, 7 minutes",
+    "instance": {"hnsw_index": "228 MB", "shared_buffers": "224MB", "effective_cache_size": "384MB", "pgvector": "0.8.0"}
+  }
+}

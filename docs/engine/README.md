@@ -172,3 +172,88 @@ validates it.
 - That a PDF page costs no more than the gateway's conservative estimate
   (base64 length / 6, minimum 8,000 tokens) for the reservation; the
   finalised row uses the provider's real usage either way.
+
+## Follow-up integrated 2026-09-09: evidence, resumable nightly, hosted validation
+
+Lily's Codex bundle (`Refery-engine-setup-2026-09-09.zip`, see
+`SETUP-2026-09-09.md`) was integrated into both real checkouts the way its
+START-HERE asked: by cherry-picking the local commits, not by re-applying
+the patches.
+
+| Repository | Branch | Commit | Parent |
+|---|---|---|---|
+| `refery-gh` (this app) | `engine-release-1` | `9ecc08d` (tree identical to Codex's `dba1de2`) | `d3a2ece` |
+| `J00-es/refery-automation` (`C:/scripts`, the clone that runs the nightly workflow) | `codex/engine-follow-up-2026-09-09` | `8120a07` | `8b89133` = `origin/main` |
+
+Neither branch is pushed. Production, its schema and its model approvals
+are unchanged.
+
+What was re-run here after the integration (supersedes the counts above):
+
+- `vitest run`: 88 cases in 7 files, all passing. `pnpm test` itself
+  currently fails before vitest starts because pnpm's pre-run dependency
+  check trips on an unapproved `esbuild` build script; run the binary
+  directly or `pnpm approve-builds` once.
+- `tsc --noEmit`: 96 errors, all pre-existing, none in `lib/engine`,
+  `lib/desk/panel.ts`, `scripts/engine` or `tests/engine`.
+- `scripts/engine/test-database.ts`: 15 of 15 scenarios on an embedded
+  Postgres, two real sessions (the two-session concurrency gap listed under
+  "Not done" is closed by this).
+- `benchmark.ts --dry`: 8 of 8 deterministic fixtures.
+- Worker repo: `python -m unittest discover -s tests`, 12 of 12.
+- Hosted validation of migrations 01 to 05 on production, inside one
+  transaction aborted on purpose (`hosted-validation-2026-09-09.json`):
+  worker contract `nightly-v2`; 337 candidates queued, restart adds 0; six
+  candidates through `engine_process_next_candidate` on the real HNSW
+  index, 379 pairs evaluated, 376 assessments, 151 proposals, all with an
+  owner, none for an excluded candidate, none to a do-not-contact company;
+  fact bundles idempotent and a stale snapshot refused; a scorecard draft
+  cannot confirm a hard gate; the six new RPCs refused to `anon` and
+  `authenticated`, executable by `service_role`. Nothing persisted
+  (checked afterwards).
+
+One production defect found by that run, fixed in migration 02 before it
+is ever applied: the job pool query in the matching function carried a
+redundant `j.embedding is not null`. The partial HNSW index
+(`jobs_embedding_hnsw_open_idx`, `where status = 'open'`) holds no null
+vector, so the clause changes no result, but with the table's stale
+statistics (`null_frac` 0.51, last analysed 2026-09-06) the planner
+abandoned the index for an `idx_jobs_status` scan plus a full sort over all
+22,484 open jobs: 50 seconds per candidate on the hosted instance, against
+10 seconds cold and 17 milliseconds warm through the index. The
+production 4-argument function has the same clause today, so the current
+nightly already pays this whenever the statistics drift; the last six
+nightly runs took 3 to 19 minutes. The instance is small for this index
+(228 MB HNSW against 224 MB `shared_buffers`), which is why cold candidates
+still cost 2.5 to 9.4 seconds each; the resumable loop was designed for
+exactly that.
+
+Volume note for the first activated night: the loop proposes up to 30 new
+pairs per candidate that have no pipeline row yet, and the six validation
+candidates averaged 25. Expect on the order of 8,000 new `auto_matched`
+rows the first night, then a trickle.
+
+Activation order, replacing the six steps above:
+
+1. Apply `scripts/engine/2026-09-09-01` to `-04` in order, then
+   `supabase/migrations/20260909105010_engine_evidence_and_complete_matching.sql`
+   (05). Never `supabase db push` blind: the repo has other unapplied
+   files under `supabase/migrations/`.
+2. `pnpm engine:parity` must exit 0; then
+   `scripts/engine/2026-09-09-benchmark-reconciliation.sql` (32 charges,
+   $0.415, idempotent) so the ledger carries the benchmark spend.
+3. Deploy the app branch and the worker branch together: the worker's
+   `engine_paid.py` preflight refuses to run until
+   `engine_worker_contract()` reports `nightly-v2`, and the app defers every
+   paid call until the ledger RPCs exist. Keep any old nightly schedule
+   disabled; the workflow's concurrency group stops overlapping runs.
+4. Leave `ENGINE_EVIDENCE_ENABLED` unset, `ENGINE_BENCH_V2=shadow`, the
+   OpenAI routes benchmark-only and `capability_embedding` unused until the
+   human-labelled set exists.
+
+Still outside this repository: the Vercel team is not reachable from here
+(403 on the team listing), the human review packet
+(`Refery-human-review-120-candidates-360-pairs.zip`) contains real names,
+emails, phone numbers and LinkedIn URLs and must stay out of this public
+repository, and no human label exists yet, so `evaluate-human-labels.ts`
+has nothing to score.

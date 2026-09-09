@@ -242,13 +242,18 @@ begin
   -- passed the raw pool size and failed for max_results above 166.
   perform set_config('hnsw.ef_search', least(1000, greatest(40, v_pool))::text, true);
 
+  -- No "embedding is not null" here on purpose. The partial HNSW index
+  -- (jobs_embedding_hnsw_open_idx, where status = 'open') never contains a
+  -- null vector, so the clause changes nothing, but with stale statistics
+  -- (null_frac 0.51 on 2026-09-09) it tipped the planner into an
+  -- idx_jobs_status scan plus a full sort: 50 s per candidate on the hosted
+  -- instance against 17 ms warm through the index.
   return query
   with pool as (
     select j.id, j.title, j.company_name, j.location,
            j.embedding <=> v_emb as dist
     from jobs j
-    where j.embedding is not null
-      and j.status = 'open'
+    where j.status = 'open'
     order by j.embedding <=> v_emb
     limit v_pool
   ),
@@ -345,8 +350,7 @@ begin
            j.company_id, j.remote_policy, j.salary_max,
            1 - (j.embedding <=> v_emb) as sim
     from jobs j
-    where j.embedding is not null
-      and j.status = 'open'
+    where j.status = 'open'   -- same planner reason as match_jobs_for_candidate_v2
       and j.created_at >= since_timestamp
     order by j.embedding <=> v_emb
     limit 600
