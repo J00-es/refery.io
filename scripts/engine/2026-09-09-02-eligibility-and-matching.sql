@@ -184,9 +184,13 @@ begin
     reasons := array_append(reasons, 'not_met_yet');
   end if;
 
-  intro := can_match and contact = 'yes' and c.journey_stage = 'warm'
+  -- Never null: a null consent_told_candidate made "= true" null and the whole
+  -- conjunction null; the TypeScript twin returns false (parity found 44 rows).
+  intro := coalesce(
+           can_match and contact = 'yes' and c.journey_stage = 'warm'
            and coalesce(c.availability_status, 'active') in ('active', 'not_yet_talked')
-           and c.consent_told_candidate = true;
+           and c.consent_told_candidate is true,
+           false);
 
   return jsonb_build_object(
     'policy_version', 'eligibility-v1',
