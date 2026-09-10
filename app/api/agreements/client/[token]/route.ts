@@ -36,6 +36,12 @@ function slugify(name: string): string {
   )
 }
 
+/** The leadership and Staff/Principal minimum on a tiered link, or null. */
+function leadershipOf(link: { leadership_fee_percentage?: unknown }): number | null {
+  const n = Number(link.leadership_fee_percentage)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
 /** The fee plans a link offers, or null when the fee is fixed. */
 function feeOptionsOf(link: { fee_options?: unknown }): number[] | null {
   if (!Array.isArray(link.fee_options)) return null
@@ -65,6 +71,7 @@ async function refreshIfStale(
   admin: ReturnType<typeof createAdminClient>,
   link: { id: string; company_name: string; agreement_version: string; agreement_content: string; agreement_hash: string },
   feePercent: number,
+  leadershipFee: number | null = null,
 ): Promise<{ content: string; version: string; hash: string }> {
   const stored = {
     content: link.agreement_content,
@@ -83,16 +90,20 @@ async function refreshIfStale(
   const content = generateClientAgreementText(link.company_name, {
     feePercent,
     paymentTiming: timing,
+    leadershipFeePercent: leadershipFee,
   })
   const hash = await generateAgreementHash(content)
+  // A leadership minimum turns the net30 body into v2.9, whatever line the
+  // link was issued on.
+  const renderedVersion = leadershipFee && timing === 'net30' ? AGREEMENT_VERSIONS.clientTiered : targetVersion
 
-  if (hash === stored.hash && targetVersion === stored.version) return stored
+  if (hash === stored.hash && renderedVersion === stored.version) return stored
 
   const { error } = await admin
     .from('client_agreement_links')
     .update({
       agreement_content: content,
-      agreement_version: targetVersion,
+      agreement_version: renderedVersion,
       agreement_hash: hash,
       updated_at: new Date().toISOString(),
     })
@@ -103,7 +114,7 @@ async function refreshIfStale(
     return stored
   }
 
-  return { content, version: targetVersion, hash }
+  return { content, version: renderedVersion, hash }
 }
 
 // GET: load agreement for the public sign page. Token IS the auth.
@@ -152,7 +163,8 @@ export async function GET(
     }
 
     const feePercent = Number(link.fee_percentage)
-    const { content, version, hash } = await refreshIfStale(adminClient, link, feePercent)
+    const leadershipFee = leadershipOf(link)
+    const { content, version, hash } = await refreshIfStale(adminClient, link, feePercent, leadershipFee)
 
     // A link issued with fee_options lets the signer pick the plan on the page.
     // Every option is rendered here so the document under the picker changes
@@ -161,7 +173,9 @@ export async function GET(
     const timing = clientPaymentTimingForVersion(version)
     const feeContents =
       feeOptions && timing
-        ? Object.fromEntries(feeOptions.map(f => [String(f), generateClientAgreementText(link.company_name, { feePercent: f, paymentTiming: timing })]))
+        ? Object.fromEntries(
+            feeOptions.map(f => [String(f), generateClientAgreementText(link.company_name, { feePercent: f, paymentTiming: timing, leadershipFeePercent: leadershipFee })]),
+          )
         : null
 
     const ip = getIp(request)
@@ -234,6 +248,9 @@ export async function GET(
       fee_percent_display: formatFeePercent(feePercent),
       fee_options: feeOptions,
       fee_contents: feeContents,
+      fee_chosen: Boolean(link.fee_chosen_at),
+      leadership_fee_percentage: leadershipFee,
+      page_notes: link.page_notes && typeof link.page_notes === 'object' ? link.page_notes : null,
       status: link.status === 'sent' ? 'viewed' : link.status,
       expires_at: link.expires_at,
     })
@@ -316,11 +333,12 @@ export async function POST(
     }
 
     // Re-check on POST, by the same rule as GET.
+    const leadershipFee = leadershipOf(link)
     const {
       content: storedContent,
       version: storedVersion,
       hash: storedHash,
-    } = await refreshIfStale(adminClient, link, feePercent)
+    } = await refreshIfStale(adminClient, link, feePercent, leadershipFee)
 
     // Integrity check
     const computedHash = await generateAgreementHash(storedContent)
@@ -350,6 +368,7 @@ export async function POST(
         agreement_version: storedVersion,
         agreement_hash: storedHash,
         fee_percentage: feePercent,
+        leadership_fee_percentage: leadershipFee,
         payment_window_days: link.payment_window_days,
         late_fee_percentage: link.late_fee_percentage,
         guarantee_days: link.guarantee_days,
@@ -404,6 +423,7 @@ export async function POST(
             version: storedVersion,
             fee_percent: feePercent,
             fee_options: feeOptions,
+            leadership_fee_percent: leadershipFee,
           },
         })
 
@@ -418,9 +438,13 @@ export async function POST(
               { label: 'Email', value: signerEmail },
               {
                 label: 'Terms',
-                value: feeOptions
-                  ? `v${storedVersion} · ${formatFeePercent(feePercent)}% fee, picked from ${feeOptions.map(f => `${formatFeePercent(f)}%`).join(' / ')}`
-                  : `v${storedVersion} · ${formatFeePercent(feePercent)}% fee`,
+                value: [
+                  `v${storedVersion} · ${formatFeePercent(feePercent)}% fee`,
+                  feeOptions ? `picked from ${feeOptions.map(f => `${formatFeePercent(f)}%`).join(' / ')}` : null,
+                  leadershipFee ? `leadership and Staff/Principal ${formatFeePercent(leadershipFee)}% minimum` : null,
+                ]
+                  .filter(Boolean)
+                  .join(', '),
               },
               { label: 'Location', value: geo.location || 'Unknown' },
             ],
@@ -465,6 +489,7 @@ export async function POST(
           signerEmail,
           companyName: link.company_name,
           feePercent: formatFeePercent(feePercent),
+          leadershipFeePercent: leadershipFee ? formatFeePercent(leadershipFee) : null,
           version: storedVersion,
           signedAtIso,
           signedAtHuman,
@@ -492,5 +517,51 @@ export async function POST(
   } catch (err) {
     console.error('[agreements/client POST] error:', err)
     return NextResponse.json({ error: 'Failed to sign agreement' }, { status: 500 })
+  }
+}
+
+// PATCH: save the plan the signer picked, before they sign. The page calls
+// this on every tap so a saved choice survives a reload and is never reset to
+// the default. Only a fee on the link's own fee_options is accepted.
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> },
+) {
+  try {
+    const { token } = await params
+    if (!token || token.length < 16) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 400 })
+    }
+    const adminClient = createAdminClient()
+    const { data: link, error } = await adminClient
+      .from('client_agreement_links')
+      .select('id, status, expires_at, fee_options, fee_percentage')
+      .eq('token', token)
+      .maybeSingle()
+    if (error || !link) return NextResponse.json({ error: 'Agreement not found' }, { status: 404 })
+    if (link.status === 'signed' || link.status === 'revoked') {
+      return NextResponse.json({ error: 'This agreement can no longer be changed' }, { status: 409 })
+    }
+    if (link.expires_at && new Date(link.expires_at) < new Date()) {
+      return NextResponse.json({ error: 'Agreement link has expired' }, { status: 410 })
+    }
+    const feeOptions = feeOptionsOf(link)
+    if (!feeOptions) return NextResponse.json({ error: 'This agreement has a fixed fee' }, { status: 400 })
+
+    const body = await request.json().catch(() => ({}))
+    const chosen = Number(body?.fee_percent)
+    if (!feeOptions.includes(chosen)) {
+      return NextResponse.json({ error: 'Pick one of the fee plans on offer' }, { status: 400 })
+    }
+    const now = new Date().toISOString()
+    const { error: upErr } = await adminClient
+      .from('client_agreement_links')
+      .update({ fee_percentage: chosen, fee_chosen_at: now, updated_at: now })
+      .eq('id', link.id)
+    if (upErr) return NextResponse.json({ error: 'Could not save that' }, { status: 500 })
+    return NextResponse.json({ ok: true, fee_percentage: chosen })
+  } catch (err) {
+    console.error('[agreements/client PATCH] error:', err)
+    return NextResponse.json({ error: 'Could not save that' }, { status: 500 })
   }
 }

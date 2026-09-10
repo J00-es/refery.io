@@ -60,6 +60,12 @@ export const AGREEMENT_VERSIONS = {
   // sits at day 30 and the guarantee runs its own 90 days on top of it, which
   // is the shape the rest of the market uses.
   client: '2.8',
+  // v2.9: the v2.8 body with a tiered fee. The signer picks the rate for
+  // standard individual-contributor hires (10% introductions or 15% search)
+  // and leadership, Head, Director, VP, C-suite and Staff/Principal hires
+  // carry a separate 20% minimum. Issued only when a link sets
+  // leadership_fee_percentage; everything else about v2.8 is unchanged.
+  clientTiered: '2.9',
   // v2.7: the previous standard (pay 10 business days after day 90, no fee at
   // all if the hire left inside 90 days). Retained so the agreements already
   // signed on it still render exactly what was signed. No new links issue on
@@ -119,6 +125,7 @@ const CLIENT_VERSION_TIMING: Record<string, ClientPaymentTiming> = {
   '2.7': 'net10',
   '2.7-A': 'start30',
   '2.8': 'net30',
+  '2.9': 'net30',
 }
 
 export function clientPaymentTimingForVersion(version: string): ClientPaymentTiming | null {
@@ -139,6 +146,7 @@ const NEGOTIATED_CLIENT_VERSIONS = new Set<string>([
 export function clientUpgradeTarget(version: string): string | null {
   if (NEGOTIATED_CLIENT_VERSIONS.has(version)) return null
   if (version === AGREEMENT_VERSIONS.client) return null
+  if (version === AGREEMENT_VERSIONS.clientTiered) return null
   return AGREEMENT_VERSIONS.client
 }
 
@@ -801,12 +809,12 @@ export function formatFeePercent(pct: number): string {
 // the 90-day guarantee and the 12-month intro window — is baked into the text.
 export function generateClientAgreementText(
   companyName: string,
-  options: { feePercent?: number; paymentTiming?: ClientPaymentTiming } = {},
+  options: { feePercent?: number; paymentTiming?: ClientPaymentTiming; leadershipFeePercent?: number | null } = {},
 ): string {
   const feePercent = options.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
   const timing = options.paymentTiming ?? 'net30'
   if (timing === 'net10' || timing === 'start30' || timing === 'net30') {
-    return generateStandardClientAgreement(companyName, feePercent, timing)
+    return generateStandardClientAgreement(companyName, feePercent, timing, options.leadershipFeePercent ?? null)
   }
   return generateLegacyClientAgreement(companyName, feePercent, timing)
 }
@@ -826,10 +834,15 @@ function generateStandardClientAgreement(
   companyName: string,
   feePercent: number,
   timing: 'net10' | 'start30' | 'net30' = 'net30',
+  leadershipFeePercent: number | null = null,
 ): string {
   const fee = formatFeePercent(feePercent)
   const onStart = timing === 'start30'
-  const version = clientAgreementVersion(timing)
+  // The tiered fee (v2.9) only exists on the current net30 body. The chosen
+  // rate covers standard individual-contributor hires; leadership and
+  // Staff/Principal hires carry their own minimum, whichever rate was chosen.
+  const lead = timing === 'net30' && leadershipFeePercent && leadershipFeePercent > 0 ? formatFeePercent(leadershipFeePercent) : null
+  const version = lead ? AGREEMENT_VERSIONS.clientTiered : clientAgreementVersion(timing)
 
   // Payment and guarantee are two independent clocks on v2.8. The invoice lands
   // 30 days after the start date, and the guarantee runs its own 90 days from
@@ -853,7 +866,9 @@ function generateStandardClientAgreement(
         : 'Gone within 90 days? You owe nothing, and anything paid comes back'
 
   const section1 =
-    timing === 'net30'
+    timing === 'net30' && lead
+      ? `**1. You pay 30 days after they start.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% for standard individual-contributor hires, or ${lead}% for Head, Director, VP, C-suite and Staff/Principal hires. A higher rate applies only if agreed in writing before the relevant search starts. Fees are calculated on first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. We invoice on their first day, and payment is due 30 calendar days after that start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Anything still unpaid from day 31 adds 1.5% a month.`
+      : timing === 'net30'
       ? `**1. You pay 30 days after they start.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. We invoice on their first day, and payment is due 30 calendar days after that start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Anything still unpaid from day 31 adds 1.5% a month.`
       : onStart
         ? `**1. You pay only when you hire.** Hire someone we introduced, in any role, within 12 months of the introduction, and the fee is ${fee}% of their first-year base salary, taken from their signed offer letter. Bonuses, equity, and commission aren't counted. It's due within 30 calendar days of their start date. Please tell us within 5 business days when someone accepts, along with their start date and salary. Late invoices add 1.5% a month.`
@@ -887,7 +902,7 @@ We keep this short on purpose. This is the entire agreement, and it covers every
 | | |
 |---|---|
 | **What it costs** | Nothing, unless you hire someone we introduce |
-| **The fee** | ${fee}% of their first-year base salary |
+| **The fee** | ${lead ? `Standard IC hires: ${fee}%. Leadership and Staff/Principal hires: ${lead}% minimum. Calculated on first-year base salary.` : `${fee}% of their first-year base salary`} |
 | **When you pay** | ${glancePayment} |
 | **If it doesn't work out** | ${glanceGuarantee} |
 | **Commitment** | None. No exclusivity, no minimums, cancel anytime |

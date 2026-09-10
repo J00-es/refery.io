@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
+  AGREEMENT_VERSIONS,
   DEFAULT_CLIENT_TERMS,
   clientAgreementVersion,
   generateAgreementHash,
@@ -24,6 +25,12 @@ export async function issueClientAgreementLink(
     feePercent?: number
     /** Fee plans the signer may pick from on the sign page; feePercent is then the recommended default. */
     feeOptions?: number[]
+    /** Minimum for Head/Director/VP/C-suite and Staff/Principal hires. Turns the document into v2.9. */
+    leadershipFeePercent?: number | null
+    /** Readable alias: /sign/<shortSlug>. */
+    shortSlug?: string | null
+    /** Per-client copy on the sign page: { from_lily, leadership }. */
+    pageNotes?: Record<string, string> | null
     paymentTiming?: ClientPaymentTiming
     recipientName?: string | null
     recipientEmail?: string | null
@@ -32,7 +39,9 @@ export async function issueClientAgreementLink(
 ): Promise<{ id: string; url: string; expiresAt: string; version: string }> {
   const feePercent = input.feePercent ?? DEFAULT_CLIENT_TERMS.feePercentage
   const timing = input.paymentTiming ?? 'net30'
-  const content = generateClientAgreementText(input.companyName, { feePercent, paymentTiming: timing })
+  const leadership = input.leadershipFeePercent && input.leadershipFeePercent > 0 ? input.leadershipFeePercent : null
+  const version = leadership && timing === 'net30' ? AGREEMENT_VERSIONS.clientTiered : clientAgreementVersion(timing)
+  const content = generateClientAgreementText(input.companyName, { feePercent, paymentTiming: timing, leadershipFeePercent: leadership })
   const hash = await generateAgreementHash(content)
   const token = generateSigningToken()
   const now = new Date()
@@ -46,11 +55,14 @@ export async function issueClientAgreementLink(
       company_name: input.companyName,
       recipient_name: input.recipientName ?? null,
       recipient_email: input.recipientEmail ?? null,
-      agreement_version: clientAgreementVersion(timing),
+      agreement_version: version,
       agreement_hash: hash,
       agreement_content: content,
       fee_percentage: feePercent,
       fee_options: input.feeOptions && input.feeOptions.length >= 2 ? input.feeOptions : null,
+      leadership_fee_percentage: leadership,
+      short_slug: input.shortSlug ?? null,
+      page_notes: input.pageNotes ?? null,
       payment_window_days: timing === 'day90' ? 14 : timing === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,
       guarantee_days: DEFAULT_CLIENT_TERMS.guaranteeDays,
@@ -68,8 +80,9 @@ export async function issueClientAgreementLink(
     link_id: data.id,
     company_id: input.companyId,
     event_type: 'created',
-    metadata: { version: clientAgreementVersion(timing), fee_percent: feePercent, fee_options: input.feeOptions ?? null, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
+    metadata: { version, fee_percent: feePercent, fee_options: input.feeOptions ?? null, leadership_fee_percent: leadership, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
   })
 
-  return { id: data.id as string, url: `${APP_URL}/sign/client-agreement/${data.token}`, expiresAt: data.expires_at as string, version: clientAgreementVersion(timing) }
+  const url = input.shortSlug ? `${APP_URL}/sign/${input.shortSlug}` : `${APP_URL}/sign/client-agreement/${data.token}`
+  return { id: data.id as string, url, expiresAt: data.expires_at as string, version }
 }

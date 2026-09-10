@@ -25,12 +25,24 @@ const PARTNER_FROM = 'Refery <agreements@refery.io>'
 const PARTNER_ADMIN_INBOX = 'lily@refery.io'
 const PARTNER_REPLY_TO = 'agreements@refery.io'
 
+/** "15% of first-year base salary", or the two-rate line on a tiered agreement. */
+function feeLine(d: { feePercent: string; leadershipFeePercent?: string | null }): string {
+  return d.leadershipFeePercent
+    ? `Standard IC hires ${d.feePercent}%, leadership and Staff/Principal hires ${d.leadershipFeePercent}% minimum, of first-year base salary`
+    : `${d.feePercent}% of first-year base salary`
+}
+function feeShort(d: { feePercent: string; leadershipFeePercent?: string | null }): string {
+  return d.leadershipFeePercent ? `${d.feePercent}% standard IC, ${d.leadershipFeePercent}% leadership` : `${d.feePercent}%`
+}
+
 export interface AgreementEmailData {
   signerName: string
   signerTitle: string | null
   signerEmail: string
   companyName: string
   feePercent: string // pre-formatted ("20" or "17.5")
+  /** Set on a tiered (v2.9) agreement: the Head/VP/C-suite and Staff/Principal minimum. */
+  leadershipFeePercent?: string | null
   version: string
   signedAtIso: string
   signedAtHuman: string // human-readable, e.g. "May 11, 2026 at 18:42 UTC"
@@ -115,7 +127,7 @@ function signerEmailHtml(d: AgreementEmailData): string {
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                       <tr>
                         <td style="font-size:12px; line-height:1.5; color:${M.muted}; letter-spacing:1px; text-transform:uppercase; font-weight:600; width:38%;">Fee</td>
-                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">${escapeHtml(d.feePercent)}% of first-year base salary</td>
+                        <td style="font-size:15px; line-height:1.5; color:${M.body}; text-align:right;">${escapeHtml(feeLine(d))}</td>
                       </tr>
                     </table>
                   </td>
@@ -224,7 +236,7 @@ function adminEmailHtml(d: AgreementEmailData): string {
 <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px 0; font-size:14px;">
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Signer</td><td style="padding:2px 0;">${escapeHtml(d.signerName)}${d.signerTitle ? ` (${escapeHtml(d.signerTitle)})` : ''}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Email</td><td style="padding:2px 0;">${escapeHtml(d.signerEmail)}</td></tr>
-  <tr><td style="padding:2px 12px 2px 0; color:#666;">Fee</td><td style="padding:2px 0;">${escapeHtml(d.feePercent)}%</td></tr>
+  <tr><td style="padding:2px 12px 2px 0; color:#666;">Fee</td><td style="padding:2px 0;">${escapeHtml(feeShort(d))}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Signed at</td><td style="padding:2px 0;">${escapeHtml(d.signedAtIso)}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">IP</td><td style="padding:2px 0;">${escapeHtml(d.ipAddress || 'Not recorded')}</td></tr>
   <tr><td style="padding:2px 12px 2px 0; color:#666;">Hash</td><td style="padding:2px 0; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12px;">${escapeHtml(d.termsHash)}</td></tr>
@@ -239,7 +251,7 @@ function adminEmailText(d: AgreementEmailData): string {
     '',
     `Signer: ${d.signerName}${d.signerTitle ? ` (${d.signerTitle})` : ''}`,
     `Email: ${d.signerEmail}`,
-    `Fee: ${d.feePercent}%`,
+    `Fee: ${feeShort(d)}`,
     `Signed at: ${d.signedAtIso}`,
     `IP: ${d.ipAddress ?? 'Not recorded'}`,
     `Hash: ${d.termsHash}`,
@@ -255,7 +267,7 @@ function signerEmailText(d: AgreementEmailData): string {
     `Thanks for signing the Refery recruitment services agreement on behalf of ${d.companyName}. You're all set, and we're looking forward to getting started on your roles.`,
     '',
     'At a glance',
-    `  Fee: ${d.feePercent}% of first-year base salary`,
+    `  Fee: ${feeLine(d)}`,
     `  Payment: ${clientTermsSummary(d.version).payment}`,
     `  Guarantee: ${clientTermsSummary(d.version).guarantee}`,
     '',

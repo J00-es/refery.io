@@ -51,30 +51,42 @@ interface AgreementData {
   fee_options: number[] | null
   /** The document rendered at each option, keyed by the percentage as a string. */
   fee_contents: Record<string, string> | null
+  /** True once a choice has been saved on the link; the default is only a default until then. */
+  fee_chosen: boolean
+  /** Head/Director/VP/C-suite and Staff/Principal minimum on a tiered agreement. */
+  leadership_fee_percentage: number | null
+  /** Per-client copy: a note from Lily above the options, and the tailored leadership line. */
+  page_notes: { from_lily?: string; leadership?: string } | null
   status: string
   expires_at: string | null
 }
 
 /**
- * The three plans, in the words the brief uses. The percentage is the key, so a
- * link offering a subset (or a negotiated number) still renders something sane.
+ * The two search approaches for standard individual-contributor hires. The
+ * difference is sourcing, not candidate quality. Keyed by percentage so a link
+ * offering a negotiated number still renders something sane.
  */
-const PLANS: Record<string, { name: string; line: string; more: string }> = {
-  '10': {
-    name: 'Introductions',
-    line: 'Scouts refer people they know. Junior or lighter searches.',
-    more: 'Passive. Your search goes to our scouts, founders and operators in the market, who refer people they already know. Works well for junior seats and lighter searches. No one is assigned to the seat.',
-  },
-  '15': {
-    name: 'Search',
-    line: 'A dedicated talent strategist reaches out to the best people directly.',
-    more: 'Active. A talent strategist is assigned to each seat and reaches out directly to a targeted pool. In a market where the best people are not applying anywhere, this is how they get hired.',
-  },
-  '20': {
-    name: 'Leadership',
-    line: 'Head, VP, C-level, Staff. A mapped market, a senior partner.',
-    more: 'Head, Director, VP, C-level, and Staff or Principal engineers. A mapped market, references in the loop, a senior partner on the search.',
-  },
+const PLANS: Record<string, { name: string; line: string }> = {
+  '10': { name: 'Introductions', line: 'Warm introductions from our network. No dedicated sourcing.' },
+  '15': { name: 'Search', line: 'A dedicated recruiter finds, screens and introduces relevant candidates for your role.' },
+}
+
+/** `**bold**` only, for the per-client notes. */
+function Emphasis({ text }: { text: string }) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g)
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith('**') && p.endsWith('**') ? (
+          <strong key={i} style={{ color: C.ink, fontWeight: 600 }}>
+            {p.slice(2, -2)}
+          </strong>
+        ) : (
+          <span key={i}>{p}</span>
+        ),
+      )}
+    </>
+  )
 }
 
 /* ----------------------------------------------------------------------------
@@ -133,6 +145,17 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
       cancelled = true
     }
   }, [token])
+
+  // Save the pick straight away so a reload, or a second device, opens on the
+  // choice already made rather than the default.
+  const choosePlan = (next: number) => {
+    setFee(next)
+    fetch(`/api/agreements/client/${token}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fee_percent: next }),
+    }).catch(() => {})
+  }
 
   const handleSign = async () => {
     if (!canSign) return
@@ -205,9 +228,11 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         {feeOptions && (
           <PlanPicker
             options={feeOptions}
-            recommended={Number(agreement.fee_percentage)}
+            recommended={agreement.fee_chosen ? null : Number(agreement.fee_percentage)}
             value={chosenFee}
-            onChange={setFee}
+            onChange={choosePlan}
+            leadershipFee={agreement.leadership_fee_percentage}
+            notes={agreement.page_notes}
           />
         )}
 
@@ -223,7 +248,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           readAgreement={readAgreement}
           signing={signing}
           canSign={canSign}
-          feeLabel={feeOptions ? `${chosenFee}% plan` : null}
+          feeLabel={feeOptions ? `${PLANS[String(chosenFee)]?.name ?? 'plan'} ${chosenFee}%` : null}
           error={error}
           onSignerNameChange={setSignerName}
           onSignerTitleChange={setSignerTitle}
@@ -379,7 +404,7 @@ function BrandStyles() {
         box-shadow: 0 0 0 3px rgba(31,58,47,0.18);
       }
       .refery-jumpbar { display: none; }
-      .refery-plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .refery-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
       .refery-plan { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
       .refery-plan:hover { border-color: rgba(22,22,19,0.24) !important; }
       .refery-plan:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(31,58,47,0.18) !important; }
@@ -491,35 +516,7 @@ function Footer() {
  * ========================================================================== */
 function Hero({ version }: { version: string }) {
   return (
-    <section style={{ textAlign: 'center', marginBottom: 40 }}>
-      <span
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 8,
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.12em',
-          textTransform: 'uppercase',
-          color: C.green,
-          background: C.greenBg,
-          border: `1px solid ${C.greenBorder}`,
-          padding: '6px 14px',
-          borderRadius: 99,
-          marginBottom: 22,
-        }}
-      >
-        <span
-          style={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            background: C.green,
-          }}
-        />
-        Recruitment Services Agreement · v{version}
-      </span>
-
+    <section style={{ textAlign: 'center', marginBottom: 40 }} data-version={version}>
       <h1
         style={{
           fontFamily: SERIF,
@@ -544,9 +541,8 @@ function Hero({ version }: { version: string }) {
           margin: '0 auto',
         }}
       >
-        It&rsquo;s about a minute to read, and there&rsquo;s nothing hidden in it.
-        Add your details at the bottom and a signed PDF lands in your inbox the
-        moment you accept.
+        It&rsquo;s about a minute to read. Add your details at the bottom and a
+        signed PDF lands in your inbox the moment you accept.
       </p>
     </section>
   )
@@ -615,20 +611,26 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 }
 
 /**
- * Three plans, one tap, the recommended one already chosen. The decision is
- * meant to take two seconds; the explanation sits behind a fold for anyone who
- * wants it.
+ * Two search approaches for standard individual-contributor hires, one tap,
+ * the suggested one pre-selected until a choice has been saved. Leadership and
+ * Staff/Principal hires are not an option here: they carry their own minimum,
+ * stated underneath, whichever approach is chosen.
  */
 function PlanPicker({
   options,
   recommended,
   value,
   onChange,
+  leadershipFee,
+  notes,
 }: {
   options: number[]
-  recommended: number
+  /** Which option to badge as suggested; null once the signer has saved a choice. */
+  recommended: number | null
   value: number
   onChange: (fee: number) => void
+  leadershipFee: number | null
+  notes: { from_lily?: string; leadership?: string } | null
 }) {
   return (
     <section
@@ -640,8 +642,23 @@ function PlanPicker({
         padding: '22px 26px',
         marginBottom: 20,
       }}
-      aria-label="Pick a plan"
+      aria-label="Choose your search approach"
     >
+      {notes?.from_lily && (
+        <div
+          style={{
+            borderLeft: `2px solid ${C.greenBorder}`,
+            padding: '2px 0 2px 14px',
+            marginBottom: 22,
+          }}
+        >
+          <div style={{ fontSize: 12, fontWeight: 600, color: C.ink3, marginBottom: 4 }}>A note from Lily</div>
+          <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: C.ink2 }}>
+            <Emphasis text={notes.from_lily} />
+          </p>
+        </div>
+      )}
+
       <h2
         style={{
           fontFamily: SERIF,
@@ -650,18 +667,19 @@ function PlanPicker({
           lineHeight: 1.2,
           letterSpacing: '-0.02em',
           color: C.ink,
-          margin: '0 0 16px 0',
+          margin: '0 0 4px 0',
         }}
       >
-        Pick a plan
+        Choose your search approach
       </h2>
+      <p style={{ margin: '0 0 16px 0', fontSize: 13.5, color: C.ink2 }}>For standard individual-contributor hires.</p>
 
-      <div className="refery-plan-grid" role="radiogroup" aria-label="Fee plan">
+      <div className="refery-plan-grid" role="radiogroup" aria-label="Search approach">
         {options.map((opt) => {
           const key = String(opt)
-          const plan = PLANS[key] ?? { name: `${opt}% fee`, line: 'Of first-year base salary, per hire.', more: '' }
+          const plan = PLANS[key] ?? { name: `${opt}% fee`, line: 'Of first-year base salary, per hire.' }
           const active = value === opt
-          const rec = opt === recommended
+          const suggested = recommended !== null && opt === recommended
           return (
             <button
               key={key}
@@ -673,21 +691,21 @@ function PlanPicker({
               style={{
                 position: 'relative',
                 display: 'flex',
-                alignItems: 'center',
+                alignItems: 'flex-start',
                 gap: 12,
                 textAlign: 'left',
                 borderRadius: 12,
                 border: `1px solid ${active ? C.green : C.border}`,
                 boxShadow: active ? `0 0 0 1px ${C.green}` : 'none',
                 background: active ? '#fff' : C.bg,
-                padding: '14px 16px',
+                padding: '16px 16px 14px',
                 minHeight: 64,
                 cursor: 'pointer',
                 fontFamily: SANS,
                 color: C.ink,
               }}
             >
-              {rec && (
+              {suggested && (
                 <span
                   style={{
                     position: 'absolute',
@@ -703,7 +721,7 @@ function PlanPicker({
                     lineHeight: 1,
                   }}
                 >
-                  Recommended
+                  Suggested
                 </span>
               )}
               <span
@@ -715,13 +733,14 @@ function PlanPicker({
                   width: 52,
                   flexShrink: 0,
                   fontVariantNumeric: 'tabular-nums',
+                  paddingTop: 2,
                 }}
               >
                 {opt}%
               </span>
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'block', fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{plan.name}</span>
-                <span style={{ display: 'block', fontSize: 12.5, color: C.ink2, lineHeight: 1.35, marginTop: 2 }}>{plan.line}</span>
+                <span style={{ display: 'block', fontSize: 13, color: C.ink2, lineHeight: 1.4, marginTop: 4 }}>{plan.line}</span>
               </span>
               <span
                 aria-hidden
@@ -729,6 +748,7 @@ function PlanPicker({
                   width: 18,
                   height: 18,
                   flexShrink: 0,
+                  marginTop: 2,
                   borderRadius: 99,
                   border: `1px solid ${active ? C.green : C.ink4}`,
                   background: active ? C.green : '#fff',
@@ -740,40 +760,21 @@ function PlanPicker({
         })}
       </div>
 
-      <details style={{ marginTop: 12 }}>
-        <summary
-          style={{
-            cursor: 'pointer',
-            listStyle: 'none',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 8,
-            minHeight: 40,
-            fontSize: 13.5,
-            fontWeight: 600,
-            color: C.green,
-          }}
-        >
-          What&rsquo;s the difference?
-        </summary>
-        <div style={{ display: 'grid', gap: 10, padding: '4px 0 2px', fontSize: 13.5, lineHeight: 1.55, color: C.ink2 }}>
-          {options.map((opt) => {
-            const plan = PLANS[String(opt)]
-            if (!plan) return null
-            return (
-              <p key={opt} style={{ margin: 0 }}>
-                <strong style={{ color: C.ink, fontWeight: 600 }}>
-                  {opt}% {plan.name}.
-                </strong>{' '}
-                {plan.more}
-              </p>
-            )
-          })}
-          <p style={{ margin: 0, color: C.ink3 }}>
-            The plan applies to every search under this agreement. Want a leadership seat added later? One line to Lily and it is agreed in writing before it starts.
+      <p style={{ margin: '12px 0 0 0', fontSize: 13, color: C.ink2 }}>Pay only when you hire. Fees are based on first-year base salary.</p>
+
+      {leadershipFee && (
+        <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.borderSoft}` }}>
+          <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 4 }}>
+            Leadership &amp; specialist hires · {leadershipFee}% minimum
+          </div>
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: C.ink2 }}>
+            Head, Director, VP, C-suite and Staff/Principal hires are {leadershipFee}%, whichever option you choose. Any higher rate must be agreed in writing before the search starts.
           </p>
+          {notes?.leadership && (
+            <p style={{ margin: '6px 0 0 0', fontSize: 13.5, fontWeight: 600, color: C.ink }}>{notes.leadership}</p>
+          )}
         </div>
-      </details>
+      )}
     </section>
   )
 }

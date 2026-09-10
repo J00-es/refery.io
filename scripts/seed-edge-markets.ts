@@ -1,6 +1,8 @@
 /**
- * EDGE Markets: company row, client record, the agreement link with the three
- * fee plans, and the hiring-manager brief at refery.xyz/b/edge-markets-p4w7ncq.
+ * EDGE Markets: company row, client record, the agreement link at
+ * refery.xyz/sign/edge-markets (10% introductions or 15% search for standard IC
+ * hires, 20% minimum for leadership), and the hiring-manager brief at
+ * refery.xyz/b/edge-markets-p4w7ncq.
  *
  * Written from the call with Adam Neff on 10 September 2026 (Granola
  * 4efe934c-b26a-4f90-8b10-ed7771f5385f) and public sources: edgemarkets.io,
@@ -38,8 +40,15 @@ const DRY = process.argv.includes('--dry')
 const LILY = '864aa3a4-f9e0-49c6-a35a-7ca02ffe04a7'
 const COMPANY_NAME = 'EDGE Markets'
 const SLUG = 'edge-markets-p4w7ncq'
-const FEE_OPTIONS = [10, 15, 20]
+const FEE_OPTIONS = [10, 15]
 const RECOMMENDED_FEE = 15
+const LEADERSHIP_FEE = 20
+const SHORT_SLUG = 'edge-markets'
+const PAGE_NOTES = {
+  from_lily:
+    "Adam, I'd lean towards **15% Search** for these senior engineering hires, so we can actively approach people with the fintech background you're after. Happy to start with **10% Introductions** too.",
+  leadership: 'Your VP of Engineering search: 20%.',
+}
 
 export function buildContent(agreementUrl: string) {
   return {
@@ -69,7 +78,7 @@ export function buildContent(agreementUrl: string) {
               '**Send me the JDs.** I brief partners the same day. First profiles within days.',
             ],
           },
-          { kind: 'cta', label: 'Sign the agreement', url: agreementUrl, note: 'Pick a plan on the page; 15% is pre-selected.' },
+          { kind: 'cta', label: 'Sign the agreement', url: agreementUrl, note: 'Two options on the page; 15% Search is suggested.' },
           {
             kind: 'invite',
             prompt: 'Connect on Slack',
@@ -343,7 +352,7 @@ async function main() {
   let agreementUrl = 'https://refery.xyz/sign/client-agreement/placeholder'
   const { data: openLink } = await db
     .from('client_agreement_links')
-    .select('id, token, fee_options, status, expires_at')
+    .select('id, token, fee_options, short_slug, status, expires_at')
     .eq('company_id', company.id)
     .in('status', ['sent', 'viewed'])
     .not('fee_options', 'is', null)
@@ -352,7 +361,7 @@ async function main() {
     .limit(1)
     .maybeSingle()
   if (openLink) {
-    agreementUrl = `https://refery.xyz/sign/client-agreement/${openLink.token}`
+    agreementUrl = openLink.short_slug ? `https://refery.xyz/sign/${openLink.short_slug}` : `https://refery.xyz/sign/client-agreement/${openLink.token}`
     console.log('agreement link exists', agreementUrl, 'options', openLink.fee_options)
   } else if (!DRY) {
     const link = await issueClientAgreementLink(db, {
@@ -360,6 +369,9 @@ async function main() {
       companyName: company.name,
       feePercent: RECOMMENDED_FEE,
       feeOptions: FEE_OPTIONS,
+      leadershipFeePercent: LEADERSHIP_FEE,
+      shortSlug: SHORT_SLUG,
+      pageNotes: PAGE_NOTES,
       recipientName: 'Adam Neff',
       recipientEmail: null,
       createdBy: LILY,
