@@ -251,6 +251,8 @@ export async function GET(
       fee_chosen: Boolean(link.fee_chosen_at),
       leadership_fee_percentage: leadershipFee,
       page_notes: link.page_notes && typeof link.page_notes === 'object' ? link.page_notes : null,
+      entity_editable: Boolean(link.entity_editable),
+      signing_entity: typeof link.signing_entity === 'string' ? link.signing_entity : null,
       status: link.status === 'sent' ? 'viewed' : link.status,
       expires_at: link.expires_at,
     })
@@ -307,6 +309,16 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid signer_email' }, { status: 400 })
     }
 
+    // On a link where the signer names their own entity (an agency signing
+    // for a client, say), the document is bound to that name: it is rendered,
+    // hashed, stored and signed under it, and the PDF and emails carry it.
+    const entityEditable = Boolean(link.entity_editable)
+    const signingEntity = String(body?.signing_entity ?? '').trim().slice(0, 160)
+    if (entityEditable && signingEntity.length < 2) {
+      return NextResponse.json({ error: 'Name the company or entity you are signing for' }, { status: 400 })
+    }
+    const boundName: string = entityEditable ? signingEntity : link.company_name
+
     // A link with fee_options is signed at the plan the signer picked. The
     // choice is written onto the link before the document is rendered, so the
     // stored content, the hash, the PDF and the signature row all carry it.
@@ -338,7 +350,10 @@ export async function POST(
       content: storedContent,
       version: storedVersion,
       hash: storedHash,
-    } = await refreshIfStale(adminClient, link, feePercent, leadershipFee)
+    } = await refreshIfStale(adminClient, { ...link, company_name: boundName }, feePercent, leadershipFee)
+    if (entityEditable) {
+      await adminClient.from('client_agreement_links').update({ signing_entity: boundName }).eq('id', link.id)
+    }
 
     // Integrity check
     const computedHash = await generateAgreementHash(storedContent)
@@ -361,7 +376,8 @@ export async function POST(
       .insert({
         link_id: link.id,
         company_id: link.company_id,
-        company_name: link.company_name,
+        company_name: boundName,
+        signing_entity: entityEditable ? boundName : null,
         signer_name: signerName,
         signer_title: signerTitle,
         signer_email: signerEmail,
@@ -435,6 +451,7 @@ export async function POST(
             context: 'Countersigned PDF is on its way to them.',
             fields: [
               { label: 'Signer', value: `${signerName}${signerTitle ? `, ${signerTitle}` : ''}` },
+              ...(entityEditable ? [{ label: 'Signed for', value: boundName }] : []),
               { label: 'Email', value: signerEmail },
               {
                 label: 'Terms',
@@ -455,7 +472,7 @@ export async function POST(
         const pdfBuffer = await generateAgreementPdf({
           kind: 'client',
           content: storedContent,
-          companyName: link.company_name,
+          companyName: boundName,
           signerName,
           signerTitle,
           signerEmail,
@@ -487,7 +504,7 @@ export async function POST(
           signerName,
           signerTitle,
           signerEmail,
-          companyName: link.company_name,
+          companyName: boundName,
           feePercent: formatFeePercent(feePercent),
           leadershipFeePercent: leadershipFee ? formatFeePercent(leadershipFee) : null,
           version: storedVersion,
@@ -498,7 +515,7 @@ export async function POST(
           agreementLinkId: link.id,
           adminUrl: `${origin}/companies/${link.company_id}`,
           pdfBuffer,
-          pdfFilename: `Refery-Services-Agreement-${slugify(link.company_name)}.pdf`,
+          pdfFilename: `Refery-Services-Agreement-${slugify(boundName)}.pdf`,
         })
         if (result.errors.length) {
           console.error('[agreements/client POST] email errors:', result.errors)

@@ -38,6 +38,10 @@ interface AgreementData {
   leadership_fee_percentage: number | null
   /** Per-client copy: a note from Lily above the options, and the tailored leadership line. */
   page_notes: { from_lily?: string; leadership?: string } | null
+  /** The signer names the entity they sign for; the document is bound to that name. */
+  entity_editable: boolean
+  /** A name already saved on the link, if any. */
+  signing_entity: string | null
   status: string
   expires_at: string | null
 }
@@ -103,6 +107,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
   const [signerName, setSignerName] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
   const [signerEmail, setSignerEmail] = useState('')
+  const [entity, setEntity] = useState('')
   const [confirmed, setConfirmed] = useState(false)
   // The plan picked on the page. Starts on the link's saved or recommended fee.
   const [fee, setFee] = useState<number | null>(null)
@@ -127,6 +132,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         setFee(Number(data.fee_percentage))
         setSignerName(data.recipient_name || '')
         setSignerEmail(data.recipient_email || '')
+        setEntity(data.signing_entity || '')
       } catch {
         if (!cancelled) setError('Failed to load agreement')
       } finally {
@@ -150,7 +156,9 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
     }).catch(() => {})
   }
 
-  const canSign = confirmed && signerName.trim().length > 1 && /\S+@\S+\.\S+/.test(signerEmail) && !signing
+  const entityEditable = agreement?.entity_editable === true
+  const entityOk = !entityEditable || entity.trim().length >= 2
+  const canSign = confirmed && entityOk && signerName.trim().length > 1 && /\S+@\S+\.\S+/.test(signerEmail) && !signing
 
   const handleSign = async () => {
     if (!canSign) return
@@ -166,6 +174,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           signer_email: signerEmail,
           accepted: true,
           fee_percent: fee,
+          signing_entity: entity.trim(),
         }),
       })
       const data = await response.json()
@@ -189,8 +198,12 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
 
   const feeOptions = agreement.fee_options
   const chosenFee = fee ?? Number(agreement.fee_percentage)
-  const content =
+  const rendered =
     feeOptions && agreement.fee_contents?.[String(chosenFee)] ? agreement.fee_contents[String(chosenFee)] : agreement.agreement_content
+  // The name the agreement binds. On an editable link the document follows
+  // what is typed, and the server re-renders it under that name at signature.
+  const boundName = entityEditable ? entity.trim() || 'the entity named below' : agreement.company_name
+  const content = entityEditable ? rendered.split(agreement.company_name).join(boundName) : rendered
   const plan = PLANS[String(chosenFee)]
 
   return (
@@ -198,7 +211,6 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
       <div className="mx-auto max-w-[720px] px-4 pb-28 pt-7 sm:px-6 sm:pt-11 lg:pb-16">
         <header>
           <h1 className={H1}>Agreement</h1>
-          <p className="mt-2 text-[15px] leading-snug text-[#2A2A26]">Refery &amp; {agreement.company_name}. Nothing until you hire.</p>
         </header>
 
         <div className="mt-6 space-y-4">
@@ -218,6 +230,14 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           <section id="refery-sign-card" className={`${CARD} scroll-mt-6 px-5 py-5 sm:px-7 sm:py-7`} aria-label="Sign">
             <h2 className="text-[20px] font-semibold leading-tight tracking-[-0.02em] text-[#161613]">Sign</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {entityEditable && (
+                <div className="sm:col-span-2">
+                  <label htmlFor="cas-entity" className={FIELD_LABEL}>
+                    Company or entity you&rsquo;re signing for
+                  </label>
+                  <input id="cas-entity" type="text" autoComplete="organization" value={entity} onChange={e => setEntity(e.target.value)} placeholder="Legal name of the entity" maxLength={160} className={FIELD} />
+                </div>
+              )}
               <div>
                 <label htmlFor="cas-name" className={FIELD_LABEL}>
                   Full name
@@ -241,7 +261,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
             <label htmlFor="cas-confirm" className="mt-4 flex cursor-pointer items-start gap-3 rounded-[10px] border border-[#E4E3DC] bg-[#F2F1EB] px-4 py-3.5 text-[14px] leading-relaxed text-[#2A2A26]">
               <input id="cas-confirm" type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#1F3A2F]" />
               <span>
-                I&rsquo;ve read it and I&rsquo;m authorised to sign for <strong className="font-semibold text-[#161613]">{agreement.company_name}</strong>.
+                I&rsquo;ve read it and I&rsquo;m authorised to sign for <strong className="font-semibold text-[#161613]">{entityEditable ? entity.trim() || 'the entity named above' : agreement.company_name}</strong>.
               </span>
             </label>
 

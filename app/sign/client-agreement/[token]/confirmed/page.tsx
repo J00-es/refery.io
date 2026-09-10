@@ -41,7 +41,7 @@ export default async function ConfirmedPage({
 
   const { data: link } = await adminClient
     .from('client_agreement_links')
-    .select('id, company_name, agreement_version, signed_at, status')
+    .select('id, company_name, signing_entity, agreement_version, signed_at, status')
     .eq('token', token)
     .maybeSingle()
 
@@ -134,7 +134,7 @@ export default async function ConfirmedPage({
             fontFamily: SANS,
           }}
         >
-          <Row label="Company" value={link.company_name} />
+          <Row label="Company" value={link.signing_entity ?? link.company_name} />
           <Divider />
           <Row label="Signer" value={signature.signer_name} />
           <Divider />

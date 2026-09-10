@@ -31,6 +31,8 @@ export async function issueClientAgreementLink(
     shortSlug?: string | null
     /** Per-client copy on the sign page: { from_lily, leadership }. */
     pageNotes?: Record<string, string> | null
+    /** The signer types the legal entity they sign for; the document is bound to it. */
+    entityEditable?: boolean
     paymentTiming?: ClientPaymentTiming
     recipientName?: string | null
     recipientEmail?: string | null
@@ -63,6 +65,7 @@ export async function issueClientAgreementLink(
       leadership_fee_percentage: leadership,
       short_slug: input.shortSlug ?? null,
       page_notes: input.pageNotes ?? null,
+      entity_editable: input.entityEditable === true,
       payment_window_days: timing === 'day90' ? 14 : timing === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,
       guarantee_days: DEFAULT_CLIENT_TERMS.guaranteeDays,

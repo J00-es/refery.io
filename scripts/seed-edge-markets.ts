@@ -372,6 +372,8 @@ async function main() {
       leadershipFeePercent: LEADERSHIP_FEE,
       shortSlug: SHORT_SLUG,
       pageNotes: PAGE_NOTES,
+      // Adam signs through his agency for now, so the entity is his to name.
+      entityEditable: true,
       recipientName: 'Adam Neff',
       recipientEmail: null,
       createdBy: LILY,
