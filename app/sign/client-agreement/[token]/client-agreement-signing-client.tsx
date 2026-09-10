@@ -14,10 +14,9 @@
  */
 
 import { useEffect, useMemo, useState } from 'react'
-import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { AgreementContent } from '@/components/agreement-content'
-import { BTN_PRIMARY, BTN_QUIET, CARD, CHIP, CHIP_VALUE, FIELD, FIELD_LABEL, FOCUS, H1, META } from '@/lib/desk-ui'
+import { BTN_PRIMARY, BTN_QUIET, CARD, CHIP_VALUE, FIELD, FIELD_LABEL, FOCUS, H1, META } from '@/lib/desk-ui'
 
 interface AgreementData {
   id: string
@@ -193,17 +192,12 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
   const content =
     feeOptions && agreement.fee_contents?.[String(chosenFee)] ? agreement.fee_contents[String(chosenFee)] : agreement.agreement_content
   const plan = PLANS[String(chosenFee)]
-  const expires = agreement.expires_at ? format(new Date(agreement.expires_at), 'd MMM') : null
 
   return (
     <Shell ribbon={`Private link · ${agreement.company_name}`}>
       <div className="mx-auto max-w-[720px] px-4 pb-28 pt-7 sm:px-6 sm:pt-11 lg:pb-16">
         <header>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={CHIP_VALUE}>Agreement · {agreement.company_name}</span>
-            {expires && <span className={CHIP}>Link valid until {expires}</span>}
-          </div>
-          <h1 className={`mt-3 ${H1}`}>Agreement</h1>
+          <h1 className={H1}>Agreement</h1>
           <p className="mt-2 text-[15px] leading-snug text-[#2A2A26]">Refery &amp; {agreement.company_name}. Nothing until you hire.</p>
         </header>
 
@@ -301,15 +295,6 @@ function PlanCard({
 }) {
   return (
     <section className={`${CARD} px-5 py-5 sm:px-7 sm:py-6`} aria-label="Choose your search approach">
-      {notes?.from_lily && (
-        <div className="mb-5 border-l-2 border-[#1F3A2F]/30 pl-3.5">
-          <p className="text-[12px] font-semibold text-[#9C9C95]">A note from Lily</p>
-          <p className="mt-1 text-[14.5px] leading-relaxed text-[#2A2A26]">
-            <Emphasis text={notes.from_lily} />
-          </p>
-        </div>
-      )}
-
       <h2 className="text-[20px] font-semibold leading-tight tracking-[-0.02em] text-[#161613]">Choose your search approach</h2>
       <p className="mt-1 text-[13.5px] text-[#6E6E68]">For standard individual-contributor hires.</p>
 
@@ -346,6 +331,15 @@ function PlanCard({
       </div>
 
       <p className="mt-3 text-[13px] text-[#6E6E68]">Pay only when you hire. Fees are based on first-year base salary.</p>
+
+      {notes?.from_lily && (
+        <div className="mt-4 border-l-2 border-[#1F3A2F]/30 pl-3.5">
+          <p className="text-[12px] font-semibold text-[#9C9C95]">A note from Lily</p>
+          <p className="mt-1 text-[14.5px] leading-relaxed text-[#2A2A26]">
+            <Emphasis text={notes.from_lily} />
+          </p>
+        </div>
+      )}
 
       {leadershipFee && (
         <div className="mt-4 border-t border-[#E9E8E1] pt-4">
@@ -444,7 +438,9 @@ function JumpToSignBar() {
 
 function Shell({ children, ribbon, centered }: { children: React.ReactNode; ribbon?: string; centered?: boolean }) {
   return (
-    <div className="min-h-screen bg-[#F2F1EB] text-[#161613]">
+    // Always the cream page, whatever the reader's OS theme: every colour here
+    // is a fixed value, and colorScheme keeps the native inputs light too.
+    <div className="min-h-screen bg-[#F2F1EB] text-[#161613]" style={{ colorScheme: 'light' }}>
       <div className="border-b border-[#E4E3DC] bg-white">
         <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <a href="https://refery.io" className="text-[19px] font-semibold tracking-[-0.02em] text-[#161613]">
