@@ -1,42 +1,24 @@
 'use client'
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+/**
+ * The client agreement sign page, in the desk's own language (lib/desk-ui):
+ * cream ground, white cards, DM Sans, one forest accent.
+ *
+ * Built to be signed on a phone in under two minutes. Three cards, top to
+ * bottom: the plan (two search approaches for standard IC hires, the suggested
+ * one pre-selected, leadership as a rule underneath), the document (the
+ * short-version table open, the full text folded), and the signature (name,
+ * title, email, one confirmation). Everything that would distract is folded,
+ * not removed: the clauses and the explanation of the two approaches are a tap
+ * away, and the clauses are part of what is signed.
+ */
+
+import { useEffect, useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { useRouter } from 'next/navigation'
 import { AgreementContent } from '@/components/agreement-content'
+import { BTN_PRIMARY, BTN_QUIET, CARD, CHIP, CHIP_VALUE, FIELD, FIELD_LABEL, FOCUS, H1, META } from '@/lib/desk-ui'
 
-/* ----------------------------------------------------------------------------
- * Refery brand tokens, kept identical to the partner sign page so this looks
- * like a sibling document, not a different product.
- * -------------------------------------------------------------------------- */
-const C = {
-  bg: '#F2F1EB',
-  bg2: '#E9E8E1',
-  bg3: '#E4E3DC',
-  card: '#FAF9F5',
-  ink: '#161613',
-  ink2: 'rgba(22,22,19,0.64)',
-  ink3: 'rgba(22,22,19,0.40)',
-  ink4: 'rgba(22,22,19,0.20)',
-  green: '#1F3A2F',
-  greenBg: '#E7EDE9',
-  greenBorder: 'rgba(31,58,47,0.20)',
-  border: 'rgba(22,22,19,0.10)',
-  borderSoft: 'rgba(22,22,19,0.06)',
-  red: '#B0413E',
-  redBg: '#FBEAE9',
-}
-
-// The serif is retired platform-wide. Display and body are both DM Sans, which
-// layout.tsx already loads as --font-dm-sans, so display type earns its contrast
-// from weight and tracking rather than a second family. SERIF is kept as an alias
-// so every existing heading keeps pointing at the display face.
-const SANS = "var(--font-dm-sans), 'DM Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-const SERIF = SANS
-
-/* ----------------------------------------------------------------------------
- * Types
- * -------------------------------------------------------------------------- */
 interface AgreementData {
   id: string
   company_name: string
@@ -66,9 +48,17 @@ interface AgreementData {
  * difference is sourcing, not candidate quality. Keyed by percentage so a link
  * offering a negotiated number still renders something sane.
  */
-const PLANS: Record<string, { name: string; line: string }> = {
-  '10': { name: 'Introductions', line: 'Warm introductions from our network. No dedicated sourcing.' },
-  '15': { name: 'Search', line: 'A dedicated recruiter finds, screens and introduces relevant candidates for your role.' },
+const PLANS: Record<string, { name: string; line: string; more: string }> = {
+  '10': {
+    name: 'Introductions',
+    line: 'Warm introductions from our network. No dedicated sourcing.',
+    more: 'Your role goes to our network of scouts, founders and operators, who introduce people they already know and rate. Nobody is assigned to source for the role.',
+  },
+  '15': {
+    name: 'Search',
+    line: 'A dedicated recruiter finds, screens and introduces relevant candidates for your role.',
+    more: 'A dedicated recruiter is assigned to the role, maps the market, reaches out directly to people who fit, screens them and introduces the relevant ones.',
+  },
 }
 
 /** `**bold**` only, for the per-client notes. */
@@ -78,7 +68,7 @@ function Emphasis({ text }: { text: string }) {
     <>
       {parts.map((p, i) =>
         p.startsWith('**') && p.endsWith('**') ? (
-          <strong key={i} style={{ color: C.ink, fontWeight: 600 }}>
+          <strong key={i} className="font-semibold text-[#161613]">
             {p.slice(2, -2)}
           </strong>
         ) : (
@@ -89,9 +79,20 @@ function Emphasis({ text }: { text: string }) {
   )
 }
 
-/* ----------------------------------------------------------------------------
- * Main component
- * -------------------------------------------------------------------------- */
+/**
+ * The document in two parts: everything up to the clauses (title, intro, the
+ * short-version table) stays open; the clauses fold. Both halves are the text
+ * that gets signed; only the presentation differs.
+ */
+function splitDocument(content: string): { head: string; tail: string } {
+  // The page already carries its own title, so the document's "# Recruitment
+  // Services Agreement" line is not drawn twice; the version line under it is.
+  const body = content.replace(/^# [^\n]*\n+/, '')
+  const marker = ['\n## The details', '\n## Terms'].map(m => body.indexOf(m)).find(i => i >= 0)
+  if (marker === undefined) return { head: body, tail: '' }
+  return { head: body.slice(0, marker), tail: body.slice(marker + 1) }
+}
+
 export function ClientAgreementSigningClient({ token }: { token: string }) {
   const router = useRouter()
   const [agreement, setAgreement] = useState<AgreementData | null>(null)
@@ -103,22 +104,17 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
   const [signerName, setSignerName] = useState('')
   const [signerTitle, setSignerTitle] = useState('')
   const [signerEmail, setSignerEmail] = useState('')
-  const [authorized, setAuthorized] = useState(false)
-  const [readAgreement, setReadAgreement] = useState(false)
-  // The plan picked on the page. Starts on the link's recommended fee.
+  const [confirmed, setConfirmed] = useState(false)
+  // The plan picked on the page. Starts on the link's saved or recommended fee.
   const [fee, setFee] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
-
     async function fetchAgreement() {
       try {
-        const response = await fetch(`/api/agreements/client/${token}`, {
-          cache: 'no-store',
-        })
+        const response = await fetch(`/api/agreements/client/${token}`, { cache: 'no-store' })
         const data = await response.json()
         if (cancelled) return
-
         if (!response.ok) {
           setError(data.error || 'Failed to load agreement')
           if (data.signed_at || data.already_signed) setAlreadySigned(true)
@@ -128,7 +124,6 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           setAlreadySigned(true)
           return
         }
-
         setAgreement(data)
         setFee(Number(data.fee_percentage))
         setSignerName(data.recipient_name || '')
@@ -139,7 +134,6 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         if (!cancelled) setLoading(false)
       }
     }
-
     fetchAgreement()
     return () => {
       cancelled = true
@@ -157,11 +151,12 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
     }).catch(() => {})
   }
 
+  const canSign = confirmed && signerName.trim().length > 1 && /\S+@\S+\.\S+/.test(signerEmail) && !signing
+
   const handleSign = async () => {
     if (!canSign) return
     setSigning(true)
     setError(null)
-
     try {
       const response = await fetch(`/api/agreements/client/${token}`, {
         method: 'POST',
@@ -175,15 +170,12 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         }),
       })
       const data = await response.json()
-
       if (!response.ok) {
         setError(data.error || 'Failed to sign agreement')
         setSigning(false)
         return
       }
-
-      // Redirect to the confirmation page. The server component renders the
-      // full success state with a fresh signed PDF URL.
+      // The confirmation page renders the success state with a fresh signed PDF URL.
       router.push(`/sign/client-agreement/${token}/confirmed`)
     } catch {
       setError('Failed to sign agreement')
@@ -191,434 +183,109 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
     }
   }
 
-  const canSign =
-    authorized &&
-    readAgreement &&
-    signerName.trim().length > 1 &&
-    /\S+@\S+\.\S+/.test(signerEmail) &&
-    !signing
-
-  if (loading) return <ShellLoading />
-  if (alreadySigned) return <ShellAlreadySigned token={token} />
-  if (error && !agreement) return <ShellError message={error} />
+  if (loading) return <Shell centered>Loading the agreement…</Shell>
+  if (alreadySigned) return <AlreadySigned token={token} />
+  if (error && !agreement) return <ErrorShell message={error} />
   if (!agreement) return null
 
   const feeOptions = agreement.fee_options
   const chosenFee = fee ?? Number(agreement.fee_percentage)
   const content =
-    feeOptions && agreement.fee_contents?.[String(chosenFee)]
-      ? agreement.fee_contents[String(chosenFee)]
-      : agreement.agreement_content
+    feeOptions && agreement.fee_contents?.[String(chosenFee)] ? agreement.fee_contents[String(chosenFee)] : agreement.agreement_content
+  const plan = PLANS[String(chosenFee)]
+  const expires = agreement.expires_at ? format(new Date(agreement.expires_at), 'd MMM') : null
 
   return (
-    <PageShell>
-      <BrandStyles />
-      <Nav />
+    <Shell ribbon={`Private link · ${agreement.company_name}`}>
+      <div className="mx-auto max-w-[720px] px-4 pb-28 pt-7 sm:px-6 sm:pt-11 lg:pb-16">
+        <header>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={CHIP_VALUE}>Agreement · {agreement.company_name}</span>
+            {expires && <span className={CHIP}>Link valid until {expires}</span>}
+          </div>
+          <h1 className={`mt-3 ${H1}`}>Agreement</h1>
+          <p className="mt-2 text-[15px] leading-snug text-[#2A2A26]">Refery &amp; {agreement.company_name}. Nothing until you hire.</p>
+        </header>
 
-      <main
-        className="refery-main"
-        style={{ maxWidth: 880, margin: '0 auto', padding: '56px 32px 96px' }}
-      >
-        <Hero
-          version={agreement.agreement_version}
-        />
+        <div className="mt-6 space-y-4">
+          {feeOptions && (
+            <PlanCard
+              options={feeOptions}
+              suggested={agreement.fee_chosen ? null : Number(agreement.fee_percentage)}
+              value={chosenFee}
+              onChange={choosePlan}
+              leadershipFee={agreement.leadership_fee_percentage}
+              notes={agreement.page_notes}
+            />
+          )}
 
-        <RecipientCard agreement={agreement} />
+          <DocumentCard content={content} />
 
-        {feeOptions && (
-          <PlanPicker
-            options={feeOptions}
-            recommended={agreement.fee_chosen ? null : Number(agreement.fee_percentage)}
-            value={chosenFee}
-            onChange={choosePlan}
-            leadershipFee={agreement.leadership_fee_percentage}
-            notes={agreement.page_notes}
-          />
-        )}
+          <section id="refery-sign-card" className={`${CARD} scroll-mt-6 px-5 py-5 sm:px-7 sm:py-7`} aria-label="Sign">
+            <h2 className="text-[20px] font-semibold leading-tight tracking-[-0.02em] text-[#161613]">Sign</h2>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="cas-name" className={FIELD_LABEL}>
+                  Full name
+                </label>
+                <input id="cas-name" type="text" autoComplete="name" value={signerName} onChange={e => setSignerName(e.target.value)} placeholder="Your full legal name" className={FIELD} />
+              </div>
+              <div>
+                <label htmlFor="cas-title" className={FIELD_LABEL}>
+                  Title
+                </label>
+                <input id="cas-title" type="text" autoComplete="organization-title" value={signerTitle} onChange={e => setSignerTitle(e.target.value)} placeholder="e.g. Chief Product Officer" className={FIELD} />
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="cas-email" className={FIELD_LABEL}>
+                  Email
+                </label>
+                <input id="cas-email" type="email" autoComplete="email" value={signerEmail} onChange={e => setSignerEmail(e.target.value)} placeholder="you@company.com" className={FIELD} />
+              </div>
+            </div>
 
-        <DocumentCard content={content} />
+            <label htmlFor="cas-confirm" className="mt-4 flex cursor-pointer items-start gap-3 rounded-[10px] border border-[#E4E3DC] bg-[#F2F1EB] px-4 py-3.5 text-[14px] leading-relaxed text-[#2A2A26]">
+              <input id="cas-confirm" type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} className="mt-[3px] h-[18px] w-[18px] shrink-0 accent-[#1F3A2F]" />
+              <span>
+                I&rsquo;ve read it and I&rsquo;m authorised to sign for <strong className="font-semibold text-[#161613]">{agreement.company_name}</strong>.
+              </span>
+            </label>
 
-        <div id="refery-sign-card">
-        <SignCard
-          companyName={agreement.company_name}
-          signerName={signerName}
-          signerTitle={signerTitle}
-          signerEmail={signerEmail}
-          authorized={authorized}
-          readAgreement={readAgreement}
-          signing={signing}
-          canSign={canSign}
-          feeLabel={feeOptions ? `${PLANS[String(chosenFee)]?.name ?? 'plan'} ${chosenFee}%` : null}
-          error={error}
-          onSignerNameChange={setSignerName}
-          onSignerTitleChange={setSignerTitle}
-          onSignerEmailChange={setSignerEmail}
-          onAuthorizedChange={setAuthorized}
-          onReadChange={setReadAgreement}
-          onSign={handleSign}
-        />
+            {error && (
+              <p role="alert" className="mt-3 rounded-[8px] border border-[#E8C9C5] bg-[#F9EBE9] px-3.5 py-2.5 text-[13.5px] text-[#9C3F37]">
+                {error}
+              </p>
+            )}
+
+            <button type="button" onClick={handleSign} disabled={!canSign} className={`${BTN_PRIMARY} mt-4 min-h-[48px] w-full text-[15px]`}>
+              {signing ? 'Signing…' : feeOptions && plan ? `Accept · ${plan.name} ${chosenFee}%` : 'Accept agreement'}
+            </button>
+            <p className={`mt-3 text-center ${META}`}>Binding e-signature (E-SIGN, UETA). Your IP address, browser and the time are recorded with it.</p>
+          </section>
         </div>
 
-        <Footer />
-      </main>
+        <footer className={`mt-10 flex flex-wrap items-center justify-between gap-3 border-t border-[#E4E3DC] pt-5 ${META}`}>
+          <span>© {new Date().getFullYear()} Refery</span>
+          <a href="mailto:legal@refery.io" className="hover:text-[#1F3A2F]">
+            legal@refery.io
+          </a>
+        </footer>
+      </div>
 
       <JumpToSignBar />
-    </PageShell>
+    </Shell>
   )
 }
 
 /**
- * Mobile-only bar pinned to the bottom of the viewport. The document is a
- * scroll away from the button, so on a phone the action would otherwise be
- * invisible until the very end. Hides itself once the sign card is on screen.
+ * Two search approaches, one tap, the suggested one pre-selected until a
+ * choice has been saved. Leadership and Staff/Principal hires are not an
+ * option here: they carry their own minimum, stated underneath, whichever
+ * approach is chosen.
  */
-function JumpToSignBar() {
-  const [visible, setVisible] = useState(false)
-
-  useEffect(() => {
-    const target = document.getElementById('refery-sign-card')
-    if (!target) return
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setVisible(!entry.isIntersecting),
-      { rootMargin: '-20% 0px 0px 0px' },
-    )
-    observer.observe(target)
-    return () => observer.disconnect()
-  }, [])
-
-  return (
-    <div
-      className="refery-jumpbar"
-      style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 60,
-        padding: '12px 16px calc(12px + env(safe-area-inset-bottom))',
-        background: 'rgba(242,241,235,0.94)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: `1px solid ${C.border}`,
-        transform: visible ? 'translateY(0)' : 'translateY(120%)',
-        transition: 'transform 0.25s ease',
-        pointerEvents: visible ? 'auto' : 'none',
-      }}
-    >
-      <button
-        type="button"
-        className="refery-cta"
-        style={{ width: '100%' }}
-        onClick={() =>
-          document
-            .getElementById('refery-sign-card')
-            ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }
-      >
-        Go to signature &darr;
-      </button>
-    </div>
-  )
-}
-
-/* ============================================================================
- * Shell + Brand
- * ========================================================================== */
-function PageShell({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: C.bg,
-        color: C.ink,
-        fontFamily: SANS,
-        WebkitFontSmoothing: 'antialiased',
-        MozOsxFontSmoothing: 'grayscale',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function BrandStyles() {
-  return (
-    <style jsx global>{`
-      .refery-input {
-        width: 100%;
-        padding: 12px 14px;
-        font-size: 15px;
-        font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
-        color: ${C.ink};
-        background: #fff;
-        border: 1px solid ${C.border};
-        border-radius: 8px;
-        outline: none;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
-      }
-      .refery-input::placeholder { color: ${C.ink3}; }
-      .refery-input:hover { border-color: rgba(22,22,19,0.18); }
-      .refery-input:focus {
-        border-color: ${C.green};
-        box-shadow: 0 0 0 3px rgba(31,58,47,0.12);
-      }
-      .refery-cta {
-        background: ${C.ink};
-        color: #fff;
-        font-family: var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
-        font-size: 16px;
-        font-weight: 500;
-        padding: 14px 28px;
-        border-radius: 6px;
-        border: 1px solid ${C.ink};
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 10px;
-        transition: opacity 0.15s ease, transform 0.05s ease;
-      }
-      .refery-cta:hover:not(:disabled) { opacity: 0.92; }
-      .refery-cta:active:not(:disabled) { transform: translateY(1px); }
-      .refery-cta:disabled { opacity: 0.4; cursor: not-allowed; }
-      .refery-check {
-        appearance: none;
-        -webkit-appearance: none;
-        width: 18px; height: 18px; margin: 0;
-        border: 1.5px solid ${C.ink4}; border-radius: 4px;
-        background: #fff; cursor: pointer; flex-shrink: 0;
-        position: relative;
-        transition: border-color 0.15s ease, background 0.15s ease;
-      }
-      .refery-check:hover { border-color: ${C.ink3}; }
-      .refery-check:checked { background: ${C.green}; border-color: ${C.green}; }
-      .refery-check:checked::after {
-        content: '';
-        position: absolute; left: 5px; top: 1px;
-        width: 5px; height: 10px;
-        border: solid #fff; border-width: 0 2px 2px 0;
-        transform: rotate(45deg);
-      }
-      .refery-check:focus-visible {
-        box-shadow: 0 0 0 3px rgba(31,58,47,0.18);
-      }
-      .refery-jumpbar { display: none; }
-      .refery-plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
-      .refery-plan { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
-      .refery-plan:hover { border-color: rgba(22,22,19,0.24) !important; }
-      .refery-plan:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(31,58,47,0.18) !important; }
-      @media (max-width: 640px) {
-        .refery-plan-grid { grid-template-columns: 1fr; }
-        .refery-main { padding: 28px 16px 92px !important; }
-        .refery-card { padding: 18px !important; }
-        .refery-doc-pad { padding: 24px 18px !important; }
-        .refery-recipient-grid { grid-template-columns: 1fr !important; gap: 14px !important; }
-        .refery-form-grid { grid-template-columns: 1fr !important; }
-        /* 16px keeps iOS Safari from zooming the page when a field is focused. */
-        .refery-input { font-size: 16px !important; padding: 13px 14px !important; }
-        .refery-cta { min-height: 52px; }
-        /* Bigger tap targets for the two confirmations. */
-        .refery-check { width: 22px !important; height: 22px !important; }
-        .refery-check:checked::after { left: 7px !important; top: 3px !important; }
-        .refery-jumpbar { display: block; }
-      }
-    `}</style>
-  )
-}
-
-function Nav() {
-  return (
-    <nav
-      style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 50,
-        background: 'rgba(242,241,235,0.88)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: `1px solid ${C.border}`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '0 28px',
-        height: 58,
-      }}
-    >
-      <a
-        href="https://refery.io"
-        style={{
-          fontFamily: SERIF,
-          fontWeight: 600,
-          letterSpacing: '-0.02em',
-          fontSize: 20,
-          color: C.ink,
-          textDecoration: 'none',
-        }}
-      >
-        Refery
-        <em style={{ fontStyle: 'italic', color: C.green }}>.</em>
-      </a>
-
-      <span
-        style={{
-          fontSize: 10,
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: C.green,
-          background: C.greenBg,
-          padding: '6px 14px',
-          borderRadius: 99,
-          border: `1px solid ${C.greenBorder}`,
-          userSelect: 'none',
-        }}
-      >
-        Services Agreement
-      </span>
-    </nav>
-  )
-}
-
-function Footer() {
-  return (
-    <footer
-      style={{
-        marginTop: 64,
-        paddingTop: 32,
-        borderTop: `1px solid ${C.border}`,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 16,
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        fontSize: 13,
-        color: C.ink3,
-      }}
-    >
-      <div>
-        <span style={{ fontFamily: SERIF, fontWeight: 600, letterSpacing: '-0.02em', fontSize: 16, color: C.ink2 }}>
-          Refery<em style={{ fontStyle: 'italic', color: C.green }}>.</em>
-        </span>
-        <span style={{ marginLeft: 12 }}>© {new Date().getFullYear()} Refery</span>
-      </div>
-      <div style={{ display: 'flex', gap: 20 }}>
-        <a href="mailto:legal@refery.io" style={{ color: C.ink2, textDecoration: 'none' }}>
-          legal@refery.io
-        </a>
-      </div>
-    </footer>
-  )
-}
-
-/* ============================================================================
- * Page sections
- * ========================================================================== */
-function Hero({ version }: { version: string }) {
-  return (
-    <section style={{ textAlign: 'center', marginBottom: 40 }} data-version={version}>
-      <h1
-        style={{
-          fontFamily: SERIF,
-          fontWeight: 600,
-          fontSize: 'clamp(40px, 5.5vw, 60px)',
-          lineHeight: 1.04,
-          letterSpacing: '-0.035em',
-          color: C.ink,
-          margin: '0 0 18px 0',
-        }}
-      >
-        Welcome to Refery
-        <em style={{ fontStyle: 'italic', color: C.green }}>.</em>
-      </h1>
-
-      <p
-        style={{
-          fontSize: 18,
-          lineHeight: 1.6,
-          color: C.ink2,
-          maxWidth: 560,
-          margin: '0 auto',
-        }}
-      >
-        It&rsquo;s about a minute to read. Add your details at the bottom and a
-        signed PDF lands in your inbox the moment you accept.
-      </p>
-    </section>
-  )
-}
-
-function RecipientCard({ agreement }: { agreement: AgreementData }) {
-  const expires = agreement.expires_at
-    ? format(new Date(agreement.expires_at), 'MMM d, yyyy')
-    : 'No expiry'
-  return (
-    <div
-      className="refery-card"
-      style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 10,
-        padding: '22px 26px',
-        marginBottom: 20,
-      }}
-    >
-      <div
-        className="refery-recipient-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 20,
-        }}
-      >
-        <Field label="Company" value={agreement.company_name} />
-        <Field label="Expires" value={expires} />
-      </div>
-    </div>
-  )
-}
-
-function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div>
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: '0.1em',
-          textTransform: 'uppercase',
-          color: C.ink3,
-          marginBottom: 6,
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontSize: 15,
-          fontWeight: 500,
-          color: C.ink,
-          fontFamily: mono
-            ? "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace"
-            : SANS,
-          wordBreak: 'break-word',
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  )
-}
-
-/**
- * Two search approaches for standard individual-contributor hires, one tap,
- * the suggested one pre-selected until a choice has been saved. Leadership and
- * Staff/Principal hires are not an option here: they carry their own minimum,
- * stated underneath, whichever approach is chosen.
- */
-function PlanPicker({
+function PlanCard({
   options,
-  recommended,
+  suggested,
   value,
   onChange,
   leadershipFee,
@@ -626,60 +293,32 @@ function PlanPicker({
 }: {
   options: number[]
   /** Which option to badge as suggested; null once the signer has saved a choice. */
-  recommended: number | null
+  suggested: number | null
   value: number
   onChange: (fee: number) => void
   leadershipFee: number | null
   notes: { from_lily?: string; leadership?: string } | null
 }) {
   return (
-    <section
-      className="refery-card"
-      style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 10,
-        padding: '22px 26px',
-        marginBottom: 20,
-      }}
-      aria-label="Choose your search approach"
-    >
+    <section className={`${CARD} px-5 py-5 sm:px-7 sm:py-6`} aria-label="Choose your search approach">
       {notes?.from_lily && (
-        <div
-          style={{
-            borderLeft: `2px solid ${C.greenBorder}`,
-            padding: '2px 0 2px 14px',
-            marginBottom: 22,
-          }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 600, color: C.ink3, marginBottom: 4 }}>A note from Lily</div>
-          <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: C.ink2 }}>
+        <div className="mb-5 border-l-2 border-[#1F3A2F]/30 pl-3.5">
+          <p className="text-[12px] font-semibold text-[#9C9C95]">A note from Lily</p>
+          <p className="mt-1 text-[14.5px] leading-relaxed text-[#2A2A26]">
             <Emphasis text={notes.from_lily} />
           </p>
         </div>
       )}
 
-      <h2
-        style={{
-          fontFamily: SERIF,
-          fontWeight: 600,
-          fontSize: 20,
-          lineHeight: 1.2,
-          letterSpacing: '-0.02em',
-          color: C.ink,
-          margin: '0 0 4px 0',
-        }}
-      >
-        Choose your search approach
-      </h2>
-      <p style={{ margin: '0 0 16px 0', fontSize: 13.5, color: C.ink2 }}>For standard individual-contributor hires.</p>
+      <h2 className="text-[20px] font-semibold leading-tight tracking-[-0.02em] text-[#161613]">Choose your search approach</h2>
+      <p className="mt-1 text-[13.5px] text-[#6E6E68]">For standard individual-contributor hires.</p>
 
-      <div className="refery-plan-grid" role="radiogroup" aria-label="Search approach">
-        {options.map((opt) => {
+      <div className="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Search approach">
+        {options.map(opt => {
           const key = String(opt)
-          const plan = PLANS[key] ?? { name: `${opt}% fee`, line: 'Of first-year base salary, per hire.' }
+          const plan = PLANS[key] ?? { name: `${opt}% fee`, line: 'Of first-year base salary, per hire.', more: '' }
           const active = value === opt
-          const suggested = recommended !== null && opt === recommended
+          const badge = suggested !== null && opt === suggested
           return (
             <button
               key={key}
@@ -687,486 +326,159 @@ function PlanPicker({
               role="radio"
               aria-checked={active}
               onClick={() => onChange(opt)}
-              className="refery-plan"
-              style={{
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                textAlign: 'left',
-                borderRadius: 12,
-                border: `1px solid ${active ? C.green : C.border}`,
-                boxShadow: active ? `0 0 0 1px ${C.green}` : 'none',
-                background: active ? '#fff' : C.bg,
-                padding: '16px 16px 14px',
-                minHeight: 64,
-                cursor: 'pointer',
-                fontFamily: SANS,
-                color: C.ink,
-              }}
+              className={`relative flex min-h-[64px] items-start gap-3 rounded-[14px] border px-4 py-4 text-left transition-[border-color,box-shadow] ${FOCUS} ${
+                active ? 'border-[#1F3A2F] bg-white shadow-[0_0_0_1px_#1F3A2F]' : 'border-[#E4E3DC] bg-[#FAF9F5] hover:border-[#D2D1C7]'
+              }`}
             >
-              {suggested && (
-                <span
-                  style={{
-                    position: 'absolute',
-                    top: -9,
-                    left: 14,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    color: C.green,
-                    background: C.greenBg,
-                    border: `1px solid ${C.greenBorder}`,
-                    borderRadius: 99,
-                    padding: '3px 8px',
-                    lineHeight: 1,
-                  }}
-                >
-                  Suggested
-                </span>
-              )}
-              <span
-                style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1,
-                  width: 52,
-                  flexShrink: 0,
-                  fontVariantNumeric: 'tabular-nums',
-                  paddingTop: 2,
-                }}
-              >
-                {opt}%
-              </span>
-              <span style={{ minWidth: 0, flex: 1 }}>
-                <span style={{ display: 'block', fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{plan.name}</span>
-                <span style={{ display: 'block', fontSize: 13, color: C.ink2, lineHeight: 1.4, marginTop: 4 }}>{plan.line}</span>
+              {badge && <span className={`${CHIP_VALUE} absolute -top-2.5 left-3.5 px-2 py-1 text-[11px]`}>Suggested</span>}
+              <span className="w-[52px] shrink-0 pt-0.5 text-[24px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[#161613]">{opt}%</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold leading-tight text-[#161613]">{plan.name}</span>
+                <span className="mt-1 block text-[13px] leading-snug text-[#6E6E68]">{plan.line}</span>
               </span>
               <span
                 aria-hidden
-                style={{
-                  width: 18,
-                  height: 18,
-                  flexShrink: 0,
-                  marginTop: 2,
-                  borderRadius: 99,
-                  border: `1px solid ${active ? C.green : C.ink4}`,
-                  background: active ? C.green : '#fff',
-                  boxShadow: active ? 'inset 0 0 0 3px #fff' : 'none',
-                }}
+                className={`mt-0.5 h-[18px] w-[18px] shrink-0 rounded-full border ${active ? 'border-[#1F3A2F] bg-[#1F3A2F] shadow-[inset_0_0_0_3px_#fff]' : 'border-[#D2D1C7] bg-white'}`}
               />
             </button>
           )
         })}
       </div>
 
-      <p style={{ margin: '12px 0 0 0', fontSize: 13, color: C.ink2 }}>Pay only when you hire. Fees are based on first-year base salary.</p>
+      <p className="mt-3 text-[13px] text-[#6E6E68]">Pay only when you hire. Fees are based on first-year base salary.</p>
 
       {leadershipFee && (
-        <div style={{ marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.borderSoft}` }}>
-          <div style={{ fontSize: 13.5, fontWeight: 600, color: C.ink, marginBottom: 4 }}>
-            Leadership &amp; specialist hires · {leadershipFee}% minimum
-          </div>
-          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.55, color: C.ink2 }}>
+        <div className="mt-4 border-t border-[#E9E8E1] pt-4">
+          <p className="text-[13.5px] font-semibold text-[#161613]">Leadership &amp; specialist hires · {leadershipFee}% minimum</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-[#6E6E68]">
             Head, Director, VP, C-suite and Staff/Principal hires are {leadershipFee}%, whichever option you choose. Any higher rate must be agreed in writing before the search starts.
           </p>
-          {notes?.leadership && (
-            <p style={{ margin: '6px 0 0 0', fontSize: 13.5, fontWeight: 600, color: C.ink }}>{notes.leadership}</p>
+          {notes?.leadership && <p className="mt-1.5 text-[13.5px] font-semibold text-[#161613]">{notes.leadership}</p>}
+        </div>
+      )}
+
+      <details className="mt-2">
+        <summary className={`flex min-h-[40px] cursor-pointer list-none items-center gap-2 text-[13.5px] font-semibold text-[#1F3A2F] [&::-webkit-details-marker]:hidden ${FOCUS}`}>
+          <Chevron />
+          What&rsquo;s the difference?
+        </summary>
+        <div className="grid gap-2.5 pb-1 pt-1 text-[13.5px] leading-relaxed text-[#2A2A26]">
+          {options.map(opt => {
+            const plan = PLANS[String(opt)]
+            if (!plan?.more) return null
+            return (
+              <p key={opt}>
+                <strong className="font-semibold text-[#161613]">
+                  {opt}% {plan.name}.
+                </strong>{' '}
+                {plan.more}
+              </p>
+            )
+          })}
+          {leadershipFee && (
+            <p>
+              <strong className="font-semibold text-[#161613]">Leadership &amp; specialist.</strong> Head, Director, VP, C-suite and Staff/Principal hires are {leadershipFee}% minimum whichever approach you choose. Any higher rate is agreed in writing before the search starts.
+            </p>
           )}
         </div>
+      </details>
+    </section>
+  )
+}
+
+/** The short version open, the clauses a tap away. Both are the signed text. */
+function DocumentCard({ content }: { content: string }) {
+  const { head, tail } = useMemo(() => splitDocument(content), [content])
+  return (
+    <section className={`${CARD} px-5 py-5 sm:px-7 sm:py-6`} aria-label="The agreement">
+      <AgreementContent content={head} density="compact" showEyebrow={false} />
+      {tail && (
+        <details className="mt-1 border-t border-[#E9E8E1] pt-2">
+          <summary className={`flex min-h-[44px] cursor-pointer list-none items-center gap-2 text-[13.5px] font-semibold text-[#1F3A2F] [&::-webkit-details-marker]:hidden ${FOCUS}`}>
+            <Chevron />
+            Read the full text
+          </summary>
+          <div className="pt-1">
+            <AgreementContent content={tail} density="compact" showEyebrow={false} />
+          </div>
+        </details>
       )}
     </section>
   )
 }
 
-function DocumentCard({ content }: { content: string }) {
+function Chevron() {
   return (
-    <div
-      style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 12,
-        marginBottom: 28,
-        overflow: 'hidden',
-        boxShadow: '0 1px 0 rgba(22,22,19,0.02)',
-      }}
-    >
-      <div className="refery-doc-pad" style={{ padding: '52px 56px' }}>
-        <AgreementContent content={content} showEyebrow={false} />
-      </div>
-    </div>
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3.5 6l4.5 4.5L12.5 6" />
+    </svg>
   )
 }
 
-function SignCard(props: {
-  companyName: string
-  signerName: string
-  signerTitle: string
-  signerEmail: string
-  authorized: boolean
-  readAgreement: boolean
-  signing: boolean
-  canSign: boolean
-  /** "15% plan" when the signer picked one, so the button says what it accepts. */
-  feeLabel: string | null
-  error: string | null
-  onSignerNameChange: (v: string) => void
-  onSignerTitleChange: (v: string) => void
-  onSignerEmailChange: (v: string) => void
-  onAuthorizedChange: (v: boolean) => void
-  onReadChange: (v: boolean) => void
-  onSign: () => void
-}) {
+/**
+ * Phone-only bar pinned to the bottom of the screen. The signature card is a
+ * scroll away, so it would otherwise be invisible until the very end. Hides
+ * itself once the card is on screen.
+ */
+function JumpToSignBar() {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const target = document.getElementById('refery-sign-card')
+    if (!target) return
+    const observer = new IntersectionObserver(([entry]) => setVisible(!entry.isIntersecting), { rootMargin: '-20% 0px 0px 0px' })
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [])
   return (
     <div
-      className="refery-card"
-      style={{
-        background: C.card,
-        border: `1px solid ${C.border}`,
-        borderRadius: 12,
-        padding: '32px 36px',
-      }}
+      className={`fixed inset-x-0 bottom-0 z-30 border-t border-[#E4E3DC] bg-[#FAF9F5]/95 px-4 py-2.5 backdrop-blur transition-transform lg:hidden print:hidden ${visible ? 'translate-y-0' : 'pointer-events-none translate-y-full'}`}
     >
-      <div style={{ marginBottom: 24 }}>
-        <h2
-          style={{
-            fontFamily: SERIF,
-            fontWeight: 600,
-            fontSize: 'clamp(24px, 3vw, 30px)',
-            lineHeight: 1.15,
-            letterSpacing: '-0.025em',
-            color: C.ink,
-            margin: '0 0 6px 0',
-          }}
-        >
-          Sign the agreement
-        </h2>
-
-        <p style={{ fontSize: 14, color: C.ink2, margin: 0 }}>
-          Confirm your details and accept the terms to activate your engagement.
-        </p>
-      </div>
-
-      <div
-        className="refery-form-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
-        <FormField
-          label="Full name"
-          input={
-            <input
-              className="refery-input"
-              type="text"
-              value={props.signerName}
-              onChange={(e) => props.onSignerNameChange(e.target.value)}
-              placeholder="Your full legal name"
-              autoComplete="name"
-            />
-          }
-        />
-
-        <FormField
-          label="Title"
-          input={
-            <input
-              className="refery-input"
-              type="text"
-              value={props.signerTitle}
-              onChange={(e) => props.onSignerTitleChange(e.target.value)}
-              placeholder={`e.g. Head of Talent, ${props.companyName}`}
-              autoComplete="organization-title"
-            />
-          }
-        />
-      </div>
-
-      <div style={{ marginBottom: 22 }}>
-        <FormField
-          label="Email"
-          input={
-            <input
-              className="refery-input"
-              type="email"
-              value={props.signerEmail}
-              onChange={(e) => props.onSignerEmailChange(e.target.value)}
-              placeholder="you@company.com"
-              autoComplete="email"
-            />
-          }
-        />
-      </div>
-
-      <div
-        style={{
-          background: C.bg,
-          border: `1px solid ${C.borderSoft}`,
-          borderRadius: 10,
-          padding: '18px 20px',
-          marginBottom: 18,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 14,
-        }}
-      >
-        <CheckRow
-          checked={props.readAgreement}
-          onChange={props.onReadChange}
-          id="cas-read-confirm"
-        >
-          I&rsquo;ve read the agreement above and understand it.
-        </CheckRow>
-
-        <div style={{ height: 1, background: C.borderSoft }} />
-
-        <CheckRow
-          checked={props.authorized}
-          onChange={props.onAuthorizedChange}
-          id="cas-auth-confirm"
-        >
-          I&rsquo;m 18 or older and authorized to sign for{' '}
-          <strong style={{ color: C.ink, fontWeight: 600 }}>
-            {props.companyName}
-          </strong>
-          . My electronic signature counts the same as signing by hand.
-        </CheckRow>
-      </div>
-
-      <div
-        style={{
-          background: C.bg2,
-          border: `1px solid ${C.borderSoft}`,
-          borderRadius: 8,
-          padding: '12px 14px',
-          marginBottom: 20,
-          fontSize: 12.5,
-          lineHeight: 1.55,
-          color: C.ink2,
-        }}
-      >
-        By clicking <strong style={{ color: C.ink, fontWeight: 600 }}>Accept Agreement</strong>,
-        you create a legally binding electronic signature under the E-SIGN Act
-        and UETA. Your IP address, browser, and timestamp are recorded as part
-        of the signing record.
-      </div>
-
-      {props.error && (
-        <div
-          role="alert"
-          style={{
-            background: C.redBg,
-            border: `1px solid rgba(176,65,62,0.20)`,
-            borderRadius: 8,
-            padding: '10px 14px',
-            fontSize: 13.5,
-            color: C.red,
-            marginBottom: 16,
-          }}
-        >
-          {props.error}
-        </div>
-      )}
-
-      <button
-        type="button"
-        className="refery-cta"
-        onClick={props.onSign}
-        disabled={!props.canSign}
-        style={{ width: '100%', height: 52, fontSize: 16 }}
-      >
-        {props.signing ? (
-          <>
-            <Spinner size={16} />
-            Signing…
-          </>
-        ) : props.feeLabel ? (
-          <>Accept Agreement · {props.feeLabel} &rarr;</>
-        ) : (
-          <>Accept Agreement &rarr;</>
-        )}
+      <button type="button" className={`${BTN_PRIMARY} w-full`} onClick={() => document.getElementById('refery-sign-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>
+        Go to signature ↓
       </button>
     </div>
   )
 }
 
-function FormField({ label, input }: { label: string; input: ReactNode }) {
-  return (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <span
-        style={{
-          fontSize: 12,
-          fontWeight: 600,
-          letterSpacing: '0.04em',
-          color: C.ink2,
-        }}
-      >
-        {label}
-      </span>
-      {input}
-    </label>
-  )
-}
+/* ── shells ─────────────────────────────────────────────────────────── */
 
-function CheckRow({
-  checked,
-  onChange,
-  id,
-  children,
-}: {
-  checked: boolean
-  onChange: (v: boolean) => void
-  id: string
-  children: ReactNode
-}) {
+function Shell({ children, ribbon, centered }: { children: React.ReactNode; ribbon?: string; centered?: boolean }) {
   return (
-    <label
-      htmlFor={id}
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 12,
-        cursor: 'pointer',
-        fontSize: 14,
-        lineHeight: 1.55,
-        color: C.ink2,
-      }}
-    >
-      <input
-        id={id}
-        type="checkbox"
-        className="refery-check"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ marginTop: 2 }}
-      />
-      <span style={{ flex: 1 }}>{children}</span>
-    </label>
-  )
-}
-
-/* ============================================================================
- * Loading / Error / Already-signed states
- * ========================================================================== */
-function ShellLoading() {
-  return (
-    <PageShell>
-      <BrandStyles />
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div style={{ textAlign: 'center' }}>
-          <Spinner size={28} color={C.ink3} />
-          <p style={{ marginTop: 16, color: C.ink3, fontSize: 14 }}>
-            Loading agreement…
-          </p>
+    <div className="min-h-screen bg-[#F2F1EB] text-[#161613]">
+      <div className="border-b border-[#E4E3DC] bg-white">
+        <div className="mx-auto flex max-w-[1120px] items-center justify-between gap-3 px-4 py-3 sm:px-6">
+          <a href="https://refery.io" className="text-[19px] font-semibold tracking-[-0.02em] text-[#161613]">
+            Refery.
+          </a>
+          {ribbon && <span className={`truncate ${META}`}>{ribbon}</span>}
         </div>
       </div>
-    </PageShell>
+      {centered ? <div className="flex min-h-[60vh] items-center justify-center px-4 text-[14px] text-[#9C9C95]">{children}</div> : children}
+    </div>
   )
 }
 
-function ShellError({ message }: { message: string }) {
+function ErrorShell({ message }: { message: string }) {
   return (
-    <PageShell>
-      <BrandStyles />
-      <Nav />
-      <div
-        style={{
-          maxWidth: 520,
-          margin: '0 auto',
-          padding: '120px 32px',
-          textAlign: 'center',
-        }}
-      >
-        <h1
-          style={{
-            fontFamily: SERIF,
-            fontWeight: 600,
-            fontSize: 'clamp(32px, 4vw, 42px)',
-            lineHeight: 1.1,
-            letterSpacing: '-0.03em',
-            color: C.ink,
-            margin: '0 0 14px 0',
-          }}
-        >
-          We couldn&apos;t load this agreement
-        </h1>
-        <p style={{ color: C.ink2, fontSize: 16, lineHeight: 1.6, margin: '0 0 24px 0' }}>
-          {message}
-        </p>
-        <a
-          href="mailto:legal@refery.io"
-          style={{
-            display: 'inline-block',
-            color: C.green,
-            fontWeight: 500,
-            textDecoration: 'none',
-            borderBottom: `1px solid ${C.green}`,
-            paddingBottom: 1,
-          }}
-        >
-          Contact legal@refery.io
+    <Shell>
+      <div className="mx-auto max-w-[520px] px-4 py-24 text-center">
+        <h1 className={H1}>We couldn&rsquo;t load this agreement</h1>
+        <p className="mt-3 text-[15px] leading-relaxed text-[#2A2A26]">{message}</p>
+        <a href="mailto:legal@refery.io" className={`${BTN_QUIET} mt-6`}>
+          Write to legal@refery.io
         </a>
       </div>
-    </PageShell>
+    </Shell>
   )
 }
 
-function ShellAlreadySigned({ token }: { token: string }) {
-  // Already signed before the user landed, so bounce to the confirmation page
-  // for a consistent success view.
+function AlreadySigned({ token }: { token: string }) {
+  // Signed before the reader landed, so bounce to the confirmation page for a
+  // consistent success view.
   return (
-    <PageShell>
-      <BrandStyles />
+    <Shell centered>
       <meta httpEquiv="refresh" content={`0; url=/sign/client-agreement/${token}/confirmed`} />
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Spinner size={28} color={C.ink3} />
-      </div>
-    </PageShell>
-  )
-}
-
-/* ============================================================================
- * Tiny icons
- * ========================================================================== */
-function Spinner({ size = 16, color = '#fff' }: { size?: number; color?: string }) {
-  const id = useMemo(() => `spinner-${Math.random().toString(36).slice(2)}`, [])
-  return (
-    <span
-      role="status"
-      aria-label="Loading"
-      style={{
-        display: 'inline-block',
-        width: size,
-        height: size,
-        animation: 'refery-spin 0.7s linear infinite',
-      }}
-    >
-      <style jsx>{`
-        @keyframes refery-spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
-      <svg viewBox="0 0 24 24" width={size} height={size} fill="none" aria-hidden id={id}>
-        <circle cx="12" cy="12" r="9" stroke={color} strokeOpacity="0.2" strokeWidth="2.5" />
-        <path d="M21 12a9 9 0 0 0-9-9" stroke={color} strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    </span>
+      Already signed. Taking you to the confirmation…
+    </Shell>
   )
 }

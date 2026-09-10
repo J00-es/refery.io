@@ -37,6 +37,10 @@ interface Link {
   recipient_email: string | null
   agreement_version: string
   fee_percentage: number
+  fee_options: number[] | null
+  leadership_fee_percentage: number | null
+  short_slug: string | null
+  page_notes: Record<string, string> | null
   status: string
   sent_at: string
   viewed_at: string | null
@@ -51,12 +55,22 @@ function first(name: string | null): string {
   return (name ?? '').trim().split(/\s+/)[0] || 'there'
 }
 
-function terms(version: string, fee: number): string {
+function terms(version: string, fee: number, lead: number | null = null): string {
   const t = clientTermsSummary(version)
-  return `${fee}% of first-year base, fully contingent, no retainer. ${t.payment}. ${t.guarantee}.`
+  // A tiered link (v2.9) carries two rates; the chosen one is what the page
+  // shows, and the leadership minimum applies whichever they pick.
+  const feeLine = lead
+    ? `${fee}% of first-year base for standard IC hires, ${lead}% for Head, Director, VP, C-suite and Staff/Principal hires, fully contingent, no retainer`
+    : `${fee}% of first-year base, fully contingent, no retainer`
+  return `${feeLine}. ${t.payment}. ${t.guarantee}.`
 }
 
-export function chaseEmail(action: Action, l: { company_name: string; recipient_name: string | null; agreement_version: string; fee_percentage: number; sent_at: string }, url: string): { subject: string; body: string } {
+export function chaseEmail(
+  action: Action,
+  l: { company_name: string; recipient_name: string | null; agreement_version: string; fee_percentage: number; leadership_fee_percentage?: number | null; sent_at: string },
+  url: string,
+): { subject: string; body: string } {
+  const lead = l.leadership_fee_percentage ? Number(l.leadership_fee_percentage) : null
   const sentOn = new Date(l.sent_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long' })
   const subject = `[Refery] ${l.company_name} | services agreement`
   const lines =
@@ -66,7 +80,7 @@ export function chaseEmail(action: Action, l: { company_name: string; recipient_
           '',
           `The agreement link I sent on ${sentOn} has expired, so here is a fresh one on the same terms: ${url}`,
           '',
-          terms(l.agreement_version, l.fee_percentage),
+          terms(l.agreement_version, l.fee_percentage, lead),
           '',
           'It takes about two minutes and nothing else needs setting up. If one of the terms is the sticking point, tell me which and I will adjust it rather than leave this sitting.',
         ]
@@ -76,7 +90,7 @@ export function chaseEmail(action: Action, l: { company_name: string; recipient_
             '',
             `Resending in case the first one went astray: the ${l.company_name} services agreement is here: ${url}`,
             '',
-            terms(l.agreement_version, l.fee_percentage),
+            terms(l.agreement_version, l.fee_percentage, lead),
             '',
             'Two minutes, nothing to set up. Once it is signed we start sending profiles.',
           ]
@@ -85,7 +99,7 @@ export function chaseEmail(action: Action, l: { company_name: string; recipient_
             '',
             `Quick nudge on the agreement from ${sentOn}: ${url}`,
             '',
-            terms(l.agreement_version, l.fee_percentage),
+            terms(l.agreement_version, l.fee_percentage, lead),
             '',
             `If a term is holding it up, say which and I will change it. If it is easier to talk it through, ${CAL} works.`,
           ]
@@ -166,7 +180,7 @@ export async function postAgreementChase(admin: SupabaseClient, channel: string)
     items.push({
       n: 0,
       id: l.id,
-      label: `*${esc(l.company_name)}* · v${esc(l.agreement_version)} at ${l.fee_percentage}% · ${state} · ${to.email ? `to <mailto:${esc(to.email)}|${esc(to.name ?? to.email)}>` : ':warning: _no email on file, add a contact on the client page first_'} · <${APP_URL}/companies/${l.company_id}|client>`,
+      label: `*${esc(l.company_name)}* · v${esc(l.agreement_version)} at ${l.fee_percentage}%${l.leadership_fee_percentage ? ` (${l.leadership_fee_percentage}% leadership)` : ''} · ${state} · ${to.email ? `to <mailto:${esc(to.email)}|${esc(to.name ?? to.email)}>` : ':warning: _no email on file, add a contact on the client page first_'} · <${APP_URL}/companies/${l.company_id}|client>`,
       decision: to.email ? action : 'skip',
       data: { action, toName: to.name, toEmail: to.email, payment },
     })
@@ -211,14 +225,21 @@ registerBatchApplier('agreement_chase', async (admin, { batch, slackUser }) => {
       continue
     }
     const action = item.decision as Action
-    let url = `${APP_URL}/sign/client-agreement/${l.token}`
+    let url = l.short_slug ? `${APP_URL}/sign/${l.short_slug}` : `${APP_URL}/sign/client-agreement/${l.token}`
     let newLinkId: string | null = null
     if (action === 'reissue') {
       try {
+        // The short slug is unique, so it moves from the expired link to the
+        // fresh one; the address the client already has keeps working.
+        if (l.short_slug) await admin.from('client_agreement_links').update({ short_slug: null }).eq('id', l.id)
         const issued = await issueClientAgreementLink(admin, {
           companyId: l.company_id,
           companyName: l.company_name,
           feePercent: Number(l.fee_percentage),
+          feeOptions: l.fee_options ?? undefined,
+          leadershipFeePercent: l.leadership_fee_percentage ? Number(l.leadership_fee_percentage) : null,
+          shortSlug: l.short_slug,
+          pageNotes: l.page_notes,
           paymentTiming: clientPaymentTimingForVersion(l.agreement_version) ?? 'net30',
           recipientName: l.recipient_name,
           recipientEmail: l.recipient_email,
@@ -228,6 +249,7 @@ registerBatchApplier('agreement_chase', async (admin, { batch, slackUser }) => {
         newLinkId = issued.id
         await admin.from('client_agreement_links').update({ status: 'revoked', revoked_at: new Date().toISOString() }).eq('id', l.id)
       } catch (err) {
+        if (l.short_slug) await admin.from('client_agreement_links').update({ short_slug: l.short_slug }).eq('id', l.id)
         lines.push(`${item.n}. ${esc(l.company_name)}: could not reissue (${esc(err instanceof Error ? err.message : 'unknown')})`)
         continue
       }
