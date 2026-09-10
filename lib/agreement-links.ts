@@ -27,7 +27,7 @@ export async function issueClientAgreementLink(
     feeOptions?: number[]
     /** Minimum for Head/Director/VP/C-suite and Staff/Principal hires. Turns the document into v2.9. */
     leadershipFeePercent?: number | null
-    /** Readable alias: /sign/<shortSlug>. */
+    /** Readable alias: /agreement/<shortSlug> (also served at /sign/<shortSlug>). */
     shortSlug?: string | null
     /** Per-client copy on the sign page: { from_lily, leadership }. */
     pageNotes?: Record<string, string> | null
@@ -86,6 +86,6 @@ export async function issueClientAgreementLink(
     metadata: { version, fee_percent: feePercent, fee_options: input.feeOptions ?? null, leadership_fee_percent: leadership, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
   })
 
-  const url = input.shortSlug ? `${APP_URL}/sign/${input.shortSlug}` : `${APP_URL}/sign/client-agreement/${data.token}`
+  const url = input.shortSlug ? `${APP_URL}/agreement/${input.shortSlug}` : `${APP_URL}/sign/client-agreement/${data.token}`
   return { id: data.id as string, url, expiresAt: data.expires_at as string, version }
 }

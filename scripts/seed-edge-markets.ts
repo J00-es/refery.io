@@ -1,6 +1,6 @@
 /**
  * EDGE Markets: company row, client record, the agreement link at
- * refery.xyz/sign/edge-markets (10% introductions or 15% search for standard IC
+ * refery.xyz/agreement/edge-markets (10% introductions or 15% search for standard IC
  * hires, 20% minimum for leadership), and the hiring-manager brief at
  * refery.xyz/b/edge-markets-p4w7ncq.
  *
@@ -361,7 +361,7 @@ async function main() {
     .limit(1)
     .maybeSingle()
   if (openLink) {
-    agreementUrl = openLink.short_slug ? `https://refery.xyz/sign/${openLink.short_slug}` : `https://refery.xyz/sign/client-agreement/${openLink.token}`
+    agreementUrl = openLink.short_slug ? `https://refery.xyz/agreement/${openLink.short_slug}` : `https://refery.xyz/sign/client-agreement/${openLink.token}`
     console.log('agreement link exists', agreementUrl, 'options', openLink.fee_options)
   } else if (!DRY) {
     const link = await issueClientAgreementLink(db, {

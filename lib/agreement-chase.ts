@@ -225,7 +225,7 @@ registerBatchApplier('agreement_chase', async (admin, { batch, slackUser }) => {
       continue
     }
     const action = item.decision as Action
-    let url = l.short_slug ? `${APP_URL}/sign/${l.short_slug}` : `${APP_URL}/sign/client-agreement/${l.token}`
+    let url = l.short_slug ? `${APP_URL}/agreement/${l.short_slug}` : `${APP_URL}/sign/client-agreement/${l.token}`
     let newLinkId: string | null = null
     if (action === 'reissue') {
       try {

@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AgreementContent } from '@/components/agreement-content'
-import { BTN_PRIMARY, BTN_QUIET, CARD, CHIP_VALUE, FIELD, FIELD_LABEL, FOCUS, H1, META } from '@/lib/desk-ui'
+import { BTN_PRIMARY, BTN_QUIET, CARD, FIELD, FIELD_LABEL, FOCUS, H1, META } from '@/lib/desk-ui'
 
 interface AgreementData {
   id: string
@@ -88,9 +88,10 @@ function Emphasis({ text }: { text: string }) {
  * that gets signed; only the presentation differs.
  */
 function splitDocument(content: string): { head: string; tail: string } {
-  // The page already carries its own title, so the document's "# Recruitment
-  // Services Agreement" line is not drawn twice; the version line under it is.
-  const body = content.replace(/^# [^\n]*\n+/, '')
+  // The page carries its own title, so neither the document's "# Recruitment
+  // Services Agreement" line nor the "**v2.9** · Refery & …" line under it is
+  // drawn on screen. Both stay in the signed text and the PDF.
+  const body = content.replace(/^# [^\n]*\n+/, '').replace(/^\*\*v[^\n]*\n+/, '')
   const marker = ['\n## The details', '\n## Terms'].map(m => body.indexOf(m)).find(i => i >= 0)
   if (marker === undefined) return { head: body, tail: '' }
   return { head: body.slice(0, marker), tail: body.slice(marker + 1) }
@@ -210,14 +211,14 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
     <Shell ribbon={`Private link · ${agreement.company_name}`}>
       <div className="mx-auto max-w-[720px] px-4 pb-28 pt-7 sm:px-6 sm:pt-11 lg:pb-16">
         <header>
-          <h1 className={H1}>Agreement</h1>
+          <h1 className={H1}>Service Agreement</h1>
         </header>
 
         <div className="mt-6 space-y-4">
           {feeOptions && (
             <PlanCard
               options={feeOptions}
-              suggested={agreement.fee_chosen ? null : Number(agreement.fee_percentage)}
+              suggested={Math.max(...feeOptions)}
               value={chosenFee}
               onChange={choosePlan}
               leadershipFee={agreement.leadership_fee_percentage}
@@ -292,8 +293,8 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
 }
 
 /**
- * Two search approaches, one tap, the suggested one pre-selected until a
- * choice has been saved. Leadership and Staff/Principal hires are not an
+ * Two search approaches, one tap, the recommended one marked with a quiet tag
+ * and pre-selected until a choice has been saved. Leadership and Staff/Principal hires are not an
  * option here: they carry their own minimum, stated underneath, whichever
  * approach is chosen.
  */
@@ -306,7 +307,7 @@ function PlanCard({
   notes,
 }: {
   options: number[]
-  /** Which option to badge as suggested; null once the signer has saved a choice. */
+  /** The option we recommend: a quiet tag beside its name, whatever is selected. */
   suggested: number | null
   value: number
   onChange: (fee: number) => void
@@ -335,10 +336,12 @@ function PlanCard({
                 active ? 'border-[#1F3A2F] bg-white shadow-[0_0_0_1px_#1F3A2F]' : 'border-[#E4E3DC] bg-[#FAF9F5] hover:border-[#D2D1C7]'
               }`}
             >
-              {badge && <span className={`${CHIP_VALUE} absolute -top-2.5 left-3.5 px-2 py-1 text-[11px]`}>Suggested</span>}
               <span className="w-[52px] shrink-0 pt-0.5 text-[24px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-[#161613]">{opt}%</span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold leading-tight text-[#161613]">{plan.name}</span>
+                <span className="flex flex-wrap items-center gap-2 text-[15px] font-semibold leading-tight text-[#161613]">
+                  {plan.name}
+                  {badge && <span className="rounded-full bg-[#E7EDE9] px-2 py-[3px] text-[11px] font-medium leading-none text-[#1F3A2F]">Recommended</span>}
+                </span>
                 <span className="mt-1 block text-[13px] leading-snug text-[#6E6E68]">{plan.line}</span>
               </span>
               <span

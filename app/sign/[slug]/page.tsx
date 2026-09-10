@@ -1,6 +1,7 @@
 /**
- * A readable alias for a client agreement: refery.xyz/sign/edge-markets
- * instead of the 64-character token. The slug resolves to the link's token
+ * A readable alias for a client agreement: refery.xyz/agreement/edge-markets
+ * (rewritten here by middleware.ts; /sign/edge-markets works too) instead of
+ * the 64-character token. The slug resolves to the link's token
  * server-side and the page renders in place, so the short address stays in
  * the bar. The token route still works; this is a second door to it.
  */
