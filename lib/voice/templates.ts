@@ -58,6 +58,11 @@ function subject(fullName: string, context: string): string {
   return `[Refery] ${fullName.trim()} | ${context}`
 }
 
+/** One line for a reply that comes later than it should have. Same words as the hiring-lead late line in lib/intake-emails.ts. */
+function lateLine(late?: boolean): string[] {
+  return late ? ['Sorry for the slow reply on this one.', ''] : []
+}
+
 function sign(lines: string[]): string {
   return [...lines, '', 'Best,', 'Lily'].join('\n')
 }
