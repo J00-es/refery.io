@@ -6,6 +6,7 @@ import { sendPendingNote } from '@/lib/onboarding/decisions'
 import { suggestFirstSearch } from '@/lib/onboarding/matcher'
 import { templateG, templateN } from '@/lib/voice/templates'
 import { runCandidateTimers } from '@/lib/apply/profile'
+import { runReferralTimers } from '@/lib/referrals'
 
 /**
  * The onboarding timers, once a day at 09:00 UTC.
@@ -109,8 +110,15 @@ async function run(request: NextRequest) {
     return { pending: -1, checkins: -1, lapsed: -1 }
   })
 
-  console.log('[onboarding]', JSON.stringify({ ...out, candidates }))
-  return NextResponse.json({ ok: true, ...out, candidates })
+  // 5. People who came through a partner's link: day-3 reminder, day-7
+  //    escalation, 30-day purge of what nobody claimed.
+  const referrals = await runReferralTimers(admin).catch(err => {
+    console.error('[onboarding] referral timers failed:', err)
+    return { reminded: -1, escalated: -1, purged: -1 }
+  })
+
+  console.log('[onboarding]', JSON.stringify({ ...out, candidates, referrals }))
+  return NextResponse.json({ ok: true, ...out, candidates, referrals })
 }
 
 export async function GET(request: NextRequest) {

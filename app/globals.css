@@ -4,7 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Refery Green Theme */
+  /* Refery Green Theme. One look whatever the system theme: nothing here
+     follows prefers-color-scheme, and native controls stay light. */
+  color-scheme: light;
   --background: #F2F1EB;
   --foreground: #161613;
   --card: oklch(1 0 0);

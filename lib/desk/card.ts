@@ -42,6 +42,8 @@ export interface CardInput {
   /** Someone else already owns this person: name and since when. */
   duplicateOf: { name: string; ownerName: string | null; since: string } | null
   latencyLine: string
+  /** Came through a partner's link or a search page they shared. */
+  referral?: { referrerName: string; status: string; relationship: string | null; why: string | null; source: 'link' | 'jd' } | null
 }
 
 function headline(c: Record<string, unknown>): string {
@@ -128,8 +130,10 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
   const name = properName(c.name as string)
   const grade = panel.grade
   const met = pastTheDoor(String(c.journey_stage ?? ''))
-  const byLine =
-    recipient === 'candidate'
+  const ref = input.referral
+  const byLine = ref
+    ? `came through ${ref.referrerName}'s ${ref.source === 'jd' ? 'search page' : 'link'} · ${ref.status === 'confirmed' ? 'confirmed by them' : ref.status === 'escalated' ? 'UNCONFIRMED after a week' : ref.status === 'disowned' ? 'NOT FROM THEM' : 'awaiting their yes'}`
+    : recipient === 'candidate'
       ? c.intake_source === 'self'
         ? `shared their own CV at refery.xyz/apply · self-submission${input.selfProfile?.paused ? ' · PAUSED by them' : ''} · owner: you`
         : c.intake_source === 'inbound'
@@ -177,6 +181,9 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
     { type: 'context', elements: [{ type: 'mrkdwn', text: esc(headline(c)) || 'no background on record' }] },
     ...(input.selfProfile
       ? [{ type: 'section', text: { type: 'mrkdwn', text: `>*They say · from the form, ${esc(input.selfProfile.on)}*\n>${esc(input.selfProfile.says) || '_nothing beyond the CV_'}${input.selfProfile.never ? `\n>Never show to: ${esc(input.selfProfile.never)}` : ''}${input.selfProfile.note ? `\n>_"${esc(input.selfProfile.note)}"_` : ''}` } }]
+      : []),
+    ...(ref && (ref.relationship || ref.why)
+      ? [{ type: 'section', text: { type: 'mrkdwn', text: `>*${esc(ref.referrerName)} says*\n>${ref.relationship ? esc(ref.relationship) : ''}${ref.relationship && ref.why ? '\n>' : ''}${ref.why ? `Why: ${esc(ref.why)}` : ''}` } }]
       : []),
     {
       type: 'section',

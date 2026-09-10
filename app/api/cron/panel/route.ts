@@ -24,6 +24,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { buildPanelContext, latestPanel, runPanel } from '@/lib/desk/panel'
+import { cardHeldForReferral, referralForCard } from '@/lib/referrals'
 import { buildDecisionCard, postDecisionCard, suggestedLine } from '@/lib/desk/card'
 import { postThreadReply, updateMessage, esc } from '@/lib/slack-bot'
 import { deskSetting, scheduleFollowup } from '@/lib/desk/outbound'
@@ -84,7 +85,7 @@ async function repostDecisionCard(admin: Admin, payload: Record<string, unknown>
   if (ctx.candidate.desk_card_ts) return { ok: true }
   const panel = await latestPanel(admin, candidateId)
   if (!panel || (payload.panel_id && panel.id !== payload.panel_id)) return { ok: true }
-  const posted = await postDecisionCard(admin, { candidate: ctx.candidate, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf: null, latencyLine: String(payload.latency_line ?? 'posted after a retry') })
+  const posted = await postDecisionCard(admin, { candidate: ctx.candidate, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, referral: await referralForCard(admin, candidateId), duplicateOf: null, latencyLine: String(payload.latency_line ?? 'posted after a retry') })
   return posted.ok ? { ok: true } : { ok: false, error: posted.error }
 }
 
@@ -196,7 +197,7 @@ async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Pro
     // card refreshed, since that press is her asking for the drafts again.
     const undecided = ['uploaded', 'calibrating', 'decision_pending', 'ready_for_intro'].includes(String(c.journey_stage)) || (pastTheDoor && manualRerun)
     if (undecided) {
-      const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf: null, latencyLine })
+      const card = buildDecisionCard({ candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, referral: await referralForCard(admin, candidateId), duplicateOf: null, latencyLine })
       await updateMessage(c.desk_card_channel as string, c.desk_card_ts as string, card.text, card.blocks)
     }
     if (priorGrade !== panel.grade) {
@@ -210,6 +211,10 @@ async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Pro
   if (pastTheDoor && !manualRerun) return { grade: panel.grade, posted: 'nothing (past the door)', cost: panel.cost_usd, reused }
   // A person a human closed or parked gets no new card from an automatic rerun either.
   if (['not_fit', 'dormant', 'bench'].includes(String(c.journey_stage)) && !manualRerun) return { grade: panel.grade, posted: `nothing (${String(c.journey_stage)} stays)`, cost: panel.cost_usd, reused }
+
+  // Came through a partner's link and the partner has not said yes: the read
+  // is done, the card waits (lib/referrals.ts releases it).
+  if (await cardHeldForReferral(admin, candidateId)) return { grade: panel.grade, posted: 'held (unconfirmed referral)', cost: panel.cost_usd, reused }
 
   // Already known under another owner?
   let duplicateOf: { name: string; ownerName: string | null; since: string } | null = null
@@ -225,7 +230,7 @@ async function panelOne(admin: Admin, item: PanelQueueItem, reason: string): Pro
     }
   }
 
-  const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, duplicateOf, latencyLine })
+  const posted = await postDecisionCard(admin, { candidate: c, panel, owner: ctx.owner, seats: ctx.seats, recipient: ctx.recipient, selfProfile: ctx.selfProfile, referral: await referralForCard(admin, candidateId), duplicateOf, latencyLine })
   if (!posted.ok) {
     // The assessment is saved and paid for; only the card failed. Retry the card, not the call.
     await enqueueOutbox(admin, { kind: 'decision_card', idempotencyKey: `decision_card:${panel.id}`, payload: { candidate_id: candidateId, panel_id: panel.id, latency_line: latencyLine } })

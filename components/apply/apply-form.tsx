@@ -27,7 +27,13 @@ function Progress({ n, label }: { n: number; label: string }) {
   )
 }
 
-export function ApplyForm({ from, siteKey }: { from: string | null; siteKey: string | null }) {
+export interface Referrer {
+  code: string
+  firstName: string
+  fullName: string
+}
+
+export function ApplyForm({ from, siteKey, referrer = null }: { from: string | null; siteKey: string | null; referrer?: Referrer | null }) {
   const [step, setStep] = useState(0)
   const [a, setA] = useState<ApplyAnswers>(EMPTY_ANSWERS)
   const [file, setFile] = useState<File | null>(null)
@@ -77,6 +83,7 @@ export function ApplyForm({ from, siteKey }: { from: string | null; siteKey: str
     fd.set('answers', JSON.stringify(a))
     fd.set('source', from ? 'go' : 'apply')
     if (from) fd.set('campaign', from)
+    if (referrer) fd.set('ref', referrer.code)
     const hp = formRef.current?.querySelector<HTMLInputElement>('input[name=website]')
     if (hp) fd.set('website', hp.value)
     const ts = formRef.current?.querySelector<HTMLInputElement>('input[name=cf-turnstile-response]')
@@ -111,12 +118,26 @@ export function ApplyForm({ from, siteKey }: { from: string | null; siteKey: str
         <section className="rounded-[16px] border border-[#E4E3DC] bg-white p-5">
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E7EDE9]"><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#1F3A2F" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3.5 9.5l3.5 3.5 7.5-8" /></svg></span>
           <h1 className="mt-3 text-[24px] font-semibold leading-tight tracking-[-0.02em]">Your profile is in.</h1>
-          <p className="mt-2 text-[14px] text-[#2A2A26]">Thanks, {first}. Lily reads every profile herself, and you&rsquo;ll hear by <b>{done.reviewDate ?? 'the day after tomorrow'}</b>, either way.</p>
+          {referrer ? (
+            <p className="mt-2 text-[14px] text-[#2A2A26]">Thanks, {first}. {referrer.firstName} has it this minute. Once {referrer.firstName} confirms the introduction, Lily reads it herself, by <b>{done.reviewDate ?? 'the day after tomorrow'}</b> at the latest. You hear either way.</p>
+          ) : (
+            <p className="mt-2 text-[14px] text-[#2A2A26]">Thanks, {first}. Lily reads every profile herself, and you&rsquo;ll hear by <b>{done.reviewDate ?? 'the day after tomorrow'}</b>, either way.</p>
+          )}
           <div className="mt-4 grid gap-2 rounded-[12px] border border-[#E4E3DC] bg-[#FAF9F5] px-4 py-3 text-[13px]">
             <p className="text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#9C9C95]">What happens next</p>
-            <p>1. Lily reads your CV and what you told us.</p>
-            <p>2. If a live search fits: a 15-minute call with Lily, then you decide role by role.</p>
-            <p>3. If not yet: we keep you in mind, and you get one email when a search fits.</p>
+            {referrer ? (
+              <>
+                <p>1. {referrer.firstName} confirms they meant to send you here.</p>
+                <p>2. Lily reads your CV against every live search.</p>
+                <p>3. If one fits, you get one email asking whether we may put you forward. Nothing moves without your yes.</p>
+              </>
+            ) : (
+              <>
+                <p>1. Lily reads your CV and what you told us.</p>
+                <p>2. If a live search fits: a 15-minute call with Lily, then you decide role by role.</p>
+                <p>3. If not yet: we keep you in mind, and you get one email when a search fits.</p>
+              </>
+            )}
           </div>
           <p className="mt-3 text-[12.5px] text-[#6E6E68]">A private link to your profile is in your inbox from lily@refery.io. Use it to update, pause or delete.</p>
         </section>
@@ -144,16 +165,26 @@ export function ApplyForm({ from, siteKey }: { from: string | null; siteKey: str
   if (step === 0) {
     return (
       <div className="grid gap-4">
+        {referrer && (
+          <div className="flex items-center gap-3">
+            <span aria-hidden className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#E7EDE9] text-[15px] font-semibold text-[#1F3A2F]">{referrer.fullName.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>
+            <div><p className="text-[15px] font-semibold leading-tight">{referrer.fullName}</p><p className="text-[12.5px] text-[#9C9C95]">invited you to Refery</p></div>
+          </div>
+        )}
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1F3A2F]">For people open to a move</p>
+          {!referrer && <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#1F3A2F]">For people open to a move</p>}
           <h1 className="mt-1 text-[27px] font-semibold leading-[1.12] tracking-[-0.02em]">Tell us once. Hear from us only when something fits.</h1>
-          <p className="mt-2 text-[14px] text-[#6E6E68]">Refery introduces senior people to seed to Series B startups in SF, New York and a few other hubs. No job board, no applications. Lily reads every profile herself.</p>
+          <p className="mt-2 text-[14px] text-[#6E6E68]">
+            {referrer
+              ? `Refery introduces senior people to seed to Series B startups through people who know them. ${referrer.firstName} sent you here and confirms the introduction; Lily at Refery reads every profile herself.`
+              : 'Refery introduces senior people to seed to Series B startups in SF, New York and a few other hubs. No job board, no applications. Lily reads every profile herself.'}
+          </p>
         </div>
         <section className="grid gap-3 rounded-[14px] border border-[#E4E3DC] bg-white p-4 text-[13px]">
           {[
             ['Nothing shared without your yes.', 'Your name and CV reach a company only after you say yes to that specific role.'],
             ['You hear either way.', 'Within two working days: a short call if a search fits, a note that we are keeping you in mind, or a candid no.'],
-            ['Nudged, not spammed.', 'When a search fits what you told us, one email from Lily. Never a newsletter.'],
+            referrer ? [`${referrer.firstName} and Refery see your profile.`, 'Nobody else does, and it is never listed anywhere.'] : ['Nudged, not spammed.', 'When a search fits what you told us, one email from Lily. Never a newsletter.'],
           ].map(([t, d], i) => (
             <div key={t} className="grid grid-cols-[26px_1fr] gap-2.5">
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#E7EDE9] text-[12px] font-bold text-[#1F3A2F]">{i + 1}</span>
@@ -218,7 +249,7 @@ export function ApplyForm({ from, siteKey }: { from: string | null; siteKey: str
           <label className="grid gap-1.5 rounded-[14px] border border-[#1F3A2F] bg-white p-4">
             <span className="flex items-start gap-2.5">
               <input type="checkbox" checked={a.consent} onChange={e => setA({ ...a, consent: e.target.checked })} className="mt-0.5 h-5 w-5 accent-[#1F3A2F]" />
-              <span className="text-[13px]">{CONSENT_TEXT}</span>
+              <span className="text-[13px]">{referrer ? `Keep my profile for matching for 24 months. ${referrer.firstName} and Refery can see it; a company sees it only after I say yes to that role. I can pause or delete it any time.` : CONSENT_TEXT}</span>
             </span>
             <span className="pl-[30px] text-[12px] text-[#6E6E68]">Unticked on purpose. <a href="https://refery.io/privacy" target="_blank" rel="noopener noreferrer" className="font-semibold text-[#1F3A2F] underline underline-offset-2">How we handle your data</a></span>
           </label>

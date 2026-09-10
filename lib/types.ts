@@ -79,7 +79,7 @@ export interface Candidate {
    * `calibration` profile was sourced to benchmark a search and should never
    * appear in an intro queue. Both used to be indistinguishable rows.
    */
-  intake_source: 'referred' | 'sourced' | 'calibration' | 'inbound' | 'unknown' | null
+  intake_source: 'referred' | 'sourced' | 'calibration' | 'inbound' | 'unknown' | 'self' | null
   created_at: string
   updated_at: string
   user_id: string

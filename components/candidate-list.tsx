@@ -205,6 +205,11 @@ function CandidateRow({
         <span className="flex items-center gap-2">
           <span className="truncate text-[14px] font-semibold text-[#161613]">{candidate.name}</span>
           <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${availability.dot}`} title={availability.label} />
+          {candidate.referral_via && (
+            <span className="hidden shrink-0 items-center gap-1 rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[11px] font-semibold leading-none text-[#1F3A2F] sm:inline-flex" title={candidate.referral_via === 'jd' ? 'Came through a search page you shared' : 'Came through your link'}>
+              via your link
+            </span>
+          )}
         </span>
         <span className="mt-0.5 block truncate text-[12.5px] text-[#6E6E68]">
           {role ? `${role.title}${role.company ? ` · ${role.company}` : ''}` : 'No role on file'}

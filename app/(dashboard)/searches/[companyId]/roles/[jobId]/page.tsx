@@ -50,6 +50,9 @@ import { ManageRole } from '@/components/partners/manage-role'
 import { RequestAccess } from '@/components/partners/request-access'
 import { SubmissionList } from '@/components/partners/submission-list'
 import { SubmitCandidates } from '@/components/partners/submit-candidates'
+import { ShareSearch } from '@/components/partners/share-search'
+import { candidatePageUrl, pageOpens } from '@/lib/candidate-pages'
+import { codesFor, ensureShareCode } from '@/lib/share-codes'
 
 export const dynamic = 'force-dynamic'
 
@@ -258,6 +261,15 @@ export default async function PartnerRolePage({
   const payout = payoutAmount(fee)
   const slots = slotsLeft(role)
   const closed = !role.is_live || role.job_status !== 'open'
+
+  // The candidate version of this search, and this partner's own copy of the
+  // link (their code on it, so an interested person lands as theirs).
+  const { data: cpage } = await adminClient.from('candidate_pages').select('slug, status').eq('job_id', jobId).maybeSingle()
+  const myCode = unlocked && !closed ? await ensureShareCode(adminClient, access.appUser.id) : null
+  const myCodes = myCode ? await codesFor(adminClient, access.appUser.id) : []
+  const shareUrl = cpage?.status === 'published' ? candidatePageUrl(cpage.slug as string, myCode) : null
+  const shareOpens = cpage && myCodes.length ? await pageOpens(adminClient, jobId, myCodes) : { opens: 0, lastAt: null }
+  const shareState: 'live' | 'preparing' | 'off' = closed || !unlocked ? 'off' : shareUrl ? 'live' : 'preparing'
   const stage = searchStageMeta(role.search_stage)
   const interviewSteps = Array.isArray(role.interview_steps) ? role.interview_steps : []
   const targetStart = role.target_start
@@ -340,6 +352,12 @@ export default async function PartnerRolePage({
                 </a>
                 <SubmitCandidates jobId={jobId} roleTitle={`${role.title} · ${company.name}`} slotsLeft={slots} label="Submit a candidate" />
               </>
+            )}
+            <ShareSearch url={shareUrl} opens={shareOpens.opens} lastAt={shareOpens.lastAt} editHref={access.canManage ? `/searches/${companyId}/roles/${jobId}/candidate-page` : null} state={shareState} />
+            {access.canManage && (
+              <Link href={`/searches/${companyId}/roles/${jobId}/candidate-page`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+                Candidate page
+              </Link>
             )}
             {access.canManage && (
               <Link href={`/searches/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>

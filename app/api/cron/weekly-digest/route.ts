@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { DESK_BETA_ONLY, PROPOSAL_DAYS, searchStageMeta, submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
 import { renderWeeklyDigest, sendWeeklyDigest, type WeeklyDigest } from '@/lib/weekly-digest-email'
+import { codesFor } from '@/lib/share-codes'
+import { linkStats } from '@/lib/referrals'
 import { notifySlack } from '@/lib/slack'
 import { esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
 
@@ -246,6 +248,15 @@ export async function GET(request: NextRequest) {
       needsYou: [],
       searches: [],
       fresh: [],
+      link: null,
+    }
+
+    // Their own link this week. Only their codes, only their arrivals.
+    try {
+      const codes = await codesFor(adminClient, uid)
+      digest.link = await linkStats(adminClient, uid, codes, since)
+    } catch {
+      digest.link = null
     }
 
     // What moved: their submissions with an event this week. The latest event

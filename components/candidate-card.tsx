@@ -26,6 +26,10 @@ export interface EnrichedCandidate extends Candidate {
   owner?: { email: string; full_name: string | null } | null
   last_activity?: string
   latest_note_date?: string | null
+  /** Came through the viewer's link or a search page they shared. */
+  referral_via?: 'link' | 'jd' | null
+  /** The partner has not yet said the person was theirs. */
+  referral_pending?: boolean
 }
 
 interface CandidateCardProps {
@@ -106,6 +110,11 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
               <h3 className="min-w-0 truncate text-[16px] font-semibold leading-tight tracking-[-0.01em] text-[#161613]">
                 {candidate.name}
               </h3>
+              {candidate.referral_via && (
+                <span className="shrink-0 rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[11px] font-semibold leading-none text-[#1F3A2F]" title={candidate.referral_via === 'jd' ? 'Came through a search page you shared' : 'Came through your link'}>
+                  via your link
+                </span>
+              )}
               {candidate.linkedin_url && (
                 <span
                   role="link"

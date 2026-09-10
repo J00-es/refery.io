@@ -32,6 +32,8 @@ import {
   initialsOf,
 } from '@/lib/candidate-ui'
 import type { PanelGrade } from '@/lib/journey'
+import { referralFor } from '@/lib/referrals'
+import { ReferralBanner, type ReferralView } from '@/components/candidates/referral-banner'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -51,6 +53,7 @@ const INTAKE_LABELS: Record<string, string> = {
   sourced: 'Sourced by us',
   calibration: 'Calibration sample — not a real candidate',
   inbound: 'Came to us directly',
+  self: 'Shared their own CV',
 }
 
 export default async function CandidateDetailPage({ params }: PageProps) {
@@ -137,6 +140,15 @@ export default async function CandidateDetailPage({ params }: PageProps) {
       .eq('user_id', candidate.uploaded_by_user_id)
       .single()
     createdByInfo = createdBy
+  }
+
+  // Came through a partner's link? The referrer answers here; the super admin
+  // sees the state and can rescue a disowned person.
+  const referral = await referralFor(adminClient, id)
+  let referrerFirst = 'the partner'
+  if (referral) {
+    const { data: ref } = await adminClient.from('users_admin').select('full_name').eq('user_id', referral.referrer_user_id).maybeSingle()
+    referrerFirst = ((ref?.full_name as string | null) ?? '').trim().split(/\s+/)[0] || 'the partner'
   }
 
   const { isSuperAdmin, role: userRole } = appUser
@@ -275,6 +287,16 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           <CandidateActions candidate={typedCandidate} />
         </div>
       </header>
+
+      {referral && referral.status !== 'duplicate' && (referral.referrer_user_id === appUser.id || isSuperAdmin) && (
+        <ReferralBanner
+          referral={referral as unknown as ReferralView}
+          candidateFirst={typedCandidate.name.split(/\s+/)[0]}
+          referrerFirst={referrerFirst}
+          viewerIsReferrer={referral.referrer_user_id === appUser.id}
+          viewerIsSuperAdmin={isSuperAdmin}
+        />
+      )}
 
       {/* Where we are with this person, and the only control that changes it. */}
       <JourneyStrip

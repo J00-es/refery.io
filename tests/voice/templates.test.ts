@@ -47,6 +47,16 @@ const CASES: Array<[string, () => RenderedEmail]> = [
   ['CSP', () => T.templateCSP({ fullName: NAME, newReviewDate: 'Monday' })],
   ['CS6', () => T.templateCS6({ fullName: NAME, keptUntil: 'March 2027', lookingLink: LINK, pauseLink: LINK, deleteLink: LINK, lapsed: false })],
   ['CS6, lapsed', () => T.templateCS6({ fullName: NAME, keptUntil: 'March 2027', lookingLink: LINK, pauseLink: LINK, deleteLink: LINK, lapsed: true })],
+  ['RL1', () => T.templateRL1({ fullName: NAME, referrerName: 'Grace Hopper', reviewDate: 'Friday', profileLink: LINK })],
+  ['RL1, no review date', () => T.templateRL1({ fullName: NAME, referrerName: 'Grace Hopper', reviewDate: null, profileLink: LINK })],
+  ['RL2', () => T.templateRL2({ fullName: NAME, referrerName: 'Grace Hopper', reviewDate: 'Friday' })],
+  ['RL3', () => T.templateRL3({ fullName: NAME, applyLink: LINK })],
+  ['RS1', () => T.templateRS1({ fullName: NAME, candidate: 'Grace Hopper', candidateLine: 'from New York', code: 'ada', confirmLink: LINK, declineLink: LINK, pageLink: LINK })],
+  ['RS1, no line', () => T.templateRS1({ fullName: NAME, candidate: 'Grace Hopper', candidateLine: null, code: 'ada', confirmLink: LINK, declineLink: LINK, pageLink: LINK })],
+  ['RS2', () => T.templateRS2({ fullName: NAME, candidate: 'Grace Hopper', arrivedOn: 'Friday', readAnywayOn: 'Friday 18 September', confirmLink: LINK, declineLink: LINK })],
+  ['RS3', () => T.templateRS3({ fullName: NAME, candidate: 'Grace Hopper' })],
+  ['RS4, disowned', () => T.templateRS4({ fullName: NAME, newLink: LINK, reason: 'disowned' })],
+  ['RS4, burst', () => T.templateRS4({ fullName: NAME, newLink: LINK, reason: 'burst' })],
 ]
 
 describe('every template renders', () => {

@@ -41,6 +41,13 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
     }
   }
 
+  // The candidate page, where one is live: the same anonymised search, in full.
+  const pageBySearch = new Map<string, string>()
+  if (cards.length) {
+    const { data: pages } = await admin.from('candidate_pages').select('job_id, slug').eq('status', 'published').in('job_id', cards.map(c => c.key))
+    for (const p of pages ?? []) pageBySearch.set(p.job_id as string, p.slug as string)
+  }
+
   return (
     <div className="min-h-svh bg-[#F2F1EB] text-[#161613]">
       <div className="mx-auto w-full max-w-md px-5 pb-12 pt-10 sm:pt-14">
@@ -69,6 +76,9 @@ export default async function CampaignPage({ params }: { params: Promise<{ slug:
                   {c.hiringNow && <span className="shrink-0 rounded-full bg-[#FBEDEB] px-2.5 py-0.5 text-[12px] font-semibold text-[#A3423A]">Hiring now</span>}
                 </div>
                 {c.summary && <p className="mt-3 text-[13px] text-[#2A2A26]">{c.summary}</p>}
+                {pageBySearch.get(c.key) && (
+                  <a href={`/j/${pageBySearch.get(c.key)}`} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block text-[12.5px] font-semibold text-[#1F3A2F] underline underline-offset-2">Read the role as a candidate would</a>
+                )}
                 <p className="mt-3 text-[12.5px]">
                   <span className="font-semibold text-[#1F3A2F]">{payoutAmount(c.fee) ? `${payoutAmount(c.fee)} to you on a placement` : `${c.fee.scoutSharePercentage}% of the fee to you`}</span>
                   <span className="text-[#9C9C95]"> · {feeExplanation(c.fee)}</span>

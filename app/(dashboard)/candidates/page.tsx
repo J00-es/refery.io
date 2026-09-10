@@ -9,6 +9,8 @@ import { scopeUserIds } from '@/lib/firms'
 import { FOCUS, ownerName } from '@/lib/candidate-ui'
 import { cookies } from 'next/headers'
 import { JOURNEY_BUCKETS, type JourneyBucket } from '@/lib/journey'
+import { referralsForCandidates } from '@/lib/referrals'
+import { YourLinkButton } from '@/components/partners/your-link'
 
 /** Every bucket on the dashboard links here, so any of them is a valid entry. */
 function isJourneyBucket(v: string | undefined): v is JourneyBucket {
@@ -127,6 +129,10 @@ export default async function CandidatesPage({
     }
   }
 
+  // Who came through a link, and whether the partner has said yes yet. Only
+  // the referrer sees the chip as "your link"; the super admin sees it as a fact.
+  const referralMap = await referralsForCandidates(adminClient, visibleIds)
+
   // Enrich candidates with last_activity (max of updated_at, created_at, and latest recruiter note)
   const enrichedCandidates = candidates.map(candidate => {
     const latestNoteDate = latestNoteByCandidate[candidate.id]
@@ -136,8 +142,12 @@ export default async function CandidatesPage({
 
     const lastActivityTimestamp = Math.max(candidateUpdated, candidateCreated, noteDate)
 
+    const referral = referralMap.get(candidate.id)
+    const mine = referral ? referral.referrer_user_id === appUser.id || canViewAll : false
     return {
       ...candidate,
+      referral_via: mine && referral && referral.status !== 'disowned' ? referral.source : null,
+      referral_pending: mine && referral ? referral.status === 'pending' || referral.status === 'escalated' : false,
       pipeline_jobs: pipelineByCandidate[candidate.id] || [],
       owner: candidate.owner_user_id ? ownerMap[candidate.owner_user_id] || null : null,
       last_activity: new Date(lastActivityTimestamp).toISOString(),
@@ -190,7 +200,8 @@ export default async function CandidatesPage({
               : 'Everyone you’ve referred or been assigned.'}
           </p>
         </div>
-        <div className="flex shrink-0 gap-2.5">
+        <div className="flex shrink-0 flex-wrap gap-2.5">
+          {!appUser.isAdmin && <YourLinkButton />}
           <Link
             href="/candidates/bulk"
             className={`flex h-11 items-center rounded-full border border-[#D2D1C7] px-5 text-[14px] font-semibold text-[#161613] transition-colors hover:border-[#9C9C95] ${FOCUS}`}

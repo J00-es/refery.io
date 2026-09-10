@@ -23,8 +23,10 @@ import { defaultOwnerUserId, findDuplicate, looksLikeResume } from '@/lib/inboun
 import { postAlert, postToFeed } from '@/lib/desk-notifications'
 import { esc, postThreadReply } from '@/lib/slack-bot'
 import { queueEmail } from '@/lib/comms'
-import { templateCS1, templateCS1Dup, templateCS6, templateCSLink, templateCSP } from '@/lib/voice/templates'
+import { templateCS1, templateCS1Dup, templateCS6, templateCSLink, templateCSP, templateRL1, templateRS1, templateRS3 } from '@/lib/voice/templates'
 import { reviewDate } from '@/lib/onboarding/decisions'
+import { properName } from '@/lib/desk/people'
+import { TOKEN_DAYS, checkBurst, newReferralToken, referralActionUrl } from '@/lib/referrals'
 import { BASE_BANDS, CONSENT_VERSION, RETENTION_MONTHS, SETTINGS, saysLine, type ApplyAnswers, type BaseAnswer, type Currency } from '@/lib/apply/options'
 import type { ParsedResumeData } from '@/lib/types'
 
@@ -212,24 +214,52 @@ export async function logEvent(admin: SupabaseClient, e: { email?: string | null
 
 export type SubmissionOutcome = { state: 'created'; reviewDate: string } | { state: 'duplicate' } | { state: 'not_resume' }
 
+/**
+ * A partner's link or a candidate page was the door. The row is theirs from
+ * the first second; Lily sees the person once they confirm (lib/referrals.ts).
+ */
+export interface ReferralDoor {
+  code: string
+  userId: string
+  referrerName: string
+  referrerEmail: string | null
+  source: 'link' | 'jd'
+  jobId: string | null
+  userAgent: string | null
+  /** The one optional line the person wrote on the candidate page. */
+  candidateNote: string | null
+}
+
+function referrerSlackLabel(door: ReferralDoor): string {
+  return door.source === 'jd' ? `the candidate page shared by ${esc(door.referrerName)}` : `${esc(door.referrerName)}'s link`
+}
+
 export async function createSelfSubmission(
   admin: SupabaseClient,
-  input: { bytes: Buffer; filename: string; answers: ApplyAnswers; ipHash: string | null; source: 'apply' | 'go'; sourceCampaign: string | null },
+  input: { bytes: Buffer; filename: string; answers: ApplyAnswers; ipHash: string | null; source: 'apply' | 'go'; sourceCampaign: string | null; referral?: ReferralDoor | null },
 ): Promise<SubmissionOutcome> {
   const a = input.answers
   const email = normalizeEmail(a.email)
   const linkedin = a.linkedin.trim() || null
   const name = a.fullName.trim()
+  const door = input.referral ?? null
 
   // 1. Already known, by email or LinkedIn? Nothing is created twice and the
   //    parser is never paid for a second copy. A name-only match is not
   //    identity, so it falls through and is flagged on the card as today.
   const dup = await findDuplicate(admin, { email, linkedin_url: linkedin })
   if (dup?.kind === 'hard') {
-    const token = await upsertProfile(admin, dup.match.id, a, { source: input.source, sourceCampaign: input.sourceCampaign, ipHash: input.ipHash })
+    const token = await upsertProfile(admin, dup.match.id, a, { source: door ? door.source : input.source, sourceCampaign: door ? door.code : input.sourceCampaign, ipHash: input.ipHash })
     await queueEmail(admin, { to: email, toName: name, email: templateCS1Dup({ fullName: name, profileLink: profileUrl(token) }), dedupeKey: `CS1-dup:${dup.match.id}:${new Date().toISOString().slice(0, 10)}`, meta: { candidate_id: dup.match.id } })
     await logEvent(admin, { email, ipHash: input.ipHash, outcome: 'duplicate', detail: `already on file as ${dup.match.name}`, candidateId: dup.match.id })
-    await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* shared their CV at refery.xyz/apply; already on file as *${esc(dup.match.name)}*. Nothing created; they got the private link to update what they want.  ·  <${APP_URL}/candidates/${dup.match.id}|the existing profile>`)
+    if (door) {
+      // Recorded, never credited: the same rule as the submit-time refusal.
+      await admin.from('referrals').insert({ candidate_id: dup.match.id, referrer_user_id: door.userId, code: door.code, source: door.source, job_id: door.jobId, status: 'duplicate', candidate_note: door.candidateNote, token: newReferralToken(), token_expires_at: new Date(Date.now() + TOKEN_DAYS * DAY).toISOString(), ip_hash: input.ipHash, user_agent: door.userAgent })
+      if (door.referrerEmail) await queueEmail(admin, { to: door.referrerEmail, toName: door.referrerName, userId: door.userId, email: templateRS3({ fullName: door.referrerName, candidate: properName(name) }), dedupeKey: `RS3:${door.userId}:${dup.match.id}`, meta: { candidate_id: dup.match.id } })
+      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* came through ${referrerSlackLabel(door)}; already on file as *${esc(dup.match.name)}*. Nothing created, not credited; both were told.  ·  <${APP_URL}/candidates/${dup.match.id}|the existing profile>`)
+    } else {
+      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* shared their CV at refery.xyz/apply; already on file as *${esc(dup.match.name)}*. Nothing created; they got the private link to update what they want.  ·  <${APP_URL}/candidates/${dup.match.id}|the existing profile>`)
+    }
     return { state: 'duplicate' }
   }
 
@@ -247,7 +277,7 @@ export async function createSelfSubmission(
 
   // 3. The row. The person's own answers win over what the CV says.
   const derived = candidateRowFromParsed({ parsed, resume_blob_pathname: blob.pathname, resume_filename: input.filename })
-  const owner = await defaultOwnerUserId(admin)
+  const owner = door ? door.userId : await defaultOwnerUserId(admin)
   if (!owner) throw new Error('No default owner for self-submitted candidates')
   const { data: candidate, error } = await admin
     .from('candidates')
@@ -262,7 +292,7 @@ export async function createSelfSubmission(
       owner_user_id: owner,
       uploaded_by_user_id: owner,
       created_by_user_id: owner,
-      intake_source: 'self',
+      intake_source: door ? 'referred' : 'self',
       consent_told_candidate: true,
     })
     .select('id')
@@ -284,8 +314,8 @@ export async function createSelfSubmission(
       consent_at: now.toISOString(),
       consent_version: CONSENT_VERSION,
       consent_until: until.toISOString(),
-      source: input.source,
-      source_campaign: input.sourceCampaign,
+      source: door ? door.source : input.source,
+      source_campaign: door ? door.code : input.sourceCampaign,
       ip_hash: input.ipHash,
     })
     .select('id')
@@ -293,8 +323,42 @@ export async function createSelfSubmission(
   if (perr || !profile) throw new Error(`profile insert failed: ${perr?.message}`)
 
   const date = reviewDate(now)
-  await queueEmail(admin, { to: email, toName: name, email: templateCS1({ fullName: name, reviewDate: date, profileLink: profileUrl(token) }), dedupeKey: `CS1:${profile.id}`, meta: { candidate_id: candidate.id } })
   await logEvent(admin, { email, ipHash: input.ipHash, outcome: 'created', candidateId: candidate.id })
+
+  if (door) {
+    // Theirs, pending their yes. The desk card waits (lib/referrals.ts).
+    const rtoken = newReferralToken()
+    await admin.from('referrals').insert({
+      candidate_id: candidate.id,
+      referrer_user_id: door.userId,
+      code: door.code,
+      source: door.source,
+      job_id: door.jobId,
+      status: 'pending',
+      candidate_note: door.candidateNote,
+      token: rtoken,
+      token_expires_at: new Date(now.getTime() + TOKEN_DAYS * DAY).toISOString(),
+      ip_hash: input.ipHash,
+      user_agent: door.userAgent,
+    })
+    await queueEmail(admin, { to: email, toName: name, email: templateRL1({ fullName: name, referrerName: door.referrerName, reviewDate: date, profileLink: profileUrl(token) }), dedupeKey: `RL1:${profile.id}`, meta: { candidate_id: candidate.id } })
+    if (door.referrerEmail) {
+      const line = [a.currentLocation.trim() ? `from ${a.currentLocation.trim()}` : null, door.candidateNote ? `and wrote: "${door.candidateNote.slice(0, 140)}"` : null].filter(Boolean).join(' ')
+      await queueEmail(admin, {
+        to: door.referrerEmail,
+        toName: door.referrerName,
+        userId: door.userId,
+        email: templateRS1({ fullName: door.referrerName, candidate: properName(name), candidateLine: line || null, code: door.code, confirmLink: referralActionUrl(rtoken, 'yes'), declineLink: referralActionUrl(rtoken, 'no'), pageLink: `${APP_URL}/candidates/${candidate.id}` }),
+        dedupeKey: `RS1:${candidate.id}`,
+        meta: { candidate_id: candidate.id },
+      })
+    }
+    await postToFeed(`:link: *${esc(name)}* came through ${referrerSlackLabel(door)}. The panel reads them now; the card waits for ${esc(door.referrerName.split(/\s+/)[0])}'s yes.  ·  <${APP_URL}/candidates/${candidate.id}|profile>`)
+    await checkBurst(admin, door.code, door.userId).catch(() => false)
+    return { state: 'created', reviewDate: date }
+  }
+
+  await queueEmail(admin, { to: email, toName: name, email: templateCS1({ fullName: name, reviewDate: date, profileLink: profileUrl(token) }), dedupeKey: `CS1:${profile.id}`, meta: { candidate_id: candidate.id } })
   await postToFeed(`:wave: *${esc(name)}* shared their own CV at refery.xyz/apply${input.sourceCampaign ? ` (via the ${esc(input.sourceCampaign)} link)` : ''}. The panel reads them now; the card follows.  ·  <${APP_URL}/candidates/${candidate.id}|profile>`)
   return { state: 'created', reviewDate: date }
 }
@@ -386,7 +450,8 @@ export async function profileAction(admin: SupabaseClient, v: ProfileView, actio
   }
   // delete
   await logEvent(admin, { email: p.email, outcome: 'deleted', candidateId: v.candidate.id, detail: v.candidate.intake_source ?? null })
-  if (v.candidate.intake_source === 'self') {
+  // Their own row, whichever door they came through: delete means delete.
+  if (v.candidate.intake_source === 'self' || v.profile.source === 'link' || v.profile.source === 'jd') {
     if (v.candidate.resume_blob_pathname) await del(v.candidate.resume_blob_pathname).catch(() => undefined)
     await admin.from('candidates').delete().eq('id', v.candidate.id)
     await postToFeed(`:wastebasket: *${esc(name)}* asked to delete their profile. CV and answers are gone; a dated deletion record stays, nothing else.`)

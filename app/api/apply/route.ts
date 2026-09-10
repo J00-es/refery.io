@@ -4,11 +4,15 @@ import { viewerContext } from '@/lib/hm-brief'
 import { verifyTurnstile } from '@/lib/apply/turnstile'
 import { validateAnswers, EMPTY_ANSWERS, type ApplyAnswers } from '@/lib/apply/options'
 import { createSelfSubmission, hashIp, logEvent, tooManyAttempts, MAX_PDF_BYTES } from '@/lib/apply/profile'
+import { resolveReferralDoor } from '@/lib/referrals'
 
 /**
  * The candidate door. Public, no login. One multipart request: the CV and
  * the answers. Every gate here runs before the parser, so junk never costs
  * anything: honeypot, Turnstile, five attempts an hour per address, PDF only.
+ *
+ * With `ref=<code>` the same door is a partner's link: the row is theirs,
+ * pending their yes (lib/referrals.ts).
  */
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -52,10 +56,13 @@ export async function POST(request: NextRequest) {
 
   const source = form.get('source') === 'go' ? 'go' : 'apply'
   const sourceCampaign = String(form.get('campaign') ?? '').trim().slice(0, 80) || null
+  const refCode = String(form.get('ref') ?? '').trim().toLowerCase().slice(0, 40) || null
+  const referral = await resolveReferralDoor(admin, refCode, 'link', null, v.userAgent, null)
+  if (refCode && !referral) return NextResponse.json({ error: 'This link is no longer active. Ask the person who sent it for a fresh one, or share your CV at refery.xyz/apply.' }, { status: 410 })
 
   try {
     const bytes = Buffer.from(await file.arrayBuffer())
-    const result = await createSelfSubmission(admin, { bytes, filename: file.name, answers, ipHash, source, sourceCampaign })
+    const result = await createSelfSubmission(admin, { bytes, filename: file.name, answers, ipHash, source, sourceCampaign, referral })
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     console.error('[apply]', err)

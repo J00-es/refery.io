@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, after } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { resolvePartnerAccess, refuseCoordinator } from '@/lib/partners-access'
+import { ensureCandidatePage } from '@/lib/candidate-pages'
 
 const PRIORITIES = new Set(['urgent', 'high', 'normal'])
 const EXCLUSIVITY = new Set(['exclusive', 'shared'])
@@ -149,6 +150,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ jobId:
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
+  // A search that just went live gets its candidate page drafted, after the
+  // response so the dialog closes at once.
+  if (patch.is_live === true) {
+    const by = access.appUser.email
+    after(() => ensureCandidatePage(adminClient, jobId, by))
+  }
 
   return NextResponse.json(data)
 }

@@ -10,6 +10,7 @@ import { ProposalActions } from '@/components/partners/proposal-card'
 import { PreferencesEditor } from '@/components/onboarding/preferences-editor'
 import { NotificationPrefs } from '@/components/onboarding/notification-prefs'
 import { ReferralEarnings } from '@/components/onboarding/referral-earnings'
+import { YourLinkCard } from '@/components/partners/your-link'
 
 export const dynamic = 'force-dynamic'
 
@@ -205,6 +206,11 @@ export default async function StartPage() {
 
       <div className="mb-5">
         <NotificationPrefs />
+      </div>
+
+      {/* Their own link: the people they would put their name behind, in two minutes. */}
+      <div className="mb-5">
+        <YourLinkCard />
       </div>
 
       {/* Two more ways to earn: a company or a partner they bring. Terms section 9. */}

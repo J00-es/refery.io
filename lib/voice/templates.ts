@@ -521,3 +521,153 @@ export function templateCS6(p: { fullName: string; keptUntil: string; lookingLin
     ),
   }
 }
+
+// ── RL · a person who came through a partner's link ─────────────────────────
+
+export function templateRL1(p: { fullName: string; referrerName: string; reviewDate: string | null; profileLink: string }): RenderedEmail {
+  const link = need(p.profileLink, 'profile_link')
+  const who = need(p.referrerName, 'referrer_name')
+  const when = p.reviewDate ? ` by ${p.reviewDate}` : ' within two working days'
+  return {
+    templateId: 'RL1',
+    version: VOICE_VERSION,
+    job: 'receipt',
+    essential: true,
+    subject: subject(p.fullName, 'Your profile is in'),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      `Thanks for sharing your CV with Refery, through ${who} :)`,
+      '',
+      `${first(who)} confirms the introduction, and I read every profile myself. You'll hear from me${when}, either way: a short call if a live search fits, or a note that I'm keeping you in mind.`,
+      '',
+      `${first(who)} and I are the only people who see your profile. Nothing about you goes to a company until you say yes to that specific role.`,
+      '',
+      `Your private profile, to update what you're looking for, pause, or delete: ${link}`,
+    ]),
+  }
+}
+
+export function templateRL2(p: { fullName: string; referrerName: string; reviewDate: string | null }): RenderedEmail {
+  const who = need(p.referrerName, 'referrer_name')
+  const when = p.reviewDate ? ` by ${p.reviewDate}` : ' within two working days'
+  return {
+    templateId: 'RL2',
+    version: VOICE_VERSION,
+    job: 'update',
+    essential: true,
+    subject: `Re: ${subject(p.fullName, 'Your profile is in')}`,
+    text: sign([`Hi ${first(p.fullName)},`, '', `${first(who)} confirmed the introduction, so I'm reading your profile now. You'll hear from me${when}, either way.`]),
+  }
+}
+
+export function templateRL3(p: { fullName: string; applyLink: string }): RenderedEmail {
+  const link = need(p.applyLink, 'apply_link')
+  return {
+    templateId: 'RL3',
+    version: VOICE_VERSION,
+    job: 'decision',
+    essential: true,
+    subject: subject(p.fullName, 'Your profile'),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      "A quick, honest note: we couldn't take your profile through the link you used, so your CV and answers have been deleted from our side.",
+      '',
+      `If you'd like Refery to keep you in mind directly, share your CV here and it comes straight to me: ${link}`,
+    ]),
+  }
+}
+
+// ── RS · the partner whose link someone used ────────────────────────────────
+
+export function templateRS1(p: { fullName: string; candidate: string; candidateLine: string | null; code: string; confirmLink: string; declineLink: string; pageLink: string }): RenderedEmail {
+  const candidate = need(p.candidate, 'candidate')
+  const yes = need(p.confirmLink, 'confirm_link')
+  const no = need(p.declineLink, 'decline_link')
+  const page = need(p.pageLink, 'candidate_page_link')
+  return {
+    templateId: 'RS1',
+    version: VOICE_VERSION,
+    job: 'question',
+    essential: true,
+    subject: subject(p.fullName, `${candidate} came through your link`),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      `${candidate} just shared a CV through your link (refery.xyz/r/${p.code})${p.candidateLine ? `, ${p.candidateLine}` : ''}.`,
+      '',
+      'Was this you? One tap either way.',
+      '',
+      `Yes, I referred ${first(candidate)}: ${yes}`,
+      `Not from me: ${no}`,
+      '',
+      `If yes, add a line on how you know ${first(candidate)} and why, and I read them against every live search. If not, they never reach your list and nothing is credited to you.`,
+      '',
+      `${first(candidate)}'s page: ${page}`,
+    ]),
+  }
+}
+
+export function templateRS2(p: { fullName: string; candidate: string; arrivedOn: string; readAnywayOn: string; confirmLink: string; declineLink: string }): RenderedEmail {
+  const candidate = need(p.candidate, 'candidate')
+  const yes = need(p.confirmLink, 'confirm_link')
+  const no = need(p.declineLink, 'decline_link')
+  return {
+    templateId: 'RS2',
+    version: VOICE_VERSION,
+    job: 'reengagement',
+    essential: false,
+    subject: `Re: ${subject(p.fullName, `${candidate} came through your link`)}`,
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      `${candidate} came through your link on ${need(p.arrivedOn, 'arrived_on')} and I have not heard whether they were yours. One tap and I take it from there.`,
+      '',
+      `Yes, I referred ${first(candidate)}: ${yes}`,
+      `Not from me: ${no}`,
+      '',
+      `If I hear nothing by ${need(p.readAnywayOn, 'read_anyway_on')} I will read them anyway and hold the introduction open for you.`,
+    ]),
+  }
+}
+
+export function templateRS3(p: { fullName: string; candidate: string }): RenderedEmail {
+  const candidate = need(p.candidate, 'candidate')
+  return {
+    templateId: 'RS3',
+    version: VOICE_VERSION,
+    job: 'update',
+    essential: true,
+    subject: subject(p.fullName, `${candidate}, already on Refery`),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      `${candidate} just used your link, but they were already on Refery before it, so this one is not credited to you. Nothing was created twice, and they have been told.`,
+      '',
+      'Anyone new who comes through your link is yours the moment you confirm them.',
+    ]),
+  }
+}
+
+export function templateRS4(p: { fullName: string; newLink: string; reason: 'disowned' | 'burst' }): RenderedEmail {
+  const link = need(p.newLink, 'new_link')
+  return {
+    templateId: 'RS4',
+    version: VOICE_VERSION,
+    job: 'update',
+    essential: true,
+    subject: subject(p.fullName, 'A fresh link for you'),
+    text: sign([
+      `Hi ${first(p.fullName)},`,
+      '',
+      p.reason === 'burst'
+        ? 'Your link had a burst of arrivals in a short time, which usually means it was posted somewhere public. I have swapped it for a fresh one so only the people you send it to can use it.'
+        : 'Twice this week someone came through your link who was not from you, so I have swapped it for a fresh one. The old one now shows a closed page.',
+      '',
+      `Your new link: ${link}`,
+      '',
+      'Anyone you already sent the old link to can ask you for the new one; nothing else changes.',
+    ]),
+  }
+}

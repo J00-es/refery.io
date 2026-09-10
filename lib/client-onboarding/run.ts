@@ -21,6 +21,7 @@ import { ensureClientRoom } from '@/lib/slack-connect'
 import { gatherSources } from './research'
 import { researchFacts, writeCopy, type Copy, type Research } from './draft'
 import { Resend } from 'resend'
+import { ensureCandidatePage } from '@/lib/candidate-pages'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -266,6 +267,7 @@ export async function runOnboarding(runId: string): Promise<void> {
           location: source?.location ?? r.company.hq,
           remote_policy: /remote/i.test(source?.workingPattern ?? input.workingPattern ?? '') ? 'remote' : /hybrid/i.test(source?.workingPattern ?? input.workingPattern ?? '') ? 'hybrid' : /on-?site|office/i.test(source?.workingPattern ?? input.workingPattern ?? '') ? 'onsite' : null,
           description: role.description,
+          description_source: 'onboarding',
           requirements: role.requirements,
           salary_min: band.min,
           salary_max: band.max,
@@ -389,6 +391,10 @@ export async function publishRun(runId: string, actor: string): Promise<{ ok: bo
   await admin.from('partner_briefs').update({ status: 'published', published_at: now, updated_at: now }).eq('company_id', companyId).is('job_id', null)
   const { data: hm } = await admin.from('hm_briefs').update({ status: 'published', published_at: now, updated_at: now }).eq('id', run.hm_brief_id).select('slug, title').single()
   await admin.from('onboarding_runs').update({ status: 'published', published_at: now, updated_at: now }).eq('id', runId)
+
+  // Every search that just went live gets its candidate page, one by one.
+  const { data: liveRoles } = await admin.from('partner_roles').select('job_id').eq('company_id', companyId).eq('is_live', true)
+  for (const r of liveRoles ?? []) await ensureCandidatePage(admin, r.job_id as string, `onboarding:${actor}`)
 
   const link = hm ? briefUrl(hm.slug as string) : null
   let emailed = false

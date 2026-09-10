@@ -240,11 +240,15 @@ export function nextActionFor(candidate: {
   journey_stage_at: string | null
   availability_status?: string | null
   intake_source?: string | null
+  /** Came through the partner's link and the partner has not yet said it was them. */
+  referral_pending?: boolean | null
 }): NextAction | null {
   // A calibration profile was sourced to benchmark a search, not to be placed.
   // 19 of them were sitting in the intro queue before intake_source existed to
   // say so, which is most of the reason the queue looked longer than it was.
   if (candidate.intake_source === 'calibration') return null
+  // Nothing else happens until the partner stands behind the person.
+  if (candidate.referral_pending) return { label: 'Confirm', tone: 'do' }
 
   // Availability answers a different question from journey stage, and it wins
   // over any prompt: someone can be vouched and ready for an intro while being
@@ -411,8 +415,11 @@ export function journeyBucket(c: {
   journey_stage_at: string | null
   availability_status?: string | null
   intake_source?: string | null
+  referral_pending?: boolean | null
 }): JourneyBucket {
   if (c.intake_source === 'calibration') return 'benchmark'
+  // A person waiting on the partner's yes is the partner's to-do, whatever the stage.
+  if (c.referral_pending) return 'needs_you'
 
   const s = c.journey_stage
 
