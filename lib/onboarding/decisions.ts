@@ -87,19 +87,33 @@ export function contributionMode(a: ScoutApplication): 'recruit' | 'introduce' {
   return roles.some(r => r.includes('recruiter') || r.includes('agency')) ? 'recruit' : 'introduce'
 }
 
+/**
+ * A profile type as it reads mid-sentence. The form stores display labels, so
+ * a plain toLowerCase turns "GTM (sales and marketing)" into "gtm (sales and
+ * marketing)": the acronym is broken and the gloss belongs on the form, not in
+ * a sentence. Acronyms keep their case, everything else drops its first
+ * capital only, so "Founders / C-level" keeps the C.
+ */
+function profileLabel(raw: string): string {
+  const label = raw.replace(' (sales and marketing)', '').trim()
+  if (!label) return ''
+  if (label === label.toUpperCase()) return label
+  return label.charAt(0).toLowerCase() + label.slice(1)
+}
+
 /** One true thing from the form, in Lily's words. */
 export function verifiedDetail(a: ScoutApplication): string {
   const samples = (a.sample_candidate_urls ?? []).filter(Boolean).length
   const city = (a.cities_us ?? [])[0] ?? (a.cities_europe ?? [])[0] ?? (a.cities_row ?? [])[0]
-  const fn = (a.profile_types ?? [])[0]
+  const fn = profileLabel((a.profile_types ?? [])[0] ?? '')
   if (samples > 0) return `the ${samples === 1 ? 'person' : `${samples} people`} you mentioned`
-  if (fn && city) return `telling me about your ${fn.toLowerCase()} network in ${city}`
+  if (fn && city) return `telling me about your ${fn} network in ${city}`
   if (city) return `telling me about your network in ${city}`
   return 'telling me about the people you know'
 }
 
 function specialty(a: ScoutApplication): string {
-  const fns = (a.profile_types ?? []).slice(0, 2).map(p => p.toLowerCase().replace(' (sales and marketing)', '')).join(' and ')
+  const fns = (a.profile_types ?? []).slice(0, 2).map(profileLabel).filter(Boolean).join(' and ')
   const city = (a.cities_us ?? []).slice(0, 2).join(' and ')
   return [fns, city ? `in ${city}` : ''].filter(Boolean).join(' ') || 'for startups'
 }
