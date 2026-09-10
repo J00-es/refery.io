@@ -119,6 +119,22 @@ export function forbiddenTerms(input: { companyName: string | null; aliases?: (s
   return [...out].sort((a, b) => b.length - a.length)
 }
 
+/**
+ * Names the posting itself uses for the company: "About Arcanum Labs",
+ * "Arcanum Labs works on…", "(Arx Labs)". The row's company name is often
+ * the short form, and the posting opens with the long one.
+ */
+export function aliasesFromJd(text: string): string[] {
+  const head = text.slice(0, 1_500)
+  const out = new Set<string>()
+  const name = '([A-Z][\\w&.-]*(?:\\s+[A-Z][\\w&.-]*){0,3})'
+  for (const re of [new RegExp(`^\\s*About\\s+${name}`, 'm'), new RegExp(`^\\s*${name}\\s+(?:is|was|works|builds|helps|makes|creates|develops|partners)\\b`, 'm'), new RegExp(`\\(${name}\\)`)]) {
+    const m = head.match(re)
+    if (m?.[1] && m[1].length >= 3 && !/^(The|We|Our|About|This|You|Your)$/.test(m[1])) out.add(m[1].trim())
+  }
+  return [...out]
+}
+
 function escapeRe(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -205,7 +221,8 @@ async function modelDraft(input: { headline: string; original: string; requireme
         {
           model,
           output: Output.object({ schema: DraftSchema }),
-          maxOutputTokens: 3_000,
+          // Reasoning models spend output tokens thinking; 3k starved them into "No output generated".
+          maxOutputTokens: 10_000,
           maxRetries: 0,
           abortSignal: AbortSignal.timeout(120_000),
           messages: [
@@ -307,7 +324,7 @@ export async function draftCandidatePage(admin: SupabaseClient, jobId: string, o
   if (!src) return null
   const { role, client, company, people, job } = src
   const original = await ensureOriginalJd(admin, job)
-  const forbidden = forbiddenTerms({ companyName: company.name, aliases: [role.company_name, job.internal_deal_type ? null : null], website: company.website, people: [...people, role.hiring_manager_name] })
+  const forbidden = forbiddenTerms({ companyName: company.name, aliases: [role.company_name, ...aliasesFromJd(original.text)], website: company.website, people: [...people, role.hiring_manager_name] })
   const headline = (role.headline || role.title).trim()
   const requirements = (role.hard_requirements?.length ? role.hard_requirements : role.requirements ?? []).filter(Boolean)
   const intakeNotes = role.intake_notes ?? []
@@ -353,7 +370,9 @@ export async function draftCandidatePage(admin: SupabaseClient, jobId: string, o
   }
 
   const now = new Date().toISOString()
-  const publish = opts.publish !== false
+  // A rule-only draft is not safe to show: the posting's own name for the
+  // company can survive it. It stays a draft until Lily has read it.
+  const publish = opts.publish !== false && !flags.fallback
   const row = {
     job_id: jobId,
     headline,
@@ -386,7 +405,11 @@ export async function draftCandidatePage(admin: SupabaseClient, jobId: string, o
       .select('*')
       .single()
     if (!error && data) {
-      await postToFeed(`:page_with_curl: Candidate page live for *${esc(headline)}* (${esc(company.name)}): ${candidatePageUrl(slug)}${flags.fallback ? ` · rule pass only (${esc(flags.fallback)})` : ''}. Review it from the role page; edits go live at once.`)
+      await postToFeed(
+        publish
+          ? `:page_with_curl: Candidate page live for *${esc(headline)}* (${esc(company.name)}): ${candidatePageUrl(slug)}. Review it from the role page; edits go live at once.`
+          : `:page_with_curl: Candidate page drafted for *${esc(headline)}* (${esc(company.name)}) but NOT live: the model did not answer (${esc(flags.fallback ?? 'unknown')}), so it is a rule pass only. Read it on the role page, edit, then publish.`,
+      )
       return { page: data as CandidatePageRow, created: true }
     }
     if (error?.code !== '23505') throw new Error(`candidate page: ${error?.message}`)
