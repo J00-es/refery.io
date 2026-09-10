@@ -47,8 +47,34 @@ interface AgreementData {
   agreement_hash?: string
   fee_percentage: number
   fee_percent_display: string
+  /** Plans on offer when the link lets the signer pick; null when the fee is fixed. */
+  fee_options: number[] | null
+  /** The document rendered at each option, keyed by the percentage as a string. */
+  fee_contents: Record<string, string> | null
   status: string
   expires_at: string | null
+}
+
+/**
+ * The three plans, in the words the brief uses. The percentage is the key, so a
+ * link offering a subset (or a negotiated number) still renders something sane.
+ */
+const PLANS: Record<string, { name: string; line: string; more: string }> = {
+  '10': {
+    name: 'Introductions',
+    line: 'Scouts refer people they know. Junior or lighter searches.',
+    more: 'Passive. Your search goes to our scouts, founders and operators in the market, who refer people they already know. Works well for junior seats and lighter searches. No one is assigned to the seat.',
+  },
+  '15': {
+    name: 'Search',
+    line: 'A dedicated talent strategist reaches out to the best people directly.',
+    more: 'Active. A talent strategist is assigned to each seat and reaches out directly to a targeted pool. In a market where the best people are not applying anywhere, this is how they get hired.',
+  },
+  '20': {
+    name: 'Leadership',
+    line: 'Head, VP, C-level, Staff. A mapped market, a senior partner.',
+    more: 'Head, Director, VP, C-level, and Staff or Principal engineers. A mapped market, references in the loop, a senior partner on the search.',
+  },
 }
 
 /* ----------------------------------------------------------------------------
@@ -67,6 +93,8 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
   const [signerEmail, setSignerEmail] = useState('')
   const [authorized, setAuthorized] = useState(false)
   const [readAgreement, setReadAgreement] = useState(false)
+  // The plan picked on the page. Starts on the link's recommended fee.
+  const [fee, setFee] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -90,6 +118,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
         }
 
         setAgreement(data)
+        setFee(Number(data.fee_percentage))
         setSignerName(data.recipient_name || '')
         setSignerEmail(data.recipient_email || '')
       } catch {
@@ -119,6 +148,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           signer_title: signerTitle,
           signer_email: signerEmail,
           accepted: true,
+          fee_percent: fee,
         }),
       })
       const data = await response.json()
@@ -150,6 +180,13 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
   if (error && !agreement) return <ShellError message={error} />
   if (!agreement) return null
 
+  const feeOptions = agreement.fee_options
+  const chosenFee = fee ?? Number(agreement.fee_percentage)
+  const content =
+    feeOptions && agreement.fee_contents?.[String(chosenFee)]
+      ? agreement.fee_contents[String(chosenFee)]
+      : agreement.agreement_content
+
   return (
     <PageShell>
       <BrandStyles />
@@ -165,7 +202,16 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
 
         <RecipientCard agreement={agreement} />
 
-        <DocumentCard content={agreement.agreement_content} />
+        {feeOptions && (
+          <PlanPicker
+            options={feeOptions}
+            recommended={Number(agreement.fee_percentage)}
+            value={chosenFee}
+            onChange={setFee}
+          />
+        )}
+
+        <DocumentCard content={content} />
 
         <div id="refery-sign-card">
         <SignCard
@@ -177,6 +223,7 @@ export function ClientAgreementSigningClient({ token }: { token: string }) {
           readAgreement={readAgreement}
           signing={signing}
           canSign={canSign}
+          feeLabel={feeOptions ? `${chosenFee}% plan` : null}
           error={error}
           onSignerNameChange={setSignerName}
           onSignerTitleChange={setSignerTitle}
@@ -332,7 +379,12 @@ function BrandStyles() {
         box-shadow: 0 0 0 3px rgba(31,58,47,0.18);
       }
       .refery-jumpbar { display: none; }
+      .refery-plan-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+      .refery-plan { transition: border-color 0.15s ease, box-shadow 0.15s ease; }
+      .refery-plan:hover { border-color: rgba(22,22,19,0.24) !important; }
+      .refery-plan:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(31,58,47,0.18) !important; }
       @media (max-width: 640px) {
+        .refery-plan-grid { grid-template-columns: 1fr; }
         .refery-main { padding: 28px 16px 92px !important; }
         .refery-card { padding: 18px !important; }
         .refery-doc-pad { padding: 24px 18px !important; }
@@ -562,6 +614,170 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
   )
 }
 
+/**
+ * Three plans, one tap, the recommended one already chosen. The decision is
+ * meant to take two seconds; the explanation sits behind a fold for anyone who
+ * wants it.
+ */
+function PlanPicker({
+  options,
+  recommended,
+  value,
+  onChange,
+}: {
+  options: number[]
+  recommended: number
+  value: number
+  onChange: (fee: number) => void
+}) {
+  return (
+    <section
+      className="refery-card"
+      style={{
+        background: C.card,
+        border: `1px solid ${C.border}`,
+        borderRadius: 10,
+        padding: '22px 26px',
+        marginBottom: 20,
+      }}
+      aria-label="Pick a plan"
+    >
+      <h2
+        style={{
+          fontFamily: SERIF,
+          fontWeight: 600,
+          fontSize: 20,
+          lineHeight: 1.2,
+          letterSpacing: '-0.02em',
+          color: C.ink,
+          margin: '0 0 16px 0',
+        }}
+      >
+        Pick a plan
+      </h2>
+
+      <div className="refery-plan-grid" role="radiogroup" aria-label="Fee plan">
+        {options.map((opt) => {
+          const key = String(opt)
+          const plan = PLANS[key] ?? { name: `${opt}% fee`, line: 'Of first-year base salary, per hire.', more: '' }
+          const active = value === opt
+          const rec = opt === recommended
+          return (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange(opt)}
+              className="refery-plan"
+              style={{
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                textAlign: 'left',
+                borderRadius: 12,
+                border: `1px solid ${active ? C.green : C.border}`,
+                boxShadow: active ? `0 0 0 1px ${C.green}` : 'none',
+                background: active ? '#fff' : C.bg,
+                padding: '14px 16px',
+                minHeight: 64,
+                cursor: 'pointer',
+                fontFamily: SANS,
+                color: C.ink,
+              }}
+            >
+              {rec && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: -9,
+                    left: 14,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: C.green,
+                    background: C.greenBg,
+                    border: `1px solid ${C.greenBorder}`,
+                    borderRadius: 99,
+                    padding: '3px 8px',
+                    lineHeight: 1,
+                  }}
+                >
+                  Recommended
+                </span>
+              )}
+              <span
+                style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1,
+                  width: 52,
+                  flexShrink: 0,
+                  fontVariantNumeric: 'tabular-nums',
+                }}
+              >
+                {opt}%
+              </span>
+              <span style={{ minWidth: 0, flex: 1 }}>
+                <span style={{ display: 'block', fontSize: 15, fontWeight: 600, lineHeight: 1.2 }}>{plan.name}</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: C.ink2, lineHeight: 1.35, marginTop: 2 }}>{plan.line}</span>
+              </span>
+              <span
+                aria-hidden
+                style={{
+                  width: 18,
+                  height: 18,
+                  flexShrink: 0,
+                  borderRadius: 99,
+                  border: `1px solid ${active ? C.green : C.ink4}`,
+                  background: active ? C.green : '#fff',
+                  boxShadow: active ? 'inset 0 0 0 3px #fff' : 'none',
+                }}
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      <details style={{ marginTop: 12 }}>
+        <summary
+          style={{
+            cursor: 'pointer',
+            listStyle: 'none',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 8,
+            minHeight: 40,
+            fontSize: 13.5,
+            fontWeight: 600,
+            color: C.green,
+          }}
+        >
+          What&rsquo;s the difference?
+        </summary>
+        <div style={{ display: 'grid', gap: 10, padding: '4px 0 2px', fontSize: 13.5, lineHeight: 1.55, color: C.ink2 }}>
+          {options.map((opt) => {
+            const plan = PLANS[String(opt)]
+            if (!plan) return null
+            return (
+              <p key={opt} style={{ margin: 0 }}>
+                <strong style={{ color: C.ink, fontWeight: 600 }}>
+                  {opt}% {plan.name}.
+                </strong>{' '}
+                {plan.more}
+              </p>
+            )
+          })}
+          <p style={{ margin: 0, color: C.ink3 }}>
+            The plan applies to every search under this agreement. Want a leadership seat added later? One line to Lily and it is agreed in writing before it starts.
+          </p>
+        </div>
+      </details>
+    </section>
+  )
+}
+
 function DocumentCard({ content }: { content: string }) {
   return (
     <div
@@ -590,6 +806,8 @@ function SignCard(props: {
   readAgreement: boolean
   signing: boolean
   canSign: boolean
+  /** "15% plan" when the signer picked one, so the button says what it accepts. */
+  feeLabel: string | null
   error: string | null
   onSignerNameChange: (v: string) => void
   onSignerTitleChange: (v: string) => void
@@ -764,6 +982,8 @@ function SignCard(props: {
             <Spinner size={16} />
             Signing…
           </>
+        ) : props.feeLabel ? (
+          <>Accept Agreement · {props.feeLabel} &rarr;</>
         ) : (
           <>Accept Agreement &rarr;</>
         )}

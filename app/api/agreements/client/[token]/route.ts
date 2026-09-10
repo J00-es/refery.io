@@ -36,6 +36,13 @@ function slugify(name: string): string {
   )
 }
 
+/** The fee plans a link offers, or null when the fee is fixed. */
+function feeOptionsOf(link: { fee_options?: unknown }): number[] | null {
+  if (!Array.isArray(link.fee_options)) return null
+  const opts = link.fee_options.map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= 50)
+  return opts.length >= 2 ? opts : null
+}
+
 function getIp(request: NextRequest): string | null {
   const fwd = request.headers.get('x-forwarded-for')
   if (fwd) return fwd.split(',')[0].trim()
@@ -147,6 +154,16 @@ export async function GET(
     const feePercent = Number(link.fee_percentage)
     const { content, version, hash } = await refreshIfStale(adminClient, link, feePercent)
 
+    // A link issued with fee_options lets the signer pick the plan on the page.
+    // Every option is rendered here so the document under the picker changes
+    // the instant they tap, without another round trip.
+    const feeOptions = feeOptionsOf(link)
+    const timing = clientPaymentTimingForVersion(version)
+    const feeContents =
+      feeOptions && timing
+        ? Object.fromEntries(feeOptions.map(f => [String(f), generateClientAgreementText(link.company_name, { feePercent: f, paymentTiming: timing })]))
+        : null
+
     const ip = getIp(request)
     const userAgent = request.headers.get('user-agent')
     const geo = getRequestContext(request)
@@ -215,6 +232,8 @@ export async function GET(
       agreement_hash: hash,
       fee_percentage: feePercent,
       fee_percent_display: formatFeePercent(feePercent),
+      fee_options: feeOptions,
+      fee_contents: feeContents,
       status: link.status === 'sent' ? 'viewed' : link.status,
       expires_at: link.expires_at,
     })
@@ -271,8 +290,32 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid signer_email' }, { status: 400 })
     }
 
+    // A link with fee_options is signed at the plan the signer picked. The
+    // choice is written onto the link before the document is rendered, so the
+    // stored content, the hash, the PDF and the signature row all carry it.
+    let feePercent = Number(link.fee_percentage)
+    const feeOptions = feeOptionsOf(link)
+    if (feeOptions) {
+      const chosen = Number(body?.fee_percent)
+      if (!feeOptions.includes(chosen)) {
+        return NextResponse.json({ error: 'Pick one of the fee plans on offer' }, { status: 400 })
+      }
+      if (chosen !== feePercent) {
+        const { error: feeErr } = await adminClient
+          .from('client_agreement_links')
+          .update({ fee_percentage: chosen, fee_chosen_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+          .eq('id', link.id)
+        if (feeErr) {
+          console.error('[agreements/client POST] fee choice failed:', feeErr)
+          return NextResponse.json({ error: 'Could not record the plan you picked' }, { status: 500 })
+        }
+        feePercent = chosen
+      } else {
+        await adminClient.from('client_agreement_links').update({ fee_chosen_at: new Date().toISOString() }).eq('id', link.id)
+      }
+    }
+
     // Re-check on POST, by the same rule as GET.
-    const feePercent = Number(link.fee_percentage)
     const {
       content: storedContent,
       version: storedVersion,
@@ -359,6 +402,8 @@ export async function POST(
             signer_email: signerEmail,
             signer_title: signerTitle,
             version: storedVersion,
+            fee_percent: feePercent,
+            fee_options: feeOptions,
           },
         })
 
@@ -371,7 +416,12 @@ export async function POST(
             fields: [
               { label: 'Signer', value: `${signerName}${signerTitle ? `, ${signerTitle}` : ''}` },
               { label: 'Email', value: signerEmail },
-              { label: 'Terms', value: `v${storedVersion} · ${formatFeePercent(feePercent)}% fee` },
+              {
+                label: 'Terms',
+                value: feeOptions
+                  ? `v${storedVersion} · ${formatFeePercent(feePercent)}% fee, picked from ${feeOptions.map(f => `${formatFeePercent(f)}%`).join(' / ')}`
+                  : `v${storedVersion} · ${formatFeePercent(feePercent)}% fee`,
+              },
               { label: 'Location', value: geo.location || 'Unknown' },
             ],
             links: [{ label: 'Open company', url: `${origin}/companies/${link.company_id}` }],

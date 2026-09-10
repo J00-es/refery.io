@@ -22,6 +22,8 @@ export async function issueClientAgreementLink(
     companyId: string
     companyName: string
     feePercent?: number
+    /** Fee plans the signer may pick from on the sign page; feePercent is then the recommended default. */
+    feeOptions?: number[]
     paymentTiming?: ClientPaymentTiming
     recipientName?: string | null
     recipientEmail?: string | null
@@ -48,6 +50,7 @@ export async function issueClientAgreementLink(
       agreement_hash: hash,
       agreement_content: content,
       fee_percentage: feePercent,
+      fee_options: input.feeOptions && input.feeOptions.length >= 2 ? input.feeOptions : null,
       payment_window_days: timing === 'day90' ? 14 : timing === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,
       guarantee_days: DEFAULT_CLIENT_TERMS.guaranteeDays,
@@ -65,7 +68,7 @@ export async function issueClientAgreementLink(
     link_id: data.id,
     company_id: input.companyId,
     event_type: 'created',
-    metadata: { version: clientAgreementVersion(timing), fee_percent: feePercent, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
+    metadata: { version: clientAgreementVersion(timing), fee_percent: feePercent, fee_options: input.feeOptions ?? null, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
   })
 
   return { id: data.id as string, url: `${APP_URL}/sign/client-agreement/${data.token}`, expiresAt: data.expires_at as string, version: clientAgreementVersion(timing) }
