@@ -325,7 +325,13 @@ export async function draftCandidatePage(admin: SupabaseClient, jobId: string, o
   const { role, client, company, people, job } = src
   const original = await ensureOriginalJd(admin, job)
   const forbidden = forbiddenTerms({ companyName: company.name, aliases: [role.company_name, ...aliasesFromJd(original.text)], website: company.website, people: [...people, role.hiring_manager_name] })
-  const headline = (role.headline || role.title).trim()
+  // The desk headline can carry the company's own product name ("Product
+  // Manager, Livo Pool"); it is stripped rather than replaced, and tidied.
+  const headline = scrub((role.headline || role.title).trim(), forbidden, '')
+    .text.replace(/\s*,\s*,/g, ',')
+    .replace(/[\s,·]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
   const requirements = (role.hard_requirements?.length ? role.hard_requirements : role.requirements ?? []).filter(Boolean)
   const intakeNotes = role.intake_notes ?? []
   const steps = Array.isArray(role.interview_steps) ? role.interview_steps : []
