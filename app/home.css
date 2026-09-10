@@ -347,30 +347,30 @@ html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
 .lp .form .pills{display:flex;gap:6px;flex-wrap:wrap}
 .lp .form .pills span{border:1px solid var(--hair-2);border-radius:999px;padding:5px 11px;font-size:12.5px;background:var(--paper-2)}
 .lp .form .pills span.on{background:var(--forest);border-color:var(--forest);color:#fff}
-.lp .slack{background:#1A1D21;color:#D1D2D3;border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.5;max-width:620px;margin:0 auto;font-family:var(--sans);box-shadow:0 30px 60px -30px rgba(0,0,0,.5)}
-.lp .slack .ch{font-size:12px;color:#ABABAD;border-bottom:1px solid #2C2F33;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between}
-.lp .slack .ch b{color:#fff;font-weight:700}
+.lp .slack{background:#FFFFFF;color:#1D1C1D;border:1px solid #DDDDDD;border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.5;max-width:620px;margin:0 auto;font-family:var(--sans);box-shadow:0 30px 60px -30px rgba(0,0,0,.5)}
+.lp .slack .ch{font-size:12px;color:#616061;border-bottom:1px solid #E8E8E8;padding-bottom:10px;margin-bottom:12px;display:flex;justify-content:space-between}
+.lp .slack .ch b{color:#1D1C1D;font-weight:700}
 .lp .slack .msg{display:grid;grid-template-columns:36px 1fr;gap:10px}
 .lp .slack .bot{width:36px;height:36px;border-radius:8px;background:#1F3A2F;color:#fff;display:grid;place-items:center;font-weight:700;font-size:13px}
-.lp .slack .who{font-weight:700;color:#fff;font-size:14px}
-.lp .slack .who span{font-weight:400;color:#ABABAD;font-size:12px;margin-left:6px}
-.lp .slack .who i{font-style:normal;font-size:10px;background:#3A3D42;color:#D1D2D3;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:1px}
+.lp .slack .who{font-weight:700;color:#1D1C1D;font-size:14px}
+.lp .slack .who span{font-weight:400;color:#616061;font-size:12px;margin-left:6px}
+.lp .slack .who i{font-style:normal;font-size:10px;background:#E8E8E8;color:#616061;padding:1px 5px;border-radius:3px;margin-left:6px;vertical-align:1px}
 .lp .slack .ln{margin-top:6px}
-.lp .slack .ln b{color:#fff;font-weight:600}
-.lp .slack .ln .ctx{color:#ABABAD;font-size:12.5px}
-.lp .slack .q{border-left:3px solid #4A4D52;padding-left:10px;color:#ABABAD;margin-top:6px;font-size:13px}
+.lp .slack .ln b{color:#1D1C1D;font-weight:600}
+.lp .slack .ln .ctx{color:#616061;font-size:12.5px}
+.lp .slack .q{border-left:3px solid #DDDDDD;padding-left:10px;color:#616061;margin-top:6px;font-size:13px}
 .lp .slack .live{margin-top:8px;display:grid;gap:3px;font-size:13px}
 .lp .slack .live .g:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#2EB67D;margin-right:8px;vertical-align:0}
 .lp .slack .live .y:before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#ECB22E;margin-right:8px;vertical-align:0}
-.lp .slack .legend{font-size:12px;color:#ABABAD;margin-top:10px;border-top:1px solid #2C2F33;padding-top:8px}
+.lp .slack .legend{font-size:12px;color:#616061;margin-top:10px;border-top:1px solid #E8E8E8;padding-top:8px}
 .lp .slack .rx{display:flex;gap:6px;margin-top:10px}
-.lp .slack .rx span{background:#2C2F33;border:1px solid #3A3D42;border-radius:999px;padding:2px 8px;font-size:12px;color:#D1D2D3;transition:background .3s,border-color .3s}
-.lp .slack .rx span.hit{background:#1F3A2F;border-color:#2EB67D;color:#fff}
-.lp .slack .rx span.hit b{color:#fff}
-.lp .slack .rx b{color:#ABABAD;font-weight:600;margin-left:4px}
-.lp .slack .thread{margin-top:10px;padding-left:12px;border-left:2px solid #2C2F33;font-size:12.5px;color:#ABABAD;opacity:0;transform:translateY(4px);transition:opacity .4s,transform .4s}
+.lp .slack .rx span{background:#F8F8F8;border:1px solid #E8E8E8;border-radius:999px;padding:2px 8px;font-size:12px;color:#1D1C1D;transition:background .3s,border-color .3s}
+.lp .slack .rx span.hit{background:#E8F5FA;border-color:#1264A3;color:#1264A3}
+.lp .slack .rx span.hit b{color:#1264A3}
+.lp .slack .rx b{color:#616061;font-weight:600;margin-left:4px}
+.lp .slack .thread{margin-top:10px;padding-left:12px;border-left:2px solid #E8E8E8;font-size:12.5px;color:#616061;opacity:0;transform:translateY(4px);transition:opacity .4s,transform .4s}
 .lp .slack .thread.in{opacity:1;transform:none}
-.lp .slack .thread b{color:#fff;font-weight:600}
+.lp .slack .thread b{color:#1D1C1D;font-weight:600}
 .lp .hire{max-width:560px;margin:0 auto;display:grid;gap:14px}
 .lp .track{color:var(--ink);display:grid;gap:8px;background:var(--paper-2);border:1px solid var(--hair);border-radius:16px;padding:18px 20px}
 .lp .track .tt{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600}
