@@ -5,7 +5,7 @@ import { faqItems } from './home-faq'
 export const metadata: Metadata = {
   title: 'Refery — Earn From the People You Already Know',
   description:
-    'Refery is where scouts and independent recruiters introduce people they would vouch for. We bring the clients, the contracts and the guarantee. You bring the person, and keep 70% of the fee.',
+    'Refery is where scouts, recruiters and recruiting agencies introduce people they would vouch for. We bring the clients, the contracts and the guarantee. You bring the person, and keep 70% of the fee.',
 }
 
 const faqSchema = {

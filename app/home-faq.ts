@@ -16,7 +16,7 @@ export const faqItems = [
   },
   {
     q: 'Do I need to be a recruiter?',
-    a: 'No. Most of our scouts have never recruited. If you know people worth backing and are willing to put your name to them, that is the job. Independent recruiters get a second track, with live searches at companies we are already retained by.',
+    a: 'No. Most of our scouts have never recruited. If you know people worth backing and are willing to put your name to them, that is the job. Recruiters and agencies get a second track, with live searches at companies we are already retained by.',
   },
   {
     q: 'What if I only ever refer one person?',
