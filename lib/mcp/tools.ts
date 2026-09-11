@@ -685,7 +685,7 @@ const draftEmail: Tool<{ candidate_id: string; kind: (typeof DRAFT_KINDS)[number
   name: 'draft_email',
   kind: 'read',
   description:
-    'The email a decision would send, as text, without sending it: the intro ask (intro_now), the bench note (bench), the passing note (not_fit), each addressed to whoever the desk would write to, or the intro kit (intro_kit) a partner forwards. Returns subject and body; the draft carries the person's full name because it is the email itself. Never sends; send_desk_email is a separate tool.',
+    'The email a decision would send, as text, without sending it: the intro ask (intro_now), the bench note (bench), the passing note (not_fit), each addressed to whoever the desk would write to, or the intro kit (intro_kit) a partner forwards. Returns subject and body; the draft carries the full name of the person because it is the email itself. Never sends; send_desk_email is a separate tool.',
   inputSchema: { type: 'object', properties: { candidate_id: UUID_SCHEMA, kind: { type: 'string', enum: [...DRAFT_KINDS] } }, required: ['candidate_id', 'kind'], additionalProperties: false },
   parse: z.object({ candidate_id: uuid, kind: z.enum(DRAFT_KINDS) }),
   async run({ admin }, args) {
