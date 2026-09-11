@@ -16,7 +16,10 @@ import { useCallback, useEffect, useState } from 'react'
 
 type Mode = 'hidden' | 'install-android' | 'install-ios' | 'notifications'
 
-const SNOOZE_KEY = 'refery.pwa.snoozed_at'
+/** Two separate snoozes: saying "Got it" to the install card must not
+ * silence the notifications ask that comes after the install. */
+const INSTALL_SNOOZE_KEY = 'refery.pwa.snoozed_at'
+const NOTIFY_SNOOZE_KEY = 'refery.push.snoozed_at'
 const SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
 
 interface BeforeInstallPromptEvent extends Event {
@@ -36,18 +39,18 @@ function isIOS(): boolean {
   return /iPhone|iPad|iPod/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
 }
 
-function snoozed(): boolean {
+function snoozed(key: string): boolean {
   try {
-    const at = Number(localStorage.getItem(SNOOZE_KEY) || 0)
+    const at = Number(localStorage.getItem(key) || 0)
     return at > 0 && Date.now() - at < SNOOZE_MS
   } catch {
     return false
   }
 }
 
-function snooze() {
+function snooze(key: string) {
   try {
-    localStorage.setItem(SNOOZE_KEY, String(Date.now()))
+    localStorage.setItem(key, String(Date.now()))
   } catch {
     /* private mode: the card simply comes back next visit */
   }
@@ -108,13 +111,13 @@ export function InstallPrompt() {
       if (!('Notification' in window) || !('PushManager' in window)) return
       if (Notification.permission === 'granted') {
         void syncSubscription()
-      } else if (Notification.permission === 'default' && !snoozed()) {
+      } else if (Notification.permission === 'default' && !snoozed(NOTIFY_SNOOZE_KEY)) {
         setMode('notifications')
       }
       return
     }
 
-    if (!isPhone() || snoozed()) return
+    if (!isPhone() || snoozed(INSTALL_SNOOZE_KEY)) return
     if (isIOS()) {
       setMode('install-ios')
       return
@@ -134,9 +137,9 @@ export function InstallPrompt() {
   }, [])
 
   const dismiss = useCallback(() => {
-    snooze()
+    snooze(mode === 'notifications' ? NOTIFY_SNOOZE_KEY : INSTALL_SNOOZE_KEY)
     setMode('hidden')
-  }, [])
+  }, [mode])
 
   const install = useCallback(async () => {
     if (!deferred) return dismiss()
@@ -144,7 +147,7 @@ export function InstallPrompt() {
     try {
       await deferred.prompt()
       const choice = await deferred.userChoice
-      if (choice.outcome !== 'accepted') snooze()
+      if (choice.outcome !== 'accepted') snooze(INSTALL_SNOOZE_KEY)
     } finally {
       setBusy(false)
       setDeferred(null)
@@ -157,7 +160,7 @@ export function InstallPrompt() {
     try {
       const permission = await Notification.requestPermission()
       if (permission === 'granted') await syncSubscription()
-      else snooze()
+      else snooze(NOTIFY_SNOOZE_KEY)
     } finally {
       setBusy(false)
       setMode('hidden')
