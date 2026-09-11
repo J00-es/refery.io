@@ -24,8 +24,7 @@ export const metadata: Metadata = {
     apple: '/icons/apple-touch-icon.png',
   },
   appleWebApp: { capable: true, title: 'Refery', statusBarStyle: 'default' },
-  other: { 'mobile-web-app-capable': 'yes' },
-}
+  }
 
 export const viewport: Viewport = {
   width: 'device-width',
