@@ -11,8 +11,15 @@ export const dynamic = 'force-dynamic'
 const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'never')
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : '–')
 
-export default async function MailboxesPage() {
+interface PageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+export default async function MailboxesPage({ searchParams }: PageProps) {
   await requireSourcingUser()
+  const sp = await searchParams
+  const google = (Array.isArray(sp.google) ? sp.google[0] : sp.google) ?? ''
+  const msg = (Array.isArray(sp.msg) ? sp.msg[0] : sp.msg) ?? ''
   const admin = createAdminClient()
   await ensureDeskMailbox(admin)
   const { health, forecast } = await loadCapacity(admin)
@@ -28,6 +35,9 @@ export default async function MailboxesPage() {
         <span>/</span>
         <span className="text-[#161613]">Mailboxes</span>
       </div>
+      {google && msg && (
+        <p className={`${CARD} px-5 py-3 text-[13.5px] ${google === 'connected' ? 'text-[#1F3A2F]' : 'text-[#9C3F37]'}`}>{msg}</p>
+      )}
       <header>
         <h1 className={H1}>Mailboxes</h1>
         <p className={`mt-2 max-w-2xl ${LEDE}`}>Real Google Workspace mailboxes, sending through Gmail itself. Every message sits in that person&apos;s Sent folder and every reply in their inbox. A mailbox whose reply sync fails or goes stale stops sending on its own.</p>
@@ -80,10 +90,20 @@ export default async function MailboxesPage() {
       <section className="grid gap-5 lg:grid-cols-2">
         <div className={`${CARD} p-5`}>
           <h2 className={H2}>Add a mailbox</h2>
-          <p className={`mt-1.5 mb-4 ${META}`}>
-            {saConfigured ? 'Domain-wide delegation is configured; any address in a delegated Workspace works at once.' : 'GOOGLE_SERVICE_ACCOUNT_JSON is not set, so delegation cannot mint tokens yet. Until it is, a mailbox needs a refresh token from the Google connect flow.'}
-          </p>
-          <AddMailboxForm />
+          <p className={`mt-1.5 ${LEDE}`}>The easy way: sign in with Google as the mailbox. Google asks once for permission to send and to read replies, the token is kept on the mailbox row, and the address appears above ready to test.</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <a href="/api/admin/google/connect?mailbox=1" className="inline-flex min-h-[44px] items-center justify-center rounded-full bg-[#1F3A2F] px-5 text-[14px] font-semibold text-white hover:bg-[#142E24]">
+              Connect a Google mailbox
+            </a>
+            <span className={META}>Pick the account on Google&apos;s screen; to add Kim&apos;s, do it in a window signed in to Google as Kim.</span>
+          </div>
+          <details className="mt-5">
+            <summary className="cursor-pointer text-[13px] font-semibold text-[#1F3A2F]">Or add one by hand (delegation or a pasted token)</summary>
+            <p className={`mt-2 mb-4 ${META}`}>
+              {saConfigured ? 'Domain-wide delegation is configured; any address in a delegated Workspace works at once.' : 'GOOGLE_SERVICE_ACCOUNT_JSON is not set, so delegation cannot mint tokens yet.'}
+            </p>
+            <AddMailboxForm />
+          </details>
         </div>
         <div className="space-y-5">
           <div className={`${CARD} p-5`}>

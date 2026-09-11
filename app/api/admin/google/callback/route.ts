@@ -51,6 +51,40 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
   const now = new Date().toISOString()
+
+  // A sourcing mailbox: the token lives on its own row, and the desk's own
+  // token in desk_settings is left alone.
+  if (request.cookies.get('refery_google_mailbox')?.value === '1') {
+    const toMailboxes = (msg: string, ok: boolean) => NextResponse.redirect(`${request.nextUrl.origin}/sourcing/mailboxes?google=${ok ? 'connected' : 'error'}&msg=${encodeURIComponent(msg)}`)
+    if (email === 'unknown') return toMailboxes('Google did not say which mailbox this is; nothing was saved.', false)
+    const address = email.toLowerCase()
+    const { data: existing } = await admin.from('sourcing_mailboxes').select('id').eq('address', address).maybeSingle()
+    const credential = { kind: 'refresh_token', refresh_token: token.refresh_token }
+    if (existing) await admin.from('sourcing_mailboxes').update({ credential, status: 'active', last_error: null }).eq('id', existing.id)
+    else {
+      const local = address.split('@')[0]
+      const first = local.split(/[._-]/)[0]
+      const signsAs = first.charAt(0).toUpperCase() + first.slice(1)
+      await admin.from('sourcing_mailboxes').insert({
+        address,
+        display_name: signsAs,
+        signs_as: signsAs,
+        owner_email: appUser.email,
+        credential,
+        daily_cap: 10,
+        cap_ceiling: 50,
+        ramp_step: 5,
+        ramp_started_at: now,
+        reserved_other: 0,
+        status: 'active',
+      })
+    }
+    const res = toMailboxes(`Connected ${address}. Check the display name and who it signs as, then press Test.`, true)
+    res.cookies.delete('refery_google_state')
+    res.cookies.delete('refery_google_mailbox')
+    return res
+  }
+
   await admin.from('desk_settings').upsert(
     [
       { key: 'google_refresh_token', value: token.refresh_token, updated_at: now },

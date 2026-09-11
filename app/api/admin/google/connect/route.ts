@@ -31,9 +31,13 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('prompt', 'consent')
   url.searchParams.set('include_granted_scopes', 'true')
   url.searchParams.set('state', state)
-  url.searchParams.set('login_hint', 'lily@refery.io')
+  // ?mailbox=1 connects a sending mailbox for the sourcing desk (any account
+  // the person picks on Google's screen) instead of the desk's own token.
+  const forMailbox = request.nextUrl.searchParams.get('mailbox') === '1'
+  if (!forMailbox) url.searchParams.set('login_hint', 'lily@refery.io')
 
   const res = NextResponse.redirect(url)
   res.cookies.set('refery_google_state', state, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
+  res.cookies.set('refery_google_mailbox', forMailbox ? '1' : '', { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 600, path: '/' })
   return res
 }
