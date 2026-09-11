@@ -35,6 +35,7 @@ import type { PanelGrade } from '@/lib/journey'
 import { referralFor } from '@/lib/referrals'
 import { markRepliesRead, MOMENTS, type Moment } from '@/lib/messages'
 import { MessageComposer } from '@/components/candidates/message-composer'
+import { properName } from '@/lib/desk/people'
 import { ReferralBanner, type ReferralView } from '@/components/candidates/referral-banner'
 
 interface PageProps {
@@ -170,6 +171,8 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
   if (isOwnerViewer || isSuperAdmin) await markRepliesRead(adminClient, id)
 
   const typedCandidate = candidate as Candidate
+  // "MUHAMMAD" reads as shouting; CVs arrive in caps more often than not.
+  const candidateFirst = properName(typedCandidate.name).split(/\s+/)[0]
   const parsedData = typedCandidate.parsed_data as ParsedResumeData | null
 
   // Profiles parsed before the extractor learned to read bullet points,
@@ -278,7 +281,7 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
           {canWrite && (
             <MessageComposer
               candidateId={id}
-              first={typedCandidate.name.split(/\s+/)[0]}
+              first={candidateFirst}
               hasEmail
               initialMoment={writeMoment}
               autoOpen={Boolean(writeMoment)}
@@ -314,19 +317,19 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
       {added === '1' && canWrite && !isSuperAdmin && (
         <section className={`${CARD} flex flex-wrap items-center justify-between gap-3 p-4`}>
           <div>
-            <p className="text-[14px] font-semibold text-[#161613]">{typedCandidate.name.split(/\s+/)[0]} is in. The panel reads the CV now.</p>
+            <p className="text-[14px] font-semibold text-[#161613]">{candidateFirst} is in. The panel reads the CV now.</p>
             <p className="mt-0.5 text-[12.5px] text-[#6E6E68]">
               {candidate.consent_told_candidate ? 'A short note in your words tells them what happens next.' : 'Have you told them? A short note in your words does it, and names no company.'}
             </p>
           </div>
-          <MessageComposer candidateId={id} first={typedCandidate.name.split(/\s+/)[0]} hasEmail initialMoment="received" trigger="primary" label={`Let ${typedCandidate.name.split(/\s+/)[0]} know`} />
+          <MessageComposer candidateId={id} first={candidateFirst} hasEmail initialMoment="received" trigger="primary" label={`Let ${candidateFirst} know`} />
         </section>
       )}
 
       {referral && referral.status !== 'duplicate' && (referral.referrer_user_id === appUser.id || isSuperAdmin) && (
         <ReferralBanner
           referral={referral as unknown as ReferralView}
-          candidateFirst={typedCandidate.name.split(/\s+/)[0]}
+          candidateFirst={candidateFirst}
           referrerFirst={referrerFirst}
           viewerIsReferrer={referral.referrer_user_id === appUser.id}
           viewerIsSuperAdmin={isSuperAdmin}
