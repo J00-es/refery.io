@@ -50,6 +50,7 @@ import '@/lib/backlog/scouts'
 import '@/lib/backlog/leads'
 import '@/lib/agreement-chase'
 import '@/lib/founder-outbound'
+import '@/lib/sourcing/sequence'
 
 export const dynamic = 'force-dynamic'
 // The email send happens after the 200, but Vercel still bounds the function.

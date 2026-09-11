@@ -17,7 +17,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { addReaction, esc, postMessage, postThreadReply, updateMessage, type SlackBlock } from '@/lib/slack-bot'
 import { cancelQueued } from '@/lib/comms'
 
-export type BatchKind = 'scout_backlog' | 'lead_backlog' | 'agreement_chase' | 'founder_outreach'
+export type BatchKind = 'scout_backlog' | 'lead_backlog' | 'agreement_chase' | 'founder_outreach' | 'sourcing_outreach'
 
 export interface BatchItem {
   /** 1-based line number on the card. */

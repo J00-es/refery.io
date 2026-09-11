@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass, FileSignature, BookOpen } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass, FileSignature, BookOpen, Target } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,6 +75,8 @@ const superAdminNavItems: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: Home, superAdminOnly: true },
   { href: '/jobs', label: 'Jobs', icon: Briefcase, superAdminOnly: true },
   { href: '/companies', label: 'Companies', icon: Building2, superAdminOnly: true },
+  // The sourcing desk: super admin only while it is being proven on three searches.
+  { href: '/sourcing', label: 'Sourcing', icon: Target, superAdminOnly: true },
 ]
 
 /**

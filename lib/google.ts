@@ -80,7 +80,19 @@ async function gmail<T>(
   path: string,
   init?: RequestInit,
 ): Promise<{ data?: T; error?: string }> {
-  const token = await accessToken()
+  return gmailAs<T>(await accessToken(), path, init)
+}
+
+/**
+ * The same request as any mailbox. The sourcing desk sends from several
+ * Workspace addresses (lib/sourcing/mailboxes.ts mints their tokens); every
+ * function below that ends in `As` takes that token instead of the desk's one.
+ */
+export async function gmailAs<T>(
+  token: string | null,
+  path: string,
+  init?: RequestInit,
+): Promise<{ data?: T; error?: string }> {
   if (!token) return { error: 'no Google credentials' }
 
   try {
@@ -299,6 +311,12 @@ export interface SendInput {
   html?: string | null
   /** Reply into this thread. Subject is normalised to Re: on its own. */
   thread?: { threadId: string; messageId: string | null; subject?: string | null } | null
+  /**
+   * Extra headers, for the sourcing desk's `X-Refery-Run`: a send that timed
+   * out after Gmail accepted it is found again by searching for this value
+   * instead of being sent twice.
+   */
+  headers?: Record<string, string>
 }
 
 export interface SendResult {
@@ -318,6 +336,7 @@ function rawMessage(input: SendInput): { raw: string; subject: string } {
 
   const to = input.toName ? `${encodeHeader(input.toName)} <${input.to}>` : input.to
   const headers = [`To: ${to}`, ...(input.cc?.length ? [`Cc: ${input.cc.join(', ')}`] : []), `Subject: ${encodeHeader(subject)}`, 'MIME-Version: 1.0']
+  for (const [k, v] of Object.entries(input.headers ?? {})) if (/^[A-Za-z][A-Za-z0-9-]*$/.test(k)) headers.push(`${k}: ${encodeHeader(v)}`)
   if (thread?.messageId) {
     headers.push(`In-Reply-To: ${thread.messageId}`, `References: ${thread.messageId}`)
   }
@@ -350,8 +369,13 @@ function rawMessage(input: SendInput): { raw: string; subject: string } {
 
 /** Send as the authorised mailbox (lily@refery.io). Needs gmail.send. */
 export async function sendMessage(input: SendInput): Promise<SendResult> {
+  return sendMessageAs(await accessToken(), input)
+}
+
+/** Send as whichever mailbox the token belongs to. */
+export async function sendMessageAs(token: string | null, input: SendInput): Promise<SendResult> {
   const { raw, subject } = rawMessage(input)
-  const res = await gmail<{ id?: string; threadId?: string }>('/messages/send', {
+  const res = await gmailAs<{ id?: string; threadId?: string }>(token, '/messages/send', {
     method: 'POST',
     body: JSON.stringify(input.thread?.threadId ? { raw, threadId: input.thread.threadId } : { raw }),
   })
@@ -382,13 +406,18 @@ function headerOf(headers: { name: string; value: string }[] | undefined, name: 
 
 /** Search the mailbox. Needs gmail.readonly. Returns newest first. */
 export async function searchMessages(query: string, max = 10): Promise<{ messages: GmailMessageMeta[]; error?: string }> {
-  const list = await gmail<{ messages?: { id: string; threadId: string }[] }>(
+  return searchMessagesAs(await accessToken(), query, max)
+}
+
+export async function searchMessagesAs(token: string | null, query: string, max = 10): Promise<{ messages: GmailMessageMeta[]; error?: string }> {
+  const list = await gmailAs<{ messages?: { id: string; threadId: string }[] }>(
+    token,
     `/messages?q=${encodeURIComponent(query)}&maxResults=${max}`,
   )
   if (list.error) return { messages: [], error: list.error }
   const out: GmailMessageMeta[] = []
   for (const m of list.data?.messages ?? []) {
-    const meta = await getMessageMeta(m.id)
+    const meta = await getMessageMetaAs(token, m.id)
     if (meta) out.push(meta)
   }
   out.sort((a, b) => b.internalDate - a.internalDate)
@@ -396,13 +425,17 @@ export async function searchMessages(query: string, max = 10): Promise<{ message
 }
 
 export async function getMessageMeta(id: string): Promise<GmailMessageMeta | null> {
-  const res = await gmail<{
+  return getMessageMetaAs(await accessToken(), id)
+}
+
+export async function getMessageMetaAs(token: string | null, id: string): Promise<GmailMessageMeta | null> {
+  const res = await gmailAs<{
     id: string
     threadId: string
     snippet?: string
     internalDate?: string
     payload?: { headers?: { name: string; value: string }[] }
-  }>(`/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID`)
+  }>(token, `/messages/${id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Cc&metadataHeaders=Subject&metadataHeaders=Date&metadataHeaders=Message-ID`)
   if (res.error || !res.data) return null
   const h = res.data.payload?.headers
   return {
@@ -423,7 +456,20 @@ export async function getMessageMeta(id: string): Promise<GmailMessageMeta | nul
 export async function threadMessages(
   threadId: string,
 ): Promise<{ messages: (GmailMessageMeta & { text: string })[]; error?: string }> {
-  const res = await gmail<{
+  return threadMessagesAs(await accessToken(), threadId)
+}
+
+export interface GmailThreadMessage extends GmailMessageMeta {
+  text: string
+  /** Auto-Submitted, Precedence and X-Auto-Response-Suppress, for telling an auto-reply from a person. */
+  autoHeaders: { autoSubmitted: string; precedence: string; autoResponseSuppress: string }
+}
+
+export async function threadMessagesAs(
+  token: string | null,
+  threadId: string,
+): Promise<{ messages: GmailThreadMessage[]; error?: string }> {
+  const res = await gmailAs<{
     messages?: {
       id: string
       threadId: string
@@ -431,7 +477,7 @@ export async function threadMessages(
       internalDate?: string
       payload?: { headers?: { name: string; value: string }[]; mimeType?: string; body?: { data?: string }; parts?: unknown[] }
     }[]
-  }>(`/threads/${threadId}?format=full`)
+  }>(token, `/threads/${threadId}?format=full`)
   if (res.error) return { messages: [], error: res.error }
 
   const decode = (data?: string) => (data ? Buffer.from(data, 'base64url').toString('utf8') : '')
@@ -460,6 +506,11 @@ export async function threadMessages(
       internalDate: Number(m.internalDate ?? 0),
       // Quoted history is stripped so a classifier reads the reply, not the ask.
       text: textOf(m.payload).split(/\r?\n(On .+wrote:|>)/)[0].trim().slice(0, 4000),
+      autoHeaders: {
+        autoSubmitted: headerOf(h, 'Auto-Submitted'),
+        precedence: headerOf(h, 'Precedence'),
+        autoResponseSuppress: headerOf(h, 'X-Auto-Response-Suppress'),
+      },
     }
   })
   messages.sort((a, b) => a.internalDate - b.internalDate)
@@ -479,4 +530,44 @@ export async function selfAddress(): Promise<string> {
   const res = await gmail<{ emailAddress?: string }>('/profile')
   cachedSelf = (res.data?.emailAddress ?? 'lily@refery.io').toLowerCase()
   return cachedSelf
+}
+
+/** The address and current history id behind a token, or an error when the token cannot read the profile. */
+export async function profileAs(token: string | null): Promise<{ email?: string; historyId?: string; error?: string }> {
+  const res = await gmailAs<{ emailAddress?: string; historyId?: string }>(token, '/profile')
+  if (res.error) return { error: res.error }
+  return { email: res.data?.emailAddress?.toLowerCase(), historyId: res.data?.historyId }
+}
+
+/**
+ * What arrived since `startHistoryId`: new message ids, oldest first, and the
+ * history id to resume from. Gmail returns 404 when the start id is older than
+ * its history window (about a week), in which case `expired` is set and the
+ * caller should fall back to a search by date.
+ */
+export async function historyAs(
+  token: string | null,
+  startHistoryId: string,
+): Promise<{ messageIds: string[]; historyId: string | null; expired?: boolean; error?: string }> {
+  const ids: string[] = []
+  let pageToken: string | undefined
+  let historyId: string | null = null
+  for (let page = 0; page < 20; page++) {
+    const qs = new URLSearchParams({ startHistoryId, historyTypes: 'messageAdded' })
+    if (pageToken) qs.set('pageToken', pageToken)
+    const res = await gmailAs<{
+      history?: { messagesAdded?: { message: { id: string; threadId: string } }[] }[]
+      historyId?: string
+      nextPageToken?: string
+    }>(token, `/history?${qs.toString()}`)
+    if (res.error) {
+      if (/^404/.test(res.error)) return { messageIds: [], historyId: null, expired: true }
+      return { messageIds: [], historyId: null, error: res.error }
+    }
+    for (const h of res.data?.history ?? []) for (const m of h.messagesAdded ?? []) if (!ids.includes(m.message.id)) ids.push(m.message.id)
+    historyId = res.data?.historyId ?? historyId
+    pageToken = res.data?.nextPageToken
+    if (!pageToken) break
+  }
+  return { messageIds: ids, historyId }
 }
