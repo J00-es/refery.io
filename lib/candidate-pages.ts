@@ -553,18 +553,40 @@ export async function rotateCandidatePage(admin: SupabaseClient, jobId: string):
   throw new Error('candidate page: could not mint a unique slug')
 }
 
-/** Live searches without a page yet: drafted one by one, oldest first, a few per call. */
-export async function draftMissingPages(admin: SupabaseClient, limit = 3): Promise<{ drafted: string[]; skipped: number }> {
+/**
+ * Live searches without a page yet get one, oldest first, a few per call.
+ * A page the model never answered on (rule pass only, held as a draft) is
+ * tried again until it answers, so "always live" needs nobody's hand; a
+ * draft Lily has edited or taken down herself is left alone.
+ */
+export async function draftMissingPages(admin: SupabaseClient, limit = 3): Promise<{ drafted: string[]; retried: string[]; skipped: number }> {
   const { data: live } = await admin.from('partner_roles').select('job_id').eq('is_live', true)
   const ids = (live ?? []).map(r => r.job_id as string)
-  if (!ids.length) return { drafted: [], skipped: 0 }
-  const { data: have } = await admin.from('candidate_pages').select('job_id').in('job_id', ids)
+  if (!ids.length) return { drafted: [], retried: [], skipped: 0 }
+  const { data: have } = await admin.from('candidate_pages').select('job_id, status, edited_at, draft_flags').in('job_id', ids)
   const done = new Set((have ?? []).map(r => r.job_id as string))
   const missing = ids.filter(id => !done.has(id))
+  const stuck = (have ?? []).filter(r => r.status === 'draft' && !r.edited_at && (r.draft_flags as DraftFlags | null)?.fallback).map(r => r.job_id as string)
   const drafted: string[] = []
-  for (const id of missing.slice(0, limit)) {
+  const retried: string[] = []
+  let budget = limit
+  for (const id of missing) {
+    if (budget-- <= 0) break
     const r = await ensureCandidatePage(admin, id, 'cron')
     if (r) drafted.push(id)
   }
-  return { drafted, skipped: Math.max(0, missing.length - drafted.length) }
+  for (const id of stuck) {
+    if (budget-- <= 0) break
+    try {
+      const r = await draftCandidatePage(admin, id, { by: 'cron-retry', force: true })
+      if (r && !r.page.draft_flags?.fallback) {
+        await admin.from('candidate_pages').update({ status: 'published', published_at: new Date().toISOString() }).eq('job_id', id)
+        await postToFeed(`:page_with_curl: Candidate page now live for *${esc(r.page.headline ?? id)}*: ${candidatePageUrl(r.page.slug)} (the model answered on the retry).`)
+        retried.push(id)
+      }
+    } catch (err) {
+      console.error('[candidate-page] retry failed:', err)
+    }
+  }
+  return { drafted, retried, skipped: Math.max(0, missing.length + stuck.length - drafted.length - retried.length) }
 }
