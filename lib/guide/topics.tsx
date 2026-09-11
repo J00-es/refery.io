@@ -838,7 +838,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             first="Daniel"
             moment="Received your CV"
             subject="You are on Refery, here is what happens next"
-            body={'Hi Daniel,\n\nAs we discussed, your CV is now on Refery, the network I use to put people in front of early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.\n\nIf anything in your CV should change, reply to this email.\n\nMaya\nMaya Okafor · Okafor Search'}
+            body={'Hi Daniel,\n\nI’ve added your CV to Refery, the network I use to introduce people to early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.\n\nIf anything in your CV should change, reply to this email.\n\nMaya\nMaya Okafor · Okafor Search'}
             effect='On send: "told the candidate" becomes yes. Nothing else moves.'
           />
         ),
@@ -861,7 +861,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             to: 'Your candidate (what they receive)',
             from: 'Maya Okafor via Refery <partners@refery.io>',
             subject: 'You are on Refery, here is what happens next',
-            body: 'Hi Daniel,\n\nAs we discussed, your CV is now on Refery, the network I use to put people in front of early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.\n\nIf anything in your CV should change, reply to this email.\n\nMaya\nMaya Okafor · Okafor Search\n\n--\nSent by Maya Okafor through Refery. Replies go to Maya. Prefer no email from Refery? refery.xyz/stop/…',
+            body: 'Hi Daniel,\n\nI’ve added your CV to Refery, the network I use to introduce people to early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.\n\nIf anything in your CV should change, reply to this email.\n\nMaya\nMaya Okafor · Okafor Search\n\n--\nSent by Maya Okafor through Refery. Replies go to Maya. Prefer no email from Refery? refery.xyz/stop/…',
           },
         ],
         keywords: ['write', 'email', 'message', 'compose', 'moments', 'received your cv', 'signature', 'gmail', 'via refery', 'reply', 'stop'],

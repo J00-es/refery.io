@@ -1,6 +1,6 @@
 # The seven drafts a partner can send to a candidate
 
-Source of truth: `lib/messages/templates.ts` (drafts) and `lib/messages/index.ts` (when each is available, what moves on send). Everything in `{braces}` is filled from the record before the partner sees it; the partner then edits every word. Nothing is ever sent automatically.
+Reviewed and revised 11 September 2026 (seven edits from an outside read). Source of truth: `lib/messages/templates.ts` (drafts) and `lib/messages/index.ts` (when each is available, what moves on send). Everything in `{braces}` is filled from the record before the partner sees it; the partner then edits every word. Nothing is ever sent automatically.
 
 ## When a chip is clickable
 
@@ -38,7 +38,7 @@ Subject: `You are on Refery, here is what happens next`
 ```
 Hi {first},
 
-As we discussed, your CV is now on Refery, the network I use to put people in front of early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.
+I’ve added your CV to Refery, the network I use to introduce people to early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.
 
 If anything in your CV should change, reply to this email.
 
@@ -52,12 +52,14 @@ Subject: `A role I would like to put you forward for`
 ```
 Hi {first},
 
-There is a {search headline} seat at {client alias}{ in {city}, when the alias does not already name it} that fits what you told me. The company is named the moment you say yes; nothing is shared with them before that.
+There is a {search headline} role at {client alias}{ in {city}, when the alias does not already name it} that fits what you told me.
 
-May I put you forward through Refery? One tap either way:
+May I share your profile with them through Refery? The company’s name is revealed when you say yes. Nothing is shared with them before then.
+
+Choose ‘yes’ or ‘not now’ here:
 {consent link, refery.xyz/c/…}
 
-If it is not for you, the same page has a "not now". Either way I hear back today.
+Either choice comes back to me.
 
 {signature}
 ```
@@ -67,16 +69,16 @@ If it is not for you, the same page has a "not now". Either way I hear back toda
 Subject: `Intro: {first} <> Lily Joo (Refery)`  · Cc: lily@refery.io (on by default)
 
 ```
-{first}, meet Lily from Refery. Lily works with a few early-stage teams on the {search headline} search and asked about you after I shared your background.
+{first}, meet Lily from Refery. Lily is working on the {search headline} search.
 
-Lily, {first} is the one I mentioned. I will let you two take it from here.
+Lily, meet {first}. I’ll let you two take it from here.
 
 {first}, the quickest way in is fifteen minutes with Lily whenever suits you: https://cal.com/refery-lily/15
 
 {signature}
 ```
 
-When no search headline is on file the first line reads "on a few early-stage searches".
+When no search headline is on file the first line reads "Lily is working on a few early-stage searches".
 
 ### 4. They want to meet you
 
@@ -118,9 +120,9 @@ Subject: `{Client name}, an update`
 ```
 Hi {first},
 
-{Client name} decided not to move forward this time. Their reason, in short: {the client's reason, as recorded on the submission}
+{Client name} decided not to move forward this time. Their feedback: {the client's reason, as recorded on the submission}
 
-I do not think it says much about you, and I would like to keep you in mind for the next one. Say if that is not what you want.
+I’d like to keep you in mind for other roles that fit. If you’d prefer otherwise, let me know.
 
 {signature}
 ```
@@ -132,7 +134,7 @@ Subject: `Congratulations, {first}`
 ```
 Hi {first},
 
-Congratulations on accepting the offer from {Client name}. {Start date} is the day. Thank you for trusting me with this one.
+Congratulations on accepting the offer from {Client name}. You’re set to start on {Start date}. Thank you for trusting me with this one.
 
 If anything comes up between now and your start, or after, you know where I am.
 

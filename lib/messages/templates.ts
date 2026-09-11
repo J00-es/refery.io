@@ -89,7 +89,7 @@ export function renderMoment(moment: Moment, f: MomentFacts): Draft {
         body: [
           `Hi ${first},`,
           '',
-          'As we discussed, your CV is now on Refery, the network I use to put people in front of early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.',
+          'I’ve added your CV to Refery, the network I use to introduce people to early-stage teams. Nothing goes to any company until you say yes to that specific conversation, and I will only come back to you when something is worth your time.',
           '',
           'If anything in your CV should change, reply to this email.',
           '',
@@ -106,25 +106,27 @@ export function renderMoment(moment: Moment, f: MomentFacts): Draft {
         body: [
           `Hi ${first},`,
           '',
-          `There is a ${role} seat at ${company}${where} that fits what you told me. The company is named the moment you say yes; nothing is shared with them before that.`,
+          `There is a ${role} role at ${company}${where} that fits what you told me.`,
           '',
-          'May I put you forward through Refery? One tap either way:',
+          `May I share your profile with them through Refery? The company’s name is revealed when you say yes. Nothing is shared with them before then.`,
+          '',
+          `Choose ‘yes’ or ‘not now’ here:`,
           link,
           '',
-          `If it is not for you, the same page has a "not now". Either way I hear back today.`,
+          'Either choice comes back to me.',
           '',
           sig,
         ].join('\n'),
       }
     }
     case 'intro': {
-      const focus = (f.searchHeadline ?? '').trim() ? `on the ${f.searchHeadline!.trim()} search` : 'on a few early-stage searches'
+      const focus = (f.searchHeadline ?? '').trim() ? `the ${f.searchHeadline!.trim()} search` : 'a few early-stage searches'
       return {
         subject: `Intro: ${first} <> Lily Joo (Refery)`,
         body: [
-          `${first}, meet Lily from Refery. Lily works with a few early-stage teams ${focus} and asked about you after I shared your background.`,
+          `${first}, meet Lily from Refery. Lily is working on ${focus}.`,
           '',
-          `Lily, ${first} is the one I mentioned. I will let you two take it from here.`,
+          `Lily, meet ${first}. I’ll let you two take it from here.`,
           '',
           `${first}, the quickest way in is fifteen minutes with Lily whenever suits you: ${LILY_CAL}`,
           '',
@@ -157,9 +159,9 @@ export function renderMoment(moment: Moment, f: MomentFacts): Draft {
         body: [
           `Hi ${first},`,
           '',
-          `${company} decided not to move forward this time.${reason ? ` Their reason, in short: ${reason}` : ''}`,
+          `${company} decided not to move forward this time.${reason ? ` Their feedback: ${reason}` : ''}`,
           '',
-          'I do not think it says much about you, and I would like to keep you in mind for the next one. Say if that is not what you want.',
+          `I’d like to keep you in mind for other roles that fit. If you’d prefer otherwise, let me know.`,
           '',
           sig,
         ].join('\n'),
@@ -172,7 +174,7 @@ export function renderMoment(moment: Moment, f: MomentFacts): Draft {
         body: [
           `Hi ${first},`,
           '',
-          `Congratulations on accepting the offer from ${company}.${start ? ` ${start} is the day.` : ''} Thank you for trusting me with this one.`,
+          `Congratulations on accepting the offer from ${company}.${start ? ` You’re set to start on ${start}.` : ''} Thank you for trusting me with this one.`,
           '',
           'If anything comes up between now and your start, or after, you know where I am.',
           '',
