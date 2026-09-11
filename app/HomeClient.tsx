@@ -58,7 +58,7 @@ export default function HomeClient() {
         <div className="wrap">
           <div className="hero-grid">
             <p className="eyebrow">For scouts, recruiters and agencies</p>
-            <h1>You know the person.<br /><em>We do the rest.</em></h1>
+            <h1>You refer the person.<br /><em>We do the rest.</em></h1>
             <p className="lede">Refery is where scouts, recruiters and recruiting agencies introduce people they would vouch for. We bring the clients, the contracts, the invoicing and the guarantee. <b>You bring the person, and keep 70% of the fee.</b></p>
             <div className="cta-row">
               <a href="/auth/sign-up" className="btn btn-solid">Sign up <span className="arr">&rarr;</span></a>

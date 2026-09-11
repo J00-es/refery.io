@@ -15,6 +15,19 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // The service worker must be picked up on the next visit, never a cached
+  // copy, and it lives in /public so its scope has to be granted explicitly.
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ]
+  },
   // The desk moved from /partners to /searches to match its nav label. Every
   // brief and proposal email sent before that carries the old path.
   async redirects() {

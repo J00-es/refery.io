@@ -73,7 +73,7 @@ describe('the facts that matter', () => {
     const d = renderMoment('interview', FULL)
     expect(d.body).toContain('https://cal.com/livo/intro')
     expect(d.body).toContain('Pairing session')
-    expect(renderMoment('interview', EMPTY).body).toContain('arranging the first call')
+    expect(renderMoment('interview', EMPTY).body).toContain('setting up the first call')
   })
   it('the footer names the partner and the stop link', () => {
     const f = footerText('Maya Okafor', 'Maya', 'https://refery.xyz/stop/x')

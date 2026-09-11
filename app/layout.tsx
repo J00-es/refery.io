@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { DM_Sans } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
@@ -16,15 +16,22 @@ export const metadata: Metadata = {
   description:
     'Introduce people you already know to roles at VC-backed companies, and earn when they are hired. Refery is where scouts and recruiting partners work.',
   generator: 'v0.app',
+  // The installable app: manifest, icons and the iPhone home-screen flags.
+  // Icons are the wordmark, generated once into public/icons.
+  manifest: '/manifest.webmanifest',
   icons: {
-    icon: [
-      {
-        url: 'https://www.image2url.com/r2/default/images/1776207806088-a62cc7c1-74f2-41ec-8023-5408563cf26e.png',
-      },
-    ],
-    apple:
-      'https://www.image2url.com/r2/default/images/1776207806088-a62cc7c1-74f2-41ec-8023-5408563cf26e.png',
+    icon: [{ url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' }],
+    apple: '/icons/apple-touch-icon.png',
   },
+  appleWebApp: { capable: true, title: 'Refery', statusBarStyle: 'default' },
+  other: { 'mobile-web-app-capable': 'yes' },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#F2F1EB',
 }
 
 export default function RootLayout({

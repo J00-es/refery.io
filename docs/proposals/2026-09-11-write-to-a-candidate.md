@@ -158,3 +158,9 @@ Two settings only Lily can flip, both outside the repo:
 2. In the Resend dashboard, add `email.bounced` and `email.complained` to the webhook that already posts to `/api/inbound/resume`. Until then, bounces are not recorded.
 
 Not built, on purpose: the pipeline card link (the submission row and the emails cover it), the Sunday digest line, any model pass, the partner MCP.
+
+## 9. Same day, three more things
+
+- **Phone.** The composer is the full-width sheet on a phone (chips wrap, sticky Send, 44 px targets), checked at 390 px on the live site.
+- **The interview note when there is no booking link.** Most clients have no booking link on file, and Lily makes the introduction between candidate and hiring manager herself. When the client has no link, the "They want to meet you" draft says Lily is setting up the first call, and the line under Send says so. When Lily adds a booking link to the client, the draft carries it.
+- **The guide, `/guide`.** Every partner-facing feature per topic, with a search box (`/` focuses it), three "start here" paths, a dated "launched recently" list, and mock-ups of the live screens and the emails with fictional people. Content in `lib/guide/topics.tsx`, mock primitives in `components/guide/mocks.tsx`, page shell in `components/guide/guide-client.tsx`. "Guide" is in the nav for partners and the super admin; the old "How it works" buttons on Searches and Pipeline and the link on /slack point at it. Nothing about the desk or admin pages is in it.

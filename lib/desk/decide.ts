@@ -24,6 +24,7 @@ import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
 import { missingFactsAsk, missingFactsNow } from '@/lib/desk/emails'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { suggestedLine } from '@/lib/desk/card'
+import { pushToEmail } from '@/lib/push'
 import { evaluateEligibility, REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
 import { policyInputsFor, recordHumanDecision } from '@/lib/engine/decisions'
 
@@ -311,6 +312,16 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       emailed = sent.ok
       emailError = sent.error ?? null
       threadId = sent.threadId
+      // The partner who owns the candidate hears it on their phone too.
+      if (emailed && recipient === 'owner') {
+        const line =
+          decided === 'intro_now'
+            ? `We would like to meet ${name}. The intro kit is in your email and on their page.`
+            : decided === 'bench'
+              ? `${name} is kept in the pool and re-matched when a seat opens.`
+              : `${name} is not a fit this time. The reason is on their page.`
+        await pushToEmail(to, { title: subject, body: line, url: `${APP_URL}/candidates/${c.id}`, tag: `candidate-${c.id}` }, admin)
+      }
     }
   }
 

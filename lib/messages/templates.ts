@@ -141,7 +141,7 @@ export function renderMoment(moment: Moment, f: MomentFacts): Draft {
         body: [
           `Hi ${first},`,
           '',
-          `Good news: ${company} read your profile${role ? ` for the ${role} role` : ''} and want to talk.${link ? ` Book a time that suits you here:\n${link}` : ' I am arranging the first call with them now and will come back to you with times.'}`,
+          `Good news: ${company} read your profile${role ? ` for the ${role} role` : ''} and want to talk.${link ? ` Book a time that suits you here:\n${link}` : ' Lily at Refery is setting up the first call with them and will come back to you with times.'}`,
           '',
           ...(steps ? [`Their process, as they described it:\n${steps}`, ''] : []),
           'If you want to prep together before the first call, reply and we will find twenty minutes.',

@@ -7,6 +7,7 @@
  */
 
 import { Resend } from 'resend'
+import { pushToEmail } from '@/lib/push'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Refery <hello@refery.io>'
@@ -62,6 +63,12 @@ export async function sendQuestionAnsweredEmail(
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({ from: FROM, to: input.to, replyTo: REPLY_TO, subject, html })
     if (error) return { sent: false, error: error.message }
+    await pushToEmail(input.to, {
+      title: 'Your question was answered',
+      body: `${input.roleTitle} at ${input.companyName}: ${input.answer.replace(/\s+/g, ' ').slice(0, 140)}`,
+      url: `/searches/${input.companyId}/roles/${input.jobId}`,
+      tag: `question-${input.jobId}`,
+    })
     return { sent: true }
   } catch (e) {
     return { sent: false, error: e instanceof Error ? e.message : 'send failed' }

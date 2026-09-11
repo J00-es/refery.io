@@ -238,7 +238,7 @@ function factsFor(ctx: MessageContext, moment: Moment, sub: SubmissionView | nul
   }
 }
 
-export function effectFor(moment: Moment, first: string): string {
+export function effectFor(moment: Moment, first: string, sub: SubmissionView | null = null): string {
   switch (moment) {
     case 'received':
       return `On send: "told the candidate" becomes yes. Nothing else moves.`
@@ -247,7 +247,9 @@ export function effectFor(moment: Moment, first: string): string {
     case 'intro':
       return `On send: ${first} moves to Intro sent, Lily gets her copy and follows up. Nothing else.`
     case 'interview':
-      return `On send: kept on ${first}'s record and the submission. The client's booking link is the call to action.`
+      return sub?.bookingUrl
+        ? `On send: kept on ${first}'s record and the submission. The client's booking link is the call to action.`
+        : `On send: kept on ${first}'s record. No booking link on this client yet, so the draft says Lily is setting up the first call; she makes the introduction to the hiring manager.`
     case 'pass':
     case 'hired':
     case 'blank':
@@ -260,7 +262,7 @@ export function draftFor(ctx: MessageContext, moment: Moment, submissionId?: str
   // The consent page link is minted at send time; the draft shows where it goes.
   const facts = factsFor(ctx, moment, sub, moment === 'consent' ? `${APP_URL}/c/…` : null)
   const d = renderMoment(moment, facts)
-  return { ...d, moment, submissionId: sub?.id ?? null, to: ctx.email, ccLily: moment === 'intro', effect: effectFor(moment, ctx.candidateFirst) }
+  return { ...d, moment, submissionId: sub?.id ?? null, to: ctx.email, ccLily: moment === 'intro', effect: effectFor(moment, ctx.candidateFirst, sub) }
 }
 
 // ── the rules at send time ───────────────────────────────────────────────────

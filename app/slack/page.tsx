@@ -39,7 +39,7 @@ export default function SlackConnectPage() {
 
         <div className="mt-10 grid gap-3 text-[14px] leading-relaxed text-[#6E6E68]">
           <p>
-            Candidates still go through the platform, not Slack, so ownership and grading are recorded. <Link href="https://refery.xyz/guide/searches-and-pipeline.html" className="font-semibold text-[#1F3A2F]">How Searches and Pipeline work</Link>.
+            Candidates still go through the platform, not Slack, so ownership and grading are recorded. <Link href="/guide" className="font-semibold text-[#1F3A2F]">How Searches and Pipeline work</Link>.
           </p>
           <p>
             Prefer email? <a href="mailto:lily@refery.io" className="font-semibold text-[#1F3A2F]">lily@refery.io</a> works too, it is just slower.

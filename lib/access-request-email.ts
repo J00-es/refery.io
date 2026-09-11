@@ -11,6 +11,7 @@
  */
 
 import { Resend } from 'resend'
+import { pushToEmail } from '@/lib/push'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Refery <hello@refery.io>'
@@ -72,6 +73,12 @@ export async function sendAccessDecisionEmail(
     const resend = new Resend(apiKey)
     const { error } = await resend.emails.send({ from: FROM, to: input.to, replyTo: REPLY_TO, subject, html })
     if (error) return { sent: false, error: error.message }
+    await pushToEmail(input.to, {
+      title: input.decision === 'approved' ? `You are on ${input.companyName}` : `About ${input.companyName}`,
+      body: input.decision === 'approved' ? 'The search is open to you now. Tap to see the roles.' : 'Refery kept this one closed. The note is in your email.',
+      url: input.decision === 'approved' ? `/searches/${input.companyId}` : '/searches',
+      tag: `access-${input.companyId}`,
+    })
     return { sent: true }
   } catch (e) {
     return { sent: false, error: e instanceof Error ? e.message : 'send failed' }

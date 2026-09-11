@@ -9,6 +9,7 @@
  */
 
 import { Resend } from 'resend'
+import { pushToEmail } from '@/lib/push'
 import { feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
 
 const FROM = 'Refery <hello@refery.io>'
@@ -90,6 +91,13 @@ export async function sendSearchProposalEmail(input: {
       html,
     })
     if (error) return { sent: false, error: error.message }
+    // The same news on the lock screen for anyone who installed the app.
+    await pushToEmail(input.to, {
+      title: 'A search suggested for you',
+      body: `${title} at ${company}${payout ? `. ${payout} to you on a placement.` : '.'}`,
+      url,
+      tag: `search-${input.jobId}`,
+    })
     return { sent: true }
   } catch (e) {
     return { sent: false, error: e instanceof Error ? e.message : 'send failed' }

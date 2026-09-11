@@ -7,6 +7,7 @@ import { getFirmDraft } from '@/lib/firm-drafts'
 import { FirmDraftBanner } from '@/components/firms/firm-draft-banner'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ActivityBeacon } from '@/components/activity-beacon'
+import { InstallPrompt } from '@/components/pwa/install-prompt'
 import { Suspense } from 'react'
 import { Spinner } from '@/components/ui/spinner'
 import { cookies } from 'next/headers'
@@ -55,6 +56,7 @@ export default async function DashboardLayout({
         fullName={appUser.fullName}
       />
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
+        <InstallPrompt />
         {firmDraft && <FirmDraftBanner firmName={firmDraft.name || firmDraft.legal_name || 'your firm'} />}
         <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner className="h-8 w-8" /></div>}>
           {children}

@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass, FileSignature } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass, FileSignature, BookOpen } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +65,8 @@ const candidatesItem: NavItem = { href: '/candidates', label: 'Candidates', icon
  * firm accounts are reached from sign-up and the guide instead.
  */
 const firmItem: NavItem = { href: '/firm', label: 'Firm', icon: Building2 }
+/** Every partner-facing feature, per topic, with a search box. Added 11 Sep 2026. */
+const guideItem: NavItem = { href: '/guide', label: 'Guide', icon: BookOpen }
 const betaNavItems: NavItem[] = [
   { href: '/searches', label: 'Searches', icon: Handshake },
   { href: '/searches/pipeline', label: 'Pipeline', icon: LayoutGrid },
@@ -134,6 +136,7 @@ export function DashboardNav({ user, isAdmin = false, isBeta = false, inFirm = f
     candidatesItem,
     ...(seesBeta ? betaNavItems : []),
     ...(seesFirm ? [firmItem] : []),
+    ...(isAdmin && !isSuperAdmin ? [] : [guideItem]),
     ...(isSuperAdmin ? superAdminNavItems : []),
   ]
   // The logo goes home. Home is the dashboard for the super admin and the

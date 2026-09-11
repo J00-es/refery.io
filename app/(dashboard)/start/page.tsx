@@ -220,6 +220,13 @@ export default async function StartPage() {
 
       {/* Background and help, always here, never a gate. */}
       <section className={`mb-5 divide-y ${RULE} ${CARD}`}>
+        <Link href="/guide" className={`flex items-center justify-between gap-3 px-4 py-3.5 ${FOCUS}`}>
+          <span>
+            <span className="block text-[13.5px] font-semibold">The guide</span>
+            <span className={META}>Every feature, step by step, with a search box. Start here when something is new.</span>
+          </span>
+          <span className="text-[13px] font-semibold text-[#1F3A2F]">Open</span>
+        </Link>
         <Link href="/how-it-works" className={`flex items-center justify-between gap-3 px-4 py-3.5 ${FOCUS}`}>
           <span>
             <span className="block text-[13.5px] font-semibold">How Refery works</span>
