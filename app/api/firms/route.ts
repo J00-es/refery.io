@@ -5,6 +5,7 @@ import { emailProblem, isPlausibleEmail } from '@/lib/email-format'
 import { getRequestContext } from '@/lib/request-context'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { createFirm, firmsEnabled, getMembership, SIGNATURE_DAYS } from '@/lib/firms'
+import { clearFirmDraft } from '@/lib/firm-drafts'
 import { announceFirmSignup, sendFirmReceipt, sendFirmSignatureRequest } from '@/lib/firm-notify'
 
 const appUrl = () => process.env.NEXT_PUBLIC_SITE_URL || 'https://refery.xyz'
@@ -94,6 +95,9 @@ export async function POST(req: NextRequest) {
   })
 
   if (!created.ok) return NextResponse.json({ error: created.error }, { status: 500 })
+
+  // The firm exists, so the sign-up draft that led here has served its purpose.
+  await clearFirmDraft(admin, appUser.email)
 
   const versions = {
     partner: AGREEMENT_VERSIONS.partner,

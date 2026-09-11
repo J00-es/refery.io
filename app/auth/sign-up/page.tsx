@@ -259,13 +259,28 @@ export default function Page() {
    * request per attempt, and by then the address is complete enough to mean
    * something.
    */
+  /** The firm fields as one object: parked in this tab, and kept on the server. */
+  const firmDraft = (): Record<string, string> => ({
+    name: firmName,
+    legal_name: firmLegalName,
+    jurisdiction: firmJurisdiction,
+    company_number: firmCompanyNumber,
+    signer_title: signerTitle,
+    billing_email: firmBillingEmail,
+    signer_self: signerSelf ? 'yes' : 'no',
+    signer_name: nomineeName,
+    signer_email: nomineeEmail,
+  })
+
   async function checkAccount(): Promise<KnownAccount | null> {
     setChecking(true)
     try {
       const res = await fetch('/api/auth/account-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        // The firm goes with the question: if the account exists, the server
+        // keeps what they typed, so a password reset does not lose it.
+        body: JSON.stringify({ email, firm: isFirm ? firmDraft() : undefined }),
       })
       if (!res.ok) return null
       const data = (await res.json()) as KnownAccount
@@ -335,17 +350,7 @@ export default function Page() {
     const found = await checkAccount()
     if (found) {
       if (isFirm) {
-        parkFirmDraft({
-          name: firmName,
-          legal_name: firmLegalName,
-          jurisdiction: firmJurisdiction,
-          company_number: firmCompanyNumber,
-          signer_title: signerTitle,
-          billing_email: firmBillingEmail,
-          signer_self: signerSelf ? 'yes' : 'no',
-          signer_name: nomineeName,
-          signer_email: nomineeEmail,
-        })
+        parkFirmDraft(firmDraft())
       }
       setKnown(found)
       return
@@ -426,6 +431,16 @@ export default function Page() {
 
       const data = await res.json()
       if (!res.ok) {
+        // An account that already exists is not an error to print: it is the
+        // same "welcome back" panel the details step shows, with the way
+        // forward on it. The server has kept the firm draft by now.
+        if (data.known) {
+          if (isFirm) parkFirmDraft(firmDraft())
+          setKnown(data.known)
+          setError(null)
+          setStep(2)
+          return
+        }
         // A rejected address is fixed on the details step, not here: the box
         // is two steps back and the last step never shows what was typed.
         if (data.field === 'email' || data.field === 'signer_email') {
@@ -633,7 +648,8 @@ export default function Page() {
                         <p className="mb-3">
                           We have kept everything you just typed about{' '}
                           <strong className="text-foreground">{firmLegalName.trim() || 'your firm'}</strong>.
-                          Sign in and the form will be waiting, filled in.
+                          Sign in and the form will be waiting, filled in. If you need to reset your
+                          password first, it will still be there when you get back.
                         </p>
                         <p className="text-muted-foreground">
                           Your existing candidates, submissions and history stay exactly as they are.
@@ -658,8 +674,10 @@ export default function Page() {
                         </p>
                         {isFirm && (
                           <p className="text-muted-foreground">
-                            We have noted that you want a firm account. Nothing else is needed from
-                            you now.
+                            We have kept what you typed about{' '}
+                            <strong className="text-foreground">{firmLegalName.trim() || 'your firm'}</strong>{' '}
+                            and told the team you want a firm account. Once you are approved, the
+                            form will be waiting for you, filled in.
                           </p>
                         )}
                       </>

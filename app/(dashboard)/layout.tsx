@@ -2,7 +2,9 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
 import { createAdminClient } from '@/lib/supabase/server'
-import { getMembership } from '@/lib/firms'
+import { firmsEnabled, getMembership } from '@/lib/firms'
+import { getFirmDraft } from '@/lib/firm-drafts'
+import { FirmDraftBanner } from '@/components/firms/firm-draft-banner'
 import { DashboardNav } from '@/components/dashboard-nav'
 import { ActivityBeacon } from '@/components/activity-beacon'
 import { Suspense } from 'react'
@@ -37,6 +39,10 @@ export default async function DashboardLayout({
   // tab pointing at a page that would just offer to create something.
   const membership = await getMembership(createAdminClient(), appUser.id)
 
+  // A firm they described on the sign-up form and have not created yet. One
+  // primary-key lookup; almost always empty.
+  const firmDraft = !membership && firmsEnabled(appUser) ? await getFirmDraft(createAdminClient(), appUser.email) : null
+
   return (
     <div className="min-h-screen bg-background">
       <ActivityBeacon />
@@ -49,6 +55,7 @@ export default async function DashboardLayout({
         fullName={appUser.fullName}
       />
       <main className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
+        {firmDraft && <FirmDraftBanner firmName={firmDraft.name || firmDraft.legal_name || 'your firm'} />}
         <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner className="h-8 w-8" /></div>}>
           {children}
         </Suspense>

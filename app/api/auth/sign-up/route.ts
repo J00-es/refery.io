@@ -14,6 +14,8 @@ import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
 import { normalizeEmail } from '@/lib/current-user'
 import { emailProblem } from '@/lib/email-format'
+import { resolveAccountState } from '@/lib/account-state'
+import { sanitizeFirmDraft, saveFirmDraft } from '@/lib/firm-drafts'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { createFirm, SIGNATURE_DAYS } from '@/lib/firms'
 import { announceFirmSignup, sendFirmReceipt, sendFirmSignatureRequest } from '@/lib/firm-notify'
@@ -134,6 +136,25 @@ export async function POST(req: Request) {
 
     if (authError) {
       console.error('Auth sign up error:', authError)
+      // The details step normally catches an existing account before the terms
+      // are read. When it did not (rate limited, or the check failed), this is
+      // the same answer, later: which account it is and where to go, with the
+      // firm they described kept for them.
+      const exists = authError.code === 'user_already_exists' || /already registered/i.test(authError.message)
+      if (exists) {
+        const known = await resolveAccountState(adminClient, email)
+        const draft = sanitizeFirmDraft(body.firm)
+        if (draft && (known.state === 'partner' || known.state === 'pending')) {
+          await saveFirmDraft(adminClient, email, draft, { source: 'sign-up', accountState: known.state })
+        }
+        return NextResponse.json(
+          {
+            error: 'You already have a Refery account with this email. Sign in to continue.',
+            known: known.state === 'none' ? { state: 'partner' } : known,
+          },
+          { status: 409 },
+        )
+      }
       // Supabase is stricter than the check above in places. Whatever it
       // disliked about the address, quote the address and send them back to it.
       const aboutEmail =

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FOCUS } from '@/lib/candidate-ui'
 import { isPlausibleEmail } from '@/lib/email-format'
+import type { FirmDraft } from '@/lib/firm-drafts'
 
 /**
  * Creating a firm.
@@ -17,7 +18,14 @@ import { isPlausibleEmail } from '@/lib/email-format'
 const FIELD =
   'w-full rounded-[10px] border border-[#D2D1C7] bg-white px-3 py-2.5 text-[14px] text-[#161613] placeholder:text-[#B8B8B0]'
 
-export function CreateFirmForm({ versions }: { versions: { partner: string; submission: string; addendum: string } }) {
+export function CreateFirmForm({
+  versions,
+  draft,
+}: {
+  versions: { partner: string; submission: string; addendum: string }
+  /** The server's copy of what they typed on the sign-up form, if any. */
+  draft?: FirmDraft | null
+}) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [legalName, setLegalName] = useState('')
@@ -45,9 +53,11 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem('refery_firm_draft')
-      if (!raw) return
-      sessionStorage.removeItem('refery_firm_draft')
-      const d = JSON.parse(raw) as Record<string, string>
+      if (raw) sessionStorage.removeItem('refery_firm_draft')
+      // This tab's copy first; the server's copy when they came back another
+      // way: a password reset, a second device, or simply a week later.
+      const d: Record<string, string> = raw ? (JSON.parse(raw) as Record<string, string>) : { ...(draft ?? {}) }
+      if (!Object.keys(d).length) return
       if (d.name) setName(d.name)
       if (d.legal_name) setLegalName(d.legal_name)
       if (d.jurisdiction) setJurisdiction(d.jurisdiction)
@@ -63,6 +73,8 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
     } catch {
       // A draft we cannot read is a draft they retype. Not worth a failure.
     }
+    // The server draft is fixed for the life of the page; this runs once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const ready =

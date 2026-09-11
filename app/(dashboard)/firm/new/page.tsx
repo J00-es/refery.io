@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { firmsEnabled, getMembership } from '@/lib/firms'
+import { getFirmDraft } from '@/lib/firm-drafts'
 import { CreateFirmForm } from '@/components/firms/create-firm-form'
 import { GuideLink } from '@/components/firms/guide-link'
 
@@ -26,6 +27,10 @@ export default async function NewFirmPage() {
   const membership = await getMembership(admin, appUser.id)
   if (membership) redirect('/firm/members')
 
+  // What they typed on the sign-up form before we recognised their account,
+  // kept on the server so it survives a password reset or a second device.
+  const draft = await getFirmDraft(admin, appUser.email)
+
   return (
     <div className="mx-auto max-w-[640px] space-y-6 px-1 pb-16 sm:px-0">
       <header>
@@ -41,6 +46,7 @@ export default async function NewFirmPage() {
       </header>
 
       <CreateFirmForm
+        draft={draft}
         versions={{
           partner: AGREEMENT_VERSIONS.partner,
           submission: AGREEMENT_VERSIONS.partnerSubmission,
