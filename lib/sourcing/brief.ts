@@ -209,6 +209,7 @@ const SYSTEM = `You write the target profile for one recruiting search, for a sm
 
 Rules:
 - Every requirement, signal and not-for carries the sources it came from (kind, label, date). Never invent a source. Prefer the client's own words over inference.
+- A requirement must be checkable against a CV or a profile record (work done, where, for how long, with what). Motivation, spirit, work rhythm, culture and willingness go under signals, not_for or open_with, never under requirements: a grader cannot support them from a record and they would make everyone a near miss.
 - Split what the client stated as a must from what would merely help. A requirement is mandatory only if a source says the miss ends the conversation. When two sources disagree, keep both in "detail" and add a question for the client.
 - Location and willingness to relocate are different facts. An onsite role is a location requirement; do not mark someone's current city as a disqualifier in the profile text.
 - Lookalike employers are places where people did this exact work, with the reason. A famous employer is never a proxy for ability and never goes in as a requirement.
