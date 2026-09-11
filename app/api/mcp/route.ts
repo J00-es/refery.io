@@ -74,9 +74,23 @@ export async function POST(req: NextRequest) {
   return NextResponse.json(out.body, { status: out.status })
 }
 
-/** No server-initiated stream: a client that opens one is told so and carries on with POST. */
-export async function GET() {
-  return new NextResponse(null, { status: 405, headers: { Allow: 'POST, DELETE' } })
+/**
+ * A GET is either an MCP client asking for a server-initiated stream, which
+ * this server does not have (405, and the client carries on with POST), or a
+ * person who opened the URL in a browser, who gets told what it is.
+ */
+export async function GET(req: NextRequest) {
+  const accept = req.headers.get('accept') ?? ''
+  if (accept.includes('text/event-stream')) return new NextResponse(null, { status: 405, headers: { Allow: 'POST, DELETE' } })
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Refery desk MCP</title>
+<style>body{margin:0;background:#F2F1EB;color:#161613;font:15px/1.6 "DM Sans",-apple-system,system-ui,sans-serif}main{max-width:560px;margin:0 auto;padding:56px 20px}h1{font-size:22px;margin:0 0 8px}p{margin:0 0 14px;color:#6E6E68}code{display:block;overflow-x:auto;white-space:pre;background:#fff;border:1px solid #E4E3DC;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#161613}a{color:#1F3A2F}</style></head>
+<body><main><h1>Refery desk MCP</h1>
+<p>This address is a Model Context Protocol server, not a page. It answers an assistant that sends it JSON, not a browser.</p>
+<p>To use it, issue a key at <a href="/admin/settings#mcp">refery.xyz/admin/settings#mcp</a>, then in Claude Code run, once:</p>
+<code>claude mcp add --transport http refery-desk https://refery.xyz/api/mcp --header "Authorization: Bearer &lt;key&gt;"</code>
+<p style="margin-top:14px">Start a new Claude Code session and ask "what needs me today".</p>
+</main></body></html>`
+  return new NextResponse(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } })
 }
 
 /** Sessions do not exist here, so ending one is always fine. */
