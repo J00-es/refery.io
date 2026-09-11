@@ -35,7 +35,7 @@ import type { PanelGrade } from '@/lib/journey'
 import { referralFor } from '@/lib/referrals'
 import { markRepliesRead, MOMENTS, type Moment } from '@/lib/messages'
 import { MessageComposer } from '@/components/candidates/message-composer'
-import { properName } from '@/lib/desk/people'
+import { displayName } from '@/lib/desk/people'
 import { ReferralBanner, type ReferralView } from '@/components/candidates/referral-banner'
 import { canonicalCandidate } from '@/lib/slugs'
 import { candidatePath } from '@/lib/paths'
@@ -175,7 +175,7 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
 
   const typedCandidate = candidate as Candidate
   // "MUHAMMAD" reads as shouting; CVs arrive in caps more often than not.
-  const candidateFirst = properName(typedCandidate.name).split(/\s+/)[0]
+  const candidateFirst = displayName(candidate).split(/\s+/)[0]
   const parsedData = typedCandidate.parsed_data as ParsedResumeData | null
 
   // Profiles parsed before the extractor learned to read bullet points,
@@ -246,6 +246,9 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
               <h1 className="font-semibold text-[28px] leading-tight tracking-[-0.02em] text-[#161613] sm:text-[34px]">
                 {typedCandidate.name}
               </h1>
+              {typeof candidate.preferred_name === 'string' && candidate.preferred_name.trim() && (
+                <span className="text-[13px] text-[#6E6E68]">goes by {candidate.preferred_name.trim()}</span>
+              )}
               <span className={`${GRADE_BADGE} ${grade.className}`} title={grade.label}>
                 {grade.grade}
               </span>

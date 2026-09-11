@@ -250,6 +250,19 @@ export async function GET(request: NextRequest) {
       searches: [],
       fresh: [],
       link: null,
+      messages: null,
+    }
+
+    // Messages they sent to their own candidates from Refery this week, and
+    // the replies that came back through the thread alias.
+    try {
+      const [{ count: sent }, { count: replies }] = await Promise.all([
+        adminClient.from('candidate_emails').select('id', { count: 'exact', head: true }).eq('sent_by_user_id', uid).eq('direction', 'out').not('sent_at', 'is', null).gt('created_at', since),
+        adminClient.from('candidate_emails').select('id', { count: 'exact', head: true }).eq('sent_by_user_id', uid).eq('direction', 'in').gt('created_at', since),
+      ])
+      digest.messages = { sent: sent ?? 0, replies: replies ?? 0 }
+    } catch {
+      digest.messages = null
     }
 
     // Their own link this week. Only their codes, only their arrivals.

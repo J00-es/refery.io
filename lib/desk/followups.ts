@@ -21,7 +21,7 @@ import { bookingFound, bounced, candidateWrote, classifyReply, introLanded, repl
 import { directSubject, partnerSubject, partnerUpdateSubject } from '@/lib/desk/subjects'
 import { APP_URL, sendIntroForPartner } from '@/lib/desk/intro'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
-import { loadOwner, properName } from '@/lib/desk/people'
+import { loadOwner, properName, displayName } from '@/lib/desk/people'
 import { latestPanel } from '@/lib/desk/panel'
 import { applyDecision } from '@/lib/desk/decide'
 import type { ParsedResumeData } from '@/lib/types'
@@ -72,14 +72,15 @@ function missingFor(c: Record<string, unknown>): string[] {
 }
 
 /** The intro landed: reply with the calendar link, move on, start the candidate timers. */
-export async function onIntroLanded(admin: SupabaseClient, c: Record<string, unknown>, evidence: { threadId: string; from: string; at: number }, by: string): Promise<void> {
+export async function onIntroLanded(admin: SupabaseClient, c: Record<string, unknown>, evidence: { threadId: string; from: string; at: number }, by: string, opts: { linkAlreadySent?: boolean } = {}): Promise<void> {
   const owner = await loadOwner(admin, (c.owner_user_id as string) ?? null)
-  const name = properName(c.name as string)
+  const name = displayName(c)
   const reply = calendarReply({
     candidateName: name,
     referrerFirstName: owner && !owner.isUs ? owner.firstName : null,
     missing: missingFor(c),
     hasCv: Boolean(c.resume_blob_pathname),
+    linkAlreadySent: opts.linkAlreadySent,
   })
   const sent = c.email
     ? await sendDeskEmail(admin, {
@@ -118,12 +119,12 @@ export async function onBooked(admin: SupabaseClient, c: Record<string, unknown>
       kind: 'referrer_update_booked',
       to: owner.email,
       toName: owner.name,
-      subject: partnerUpdateSubject(properName(c.name as string), 'booked'),
-      body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'booked' }),
+      subject: partnerUpdateSubject(displayName(c), 'booked'),
+      body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: displayName(c), outcome: 'booked' }),
       sentBy: by,
     })
   }
-  await threadNote(c, `:calendar: ${properName(c.name as string).split(' ')[0]} booked a call for ${when.slice(0, 10)}. *Call booked.*${owner && !owner.isUs ? ` ${owner.firstName} has been told.` : ''}`)
+  await threadNote(c, `:calendar: ${displayName(c).split(' ')[0]} booked a call for ${when.slice(0, 10)}. *Call booked.*${owner && !owner.isUs ? ` ${owner.firstName} has been told.` : ''}`)
 }
 
 async function escalate(
@@ -156,7 +157,7 @@ async function pushBack(admin: SupabaseClient, f: Followup, days: number, note: 
 
 async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string, unknown>): Promise<void> {
   const askedAt = ms(f.created_at) - 60_000
-  const first = properName(c.name as string).split(' ')[0]
+  const first = displayName(c).split(' ')[0]
   const owner = await loadOwner(admin, (c.owner_user_id as string) ?? null)
 
   if (c.email) {
@@ -172,7 +173,7 @@ async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string
     const replies = await repliesSince(f.gmail_thread_id, ms(f.meta?.last_reply_at as string) || askedAt)
     const last = replies[replies.length - 1]
     if (last) {
-      const read = await classifyReply({ who: 'referrer', text: last.text, candidateName: properName(c.name as string) })
+      const read = await classifyReply({ who: 'referrer', text: last.text, candidateName: displayName(c) })
       await logActivity(admin, c.id as string, 'signal_seen', `${owner?.firstName ?? 'The referrer'} replied: ${read.kind}. ${read.summary}`, { source: 'gmail' })
       if (read.kind === 'connected') {
         // They say they did; give the intro two days to show up before nudging again.
@@ -219,8 +220,8 @@ async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string
     kind: `referrer_nudge_${attempt}`,
     to: f.to_email,
     toName: owner.name,
-    subject: partnerSubject(properName(c.name as string), 'warm intro request'),
-    body: referrerNudge({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), attempt, sendUrl: c.email ? `${APP_URL}/candidates/${c.id}?write=intro` : null }),
+    subject: partnerSubject(displayName(c), 'warm intro request'),
+    body: referrerNudge({ referrerFirstName: owner.firstName, candidateName: displayName(c), attempt, sendUrl: c.email ? `${APP_URL}/candidates/${c.id}?write=intro` : null }),
     threadId: f.gmail_thread_id,
     sentBy: 'desk',
   })
@@ -230,7 +231,7 @@ async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string
 
 async function candidateStep(admin: SupabaseClient, f: Followup, c: Record<string, unknown>): Promise<void> {
   const askedAt = ms(f.created_at) - 60_000
-  const first = properName(c.name as string).split(' ')[0]
+  const first = displayName(c).split(' ')[0]
   const booked = await bookingFound(admin, c.id as string, (c.email as string) ?? null, askedAt)
   if (booked) {
     await done(admin, f, 'booked')
@@ -240,7 +241,7 @@ async function candidateStep(admin: SupabaseClient, f: Followup, c: Record<strin
   if (c.email) {
     const wrote = await candidateWrote(c.email as string, ms(f.meta?.last_reply_at as string) || askedAt)
     if (wrote) {
-      const read = await classifyReply({ who: 'candidate', text: wrote.snippet, candidateName: properName(c.name as string) })
+      const read = await classifyReply({ who: 'candidate', text: wrote.snippet, candidateName: displayName(c) })
       await logActivity(admin, c.id as string, 'signal_seen', `${first} replied: ${read.kind}. ${read.summary}`, { source: 'gmail' })
       if (read.kind === 'booked') {
         await pushBack(admin, f, 2, `says booked: ${read.summary}`)
@@ -271,9 +272,9 @@ async function candidateStep(admin: SupabaseClient, f: Followup, c: Record<strin
     candidateId: c.id as string,
     kind: 'candidate_nudge',
     to: c.email as string,
-    toName: properName(c.name as string),
-    subject: directSubject(properName(c.name as string)),
-    body: candidateNudge({ candidateName: properName(c.name as string) }),
+    toName: displayName(c),
+    subject: directSubject(displayName(c)),
+    body: candidateNudge({ candidateName: displayName(c) }),
     threadId: f.gmail_thread_id,
     sentBy: 'desk',
   })
@@ -289,7 +290,7 @@ async function reminderStep(admin: SupabaseClient, f: Followup, c: Record<string
   }
   const panel = await latestPanel(admin, c.id as string)
   const days = Math.round((Date.now() - ms(c.decision_pending_since as string)) / 86_400_000)
-  await threadNote(c, `:bell: Still waiting on you for ${properName(c.name as string)} (${days} day${days === 1 ? '' : 's'}). Suggested: *${panel?.suggested_decision.replace(/_/g, ' ') ?? 'a decision'}*. React on the card above.`)
+  await threadNote(c, `:bell: Still waiting on you for ${displayName(c)} (${days} day${days === 1 ? '' : 's'}). Suggested: *${panel?.suggested_decision.replace(/_/g, ' ') ?? 'a decision'}*. React on the card above.`)
   await done(admin, f, 'reminded')
   // Keep asking weekly until decided. A reminder that stops is a loophole.
   await scheduleFollowup(admin, { candidateId: c.id as string, kind: 'decision_reminder', inDays: 7 })
@@ -299,7 +300,7 @@ async function snoozeStep(admin: SupabaseClient, f: Followup, c: Record<string, 
   await admin.from('candidates').update({ desk_snoozed_until: null }).eq('id', c.id)
   await done(admin, f, 'reposted')
   if (['decision_pending', 'uploaded', 'calibrating', 'ready_for_intro'].includes(String(c.journey_stage))) {
-    await threadNote(c, `:alarm_clock: Snooze over for ${properName(c.name as string)}. Still undecided; react on the card above.`)
+    await threadNote(c, `:alarm_clock: Snooze over for ${displayName(c)}. Still undecided; react on the card above.`)
     await scheduleFollowup(admin, { candidateId: c.id as string, kind: 'decision_reminder', inDays: 7 })
   }
 }
@@ -336,7 +337,7 @@ async function hmStep(admin: SupabaseClient, f: Followup, c: Record<string, unkn
   }
   const { data: job } = await admin.from('partner_roles_v').select('company_name, headline, title, hiring_manager_name').eq('job_id', jobId).maybeSingle()
   const where = `${job?.headline ?? job?.title ?? 'the seat'} at ${job?.company_name ?? 'the client'}`
-  const first = properName(c.name as string).split(' ')[0]
+  const first = displayName(c).split(' ')[0]
   if (f.kind === 'hm_chase') {
     const to = (f.to_email as string) ?? null
     if (to) {
@@ -473,7 +474,7 @@ async function watchThreads(admin: SupabaseClient): Promise<{ replies: number; b
           const c = await candidateOf(admin, e.candidate_id as string)
           await admin.from('candidate_emails').update({ meta: { ...meta, last_reply_at: new Date(last.at).toISOString() } }).eq('id', e.id)
           if (c) {
-            const read = await classifyReply({ who: 'referrer', text: last.text, candidateName: properName(c.name as string) })
+            const read = await classifyReply({ who: 'referrer', text: last.text, candidateName: displayName(c) })
             await logActivity(admin, c.id as string, 'signal_seen', `Reply on the ${String(e.kind).replace(/_/g, ' ')} email from ${last.from}: ${read.summary}`, { source: 'gmail' })
             await threadNote(c, `:speech_balloon: ${esc(last.from)} replied on the *${String(e.kind).replace('decision_', '').replace(/_/g, ' ')}* email: "${esc(read.summary)}". Needs your reply in Gmail; change the decision on the profile if it changes anything.`)
           }
@@ -547,7 +548,7 @@ export async function handleEscalationReaction(
   if (!f) return false
   const c = await candidateOf(admin, f.candidate_id as string)
   if (!c) return true
-  const first = properName(c.name as string).split(' ')[0]
+  const first = displayName(c).split(' ')[0]
   const owner = await loadOwner(admin, (c.owner_user_id as string) ?? null)
   const fk = String(f.kind)
 
@@ -577,8 +578,8 @@ export async function handleEscalationReaction(
         kind: 'referrer_update_dormant',
         to: owner.email,
         toName: owner.name,
-        subject: partnerUpdateSubject(properName(c.name as string), 'dormant'),
-        body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'dormant' }),
+        subject: partnerUpdateSubject(displayName(c), 'dormant'),
+        body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: displayName(c), outcome: 'dormant' }),
         threadId: f.gmail_thread_id as string,
         sentBy: input.slackUser,
       })
@@ -594,7 +595,7 @@ export async function handleEscalationReaction(
       // cc'd on that email, and gets one line in the old thread as well.
       const r = await sendIntroForPartner(admin, c, { by: input.slackUser, via: 'slack' })
       if (r.ok && owner && !owner.isUs) {
-        await sendDeskEmail(admin, { candidateId: c.id as string, kind: 'referrer_update_direct', to: owner.email, toName: owner.name, subject: partnerUpdateSubject(properName(c.name as string), 'went_direct'), body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), outcome: 'went_direct' }), threadId: f.gmail_thread_id as string, sentBy: input.slackUser })
+        await sendDeskEmail(admin, { candidateId: c.id as string, kind: 'referrer_update_direct', to: owner.email, toName: owner.name, subject: partnerUpdateSubject(displayName(c), 'went_direct'), body: referrerOutcome({ referrerFirstName: owner.firstName, candidateName: displayName(c), outcome: 'went_direct' }), threadId: f.gmail_thread_id as string, sentBy: input.slackUser })
       }
       await postThreadReply(input.channel, input.ts, r.ok ? `:email: <@${input.slackUser}> went direct. Emailed ${first}${owner && !owner.isUs ? ` with ${owner.firstName} cc'd, and told them in the old thread` : ''}. *Intro sent.*` : `:warning: Could not email ${first}: ${r.error}`)
       return true

@@ -21,7 +21,7 @@ import { Resend } from 'resend'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { esc, textToHtml } from '@/lib/desk/html'
 import { logActivity } from '@/lib/desk/outbound'
-import { properName } from '@/lib/desk/people'
+import { displayName, properName } from '@/lib/desk/people'
 import { recordHumanDecision } from '@/lib/engine/decisions'
 import { MOMENT_KIND, MOMENT_LABEL, MOMENTS, footerText, renderMoment, type Draft, type Moment, type MomentFacts } from '@/lib/messages/templates'
 
@@ -171,7 +171,7 @@ function validEmail(v: unknown): string | null {
 export async function messageContext(admin: SupabaseClient, candidateId: string, writer: Writer): Promise<MessageContext | null> {
   const { data: candidate } = await admin.from('candidates').select('*').eq('id', candidateId).maybeSingle()
   if (!candidate) return null
-  const first = properName(candidate.name as string).split(/\s+/)[0]
+  const first = displayName(candidate).split(/\s+/)[0]
   const email = validEmail(candidate.email)
   const [submissions, { data: state }, { data: dnc }] = await Promise.all([
     loadSubmissions(admin, candidateId, writer),
@@ -451,7 +451,7 @@ async function afterSend(admin: SupabaseClient, ctx: MessageContext, moment: Mom
   }
   if (moment === 'intro' && String(ctx.candidate.journey_stage) === 'intro_requested') {
     const { onIntroLanded } = await import('@/lib/desk/followups')
-    await onIntroLanded(admin, ctx.candidate, { threadId: '', from: ctx.writer.email, at: Date.now() }, ctx.writer.email)
+    await onIntroLanded(admin, ctx.candidate, { threadId: '', from: ctx.writer.email, at: Date.now() }, ctx.writer.email, { linkAlreadySent: true })
     await logActivity(admin, id, 'signal_seen', `${ctx.writer.first} sent the intro from Refery, Lily in copy.`, { source: 'human', performedBy: ctx.writer.userId })
     await admin.from('desk_links').update({ used_at: new Date().toISOString() }).eq('candidate_id', id).is('used_at', null)
   }

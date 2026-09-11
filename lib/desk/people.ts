@@ -68,6 +68,24 @@ export function firstNameOf(full: string | null | undefined): string {
   return f === f.toUpperCase() && f.length > 2 ? f[0] + f.slice(1).toLowerCase() : f
 }
 
+/**
+ * The name we greet a person by: the record name, with the first word swapped
+ * for the name the CV itself uses when that differs ("Nora Xu" for a record
+ * that says Yunxuan Xu). Every email, the intro kit and the page use this, so
+ * Lily's ask, the partner's draft and the candidate's own page agree.
+ */
+export function displayName(c: { name?: unknown; preferred_name?: unknown } | null | undefined): string {
+  const full = properName(typeof c?.name === 'string' ? c.name : null)
+  const pref = typeof c?.preferred_name === 'string' ? c.preferred_name.trim() : ''
+  if (!pref || full === 'this person') return full
+  const rest = full.split(/\s+/).slice(1)
+  return [pref, ...rest].join(' ')
+}
+
+export function displayFirst(c: { name?: unknown; preferred_name?: unknown } | null | undefined): string {
+  return displayName(c).split(/\s+/)[0]
+}
+
 export function properName(full: string | null | undefined): string {
   const s = (full ?? '').trim()
   if (!s) return 'this person'

@@ -89,6 +89,11 @@ export const PanelSchema = z.object({
     .describe('Companies or schools on the CV that are notable and were NOT already tagged in the facts you were given (a YC batch, a top lab, a well-known startup). Empty when none.'),
   flags: z.array(z.string()).describe('Things Lily must know before deciding, from the CV or the partner pitch: seniority mismatch, gaps, contradictions with what the partner said. Not logistics (computed already). Blunt, one clause each. Empty when none.'),
   missing_facts: z.array(z.enum(['visa', 'location', 'comp', 'consent', 'email'])).describe('Facts not on record that a founder will ask first.'),
+  preferred_first_name: z
+    .string()
+    .nullable()
+    .optional()
+    .describe('The first name the CV itself uses for the person when it differs from the record name: a nickname in the header, the email signature or the summary (e.g. "Nora" when the record says Yunxuan). null when the CV uses the record name. Never invent one.'),
   seat_fits: z.array(SeatFit).describe('Only the seats rated strong or possible. Every seat you leave out is a no; do not list the no ones.'),
   suggested_decision: z.enum(['intro_now', 'bench', 'not_fit', 'route_elsewhere']).describe('Your read. The desk computes the final suggestion from the seat fits and the facts; yours is kept beside it.'),
   suggested_reason: z.string().describe('One sentence Lily reads to justify the suggestion. Name the seats when intro_now.'),
@@ -367,6 +372,8 @@ export async function buildPanelContext(admin: SupabaseClient, candidateId: stri
 
 /** The model's read, kept verbatim so a reuse can rebuild the row without a call. */
 export interface ModelRead {
+  /** The first name the CV goes by when it differs from the record. Newer reads only. */
+  preferred_first_name?: string | null
   person_type: PanelOutput['person_type']
   grade: PanelOutput['grade']
   level: PanelOutput['level']
@@ -606,6 +613,17 @@ export async function runPanel(admin: SupabaseClient, ctx: PanelContext, opts: R
     return { job_id: f.job_id, fit: f.fit, reason: stripPercentiles(f.reason), blockers: (v?.blockers ?? []).map(b => `${b.kind}: ${b.detail}`) }
   })
   const flags = [...read.flags.map(stripPercentiles), ...(derived.overridden ? [`Desk changed the suggestion from ${read.suggested_decision.replace(/_/g, ' ')} to ${derived.suggested_decision.replace(/_/g, ' ')}: ${derived.override_reason}`] : [])].slice(0, 6)
+
+  // The name the CV goes by, so every email greets the person the way they
+  // introduce themselves. Only ever set, never cleared, and never overwrites a
+  // name Lily or the partner typed by hand.
+  const preferred = (read.preferred_first_name ?? '').trim()
+  if (preferred && /^[\p{L}][\p{L}'’.-]{0,30}$/u.test(preferred)) {
+    const recordFirst = properName(String(ctx.candidate.name ?? '')).split(/\s+/)[0]
+    if (preferred.toLowerCase() !== recordFirst.toLowerCase()) {
+      await admin.from('candidates').update({ preferred_name: preferred }).eq('id', candidateId).is('preferred_name', null)
+    }
+  }
 
   const { data: row, error } = await admin
     .from('candidate_panels')

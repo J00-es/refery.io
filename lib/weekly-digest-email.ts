@@ -57,6 +57,8 @@ export interface WeeklyDigest {
   fresh: DigestLine[]
   /** Their own link this week: opens, arrivals, confirmed, still waiting on them. */
   link?: { opens: number; arrivals: number; confirmed: number; waiting: number } | null
+  /** Messages they sent to their candidates from Refery this week, and replies that came back. */
+  messages?: { sent: number; replies: number } | null
 }
 
 function lines(items: DigestLine[]): string {
@@ -116,6 +118,7 @@ export function renderWeeklyDigest(d: WeeklyDigest): { subject: string; html: st
   ${needs}
   ${d.searches.length ? section('Your searches', searches) : ''}
   ${d.link && (d.link.opens || d.link.arrivals) ? section('Your link', `<tr><td style="padding:0 0 10px 0; font-family:${SANS}; font-size:15px; line-height:1.6; color:${M.body};">Opened ${d.link.opens} ${d.link.opens === 1 ? 'time' : 'times'} this week. ${d.link.arrivals ? `${d.link.arrivals} ${d.link.arrivals === 1 ? 'person' : 'people'} came through${d.link.confirmed ? `, ${d.link.confirmed} confirmed by you` : ''}${d.link.waiting ? `, <strong>${d.link.waiting} still waiting for your yes</strong>` : ''}.` : 'Nobody came through yet.'}</td></tr>`) : ''}
+  ${d.messages && (d.messages.sent || d.messages.replies) ? section('Your messages', `<tr><td style="padding:0 0 10px 0; font-family:${SANS}; font-size:15px; line-height:1.6; color:${M.body};">You sent ${d.messages.sent} ${d.messages.sent === 1 ? 'message' : 'messages'} to your candidates from Refery this week${d.messages.replies ? `, and ${d.messages.replies} ${d.messages.replies === 1 ? 'reply' : 'replies'} came back` : ''}.</td></tr>`) : ''}
   ${section('New this week', lines(d.fresh))}
   <tr><td style="padding:6px 0 32px 0;"><a href="${APP_URL}/searches" style="display:inline-block; padding:12px 22px; font-family:${SANS}; font-weight:600; font-size:14px; color:#ffffff; background-color:${M.green}; border-radius:999px; text-decoration:none;">Open your searches</a>
   <a href="mailto:${REPLY_TO}" style="display:inline-block; margin-left:10px; padding:12px 22px; font-family:${SANS}; font-weight:600; font-size:14px; color:${M.body}; border:1px solid #d2d1c7; border-radius:999px; text-decoration:none;">Reply to Lily</a></td></tr>

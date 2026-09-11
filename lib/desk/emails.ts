@@ -32,6 +32,8 @@ export function calendarReply(input: {
   referrerFirstName: string | null
   missing: string[]
   hasCv: boolean
+  /** The partner's draft already carried Lily's booking link, so this reply points at it instead of repeating it. */
+  linkAlreadySent?: boolean
 }): { subject: string; body: string } {
   const first = firstNameOf(input.candidateName)
   const asks = Object.entries(PRECALL_QUESTIONS)
@@ -46,7 +48,7 @@ export function calendarReply(input: {
     subject: directSubject(input.candidateName),
     body: `Hi ${first}, great to meet you!${input.referrerFirstName ? ` Thanks for the intro, ${input.referrerFirstName}.` : ''}
 
-Happy to chat. Please ${CAL}.${askBlock}
+Happy to chat.${input.linkAlreadySent && input.referrerFirstName ? ` The booking link ${input.referrerFirstName} sent takes you straight into my calendar.` : ` Please ${CAL}.`}${askBlock}
 
 Looking forward to it!
 Lily`,

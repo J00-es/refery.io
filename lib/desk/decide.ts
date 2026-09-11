@@ -19,7 +19,7 @@ import { syncSubmissions } from '@/lib/desk/submissions'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { postThreadReply, esc } from '@/lib/slack-bot'
 import { latestPanel, recipientFor, type PanelRow } from '@/lib/desk/panel'
-import { loadOwner, properName, type Owner } from '@/lib/desk/people'
+import { loadOwner, properName, displayName, type Owner } from '@/lib/desk/people'
 import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
 import { missingFactsAsk, missingFactsNow } from '@/lib/desk/emails'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
@@ -437,7 +437,7 @@ export async function handleDecisionReaction(
   const mapped = REACTION_TO_DECISION[input.reaction]
   if (!mapped) return false
   const c = input.candidate
-  const first = properName(c.name as string).split(/\s+/)[0]
+  const first = displayName(c).split(/\s+/)[0]
 
   if (mapped === 'arm_not_fit') {
     if (c.person_type && c.person_type !== 'job_seeker') {
@@ -474,7 +474,7 @@ export async function handleDecisionThreadReply(
 ): Promise<void> {
   const c = input.candidate
   const text = input.text.trim()
-  const first = properName(c.name as string).split(/\s+/)[0]
+  const first = displayName(c).split(/\s+/)[0]
 
   const edit = text.match(/^edit\s*[:：]\s*([\s\S]+)$/i)
   if (edit) {

@@ -136,7 +136,7 @@ export async function answerConsent(t: string, answer: 'agreed' | 'declined', me
     const first = ((partner.full_name as string | null) ?? '').split(/\s+/)[0] || 'there'
     const body =
       answer === 'agreed'
-        ? `Hi ${first},\n\n${view.candidateFirstName} said yes to being put forward for ${view.roleTitle}. That tap is their consent and the start of your protection on them with this client.\n\nBest,\nLily`
+        ? `Hi ${first},\n\n${view.candidateFirstName} said yes to being put forward for ${view.roleTitle}. That tap is their consent and the start of your protection on them with this client.\n\nNothing more from you on this one: Refery reviews next, and the stage moves on the search page.\n\nBest,\nLily`
         : `Hi ${first},\n\n${view.candidateFirstName} said not now to ${view.roleTitle}. The submission stays on your pipeline as declined by the candidate; no need to chase.\n\nBest,\nLily`
     try {
       const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({ from: 'Lily at Refery <hello@refery.io>', to: partner.email as string, replyTo: 'lily@refery.io', subject: `[Refery] ${view.candidateFirstName} | ${answer === 'agreed' ? 'said yes' : 'said not now'}`, text: body })

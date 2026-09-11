@@ -21,7 +21,7 @@ import { directAfterReferrer } from '@/lib/desk/emails'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { latestPanel } from '@/lib/desk/panel'
 import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
-import { loadOwner, properName, type Owner } from '@/lib/desk/people'
+import { loadOwner, properName, displayName, type Owner } from '@/lib/desk/people'
 import { postThreadReply } from '@/lib/slack-bot'
 import { esc, textToHtml } from '@/lib/desk/html'
 import { candidatePath } from '@/lib/paths'
@@ -65,7 +65,7 @@ export function mailtoFor(candidateEmail: string, candidateName: string, forward
 }
 
 export async function buildIntroKit(admin: SupabaseClient, c: Record<string, unknown>, opts: { withLink: boolean; ownerUserId: string | null; strongSeats?: Seat[] }): Promise<IntroKit> {
-  const name = properName(c.name as string)
+  const name = displayName(c)
   const first = name.split(/\s+/)[0]
   const email = ((c.email as string | null) ?? '').trim().toLowerCase() || null
   const seat = opts.strongSeats?.[0]
@@ -177,7 +177,7 @@ export async function sendIntroForPartner(
   input: { by: string; via: 'page' | 'link' | 'slack'; ownerHint?: string | null },
 ): Promise<{ ok: boolean; message: string; error?: string }> {
   const id = c.id as string
-  const name = properName(c.name as string)
+  const name = displayName(c)
   const first = name.split(/\s+/)[0]
   if (String(c.journey_stage) !== 'intro_requested') return { ok: false, message: `We are not waiting on an intro for ${first} right now.`, error: 'moved_on' }
   if (!c.email) return { ok: false, message: `There is no email address on ${first}'s profile to write to.`, error: 'no_email' }
@@ -223,7 +223,7 @@ export async function sendIntroForPartner(
 
 /** The partner says they made the intro themselves. */
 export async function markIntroMade(admin: SupabaseClient, c: Record<string, unknown>, by: string): Promise<{ ok: boolean; message: string }> {
-  const first = properName(c.name as string).split(/\s+/)[0]
+  const first = displayName(c).split(/\s+/)[0]
   if (String(c.journey_stage) !== 'intro_requested') return { ok: false, message: `We are not waiting on an intro for ${first} right now.` }
   const { onIntroLanded } = await import('@/lib/desk/followups')
   const owner = await loadOwner(admin, (c.owner_user_id as string) ?? null)
