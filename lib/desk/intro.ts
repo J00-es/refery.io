@@ -44,13 +44,17 @@ export interface IntroKit {
   mailto: string | null
   /** The confirm page that has Lily reach out. Null when no email to write to. */
   sendForMeUrl: string | null
+  /** The composer on the person's page, opened on the intro draft. Null when no email to write to. */
+  sendFromReferyUrl: string | null
 }
 
 /** The three lines. Focus comes from the first strong seat's headline, never a client name. */
 export function forwardableIntro(candidateName: string, focusHeadline: string | null): string {
   const first = properName(candidateName).split(/\s+/)[0]
-  const focus = focusHeadline ? `on the ${focusHeadline} search` : 'on a few early-stage searches'
-  return `${first}, meet Lily from Refery. Lily works with a few early-stage teams ${focus} and asked about you after I shared your background. Lily, ${first} is the one I mentioned. I will let you two take it from here.`
+  const focus = focusHeadline ? `the ${focusHeadline} search` : 'a few early-stage searches'
+  // The same words as the "Meet Lily" draft in lib/messages/templates.ts, so the
+  // email, the page and the composer never disagree.
+  return `${first}, meet Lily from Refery. Lily is working on ${focus}.\n\nLily, meet ${first}. I’ll let you two take it from here.\n\n${first}, the quickest way in is fifteen minutes with Lily whenever suits you: https://cal.com/refery-lily/15`
 }
 
 export function mailtoFor(candidateEmail: string, candidateName: string, forwardable: string): string {
@@ -79,6 +83,7 @@ export async function buildIntroKit(admin: SupabaseClient, c: Record<string, unk
     forwardable,
     mailto: email ? mailtoFor(email, name, forwardable) : null,
     sendForMeUrl,
+    sendFromReferyUrl: email ? `${APP_URL}/candidates/${c.id}?write=intro` : null,
   }
 }
 
@@ -86,12 +91,12 @@ export async function buildIntroKit(admin: SupabaseClient, c: Record<string, unk
 export function kitText(k: IntroKit): string {
   const lines = [
     `Everything you need for the intro:`,
+    ...(k.sendFromReferyUrl ? [`- Send it from Refery in one click, in your name, with me in copy: ${k.sendFromReferyUrl}`] : []),
     `- ${k.candidateFirst}: ${k.candidateEmail ?? 'no email on record'}${k.linkedin ? ` · ${k.linkedin}` : ''}`,
     `- [${k.candidateFirst}'s page in Refery](${k.pageUrl})`,
-    `- Forward this to ${k.candidateFirst} with me in copy, or write your own:`,
-    `  "${k.forwardable}"`,
+    `- Or forward this to ${k.candidateFirst} with me in copy, or write your own:`,
+    `  "${k.forwardable.replace(/\n\n/g, ' ')}"`,
   ]
-  if (k.mailto) lines.push(`- Open a pre-filled intro email: ${k.mailto}`)
   if (k.sendForMeUrl) lines.push(`- Or have me reach out, saying it came from you: ${k.sendForMeUrl}`)
   return lines.join('\n')
 }
@@ -103,8 +108,9 @@ export function kitHtml(k: IntroKit): string {
   return `<div style="margin:14px 0;border:1px solid #E4E3DC;border-radius:12px;background:#FAFAF7;padding:12px 14px;font-size:14px;line-height:1.5">
 <div style="font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:#9C9C95;font-weight:600;margin-bottom:6px">Intro kit</div>
 <div>${esc(k.candidateFirst)}: ${k.candidateEmail ? `<a href="mailto:${esc(k.candidateEmail)}" style="color:#1F3A2F">${esc(k.candidateEmail)}</a>` : 'no email on record'}${k.linkedin ? ` &nbsp;·&nbsp; <a href="${esc(k.linkedin)}" style="color:#1F3A2F">LinkedIn</a>` : ''} &nbsp;·&nbsp; <a href="${esc(k.pageUrl)}" style="color:#1F3A2F">${esc(k.candidateFirst)}'s page in Refery</a></div>
-<div style="margin-top:10px;border-left:3px solid #D2D1C7;padding:8px 12px;background:#ffffff;border-radius:0 10px 10px 0;color:#2A2A26">Forward this to ${esc(k.candidateFirst)} with me in copy, or write your own:<br><br>“${esc(k.forwardable)}”</div>
-<div style="margin-top:10px">${k.mailto ? btn(k.mailto, 'Open a pre-filled intro email', true) : ''}${k.mailto && k.sendForMeUrl ? ' &nbsp; ' : ''}${k.sendForMeUrl ? btn(k.sendForMeUrl, 'Have Lily reach out, saying it came from you', false) : ''}</div>
+<div style="margin-top:10px">${k.sendFromReferyUrl ? btn(k.sendFromReferyUrl, 'Send the intro from Refery', true) : ''}${k.sendFromReferyUrl && k.sendForMeUrl ? ' &nbsp; ' : ''}${k.sendForMeUrl ? btn(k.sendForMeUrl, 'Have Lily reach out, saying it came from you', false) : ''}</div>
+<div style="margin-top:10px;border-left:3px solid #D2D1C7;padding:8px 12px;background:#ffffff;border-radius:0 10px 10px 0;color:#2A2A26">One click sends this in your name with me in copy, and ${esc(k.candidateFirst)} moves to intro sent. Or forward it yourself:<br><br>${esc(k.forwardable).replace(/\n\n/g, '<br><br>')}</div>
+${k.mailto ? `<div style="margin-top:8px;font-size:12.5px;color:#6E6E68"><a href="${esc(k.mailto)}" style="color:#6E6E68">Open a pre-filled email in your own mail app</a></div>` : ''}
 </div>`
 }
 

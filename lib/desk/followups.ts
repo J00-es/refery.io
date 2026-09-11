@@ -19,7 +19,7 @@ import { postAlert, postToDesk } from '@/lib/desk-notifications'
 import { calendarReply, candidateNudge, referrerNudge, referrerOutcome } from '@/lib/desk/emails'
 import { bookingFound, bounced, candidateWrote, classifyReply, introLanded, repliesSince } from '@/lib/desk/signals'
 import { directSubject, partnerSubject, partnerUpdateSubject } from '@/lib/desk/subjects'
-import { sendIntroForPartner } from '@/lib/desk/intro'
+import { APP_URL, sendIntroForPartner } from '@/lib/desk/intro'
 import { cancelFollowups, deskSetting, logActivity, moveJourney, scheduleFollowup, sendDeskEmail } from '@/lib/desk/outbound'
 import { loadOwner, properName } from '@/lib/desk/people'
 import { latestPanel } from '@/lib/desk/panel'
@@ -220,7 +220,7 @@ async function referrerStep(admin: SupabaseClient, f: Followup, c: Record<string
     to: f.to_email,
     toName: owner.name,
     subject: partnerSubject(properName(c.name as string), 'warm intro request'),
-    body: referrerNudge({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), attempt }),
+    body: referrerNudge({ referrerFirstName: owner.firstName, candidateName: properName(c.name as string), attempt, sendUrl: c.email ? `${APP_URL}/candidates/${c.id}?write=intro` : null }),
     threadId: f.gmail_thread_id,
     sentBy: 'desk',
   })

@@ -83,7 +83,7 @@ export function PartnerIntroButtons({
       {email && <p className="mt-2 text-[12px] text-[#6E6E68]">Goes as &ldquo;you via Refery&rdquo;, replies land in your inbox, Lily in copy.{mailto ? <> Prefer your own mail app? <a href={mailto} className="underline underline-offset-2">Open a pre-filled email</a>.</> : null}</p>}
       {msg && <p className={`mt-2 text-[12.5px] ${msg.ok ? 'text-[#1F3A2F]' : 'text-[#8A3B2B]'}`}>{msg.text}</p>}
 
-      <div className="relative mt-3 rounded-[10px] border border-dashed border-[#D2D1C7] bg-white/70 px-3 py-2.5 pr-20 text-[13px] leading-relaxed text-[#2A2A26]">
+      <div className="relative mt-3 rounded-[10px] border border-dashed border-[#D2D1C7] bg-white/70 px-3 py-2.5 pr-20 text-[13px] leading-relaxed whitespace-pre-line text-[#2A2A26]">
         <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[#9C9C95]">Forward this to {first}, with lily@refery.io in copy</p>
         {forwardable}
         <button type="button" onClick={copy} className={`absolute right-2 top-2 inline-flex items-center gap-1 rounded-full border border-[#1F3A2F] bg-white px-2.5 py-0.5 text-[11.5px] font-semibold text-[#1F3A2F] ${FOCUS}`}>

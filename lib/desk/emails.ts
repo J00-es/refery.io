@@ -53,15 +53,16 @@ Lily`,
   }
 }
 
-export function referrerNudge(input: { referrerFirstName: string; candidateName: string; attempt: 1 | 2 }): string {
+export function referrerNudge(input: { referrerFirstName: string; candidateName: string; attempt: 1 | 2; sendUrl?: string | null }): string {
   const name = input.candidateName.split(/\s+/)[0]
+  const oneClick = input.sendUrl ? ` One click on ${name}'s page sends it in your name with me in copy: ${input.sendUrl}` : ''
   if (input.attempt === 1) {
-    return `Hi ${input.referrerFirstName}, quick nudge on ${name} :) Would you mind connecting us when you get a minute? Just an email with us both on it is perfect.
+    return `Hi ${input.referrerFirstName}, quick nudge on ${name} :) Would you mind connecting us when you get a minute? Just an email with us both on it is perfect.${oneClick}
 
 Best,
 Lily`
   }
-  return `Hi ${input.referrerFirstName}, one more nudge on ${name}. The search is moving this month, so if it is easier I am happy to reach out to ${name} directly and say it came from you. Just say the word :)
+  return `Hi ${input.referrerFirstName}, one more nudge on ${name}. The search is moving this month, so if it is easier I am happy to reach out to ${name} directly and say it came from you. Just say the word :)${oneClick}
 
 Best,
 Lily`
