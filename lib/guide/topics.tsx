@@ -794,9 +794,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             to: 'Your candidate',
             from: 'Maya Okafor via Refery <partners@refery.io>',
             subject: 'A role I would like to put you forward for',
-            body: 'Hi Daniel,\n\nThere is a Senior Full-Stack Engineer role at a healthcare marketplace in Barcelona that fits what you told me.\n\nMay I share your profile with them through Refery? The company’s name is revealed when you say yes. Nothing is shared with them before then.
-
-Choose ‘yes’ or ‘not now’ here:\nrefery.xyz/c/…\n\nEither choice comes back to me.\n\nMaya',
+            body: 'Hi Daniel,\n\nThere is a Senior Full-Stack Engineer role at a healthcare marketplace in Barcelona that fits what you told me.\n\nMay I share your profile with them through Refery? The company’s name is revealed when you say yes. Nothing is shared with them before then.\n\nChoose ‘yes’ or ‘not now’ here:\nrefery.xyz/c/…\n\nEither choice comes back to me.\n\nMaya',
           },
           {
             to: 'You',
