@@ -13,6 +13,7 @@ import {
 import { generateAgreementPdf } from '@/lib/generate-agreement-pdf'
 import { sendPartnerAgreementEmails } from '@/lib/send-agreement-emails'
 import { normalizeEmail } from '@/lib/current-user'
+import { emailProblem } from '@/lib/email-format'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { createFirm, SIGNATURE_DAYS } from '@/lib/firms'
 import { announceFirmSignup, sendFirmReceipt, sendFirmSignatureRequest } from '@/lib/firm-notify'
@@ -71,6 +72,21 @@ export async function POST(req: Request) {
     const email = normalizeEmail(body.email)
     const agreement: AgreementPayload | undefined = body.agreement
 
+    // Checked before Supabase sees it. Its own rejection ("Unable to validate
+    // email address: invalid format") names neither the field nor the value,
+    // and by now the form is two steps past the box. `field` tells the form
+    // which box to go back to.
+    const emailIssue = emailProblem(email, 'your email')
+    if (emailIssue) {
+      return NextResponse.json({ error: emailIssue, field: 'email' }, { status: 400 })
+    }
+    if (body.firm?.name && body.firm?.signer_self === false) {
+      const signerIssue = emailProblem(String(body.firm.signer_email ?? ''), 'the email of the person who can sign')
+      if (signerIssue) {
+        return NextResponse.json({ error: signerIssue, field: 'signer_email' }, { status: 400 })
+      }
+    }
+
     const supabase = await createClient()
     const adminClient = createAdminClient()
 
@@ -118,6 +134,16 @@ export async function POST(req: Request) {
 
     if (authError) {
       console.error('Auth sign up error:', authError)
+      // Supabase is stricter than the check above in places. Whatever it
+      // disliked about the address, quote the address and send them back to it.
+      const aboutEmail =
+        authError.code === 'email_address_invalid' || /validate email address/i.test(authError.message)
+      if (aboutEmail) {
+        return NextResponse.json(
+          { error: `We could not create an account for "${email}". Check the address for a typo and try again.`, field: 'email' },
+          { status: 400 },
+        )
+      }
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 

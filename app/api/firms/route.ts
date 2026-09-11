@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
+import { emailProblem, isPlausibleEmail } from '@/lib/email-format'
 import { getRequestContext } from '@/lib/request-context'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { createFirm, firmsEnabled, getMembership, SIGNATURE_DAYS } from '@/lib/firms'
@@ -64,7 +65,11 @@ export async function POST(req: NextRequest) {
   }
   // Nominating somebody is not accepting on their behalf, so this branch asks
   // for a person to send it to rather than for a tick.
-  if (!signerSelf && (!signerName || !signerEmail.includes('@'))) {
+  const signerEmailIssue = !signerSelf && signerName ? emailProblem(signerEmail, 'the email of the person who can sign') : null
+  if (signerEmailIssue) {
+    return NextResponse.json({ error: signerEmailIssue }, { status: 400 })
+  }
+  if (!signerSelf && (!signerName || !isPlausibleEmail(signerEmail))) {
     return NextResponse.json(
       { error: 'We need the name and email of the person who can sign' },
       { status: 400 },

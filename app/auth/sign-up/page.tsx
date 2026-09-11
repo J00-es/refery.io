@@ -18,6 +18,7 @@ import { ArrowLeft, ArrowRight, Check } from 'lucide-react'
 import { PARTNER_TERMS_TEXT, AGREEMENT_VERSIONS } from '@/lib/agreements'
 import { EMPTY_PREFERENCES, PreferencesFields, preferencesComplete, type PreferencesValue } from '@/components/onboarding/preferences-fields'
 import { AgreementContent } from '@/components/agreement-content'
+import { emailProblem, isPlausibleEmail } from '@/lib/email-format'
 
 type Role = 'scout' | 'recruiter'
 /**
@@ -284,8 +285,11 @@ export default function Page() {
       setError('Please enter your full legal name')
       return
     }
-    if (!email.trim()) {
-      setError('Please enter your email')
+    // The shape of the address, not just its presence. Supabase rejects a
+    // bad one with a message that names no field, two steps from here.
+    const emailIssue = emailProblem(email, 'your email')
+    if (emailIssue) {
+      setError(emailIssue)
       return
     }
     if (!linkedinUrl.trim()) {
@@ -316,8 +320,15 @@ export default function Page() {
       setError('Please enter the name of the person who can sign')
       return
     }
-    if (isFirm && !signerSelf && !nomineeEmail.includes('@')) {
-      setError('Please enter the email of the person who can sign')
+    if (isFirm && !signerSelf) {
+      const nomineeIssue = emailProblem(nomineeEmail, 'the email of the person who can sign')
+      if (nomineeIssue) {
+        setError(nomineeIssue)
+        return
+      }
+    }
+    if (isFirm && firmBillingEmail.trim() && !isPlausibleEmail(firmBillingEmail)) {
+      setError(emailProblem(firmBillingEmail, 'the billing email'))
       return
     }
     // Before the terms, not after them.
@@ -415,6 +426,12 @@ export default function Page() {
 
       const data = await res.json()
       if (!res.ok) {
+        // A rejected address is fixed on the details step, not here: the box
+        // is two steps back and the last step never shows what was typed.
+        if (data.field === 'email' || data.field === 'signer_email') {
+          setKnown(null)
+          setStep(2)
+        }
         throw new Error(data.error || 'Sign up failed')
       }
 
@@ -999,7 +1016,7 @@ export default function Page() {
                   {isFirm && !signerSelf ? (
                     <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed text-foreground/80">
                       <p className="mb-3">
-                        Creating your account and{' '}
+                        Creating your account for {email.trim() || 'you'} and{' '}
                         <strong className="text-foreground">{firmLegalName.trim() || 'your firm'}</strong>.
                       </p>
                       <p className="mb-3">

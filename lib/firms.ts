@@ -19,6 +19,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { AGREEMENT_VERSIONS } from '@/lib/agreements'
 import type { AppRole, AppUser } from '@/lib/current-user'
+import { emailProblem } from '@/lib/email-format'
 
 /** How long an invitation is good for. */
 export const INVITE_DAYS = 7
@@ -386,7 +387,8 @@ export async function createInvite(
   opts: { firmId: string; email: string; role: FirmRole; invitedBy: string },
 ): Promise<InviteResult> {
   const email = opts.email.trim().toLowerCase()
-  if (!email.includes('@')) return { ok: false, error: 'That does not look like an email address' }
+  const emailIssue = emailProblem(email, 'their email')
+  if (emailIssue) return { ok: false, error: emailIssue }
 
   await admin
     .from('partner_org_invites')

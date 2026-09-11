@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FOCUS } from '@/lib/candidate-ui'
+import { isPlausibleEmail } from '@/lib/email-format'
 
 /**
  * Creating a firm.
@@ -66,7 +67,7 @@ export function CreateFirmForm({ versions }: { versions: { partner: string; subm
 
   const ready =
     Boolean(name.trim() && legalName.trim()) &&
-    (signerSelf ? accepted : Boolean(nomineeName.trim() && nomineeEmail.includes('@')))
+    (signerSelf ? accepted : Boolean(nomineeName.trim() && isPlausibleEmail(nomineeEmail)))
 
   async function submit() {
     setBusy(true)
