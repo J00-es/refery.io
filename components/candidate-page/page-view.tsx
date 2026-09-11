@@ -26,7 +26,14 @@ export function CandidatePageView({ data, slug, via, siteKey }: { data: PublicCa
   const { page, role, referrer } = data
   const who = referrer?.firstName ?? 'Refery'
   const chips = [role.location, role.remoteLabel, role.seniority, role.salary ? `${role.salary} base` : null, role.hasEquity ? 'Equity' : null, role.visa].filter((c): c is string => !!c)
-  const paragraphs = (page.jd_text ?? '').split(/\n{2,}/).map(p => p.trim()).filter(Boolean)
+  // The draft arrives as light markdown; the markers are dropped, the shape is kept.
+  const clean = (s: string) => s.replace(/\*\*(.+?)\*\*/g, '$1').replace(/`/g, '').trim()
+  const paragraphs = (page.jd_text ?? '')
+    .split(/\n{2,}/)
+    .map(p => p.trim())
+    .filter(Boolean)
+    // A heading that is the page's own title again says nothing.
+    .filter(p => !(/^#+\s*/.test(p) && clean(p.replace(/^#+\s*/, '')).toLowerCase() === (page.headline ?? '').toLowerCase()))
   const shareHref = referrer ? `/r/${referrer.code}` : '/apply'
 
   return (
@@ -85,10 +92,12 @@ export function CandidatePageView({ data, slug, via, siteKey }: { data: PublicCa
                 <div className="mt-3 grid gap-3">
                   {paragraphs.map((p, i) => {
                     const lines = p.split('\n')
-                    const isList = lines.length > 1 && lines.every(l => /^\s*[-•*]/.test(l))
-                    if (isList) return <Bullets key={i} items={lines.map(l => l.replace(/^\s*[-•*]\s*/, ''))} />
-                    const heading = lines.length === 1 && p.length < 60 && !/[.!?]$/.test(p)
-                    return heading ? <p key={i} className="mt-2 text-[15px] font-semibold">{p}</p> : <p key={i} className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[#2A2A26]">{p}</p>
+                    const isList = lines.length >= 1 && lines.every(l => /^\s*[-•*]\s+/.test(l))
+                    if (isList) return <Bullets key={i} items={lines.map(l => clean(l.replace(/^\s*[-•*]\s*/, '')))} />
+                    const md = /^#{1,4}\s+/.test(p)
+                    const text = clean(p.replace(/^#{1,4}\s+/, ''))
+                    const heading = md || (lines.length === 1 && text.length < 60 && !/[.!?]$/.test(text))
+                    return heading ? <p key={i} className="mt-2 text-[15px] font-semibold">{text}</p> : <p key={i} className="whitespace-pre-line text-[14.5px] leading-[1.6] text-[#2A2A26]">{text}</p>
                   })}
                 </div>
               </section>
