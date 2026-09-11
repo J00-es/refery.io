@@ -326,7 +326,10 @@ export default async function PartnerRolePage({
           {closed && <span className={CHIP}>Closed</span>}
         </div>
 
-        <div className="mt-2.5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        {/* Title first, actions on their own wrapping row beneath it: with the
+            admin's seven buttons a side-by-side layout squeezed the title to one
+            word per line on a laptop. */}
+        <div className="mt-2.5 flex flex-col gap-3">
           <div className="min-w-0">
             <h1 className={H1}>{role.headline || role.title}</h1>
             <p className={`mt-1.5 ${META}`}>
@@ -338,7 +341,7 @@ export default async function PartnerRolePage({
               )}
             </p>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {unlocked && (
               <Link href={`/searches/${companyId}`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 <FileText className="h-4 w-4" />
