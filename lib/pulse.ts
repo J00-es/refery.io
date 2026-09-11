@@ -242,31 +242,40 @@ function entityKind(route: string): 'company' | 'job' | 'candidate' | null {
 }
 
 /** Names for every entity referenced in the rows, keyed by id. */
+/**
+ * Names for the entities people opened, keyed by whatever the URL carried.
+ * Since 2026-09-11 that is a slug (/searches/<company slug>, /candidates/<slug>);
+ * rows recorded before that day carry a UUID. Both resolve.
+ */
 export async function loadEntityNames(
   admin: SupabaseClient,
   rows: ActivityRow[],
 ): Promise<Map<string, string>> {
-  const ids: Record<'company' | 'job' | 'candidate', Set<string>> = {
-    company: new Set(),
-    job: new Set(),
-    candidate: new Set(),
+  const ids: Record<'company' | 'job' | 'candidate', { uuids: Set<string>; slugs: Set<string> }> = {
+    company: { uuids: new Set(), slugs: new Set() },
+    job: { uuids: new Set(), slugs: new Set() },
+    candidate: { uuids: new Set(), slugs: new Set() },
   }
   for (const r of rows) {
     const kind = entityKind(r.route)
-    if (kind && r.entity_id && UUID.test(r.entity_id)) ids[kind].add(r.entity_id)
+    if (!kind || !r.entity_id) continue
+    ;(UUID.test(r.entity_id) ? ids[kind].uuids : ids[kind].slugs).add(r.entity_id)
   }
   const names = new Map<string, string>()
-  const fetchNames = async (table: string, column: string, set: Set<string>) => {
+  const fetchNames = async (table: string, key: string, column: string, set: Set<string>) => {
     if (set.size === 0) return
-    const { data } = await admin.from(table).select(`id, ${column}`).in('id', [...set])
+    const { data } = await admin.from(table).select(`${key}, ${column}`).in(key, [...set])
     for (const row of (data ?? []) as unknown as Array<Record<string, string | null>>) {
-      if (row.id && row[column]) names.set(row.id, row[column] as string)
+      if (row[key] && row[column]) names.set(row[key] as string, row[column] as string)
     }
   }
   await Promise.all([
-    fetchNames('companies', 'name', ids.company),
-    fetchNames('jobs', 'title', ids.job),
-    fetchNames('candidates', 'name', ids.candidate),
+    fetchNames('companies', 'id', 'name', ids.company.uuids),
+    fetchNames('partner_companies_v', 'slug', 'company_name', ids.company.slugs),
+    fetchNames('jobs', 'id', 'title', ids.job.uuids),
+    fetchNames('partner_roles_v', 'slug', 'title', ids.job.slugs),
+    fetchNames('candidates', 'id', 'name', ids.candidate.uuids),
+    fetchNames('candidates', 'slug', 'name', ids.candidate.slugs),
   ])
   return names
 }
@@ -291,6 +300,12 @@ const SHORT: Record<string, string> = {
   '/profile': 'their profile',
   '/dashboard': 'dashboard',
   '/dashboard/pipeline/[stage]': 'a pipeline stage',
+  '/searches/[companyId]': 'a search',
+  '/searches/[companyId]/brief': 'a client brief',
+  '/searches/[companyId]/roles/[jobId]': 'a role',
+  '/candidates/[id]': 'a candidate',
+  '/companies/[id]': 'a company',
+  '/jobs/[id]': 'a job',
   '/admin': 'admin',
 }
 
