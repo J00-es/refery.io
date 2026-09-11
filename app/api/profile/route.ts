@@ -43,7 +43,7 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json()
 
     // Only allow certain fields to be updated by the user themselves
-    const allowedFields = ['full_name', 'linkedin_url']
+    const allowedFields = ['full_name', 'linkedin_url', 'signature']
     const updates: Record<string, string | null> = {}
     
     for (const field of allowedFields) {

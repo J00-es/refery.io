@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server'
 import { verifyResendSignature } from '@/lib/resend-webhook'
+import { createAdminClient } from '@/lib/supabase/server'
+import { aliasIn, captureReply, recordBounce } from '@/lib/messages'
 import {
   ingestInboundResume,
   parseFromHeader,
@@ -78,6 +80,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 })
   }
 
+  // A bounce or a spam complaint on anything we sent to a candidate closes
+  // that address for partner messages (lib/messages).
+  if (event.type === 'email.bounced' || event.type === 'email.complained') {
+    const d = event.data ?? {}
+    const n = await recordBounce(createAdminClient(), { type: event.type, emailId: typeof d.email_id === 'string' ? d.email_id : null, to: d.to })
+    return NextResponse.json({ ok: true, recorded: n })
+  }
+
   if (event.type !== 'email.received') {
     // Other event types are legitimate deliveries we simply have no use for;
     // 200 stops Resend retrying them.
@@ -88,6 +98,21 @@ export async function POST(request: NextRequest) {
   const emailId = typeof data.email_id === 'string' ? data.email_id : null
   if (!emailId) {
     return NextResponse.json({ error: 'Missing email_id' }, { status: 400 })
+  }
+
+  // A reply to a partner's message carries the thread alias as a recipient.
+  // It is filed on the candidate's record and never read as a CV.
+  if (aliasIn(data.to) || aliasIn(data.cc)) {
+    const filed = await captureReply(createAdminClient(), {
+      emailId,
+      from: typeof data.from === 'string' ? data.from : null,
+      to: data.to,
+      cc: data.cc,
+      subject: typeof data.subject === 'string' ? data.subject : null,
+      createdAt: typeof data.created_at === 'string' ? data.created_at : null,
+    })
+    console.log(`[inbound-reply] ${emailId}: ${filed}`)
+    return NextResponse.json({ ok: true, reply: filed })
   }
 
   const { email: fromEmail, name: fromName } = parseFromHeader(

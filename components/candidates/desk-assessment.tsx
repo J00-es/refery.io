@@ -34,7 +34,7 @@ export async function DeskAssessment({
   const [panel, seats, { data: emails }, { data: decisions }, { data: followups }, { data: person }] = await Promise.all([
     latestPanel(admin, candidateId),
     loadLiveSeats(admin),
-    admin.from('candidate_emails').select('kind, to_email, subject, sent_at, error, created_at, meta').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(30),
+    admin.from('candidate_emails').select('kind, to_email, subject, sent_at, error, created_at, meta, direction, sent_by, body').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(30),
     admin.from('candidate_decisions').select('decision, reason, via, created_at').eq('candidate_id', candidateId).order('created_at', { ascending: false }).limit(10),
     admin.from('candidate_followups').select('kind, due_at, status').eq('candidate_id', candidateId).in('status', ['pending', 'escalated']).order('due_at').limit(5),
     admin.from('candidates').select('name, email, phone, linkedin_url').eq('id', candidateId).maybeSingle(),
@@ -66,6 +66,14 @@ export async function DeskAssessment({
   for (const e of emails ?? []) {
     const isDraft = (e.meta as { draft?: boolean } | null)?.draft && !e.sent_at
     if (isDraft) continue
+    // A reply that came back through the thread alias: show what was written,
+    // to the people who may read it (the owner and Lily).
+    if (e.direction === 'in') {
+      if (!(isSuperAdmin || isOwner)) continue
+      const snippet = String(e.body ?? '').replace(/\s+/g, ' ').trim().slice(0, 160)
+      timeline.push({ at: (e.sent_at as string) ?? (e.created_at as string), text: `reply from ${String(e.sent_by ?? 'them')}: "${snippet}${snippet.length === 160 ? '…' : ''}"` })
+      continue
+    }
     const kind = String(e.kind).replace(/_/g, ' ')
     const to = isSuperAdmin || isOwner ? ` to ${e.to_email}` : ''
     timeline.push({ at: (e.sent_at as string) ?? (e.created_at as string), text: e.error ? `${kind}${to} did not send: ${String(e.error).slice(0, 80)}` : `${kind}${to}: "${e.subject}"`, tone: e.error ? 'warn' : undefined })

@@ -58,6 +58,7 @@ export default function ProfilePage() {
   // Editable fields
   const [fullName, setFullName] = useState('')
   const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [signature, setSignature] = useState('')
 
   useEffect(() => {
     async function fetchProfile() {
@@ -68,6 +69,7 @@ export default function ProfilePage() {
         setProfile(data.profile)
         setFullName(data.profile.full_name || '')
         setLinkedinUrl(data.profile.linkedin_url || '')
+        setSignature(data.profile.signature || '')
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
@@ -89,6 +91,7 @@ export default function ProfilePage() {
         body: JSON.stringify({
           full_name: fullName || null,
           linkedin_url: linkedinUrl || null,
+          signature: signature.trim() || null,
         }),
       })
 
@@ -233,6 +236,19 @@ export default function ProfilePage() {
                   onChange={(e) => setLinkedinUrl(e.target.value)}
                   className="h-10 sm:h-11 text-sm sm:text-base"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="signature" className="text-sm">Email signature</Label>
+                <textarea
+                  id="signature"
+                  rows={3}
+                  placeholder={`${fullName || 'Your name'}\nYour firm · +1 555 000 0000`}
+                  value={signature}
+                  onChange={(e) => setSignature(e.target.value)}
+                  className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm sm:text-base"
+                />
+                <p className="text-xs text-muted-foreground">Signs every message you send to a candidate from Refery. Your name alone if left empty.</p>
               </div>
 
               <div className="pt-2">

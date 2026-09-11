@@ -12,14 +12,9 @@ import { Resend } from 'resend'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
+import { draftFor, loadWriter, messageContext, sendPartnerMessage } from '@/lib/messages'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
-const FROM = 'Refery <hello@refery.io>'
-
-function token(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16))
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
-}
 
 export function consentUrl(t: string): string {
   return `${APP_URL}/c/${t}`
@@ -83,49 +78,30 @@ export async function requestConsent(
   admin: SupabaseClient,
   input: { candidateId: string; companyId: string; submissionId: string; requestedByUserId: string },
 ): Promise<{ token: string; sent: boolean; error?: string } | null> {
-  const { data: cand } = await admin.from('candidates').select('email, name').eq('id', input.candidateId).maybeSingle()
-  const email = typeof cand?.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(cand.email) ? cand.email.trim().toLowerCase() : null
-  if (!email) return null
-
-  const t = token()
-  const { error } = await admin.from('candidate_consents').insert({
-    token: t,
-    candidate_id: input.candidateId,
-    company_id: input.companyId,
-    submission_id: input.submissionId,
-    requested_by_user_id: input.requestedByUserId,
-    email,
-  })
-  if (error) return { token: t, sent: false, error: error.message }
-  await admin.from('role_submissions').update({ consent_status: 'requested' }).eq('id', input.submissionId)
-
-  const view = await loadConsent(admin, t)
-  if (!view) return { token: t, sent: false, error: 'could not load' }
-
-  const url = consentUrl(t)
-  const subject = `${view.partnerFirstName} would like to put you forward for a role`
-  const text = `Hi ${view.candidateFirstName},\n\n${view.partnerName} would like to put you forward, through Refery, for a ${view.roleTitle} role at ${view.anonCompany}${view.location ? ` (${view.location})` : ''}. Nothing is shared with the company until you say so.\n\nOne tap is enough:\n${url}\n\nIf it is not for you, the same link has a "not now". Either way, ${view.partnerFirstName} hears back today.\n\nRefery`
-  const html = `<div style="font-family:'DM Sans',Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#161613;max-width:560px;">
-<p>Hi ${view.candidateFirstName},</p>
-<p><strong>${view.partnerName}</strong> would like to put you forward, through Refery, for a <strong>${view.roleTitle}</strong> role at ${view.anonCompany}${view.location ? ` (${view.location})` : ''}. Nothing is shared with the company until you say so.</p>
-<p><a href="${url}" style="display:inline-block;padding:12px 20px;border-radius:999px;background:#1F3A2F;color:#ffffff;font-weight:600;text-decoration:none;">Yes, go ahead</a></p>
-<p style="color:#6E6E68;font-size:13.5px;">If it is not for you, the same page has a "not now". Either way, ${view.partnerFirstName} hears back today.</p>
-<p>Refery</p></div>`
-
-  const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) return { token: t, sent: false, error: 'RESEND_API_KEY not set' }
+  // Since 2026-09-11 the note is the "Put you forward" moment of the partner
+  // composer (lib/messages): sent as "<partner> via Refery", Reply-To the
+  // partner, same one-tap page. The composer mints the consent row itself.
+  const { data: who } = await admin.from('users_admin').select('user_id, email, full_name, role').eq('user_id', input.requestedByUserId).maybeSingle()
+  if (!who?.email) return { token: '', sent: false, error: 'partner not found' }
+  const writer = await loadWriter(admin, { id: input.requestedByUserId, email: String(who.email), fullName: (who.full_name as string | null) ?? null, isSuperAdmin: who.role === 'super_admin' })
+  const ctx = await messageContext(admin, input.candidateId, writer)
+  if (!ctx) return null
+  if (!ctx.email) return null
+  let draft
   try {
-    const resend = new Resend(apiKey)
-    const { error: sendErr } = await resend.emails.send({ from: FROM, to: email, replyTo: 'lily@refery.io', subject, html, text })
-    if (sendErr) {
-      console.warn('[consent] note not sent', input.submissionId, sendErr.message)
-      return { token: t, sent: false, error: sendErr.message }
-    }
-    console.log('[consent] note sent', input.submissionId)
-    return { token: t, sent: true }
+    draft = draftFor(ctx, 'consent', input.submissionId)
   } catch (e) {
-    return { token: t, sent: false, error: e instanceof Error ? e.message : 'send failed' }
+    return { token: '', sent: false, error: e instanceof Error ? e.message : 'could not draft' }
   }
+  const r = await sendPartnerMessage(admin, ctx, { moment: 'consent', subject: draft.subject, body: draft.body, ccLily: false, submissionId: input.submissionId, via: 'submit' })
+  const { data: row } = await admin.from('candidate_consents').select('token').eq('submission_id', input.submissionId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const t = (row?.token as string | undefined) ?? ''
+  if (!r.ok) {
+    console.warn('[consent] note not sent', input.submissionId, r.error)
+    return { token: t, sent: false, error: r.error }
+  }
+  console.log('[consent] note sent', input.submissionId)
+  return { token: t, sent: true }
 }
 
 export async function answerConsent(t: string, answer: 'agreed' | 'declined', meta: { ip: string | null; userAgent: string | null; note: string | null }): Promise<{ ok: boolean; view?: ConsentView; error?: string }> {

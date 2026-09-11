@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { FOCUS } from '@/lib/candidate-ui'
+import { MessageComposer } from '@/components/candidates/message-composer'
 
 /**
  * What a partner sees on someone Lily asked them to introduce: the intro kit
@@ -68,21 +69,18 @@ export function PartnerIntroButtons({
     <div className="mt-4 rounded-[12px] border border-[#1F3A2F]/30 bg-[#E7EDE9] p-4">
       {preview && <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[#9C9C95]">What the partner sees on this page</p>}
       <p className="text-[13.5px] font-semibold text-[#1F3A2F]">Lily asked you for a warm intro</p>
-      <p className="mt-1 text-[12.5px] text-[#2A2A26]">An email with the two of them on it is perfect. Or have Lily write to {first} and say it came from you.</p>
+      <p className="mt-1 text-[12.5px] text-[#2A2A26]">One email with the two of them on it. Send it from here and {first} moves to Intro sent the moment it goes; or have Lily write to {first} and say it came from you.</p>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {mailto ? (
-          <a href={mailto} className={btn('bg-[#1F3A2F] text-white hover:bg-[#142E24]')}>
-            Open a pre-filled intro email
-          </a>
-        ) : null}
+        {email ? <MessageComposer candidateId={candidateId} first={first} hasEmail initialMoment="intro" trigger="primary" label="Send the intro" preview={preview} /> : null}
         <button type="button" disabled={!!busy} className={btn('border border-[#1F3A2F] bg-white text-[#1F3A2F] hover:bg-[#F7F7F3]')} onClick={() => act('send_for_me')}>
           {busy === 'send_for_me' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}Have Lily reach out
         </button>
         <button type="button" disabled={!!busy} className={btn('border border-[#D2D1C7] bg-white text-[#6E6E68] hover:text-[#161613]')} onClick={() => act('made')}>
-          {busy === 'made' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}I made the intro
+          {busy === 'made' && <Loader2 className="h-3.5 w-3.5 animate-spin" />}I made the intro elsewhere
         </button>
       </div>
+      {email && <p className="mt-2 text-[12px] text-[#6E6E68]">Goes as &ldquo;you via Refery&rdquo;, replies land in your inbox, Lily in copy.{mailto ? <> Prefer your own mail app? <a href={mailto} className="underline underline-offset-2">Open a pre-filled email</a>.</> : null}</p>}
       {msg && <p className={`mt-2 text-[12.5px] ${msg.ok ? 'text-[#1F3A2F]' : 'text-[#8A3B2B]'}`}>{msg.text}</p>}
 
       <div className="relative mt-3 rounded-[10px] border border-dashed border-[#D2D1C7] bg-white/70 px-3 py-2.5 pr-20 text-[13px] leading-relaxed text-[#2A2A26]">

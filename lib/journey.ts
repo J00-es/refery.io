@@ -242,6 +242,8 @@ export function nextActionFor(candidate: {
   intake_source?: string | null
   /** Came through the partner's link and the partner has not yet said it was them. */
   referral_pending?: boolean | null
+  /** Replied to a message the partner sent from Refery and nobody has opened it. */
+  unread_reply?: boolean | null
 }): NextAction | null {
   // A calibration profile was sourced to benchmark a search, not to be placed.
   // 19 of them were sitting in the intro queue before intake_source existed to
@@ -249,6 +251,7 @@ export function nextActionFor(candidate: {
   if (candidate.intake_source === 'calibration') return null
   // Nothing else happens until the partner stands behind the person.
   if (candidate.referral_pending) return { label: 'Confirm', tone: 'do' }
+  if (candidate.unread_reply) return { label: 'Read the reply', tone: 'do' }
 
   // Availability answers a different question from journey stage, and it wins
   // over any prompt: someone can be vouched and ready for an intro while being
@@ -416,10 +419,13 @@ export function journeyBucket(c: {
   availability_status?: string | null
   intake_source?: string | null
   referral_pending?: boolean | null
+  unread_reply?: boolean | null
 }): JourneyBucket {
   if (c.intake_source === 'calibration') return 'benchmark'
   // A person waiting on the partner's yes is the partner's to-do, whatever the stage.
   if (c.referral_pending) return 'needs_you'
+  // So is a reply nobody has read yet.
+  if (c.unread_reply) return 'needs_you'
 
   const s = c.journey_stage
 

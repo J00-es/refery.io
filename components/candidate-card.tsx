@@ -30,6 +30,8 @@ export interface EnrichedCandidate extends Candidate {
   referral_via?: 'link' | 'jd' | null
   /** The partner has not yet said the person was theirs. */
   referral_pending?: boolean
+  /** Replied to a message sent from Refery and nobody has opened it yet. */
+  unread_reply?: boolean
 }
 
 interface CandidateCardProps {

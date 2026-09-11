@@ -33,10 +33,13 @@ import {
 } from '@/lib/candidate-ui'
 import type { PanelGrade } from '@/lib/journey'
 import { referralFor } from '@/lib/referrals'
+import { markRepliesRead, MOMENTS, type Moment } from '@/lib/messages'
+import { MessageComposer } from '@/components/candidates/message-composer'
 import { ReferralBanner, type ReferralView } from '@/components/candidates/referral-banner'
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ write?: string; added?: string }>
 }
 
 /** panel_grade back to the verdict key VERDICT_GRADES is keyed by. */
@@ -56,8 +59,11 @@ const INTAKE_LABELS: Record<string, string> = {
   self: 'Shared their own CV',
 }
 
-export default async function CandidateDetailPage({ params }: PageProps) {
+export default async function CandidateDetailPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  // ?write=<moment> opens the composer on that moment (the buttons in the
+  // interview, passed and hired emails); ?added=1 offers "let them know" once.
+  const { write, added } = (await searchParams) ?? {}
   const adminClient = createAdminClient()
 
   const appUser = await getAppUser()
@@ -155,6 +161,13 @@ export default async function CandidateDetailPage({ params }: PageProps) {
   const isAdmin = appUser.isAdmin
   const canSetRecruiterVerdict =
     isSuperAdmin || ['admin', 'recruiter', 'scout'].includes(userRole)
+
+  // Writing to the person: the owner (or Lily) can, from the header, as long
+  // as there is an address. Opening the page is what marks a reply as read.
+  const isOwnerViewer = candidate.owner_user_id === appUser.id
+  const canWrite = (isOwnerViewer || isSuperAdmin) && typeof candidate.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(candidate.email)
+  const writeMoment: Moment | undefined = write && (MOMENTS as string[]).includes(write) ? (write as Moment) : undefined
+  if (isOwnerViewer || isSuperAdmin) await markRepliesRead(adminClient, id)
 
   const typedCandidate = candidate as Candidate
   const parsedData = typedCandidate.parsed_data as ParsedResumeData | null
@@ -262,6 +275,15 @@ export default async function CandidateDetailPage({ params }: PageProps) {
         </div>
 
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {canWrite && (
+            <MessageComposer
+              candidateId={id}
+              first={typedCandidate.name.split(/\s+/)[0]}
+              hasEmail
+              initialMoment={writeMoment}
+              autoOpen={Boolean(writeMoment)}
+            />
+          )}
           {typedCandidate.linkedin_url && (
             <a
               href={typedCandidate.linkedin_url}
@@ -287,6 +309,19 @@ export default async function CandidateDetailPage({ params }: PageProps) {
           <CandidateActions candidate={typedCandidate} />
         </div>
       </header>
+
+      {/* Right after an add: one tap to tell the person they are in. Never automatic. */}
+      {added === '1' && canWrite && !isSuperAdmin && (
+        <section className={`${CARD} flex flex-wrap items-center justify-between gap-3 p-4`}>
+          <div>
+            <p className="text-[14px] font-semibold text-[#161613]">{typedCandidate.name.split(/\s+/)[0]} is in. The panel reads the CV now.</p>
+            <p className="mt-0.5 text-[12.5px] text-[#6E6E68]">
+              {candidate.consent_told_candidate ? 'A short note in your words tells them what happens next.' : 'Have you told them? A short note in your words does it, and names no company.'}
+            </p>
+          </div>
+          <MessageComposer candidateId={id} first={typedCandidate.name.split(/\s+/)[0]} hasEmail initialMoment="received" trigger="primary" label={`Let ${typedCandidate.name.split(/\s+/)[0]} know`} />
+        </section>
+      )}
 
       {referral && referral.status !== 'duplicate' && (referral.referrer_user_id === appUser.id || isSuperAdmin) && (
         <ReferralBanner

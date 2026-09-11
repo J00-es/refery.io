@@ -100,7 +100,8 @@ export default function NewCandidatePage() {
         }).catch(() => undefined)
       }
 
-      router.push(`/candidates/${data.candidate!.id}`)
+      // The page offers "Let them know" once, right after the add.
+      router.push(`/candidates/${data.candidate!.id}?added=1`)
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')

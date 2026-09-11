@@ -210,6 +210,11 @@ function CandidateRow({
               via your link
             </span>
           )}
+          {candidate.unread_reply && (
+            <span className="hidden shrink-0 items-center gap-1 rounded-full bg-[#E7EDE9] px-2 py-0.5 text-[11px] font-semibold leading-none text-[#1F3A2F] sm:inline-flex" title="Replied to a message you sent from Refery">
+              replied
+            </span>
+          )}
         </span>
         <span className="mt-0.5 block truncate text-[12.5px] text-[#6E6E68]">
           {role ? `${role.title}${role.company ? ` · ${role.company}` : ''}` : 'No role on file'}

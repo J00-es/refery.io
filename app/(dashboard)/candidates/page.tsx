@@ -10,6 +10,7 @@ import { FOCUS, ownerName } from '@/lib/candidate-ui'
 import { cookies } from 'next/headers'
 import { JOURNEY_BUCKETS, type JourneyBucket } from '@/lib/journey'
 import { referralsForCandidates } from '@/lib/referrals'
+import { unreadReplies } from '@/lib/messages'
 import { YourLinkButton } from '@/components/partners/your-link'
 
 /** Every bucket on the dashboard links here, so any of them is a valid entry. */
@@ -132,6 +133,8 @@ export default async function CandidatesPage({
   // Who came through a link, and whether the partner has said yes yet. Only
   // the referrer sees the chip as "your link"; the super admin sees it as a fact.
   const referralMap = await referralsForCandidates(adminClient, visibleIds)
+  // Replies to messages sent from Refery that nobody has opened yet.
+  const unread = await unreadReplies(adminClient, visibleIds)
 
   // Enrich candidates with last_activity (max of updated_at, created_at, and latest recruiter note)
   const enrichedCandidates = candidates.map(candidate => {
@@ -148,6 +151,7 @@ export default async function CandidatesPage({
       ...candidate,
       referral_via: mine && referral && referral.status !== 'disowned' ? referral.source : null,
       referral_pending: mine && referral ? referral.status === 'pending' || referral.status === 'escalated' : false,
+      unread_reply: unread.has(candidate.id),
       pipeline_jobs: pipelineByCandidate[candidate.id] || [],
       owner: candidate.owner_user_id ? ownerMap[candidate.owner_user_id] || null : null,
       last_activity: new Date(lastActivityTimestamp).toISOString(),

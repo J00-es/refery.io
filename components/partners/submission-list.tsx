@@ -21,6 +21,14 @@ import { SubmissionActions } from './submission-actions'
  * good and then hears nothing, so they stop sending. Showing the trail — and the
  * note attached to each move — is what makes the desk worth working.
  */
+/** The moments a partner can tell their candidate about, by submission status. */
+const TELL_MOMENT: Record<string, string> = {
+  client_interview: 'interview',
+  offer: 'interview',
+  declined: 'pass',
+  placed: 'hired',
+}
+
 export function SubmissionList({
   submissions,
   viewerId,
@@ -95,6 +103,14 @@ export function SubmissionList({
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
+                {mine && TELL_MOMENT[submission.status] && (
+                  <Link
+                    href={`/candidates/${submission.candidate_id}?write=${TELL_MOMENT[submission.status]}`}
+                    className={`text-[12.5px] font-semibold text-[#1F3A2F] hover:underline ${FOCUS}`}
+                  >
+                    Tell {(submission.candidate_name || 'them').split(/\s+/)[0]}
+                  </Link>
+                )}
                 <span
                   className={`rounded-full px-2.5 py-1 text-[11.5px] font-semibold ${status.chip}`}
                 >
