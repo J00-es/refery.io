@@ -794,7 +794,9 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             to: 'Your candidate',
             from: 'Maya Okafor via Refery <partners@refery.io>',
             subject: 'A role I would like to put you forward for',
-            body: 'Hi Daniel,\n\nThere is a Senior Full-Stack Engineer seat at a healthcare marketplace in Barcelona that fits what you told me. The company is named the moment you say yes; nothing is shared with them before that.\n\nMay I put you forward through Refery? One tap either way:\nrefery.xyz/c/…\n\nIf it is not for you, the same page has a "not now". Either way I hear back today.\n\nMaya',
+            body: 'Hi Daniel,\n\nThere is a Senior Full-Stack Engineer role at a healthcare marketplace in Barcelona that fits what you told me.\n\nMay I share your profile with them through Refery? The company’s name is revealed when you say yes. Nothing is shared with them before then.
+
+Choose ‘yes’ or ‘not now’ here:\nrefery.xyz/c/…\n\nEither choice comes back to me.\n\nMaya',
           },
           {
             to: 'You',
@@ -879,7 +881,7 @@ export const GUIDE_SECTIONS: GuideSection[] = [
             moment="Meet Lily"
             cc="Lily Joo <lily@refery.io>"
             subject="Intro: Daniel <> Lily Joo (Refery)"
-            body={'Daniel, meet Lily from Refery. Lily works with a few early-stage teams on the Senior Full-Stack Engineer search and asked about you after I shared your background.\n\nLily, Daniel is the one I mentioned. I will let you two take it from here.\n\nDaniel, the quickest way in is fifteen minutes with Lily whenever suits you: https://cal.com/refery-lily/15\n\nMaya'}
+            body={'Daniel, meet Lily from Refery. Lily is working on the Senior Full-Stack Engineer search.\n\nLily, meet Daniel. I’ll let you two take it from here.\n\nDaniel, the quickest way in is fifteen minutes with Lily whenever suits you: https://cal.com/refery-lily/15\n\nMaya'}
             effect="On send: Daniel moves to Intro sent, Lily gets her copy and follows up. Nothing else."
           />
         ),
