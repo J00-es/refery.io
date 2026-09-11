@@ -2,12 +2,14 @@
  * EDGE Markets: company row, client record, the agreement link at
  * refery.xyz/agreement/edge-markets (10% introductions or 15% search for standard IC
  * hires, 20% minimum for leadership), and the hiring-manager brief at
- * refery.xyz/b/edge-markets-p4w7ncq.
+ * refery.xyz/b/edge-markets (the old edge-markets-p4w7ncq address redirects).
  *
  * Written from the call with Adam Neff on 10 September 2026 (Granola
  * 4efe934c-b26a-4f90-8b10-ed7771f5385f) and public sources: edgemarkets.io,
  * the Series A release (8 June 2026), AlleyWatch, CNBC. Intro via Bartek
- * Kunowski, Adam's Tuenti colleague.
+ * Kunowski, Adam's Tuenti colleague. Updated 11 September 2026 with the
+ * Tech Lead, Growth JD Adam sent (growth_engineer_jd.pdf): CRM, martech and
+ * integrations owner, remote US, no salary on it.
  *
  * Voice: docs/proposals/2026-09-07-onboarding/01-voice-spec.md. Short. The
  * pricing lives on the sign page, not here.
@@ -39,7 +41,7 @@ const DRY = process.argv.includes('--dry')
 
 const LILY = '864aa3a4-f9e0-49c6-a35a-7ca02ffe04a7'
 const COMPANY_NAME = 'EDGE Markets'
-const SLUG = 'edge-markets-p4w7ncq'
+const SLUG = 'edge-markets'
 const FEE_OPTIONS = [10, 15]
 const RECOMMENDED_FEE = 15
 const LEADERSHIP_FEE = 20
@@ -52,14 +54,14 @@ const PAGE_NOTES = {
 
 export function buildContent(agreementUrl: string) {
   return {
-    kicker: 'Refery · 10 September 2026',
+    kicker: 'Refery · 10 September 2026 · updated 11 September',
     title: 'EDGE Markets',
-    subtitle: 'Senior software engineers, remote in Spain · Growth engineer · VP Engineering',
+    subtitle: 'Senior software engineers, remote in Spain · Tech Lead, Growth · VP Engineering',
     url: 'https://edgemarkets.io',
     confidential: {
       heading: 'Before we start',
       paragraphs: [
-        'Adam, this is how I will pitch EDGE and what I will screen for, before your JDs land. Correct me anywhere: a note under any section reaches me straight away :)',
+        'Adam, thanks for the Growth JD. It is in here now, and the seat reads very differently from my first guess. Send the other JDs as they are ready and I fold each one in the same day. Correct me anywhere: a note under any section reaches me straight away :)',
       ],
     },
     sections: [
@@ -68,14 +70,14 @@ export function buildContent(agreementUrl: string) {
         nav: 'How we start',
         heading: 'How we start',
         open: true,
-        summary: 'Sign, connect on Slack, send the JDs. Then I go.',
+        summary: 'Sign, connect on Slack, send the other JDs. Growth is in.',
         blocks: [
           {
             kind: 'steps',
             items: [
               '**Sign the agreement.** Two minutes, no account. Through your agency for now; we swap in EDGE when it pays directly.',
               '**Connect on Slack.** Type your email below and the invitation comes from Slack.',
-              '**Send me the JDs.** I brief partners the same day. First profiles within days.',
+              '**Send me the other JDs.** Growth is in. Senior engineer next, and the VP if it comes to us. I brief partners the same day each one lands.',
             ],
           },
           { kind: 'cta', label: 'Sign the agreement', url: agreementUrl, note: 'Two options on the page; 15% Search is suggested.' },
@@ -141,8 +143,8 @@ export function buildContent(agreementUrl: string) {
       {
         id: 'roles',
         nav: 'Roles',
-        heading: 'The roles, before the JDs',
-        summary: '5 to 10 senior engineers, remote Spain, offers now. Growth engineer live. VP Engineering if you hand it over.',
+        heading: 'The roles',
+        summary: '5 to 10 senior engineers, remote Spain, offers now. Tech Lead, Growth from your JD. VP Engineering if you hand it over.',
         blocks: [
           {
             kind: 'roles',
@@ -157,12 +159,17 @@ export function buildContent(agreementUrl: string) {
                 comp: 'Base: from your JDs.',
               },
               {
-                tag: 'Live · JD in hand',
-                title: 'Growth Engineer',
-                scope: 'Remote · US candidates in process, open to Europe',
-                points: ['The experiments behind Boost: funnels, referral, onboarding, instrumentation.'],
-                want: '**I screen for:** 4+ years full-stack with a growth remit, reads the numbers. Consumer fintech or gaming a plus.',
-                comp: 'Base: from your JD.',
+                tag: 'Live · JD received',
+                title: 'Tech Lead, Growth',
+                scope: 'Remote, San Antonio on the JD · reports to the VP Technology · US candidates in process',
+                points: [
+                  'Owns the systems behind every customer relationship: CRM, marketing automation, support and success tooling, and the integrations between them. Technical product owner, not an administrator.',
+                  'First 90 days from your JD: audit the stack, pick the CRM that replaces Streak, retire the first manual process, ship the first dashboard leadership trusts. New CRM live in six months, done in-house.',
+                  'Tools named: Amplitude, Customer.io or Iterable or Braze, SignalWire or Twilio, SQL and a BI tool. SOC 2 where it touches business systems.',
+                ],
+                want: '**I screen for:** 3 to 7 years owning CRM and customer systems at a fast-moving fintech or SaaS company, one CRM migration run end to end, builds integrations rather than raising tickets, thinks in lifecycle and revenue terms.',
+                exclude: 'I filter out, as your JD does: power users who never touched the configuration layer, IT-support-only backgrounds, big-company RevOps with a specialist for everything, people who need a scoped ticket to start.',
+                comp: 'Base: not on the JD. Send a number and I benchmark it.',
               },
               {
                 tag: 'You have candidates · say if you want us on it',
@@ -180,7 +187,7 @@ export function buildContent(agreementUrl: string) {
         id: 'bar',
         nav: 'The bar',
         heading: 'The bar',
-        summary: 'Senior, fintech depth, remote in Spain. Gaming background is a bonus, not a filter.',
+        summary: 'For the engineering seats: senior, fintech depth, remote in Spain. The Growth seat carries its own bar above.',
         blocks: [
           {
             kind: 'bar',
@@ -196,11 +203,11 @@ export function buildContent(agreementUrl: string) {
         id: 'comp',
         nav: 'Compensation',
         heading: 'Compensation',
-        summary: 'Pending your JDs.',
+        summary: 'Pending two numbers.',
         blocks: [
           {
             kind: 'callout',
-            text: 'Waiting on you. You asked where your pay sits against the market. Send the JDs and two current salaries, and I benchmark each seat here.',
+            text: 'Waiting on you. You asked where your pay sits against the market. The Growth JD has no salary line. Send a number for it and the senior engineer band, and I benchmark each seat here.',
           },
         ],
       },
@@ -208,14 +215,14 @@ export function buildContent(agreementUrl: string) {
         id: 'logistics',
         nav: 'Logistics',
         heading: 'Logistics',
-        summary: 'Remote Spain, Spanish entity, euros. Process to confirm.',
+        summary: 'Remote Spain for the engineers. Growth seat says San Antonio, remote: US only? Process to confirm.',
         blocks: [
           {
             kind: 'facts',
             rows: [
-              { label: 'Location', value: 'Remote, anywhere in Spain. Your team is already in Galicia and the south.' },
+              { label: 'Location', value: 'Engineers: remote, anywhere in Spain. Your team is already in Galicia and the south. Growth: the JD says San Antonio, remote. US only, or open to Spain too? Tell me.' },
               { label: 'Employment', value: 'Employees of the Spanish entity you are setting up. Until then, contractor through your agency; tell me which to say.' },
-              { label: 'Reporting', value: 'Andy on paper, you day to day.' },
+              { label: 'Reporting', value: 'Engineers: Andy on paper, you day to day. Growth: the JD says VP Technology. Who is that, and do they interview?' },
               { label: 'Process', value: 'To confirm: the steps, who sits in them, days from intro to offer.' },
             ],
           },
@@ -234,6 +241,7 @@ export function buildContent(agreementUrl: string) {
             paragraphs: [
               "I'm working with a New York fintech building the banking and settlement layer for prediction markets and regulated gaming: a debit programme that processed $2 billion in its first year, a payment rail live on the largest prediction exchange, Series A closed in June, headcount quadrupled in a year.",
               'They are hiring five to ten senior software engineers, fully remote anywhere in Spain and employed locally, with offers going out now. The filter is real financial-services depth. Base in euros at the top of the Spanish market, equity on top.',
+              'Separately, a Tech Lead for Growth: technical owner of the CRM, marketing automation and support stack, with a CRM migration to run in the first six months. Remote in the US.',
             ],
           },
           { kind: 'paragraph', tone: 'note', text: 'Say the word and I name EDGE openly.' },
@@ -242,14 +250,15 @@ export function buildContent(agreementUrl: string) {
       {
         id: 'confirm',
         nav: 'Questions',
-        heading: 'Three quick questions',
+        heading: 'Four quick questions',
         open: true,
         summary: 'One line each.',
         blocks: [
           {
             kind: 'checklist',
             items: [
-              { ask: 'JDs and two current salaries, any format.', why: 'Unlocks the benchmark and the bands I quote.' },
+              { ask: 'The other JDs: senior engineer, and any more seats you have open.', why: 'Growth is in. Each JD I receive is briefed to partners the same day.' },
+              { ask: 'A salary for the Growth seat and the senior engineer band.', why: 'Unlocks the benchmark and the bands I quote.' },
               { ask: 'VP Engineering: in-house, or with us?', why: 'Decides whether it is on the desk, and at the leadership plan.' },
               { ask: 'May I name EDGE openly?' },
             ],
@@ -339,7 +348,7 @@ async function main() {
         contact_name: 'Adam Neff',
         channel: 'Intro from Bartek Kunowski (Tuenti colleague). Call 10 Sep 2026. Adam prefers Slack over email; Slack Connect invite via the brief.',
         convo_stage:
-          'Call 10 Sep 2026: VP Engineering (they have candidates) plus 5 to 10 senior IC engineers over 12 months, remote in Spain, offers now. Growth engineer JD live. Agreement link offers 10/15/20 with 15 recommended; Adam will sign through his agency for now. JDs and salary numbers pending.',
+          'Call 10 Sep 2026: VP Engineering (they have candidates) plus 5 to 10 senior IC engineers over 12 months, remote in Spain, offers now. Tech Lead, Growth JD received 11 Sep (CRM, martech, integrations owner; remote US; no salary on it). Agreement link offers 10/15/20 with 15 recommended; Adam will sign through his agency for now. JDs and salary numbers pending.',
         candidate_delivery: null,
       })
       if (error) throw new Error(`client_companies insert: ${error.message}`)

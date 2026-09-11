@@ -1,6 +1,6 @@
 # Hilbert's AI (hilberts.ai): founder brief sources, 9 September 2026
 
-Admin-only. The founder brief at refery.xyz/b/hilberts-ai-m4kq7xw covers the two urgent US field seats only. Everything in it comes from the sources below; anything unverified is attributed to Gerard in the text or left out.
+Admin-only. The founder brief at refery.xyz/b/hilberts-ai covers the two urgent US field seats only. Everything in it comes from the sources below; anything unverified is attributed to Gerard in the text or left out.
 
 ## From Lily's intake with Gerard Espinet (3 Aug 2026, Granola)
 
