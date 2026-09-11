@@ -27,7 +27,7 @@ export interface Preferences {
   would_relocate: boolean | null
 }
 
-interface LiveRole {
+export interface LiveRole {
   job_id: string
   company_id: string
   title: string
