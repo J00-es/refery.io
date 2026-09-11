@@ -44,7 +44,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const [{ data: role }, { data: partner }] = await Promise.all([
       adminClient
         .from('partner_roles_v')
-        .select('job_id, company_id, title, headline, company_name, salary_min, salary_max, fee_percentage, fee_flat, scout_payout, scout_share, location')
+        .select('job_id, company_id, slug, company_slug, title, headline, company_name, salary_min, salary_max, fee_percentage, fee_flat, scout_payout, scout_share, location')
         .eq('job_id', row.job_id)
         .maybeSingle(),
       adminClient.from('users_admin').select('email, full_name').eq('user_id', row.user_id).maybeSingle(),

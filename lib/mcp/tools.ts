@@ -629,7 +629,7 @@ const proposeSearch: Tool<{ job_id: string; partner_ids?: string[]; partner_emai
     if (!args.partner_ids?.length && !args.partner_emails?.length) throw new ToolInputError('Name at least one partner by id or email.')
     const { data: role } = await admin
       .from('partner_roles_v')
-      .select('job_id, company_id, title, headline, company_name, salary_min, salary_max, salary_currency, fee_percentage, fee_flat, scout_payout, scout_share, location, is_live')
+      .select('job_id, company_id, slug, company_slug, title, headline, company_name, salary_min, salary_max, salary_currency, fee_percentage, fee_flat, scout_payout, scout_share, location, is_live')
       .eq('job_id', args.job_id)
       .maybeSingle()
     if (!role) return { text: 'No search with that job id.', isError: true }

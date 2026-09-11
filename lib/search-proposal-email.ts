@@ -11,6 +11,7 @@
 import { Resend } from 'resend'
 import { pushToEmail } from '@/lib/push'
 import { feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
+import { rolePath } from '@/lib/paths'
 
 const FROM = 'Refery <hello@refery.io>'
 const REPLY_TO = 'lily@refery.io'
@@ -32,6 +33,9 @@ function escapeHtml(s: string): string {
 
 export interface ProposalRole {
   title: string
+  /** Short URL segments from partner_roles_v; without them the link falls back to ids, which redirect. */
+  slug?: string | null
+  company_slug?: string | null
   headline?: string | null
   company_name?: string | null
   location?: string | null
@@ -61,7 +65,7 @@ export async function sendSearchProposalEmail(input: {
   const company = input.role.company_name ?? 'a client'
   const fee = resolveFee(input.role)
   const payout = payoutAmount(fee)
-  const url = `${APP_URL}/searches/${input.companyId}/roles/${input.jobId}`
+  const url = `${APP_URL.replace(/\/$/, '')}${rolePath({ id: input.companyId, slug: input.role.company_slug }, { id: input.jobId, slug: input.role.slug })}`
 
   const html = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>A search suggested for you</title></head>

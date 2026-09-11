@@ -41,6 +41,8 @@ import { drainOutbox, enqueueOutbox } from '@/lib/engine/outbox'
 import { benchExclusions } from '@/lib/apply/profile'
 import { claimMatchItems, completeMatchItem, LeaseLostError, renewMatchLease, type QueueOutcome } from '@/lib/engine/queue'
 import { stripPercentiles } from '@/lib/engine/grade'
+import { candidatePath } from '@/lib/paths'
+import { deskUrls } from '@/lib/slugs'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const NUMBERS = ['one', 'two', 'three', 'four', 'five', 'six'] as const
@@ -67,6 +69,8 @@ const BenchSchema = z.object({
 
 interface BenchPerson {
   id: string
+  /** Short URL segment for /candidates/<slug>. */
+  slug: string | null
   name: string
   grade: string | null
   stage: string
@@ -106,7 +110,7 @@ async function hydrate(admin: SupabaseClient, retrieved: Retrieved[], companyNam
   const [{ data: rows }, met] = await Promise.all([
     admin
       .from('candidates')
-      .select('id, name, panel_grade, journey_stage, owner_user_id, recruiter_verdict, location, visa_status, salary_expectation_min, experience_years, remote_preference, parsed_data')
+      .select('id, slug, name, panel_grade, journey_stage, owner_user_id, recruiter_verdict, location, visa_status, salary_expectation_min, experience_years, remote_preference, parsed_data')
       .in('id', ids),
     metEvidence(admin, ids),
   ])
@@ -123,6 +127,7 @@ async function hydrate(admin: SupabaseClient, retrieved: Retrieved[], companyNam
       const isMet = MET_STAGES.includes(stage) || met.has(r.id as string)
       return {
         id: r.id as string,
+        slug: (r.slug as string | null) ?? null,
         name: properName(r.name as string),
         grade: (r.panel_grade as string) ?? null,
         stage,
@@ -281,6 +286,7 @@ async function postBenchCard(
 ): Promise<{ ok: boolean; error?: string }> {
   const { seat, shown } = input
   const byId = new Map(input.pool.map(p => [p.id, p]))
+  const links = await deskUrls(admin, { companyId: seat.companyId, jobId: seat.jobId })
   const lines: string[] = []
   for (let i = 0; i < shown.length; i++) {
     const r = shown[i]
@@ -290,7 +296,7 @@ async function postBenchCard(
     const ownerLine = owner ? (owner.isUs ? 'you' : owner.firstName) : 'no owner'
     const action = p.met ? 'anonymised blurb to the founder first' : owner && !owner.isUs ? `intro ask to ${owner.firstName}` : 'email them directly'
     lines.push(
-      `${i + 1} · *<${APP_URL}/candidates/${p.id}|${esc(p.name)}>* ${p.grade ? `*${esc(p.grade)}*` : ''} · ${esc(stripPercentiles(r.reason))} · ${p.met ? '*met*' : 'not met'} · owner: ${esc(ownerLine)}${r.blockers.length ? ` · :speech_balloon: ${esc(r.blockers.join('; '))}` : ''}\n      ${r.fit === 'strong' ? ':large_green_circle:' : ':large_yellow_circle:'} ${r.fit} → :${NUMBERS[i]}: ${action}`,
+      `${i + 1} · *<${APP_URL}${candidatePath({ id: p.id, slug: p.slug })}|${esc(p.name)}>* ${p.grade ? `*${esc(p.grade)}*` : ''} · ${esc(stripPercentiles(r.reason))} · ${p.met ? '*met*' : 'not met'} · owner: ${esc(ownerLine)}${r.blockers.length ? ` · :speech_balloon: ${esc(r.blockers.join('; '))}` : ''}\n      ${r.fit === 'strong' ? ':large_green_circle:' : ':large_yellow_circle:'} ${r.fit} → :${NUMBERS[i]}: ${action}`,
     )
   }
   const meta = [seat.location?.split(/[,(]/)[0], seat.remotePolicy, seatBand(seat), seat.visaRequirement?.replace(/_/g, ' ')].filter(Boolean).join(' · ')
@@ -298,7 +304,7 @@ async function postBenchCard(
     { type: 'section', text: { type: 'mrkdwn', text: `:new: *${esc(seat.companyName)} · ${esc(seat.headline || seat.title)}* ${input.trigger === 'weekly' ? 'weekly re-match' : 'went live'} · ${esc(meta)}` } },
     { type: 'context', elements: [{ type: 'mrkdwn', text: `From the bench: *${input.strongCount} strong* of ${input.pool.length} checked · ${input.callModel.split('/')[1]} · $${input.costUsd.toFixed(2)}` }] },
     { type: 'section', text: { type: 'mrkdwn', text: lines.join('\n') } },
-    { type: 'context', elements: [{ type: 'mrkdwn', text: `React with the number to act on one person · :fire: acts on every strong one · :zzz: dismisses  ·  <${APP_URL}/searches/${seat.companyId}/roles/${seat.jobId}|open the search>` }] },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: `React with the number to act on one person · :fire: acts on every strong one · :zzz: dismisses  ·  <${links.role}|open the search>` }] },
   ]
   const posted = await postToDesk(`${seat.companyName}: ${input.strongCount} strong from the bench`, blocks)
   if (!posted.ok || !posted.ts || !posted.channel) return { ok: false, error: posted.error }

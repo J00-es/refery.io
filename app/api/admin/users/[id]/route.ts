@@ -56,7 +56,7 @@ export async function GET(
     // Fetch user's candidates (owned) using admin client
     const { data: ownedCandidates } = await adminClient
       .from('candidates')
-      .select('id, name, email, status, created_at')
+      .select('id, slug, name, email, status, created_at')
       .eq('owner_user_id', userData.user_id)
       .order('created_at', { ascending: false })
       .limit(10)
@@ -64,7 +64,7 @@ export async function GET(
     // Fetch user's uploaded candidates using admin client
     const { data: uploadedCandidates } = await adminClient
       .from('candidates')
-      .select('id, name, email, status, created_at')
+      .select('id, slug, name, email, status, created_at')
       .eq('uploaded_by_user_id', userData.user_id)
       .order('created_at', { ascending: false })
       .limit(10)

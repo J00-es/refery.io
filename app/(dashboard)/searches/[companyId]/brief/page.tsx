@@ -7,6 +7,8 @@ import { normalizeBrief } from '@/lib/brief'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { isUnlocked } from '@/lib/partners'
 import { BriefDocument } from '@/components/partners/brief-document'
+import { canonicalCompany, findRoleBySegment } from '@/lib/slugs'
+import { rolePath, searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,13 +31,17 @@ export default async function CompanyBriefPage({
   // The desk is in beta: super admins and beta users only. See DESK_BETA_ONLY.
   if (!access.canUseDesk) notFound()
 
-  const { companyId } = await params
   const sp = await searchParams
-  const jobId = (Array.isArray(sp.job) ? sp.job[0] : sp.job) ?? null
+  const adminClient = createAdminClient()
+  const { companyId, companySlug } = await canonicalCompany(adminClient, (await params).companyId, { tail: '/brief', query: sp })
+  // ?job= names a role by slug or, in older links, by id.
+  const jobParam = (Array.isArray(sp.job) ? sp.job[0] : sp.job) ?? null
+  const jobRole = jobParam ? await findRoleBySegment(adminClient, jobParam) : null
+  if (jobParam && (!jobRole || jobRole.companyId !== companyId)) notFound()
+  const jobId = jobRole?.jobId ?? null
 
   if (!isUnlocked(access, companyId)) notFound()
 
-  const adminClient = createAdminClient()
   const query = adminClient
     .from('partner_briefs')
     .select('id, title, status, content, updated_at, version, job_id')
@@ -54,7 +60,7 @@ export default async function CompanyBriefPage({
     <div className="-mx-3 -my-4 sm:-mx-4 sm:-my-6 md:-my-8">
       <div className="mx-auto flex max-w-[920px] flex-wrap items-center justify-between gap-3 px-5 pt-4 sm:px-8 print:hidden">
         <Link
-          href={jobId ? `/searches/${companyId}/roles/${jobId}` : `/searches/${companyId}`}
+          href={jobRole ? rolePath(companySlug, jobRole.slug) : searchPath(companySlug)}
           className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
         >
           <ArrowLeft className="h-3.5 w-3.5" />

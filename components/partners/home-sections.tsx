@@ -7,6 +7,7 @@ import { stageLabel } from '@/lib/company-ui'
 import { submissionStatus, type PartnerCompanyView, type PartnerRoleRow, type SearchAssignmentRow } from '@/lib/partners'
 import { ProposalActions } from './proposal-card'
 import { StageStrip } from './stage-strip'
+import { rolePathFrom, searchPath } from '@/lib/paths'
 
 /**
  * The pieces of the Searches home, in the order a partner reads them.
@@ -83,7 +84,7 @@ export function ProposedCard({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/searches/${role.company_id}/roles/${role.job_id}`} className={`${H3} underline-offset-4 hover:underline ${FOCUS}`}>
+            <Link href={rolePathFrom(role)} className={`${H3} underline-offset-4 hover:underline ${FOCUS}`}>
               {role.headline || role.title}
             </Link>
             {role.priority === 'urgent' && <span className={CHIP_BAD}>Urgent</span>}
@@ -141,13 +142,13 @@ export function ClientGroupHeader({
       <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] bg-[#161613] text-[11px] font-bold text-white">
         {initials(company.name)}
       </span>
-      <Link href={`/searches/${company.companyId}`} className={`text-[15px] font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
+      <Link href={searchPath(company.slug)} className={`text-[15px] font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
         {company.name}
       </Link>
       <span className={META}>{meta}</span>
       {company.briefPublished && (
         <Link
-          href={`/searches/${company.companyId}/brief`}
+          href={searchPath(company.slug, '/brief')}
           className={`ml-auto inline-flex items-center gap-1.5 text-[12.5px] font-semibold ${FOREST} ${FOCUS}`}
         >
           <FileText className="h-3.5 w-3.5" />
@@ -168,7 +169,7 @@ export function WorkingRow({ role, mine, isAdmin }: { role: PartnerRoleRow; mine
   const fee = resolveFee(role)
   const payout = payoutAmount(fee)
   const inPlay = Object.entries(mine.byStatus).filter(([s]) => submissionStatus(s).category === 'in_progress')
-  const href = `/searches/${role.company_id}/roles/${role.job_id}`
+  const href = rolePathFrom(role)
 
   return (
     <div className={`flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:gap-6 ${CARD}`}>

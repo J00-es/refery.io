@@ -7,10 +7,12 @@ import { cn } from '@/lib/utils'
 import { CompanyLogo } from '@/components/pipeline/company-logo'
 import { LinkedInBadge } from '@/components/pipeline/linkedin-badge'
 import { formatDistanceToNow } from 'date-fns'
+import { candidatePath } from '@/lib/paths'
 
 interface ActionItem {
   id: string
   candidateId: string
+  candidateSlug?: string | null
   candidateName: string
   candidateLinkedin: string | null
   jobId: string
@@ -80,7 +82,7 @@ export function ActionQueueRow({ urgency, title, meta, items, defaultOpen = fals
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-[12px] sm:text-[13px]">
                     <Link
-                      href={`/candidates/${item.candidateId}`}
+                      href={candidatePath({ id: item.candidateId, slug: item.candidateSlug })}
                       className="font-medium text-[#161613] hover:underline truncate"
                       onClick={(e) => e.stopPropagation()}
                     >

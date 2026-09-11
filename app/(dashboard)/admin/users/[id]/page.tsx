@@ -22,6 +22,7 @@ import {
   ExternalLink,
   Linkedin
 } from 'lucide-react'
+import { candidatePath } from '@/lib/paths'
 
 const roleIcons = {
   super_admin: ShieldCheck,
@@ -260,7 +261,7 @@ export default function UserDetailPage() {
               {ownedCandidates.map((candidate) => (
                 <Link
                   key={candidate.id}
-                  href={`/candidates/${candidate.id}`}
+                  href={candidatePath(candidate)}
                   className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted transition-colors"
                 >
                   <div className="min-w-0 flex-1 mr-2">
@@ -299,7 +300,7 @@ export default function UserDetailPage() {
               {uploadedCandidates.map((candidate) => (
                 <Link
                   key={candidate.id}
-                  href={`/candidates/${candidate.id}`}
+                  href={candidatePath(candidate)}
                   className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted transition-colors"
                 >
                   <div className="min-w-0 flex-1 mr-2">

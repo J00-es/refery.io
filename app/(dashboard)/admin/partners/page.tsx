@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Spinner } from '@/components/ui/spinner'
+import { rolePath } from '@/lib/paths'
 
 /**
  * The partner desk, grouped by who can unblock the next step.
@@ -19,7 +20,7 @@ interface FixRow { kind: string; who: string; email: string; detail: string; use
 interface WorkRow { userId: string; name: string; email: string; joinedDays: number; preferences: string | null; confirmed: boolean; noMatchAt: string | null; state: string | null }
 interface PartnerActionRow { kind: string; userId: string; name: string; role: string; company: string | null; ageDays: number; assignmentId: string }
 interface ClientRow { id: string; candidate: string; role: string; company: string; status: string; quietDays: number; partner: string | null }
-interface DemandRow { jobId: string; companyId: string; title: string; company: string | null; location: string | null; priority: string; stage: string | null; working: number; proposed: number; open: number | null; cap: number | null; subs14: number; movedDays: number | null; read: string }
+interface DemandRow { jobId: string; companyId: string; slug?: string | null; companySlug?: string | null; title: string; company: string | null; location: string | null; priority: string; stage: string | null; working: number; proposed: number; open: number | null; cap: number | null; subs14: number; movedDays: number | null; read: string }
 interface Payload {
   counts: { applications: number; overdue: number; partners: number; withTerms: number; working: number }
   decisions: DecisionRow[]
@@ -223,7 +224,7 @@ export default function PartnerDeskPage() {
           {data.demand.map(d => (
             <li key={d.jobId} className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[minmax(0,2fr)_1fr_1fr_1fr_auto] sm:items-center sm:gap-4">
               <div className="min-w-0">
-                <Link href={`/searches/${d.companyId}/roles/${d.jobId}`} className="text-[14px] font-semibold underline-offset-4 hover:underline">{d.title}</Link>
+                <Link href={rolePath({ id: d.companyId, slug: d.companySlug }, { id: d.jobId, slug: d.slug })} className="text-[14px] font-semibold underline-offset-4 hover:underline">{d.title}</Link>
                 <p className="text-[12.5px] text-[#6E6E68]">{[d.company, d.location].filter(Boolean).join(' · ')}{d.priority === 'urgent' ? ' · urgent' : ''}</p>
               </div>
               <span className="text-[12.5px]">{d.stage?.replace(/_/g, ' ') ?? 'sourcing'}{d.movedDays !== null ? <span className="text-[#9C9C95]"> · {days(d.movedDays)}</span> : null}</span>

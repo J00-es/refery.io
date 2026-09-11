@@ -3,11 +3,13 @@ import { metEvidence } from '@/lib/engine/decisions'
 import { createAdminClient } from '@/lib/supabase/server'
 import { H2, LEDE, META } from '@/lib/desk-ui'
 import { FOCUS } from '@/lib/candidate-ui'
+import { candidatePath } from '@/lib/paths'
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 
 interface BenchRow {
   candidateId: string
+  candidateSlug: string | null
   name: string
   grade: string | null
   met: boolean
@@ -53,7 +55,7 @@ export async function BenchBlock({ jobId, viewerId, canManage }: { jobId: string
 
   const ids = [...latest.keys()]
   const [{ data: cands }, { data: emails }, { data: subs }] = await Promise.all([
-    admin.from('candidates').select('id, name, panel_grade, journey_stage, owner_user_id, lily_verdict, intake_source, availability_status').in('id', ids),
+    admin.from('candidates').select('id, slug, name, panel_grade, journey_stage, owner_user_id, lily_verdict, intake_source, availability_status').in('id', ids),
     admin.from('candidate_emails').select('candidate_id, kind, sent_at, meta').in('candidate_id', ids).not('sent_at', 'is', null).order('sent_at', { ascending: false }),
     admin.from('role_submissions').select('candidate_id, status').eq('job_id', jobId).in('candidate_id', ids),
   ])
@@ -97,6 +99,7 @@ export async function BenchBlock({ jobId, viewerId, canManage }: { jobId: string
     }
     rows.push({
       candidateId: c.id as string,
+      candidateSlug: (c.slug as string | null) ?? null,
       name: c.name as string,
       grade: (c.panel_grade as string) || info.grade || null,
       met: String(c.journey_stage) === 'warm' || String(c.journey_stage) === 'committee_call' || metIds.has(c.id as string),
@@ -129,7 +132,7 @@ export async function BenchBlock({ jobId, viewerId, canManage }: { jobId: string
       {visible.length > 0 && (
         <div className="mt-4 divide-y divide-[#E4E3DC] rounded-[16px] border border-[#E4E3DC] bg-white">
           {visible.map(r => (
-            <Link key={r.candidateId} href={`/candidates/${r.candidateId}`} className={`grid gap-2 px-4 py-3 transition-colors hover:bg-[#FAF9F5] sm:grid-cols-[1.6fr_1.2fr_1fr] sm:items-center ${FOCUS}`}>
+            <Link key={r.candidateId} href={candidatePath({ id: r.candidateId, slug: r.candidateSlug })} className={`grid gap-2 px-4 py-3 transition-colors hover:bg-[#FAF9F5] sm:grid-cols-[1.6fr_1.2fr_1fr] sm:items-center ${FOCUS}`}>
               <div className="min-w-0">
                 <p className="truncate text-[14px] font-semibold text-[#161613]">
                   {r.grade && <span className="mr-2 rounded-md bg-[#1F3A2F] px-1.5 py-0.5 text-[11.5px] font-bold text-white">{r.grade}</span>}

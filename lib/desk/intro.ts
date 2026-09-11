@@ -24,6 +24,7 @@ import { loadLiveSeats, seatLabel, type Seat } from '@/lib/desk/seats'
 import { loadOwner, properName, type Owner } from '@/lib/desk/people'
 import { postThreadReply } from '@/lib/slack-bot'
 import { esc, textToHtml } from '@/lib/desk/html'
+import { candidatePath } from '@/lib/paths'
 
 export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 export const DESK_FROM = 'lily@refery.io'
@@ -74,7 +75,7 @@ export async function buildIntroKit(admin: SupabaseClient, c: Record<string, unk
     candidateFirst: first,
     candidateEmail: email,
     linkedin: ((c.linkedin_url as string | null) ?? '').trim() || null,
-    pageUrl: `${APP_URL}/candidates/${c.id}`,
+    pageUrl: `${APP_URL}${candidatePath({ id: String(c.id), slug: (c.slug as string | null | undefined) ?? null })}`,
     forwardable,
     mailto: email ? mailtoFor(email, name, forwardable) : null,
     sendForMeUrl,

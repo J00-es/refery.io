@@ -6,6 +6,8 @@ import { FIGURE, FOCUS, H1, LABEL, LEDE, RULE } from '@/lib/desk-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { submissionStatus, type SearchAssignmentRow } from '@/lib/partners'
 import { CoverageTable, type CoverageRow, type SuggestedPartner } from '@/components/partners/coverage-table'
+import { canonicalRole } from '@/lib/slugs'
+import { rolePath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,8 +27,8 @@ export default async function CoveragePage({
   if (!access) redirect('/auth/login')
   if (!access.canUseDesk || !access.canManage) notFound()
 
-  const { companyId, jobId } = await params
   const adminClient = createAdminClient()
+  const { companyId, jobId, companySlug, roleSlug } = await canonicalRole(adminClient, await params, { tail: '/coverage' })
 
   const [{ data: role }, { data: assignmentRows }, { data: submissionRows }] = await Promise.all([
     adminClient
@@ -127,7 +129,7 @@ export default async function CoveragePage({
   return (
     <div className="mx-auto max-w-[1120px] space-y-6 px-1 pb-16 sm:px-0">
       <Link
-        href={`/searches/${companyId}/roles/${jobId}`}
+        href={rolePath(companySlug, roleSlug)}
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#6E6E68] transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />

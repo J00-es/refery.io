@@ -53,6 +53,8 @@ import { SubmitCandidates } from '@/components/partners/submit-candidates'
 import { ShareSearch } from '@/components/partners/share-search'
 import { candidatePageUrl, pageOpens } from '@/lib/candidate-pages'
 import { codesFor, ensureShareCode } from '@/lib/share-codes'
+import { canonicalRole, candidateSlugs } from '@/lib/slugs'
+import { rolePath, searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,8 +71,9 @@ export default async function PartnerRolePage({
   // The desk is in beta: super admins and beta users only. See DESK_BETA_ONLY.
   if (!access.canUseDesk) notFound()
 
-  const { companyId, jobId } = await params
   const adminClient = createAdminClient()
+  // A UUID in the address (every link sent before 2026-09-11) lands on the short slug.
+  const { companyId, jobId, companySlug, roleSlug } = await canonicalRole(adminClient, await params)
 
   const [{ data: roleRow }, { data: companyRow }] = await Promise.all([
     adminClient.from('partner_roles_v').select('*').eq('job_id', jobId).maybeSingle(),
@@ -102,7 +105,8 @@ export default async function PartnerRolePage({
     .eq('job_id', jobId)
     .order('created_at', { ascending: false })
 
-  const allSubmissions = (submissionRows ?? []) as SubmissionRow[]
+  const slugByCandidate = await candidateSlugs(adminClient, (submissionRows ?? []).map(s => s.candidate_id as string))
+  const allSubmissions = ((submissionRows ?? []) as SubmissionRow[]).map(s => ({ ...s, candidate_slug: slugByCandidate.get(s.candidate_id) ?? null }))
   const submissions = access.seesAllSubmissions
     ? allSubmissions
     : allSubmissions.filter(s => s.submitted_by_user_id === access.appUser.id)
@@ -299,7 +303,7 @@ export default async function PartnerRolePage({
   return (
     <div className="mx-auto max-w-[1120px] px-1 pb-16 sm:px-0">
       <Link
-        href={`/searches/${companyId}`}
+        href={searchPath(companySlug)}
         className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium ${MUTED} transition-colors hover:text-[#161613] ${FOCUS}`}
       >
         <ArrowLeft className="h-3.5 w-3.5" />
@@ -343,7 +347,7 @@ export default async function PartnerRolePage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {unlocked && (
-              <Link href={`/searches/${companyId}`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <Link href={searchPath(companySlug)} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 <FileText className="h-4 w-4" />
                 Client brief
               </Link>
@@ -356,14 +360,14 @@ export default async function PartnerRolePage({
                 <SubmitCandidates jobId={jobId} roleTitle={`${role.title} · ${company.name}`} slotsLeft={slots} label="Submit a candidate" />
               </>
             )}
-            <ShareSearch url={shareUrl} opens={shareOpens.opens} lastAt={shareOpens.lastAt} editHref={access.canManage ? `/searches/${companyId}/roles/${jobId}/candidate-page` : null} state={shareState} />
+            <ShareSearch url={shareUrl} opens={shareOpens.opens} lastAt={shareOpens.lastAt} editHref={access.canManage ? rolePath(companySlug, roleSlug, '/candidate-page') : null} state={shareState} />
             {access.canManage && (
-              <Link href={`/searches/${companyId}/roles/${jobId}/candidate-page`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <Link href={rolePath(companySlug, roleSlug, '/candidate-page')} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 Candidate page
               </Link>
             )}
             {access.canManage && (
-              <Link href={`/searches/${companyId}/roles/${jobId}/coverage`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+              <Link href={rolePath(companySlug, roleSlug, '/coverage')} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
                 <Users className="h-4 w-4" />
                 Coverage
               </Link>
@@ -583,7 +587,7 @@ export default async function PartnerRolePage({
               <div className="flex flex-wrap items-baseline justify-between gap-3">
                 <h2 className={H2}>{screening.length ? 'Two questions to ask before you submit' : 'Before you approach anyone'}</h2>
                 {brief && screening.length > 0 && (
-                  <Link href={`/searches/${companyId}#screening`} className={BTN_TEXT}>
+                  <Link href={searchPath(companySlug, '#screening')} className={BTN_TEXT}>
                     Full screening guide →
                   </Link>
                 )}
@@ -623,7 +627,7 @@ export default async function PartnerRolePage({
               {!brief && (
                 <p className={`mt-3 ${META}`}>
                   {access.canManage ? (
-                    <>No brief imported yet. <Link href={`/searches/${companyId}`} className={`font-semibold ${FOREST} underline underline-offset-2 ${FOCUS}`}>Import one from the client page</Link>.</>
+                    <>No brief imported yet. <Link href={searchPath(companySlug)} className={`font-semibold ${FOREST} underline underline-offset-2 ${FOCUS}`}>Import one from the client page</Link>.</>
                   ) : (
                     'No scout brief published yet. Ask Refery for the detail before you approach anyone.'
                   )}

@@ -28,6 +28,8 @@ import { defaultOwnerUserId } from '@/lib/inbound-resume'
 import { referralUrl, resolveCode, rotateCode } from '@/lib/share-codes'
 import { templateRL2, templateRL3, templateRS2, templateRS4 } from '@/lib/voice/templates'
 import type { ReferralDoor } from '@/lib/apply/profile'
+import { candidatePath } from '@/lib/paths'
+import { candidateUrlById } from '@/lib/slugs'
 
 /** A code on a request turned into the partner it belongs to, or null when the door is closed. */
 export async function resolveReferralDoor(admin: SupabaseClient, code: string | null, source: 'link' | 'jd', jobId: string | null, userAgent: string | null, candidateNote: string | null): Promise<ReferralDoor | null> {
@@ -116,9 +118,11 @@ async function referrerName(admin: SupabaseClient, userId: string): Promise<{ na
   return { name, first: name.split(/\s+/)[0] || name, email: (data?.email as string | null) ?? null }
 }
 
-async function candidateBasics(admin: SupabaseClient, candidateId: string): Promise<{ id: string; name: string; email: string | null; resume_blob_pathname: string | null; desk_card_channel: string | null; desk_card_ts: string | null } | null> {
-  const { data } = await admin.from('candidates').select('id, name, email, resume_blob_pathname, desk_card_channel, desk_card_ts').eq('id', candidateId).maybeSingle()
-  return (data as { id: string; name: string; email: string | null; resume_blob_pathname: string | null; desk_card_channel: string | null; desk_card_ts: string | null } | null) ?? null
+type CandidateBasics = { id: string; slug: string; name: string; email: string | null; resume_blob_pathname: string | null; desk_card_channel: string | null; desk_card_ts: string | null }
+
+async function candidateBasics(admin: SupabaseClient, candidateId: string): Promise<CandidateBasics | null> {
+  const { data } = await admin.from('candidates').select('id, slug, name, email, resume_blob_pathname, desk_card_channel, desk_card_ts').eq('id', candidateId).maybeSingle()
+  return (data as CandidateBasics | null) ?? null
 }
 
 /** After a yes: the held card posts from the read that already ran, or from the panel's next pass. */
@@ -198,7 +202,7 @@ export async function disownReferral(admin: SupabaseClient, r: ReferralRow, by: 
     await postThreadReply(c.desk_card_channel, c.desk_card_ts, `:no_entry_sign: ${esc(who.name)} says ${esc(properName(c.name))} did not come from them. Parked: no matching, no mail. React :+1: on the feed line to keep them as a self-submission.`)
   }
   await postToFeed(
-    `:no_entry_sign: *${esc(who.name)}* says *${esc(properName(c?.name ?? 'someone'))}* did not come from them (via link ${esc(r.code)}${nth > 1 ? `, ${nth}${nth === 2 ? 'nd' : nth === 3 ? 'rd' : 'th'} this week` : ''}). Parked: not matched, not on the desk, no emails. React :+1: to keep them as a self-submission owned by you; otherwise the CV is deleted in ${PURGE_AFTER_DAYS} days.  ·  <${APP_URL}/candidates/${r.candidate_id}|profile>`,
+    `:no_entry_sign: *${esc(who.name)}* says *${esc(properName(c?.name ?? 'someone'))}* did not come from them (via link ${esc(r.code)}${nth > 1 ? `, ${nth}${nth === 2 ? 'nd' : nth === 3 ? 'rd' : 'th'} this week` : ''}). Parked: not matched, not on the desk, no emails. React :+1: to keep them as a self-submission owned by you; otherwise the CV is deleted in ${PURGE_AFTER_DAYS} days.  ·  <${APP_URL}${candidatePath({ id: r.candidate_id, slug: c?.slug })}|profile>`,
   )
   return { ok: true, message: 'Understood. They are off your list and nothing is credited to you.', rotated }
 }
@@ -210,7 +214,7 @@ export async function undoDisown(admin: SupabaseClient, r: ReferralRow): Promise
   await admin.from('referrals').update({ status: 'pending', disowned_at: null, purge_after: null }).eq('id', r.id)
   await admin.from('candidate_human_decisions').update({ revoked_at: new Date().toISOString() }).eq('candidate_id', r.candidate_id).eq('kind', 'contact').eq('value', 'disowned_referral').is('revoked_at', null)
   await admin.from('candidates').update({ owner_user_id: r.referrer_user_id, user_id: r.referrer_user_id, uploaded_by_user_id: r.referrer_user_id }).eq('id', r.candidate_id)
-  await postToFeed(`:leftwards_arrow_with_hook: The "not from me" on <${APP_URL}/candidates/${r.candidate_id}|this person> was taken back within the undo window. Back to waiting for the partner's yes.`)
+  await postToFeed(`:leftwards_arrow_with_hook: The "not from me" on <${await candidateUrlById(admin, r.candidate_id)}|this person> was taken back within the undo window. Back to waiting for the partner's yes.`)
   return { ok: true, message: 'Undone. They are back on your list, waiting for your yes.' }
 }
 
@@ -253,7 +257,7 @@ export async function runReferralTimers(admin: SupabaseClient): Promise<{ remind
     const who = await referrerName(admin, r.referrer_user_id)
     if (age >= ESCALATE_AFTER_DAYS && !r.escalated_at) {
       await admin.from('referrals').update({ status: 'escalated', escalated_at: iso(now) }).eq('id', r.id)
-      await postToFeed(`:hourglass: *${esc(who.name)}* has not said whether *${esc(properName(c.name))}* came from them (${Math.round(age)} days). The card posts flagged; they keep ownership unless you say otherwise.  ·  <${APP_URL}/candidates/${c.id}|profile>`)
+      await postToFeed(`:hourglass: *${esc(who.name)}* has not said whether *${esc(properName(c.name))}* came from them (${Math.round(age)} days). The card posts flagged; they keep ownership unless you say otherwise.  ·  <${APP_URL}${candidatePath(c)}|profile>`)
       await releaseHeldCard(admin, c.id, `unconfirmed by ${who.name} after ${Math.round(age)} days`)
       out.escalated++
       continue

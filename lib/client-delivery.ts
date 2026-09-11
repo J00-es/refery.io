@@ -22,6 +22,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { postMessage, postThreadReply, updateMessage, esc, type SlackBlock } from '@/lib/slack-bot'
 import { notifySlack } from '@/lib/slack'
 import { money, resolveFee, salaryCurrency, type SalaryCurrency } from '@/lib/fees'
+import { candidatePath, rolePath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Lily at Refery <hello@refery.io>'
@@ -47,6 +48,10 @@ export interface DeliveryRecord {
   jobId: string
   companyId: string
   candidateId: string
+  /** Short URL segments; null only when the row behind them is gone. */
+  companySlug: string | null
+  roleSlug: string | null
+  candidateSlug: string | null
   status: string
   candidateName: string
   currentRole: string | null
@@ -106,8 +111,8 @@ export async function loadDelivery(admin: SupabaseClient, submissionId: string):
       .select('slack_channel_id, slack_message_ts, client_channel, client_slack_channel, client_slack_ts, client_decision, client_decision_at, client_decision_by, client_reason_code, client_reason, client_delivered_at')
       .eq('id', submissionId)
       .maybeSingle(),
-    admin.from('candidates').select('linkedin_url, resume_blob_pathname, parsed_data, location, experience_years').eq('id', s.candidate_id).maybeSingle(),
-    admin.from('partner_roles_v').select('headline, salary_currency').eq('job_id', s.job_id).maybeSingle(),
+    admin.from('candidates').select('slug, linkedin_url, resume_blob_pathname, parsed_data, location, experience_years').eq('id', s.candidate_id).maybeSingle(),
+    admin.from('partner_roles_v').select('headline, salary_currency, slug, company_slug').eq('job_id', s.job_id).maybeSingle(),
     admin
       .from('client_companies')
       .select('contact_name, contact_email, candidate_delivery, booking_url, response_hours, slack_channel_id')
@@ -146,6 +151,9 @@ export async function loadDelivery(admin: SupabaseClient, submissionId: string):
     jobId: s.job_id as string,
     companyId: s.company_id as string,
     candidateId: s.candidate_id as string,
+    companySlug: str(role?.company_slug),
+    roleSlug: str(role?.slug),
+    candidateSlug: str(c.slug),
     status: s.status as string,
     candidateName: (s.candidate_name as string) || 'Candidate',
     currentRole: currentRoleOf(c),
@@ -181,6 +189,11 @@ export async function loadDelivery(admin: SupabaseClient, submissionId: string):
 }
 
 // ── the card, in words ───────────────────────────────────────────────────────
+
+/** /searches/<company>/roles/<role> for this delivery, short slugs first. */
+function searchLink(d: DeliveryRecord): string {
+  return rolePath({ id: d.companyId, slug: d.companySlug }, { id: d.jobId, slug: d.roleSlug })
+}
 
 export function candidatesUrl(slug: string, submissionId?: string, decide?: ClientDecision): string {
   const base = `${APP_URL}/b/${slug}/candidates`
@@ -448,7 +461,7 @@ export async function recordClientDecision(input: {
       { label: 'Search', value: d.roleTitle },
       { label: 'Partner', value: d.partnerName },
     ],
-    links: [{ label: 'Open the search', url: `${APP_URL}/searches/${d.companyId}/roles/${d.jobId}` }],
+    links: [{ label: 'Open the search', url: `${APP_URL}${searchLink(d)}` }],
   })
 
   // The partner, in plain words.
@@ -458,8 +471,8 @@ export async function recordClientDecision(input: {
     const subject = `[Refery] ${d.candidateName} | ${input.decision === 'interview' ? `${d.companyName} wants to interview` : `${d.companyName} passed`}`
     const body =
       input.decision === 'interview'
-        ? `Hi ${first},\n\nGood news: ${d.companyName} wants to interview ${d.candidateName} for ${d.roleTitle}.\n\n${d.bookingUrl ? `Their booking link is ${d.bookingUrl}. Send it to ${candFirst} with the company name and the brief; I am on the thread if anything is needed.` : `I am arranging the first call with them now and will come back to you with the slots for ${candFirst}.`}\n\nTell ${candFirst} from Refery, with the link and their steps already filled in: ${APP_URL}/candidates/${d.candidateId}?write=interview\n\nThe search shows Interviewing from now.\n\nBest,\nLily`
-        : `Hi ${first},\n\n${d.companyName} passed on ${d.candidateName} for ${d.roleTitle}.${reasonText ? ` Their reason: ${reasonText}.` : ''}\n\nPlease let ${candFirst} know today; a line from you lands better than silence. A draft in your words is ready here: ${APP_URL}/candidates/${d.candidateId}?write=pass\n\n${candFirst} stays on your bench for other searches.\n\nBest,\nLily`
+        ? `Hi ${first},\n\nGood news: ${d.companyName} wants to interview ${d.candidateName} for ${d.roleTitle}.\n\n${d.bookingUrl ? `Their booking link is ${d.bookingUrl}. Send it to ${candFirst} with the company name and the brief; I am on the thread if anything is needed.` : `I am arranging the first call with them now and will come back to you with the slots for ${candFirst}.`}\n\nTell ${candFirst} from Refery, with the link and their steps already filled in: ${APP_URL}${candidatePath({ id: d.candidateId, slug: d.candidateSlug }, '?write=interview')}\n\nThe search shows Interviewing from now.\n\nBest,\nLily`
+        : `Hi ${first},\n\n${d.companyName} passed on ${d.candidateName} for ${d.roleTitle}.${reasonText ? ` Their reason: ${reasonText}.` : ''}\n\nPlease let ${candFirst} know today; a line from you lands better than silence. A draft in your words is ready here: ${APP_URL}${candidatePath({ id: d.candidateId, slug: d.candidateSlug }, '?write=pass')}\n\n${candFirst} stays on your bench for other searches.\n\nBest,\nLily`
     await sendEmail(d.partnerEmail, subject, `<pre style="font-family: 'DM Sans', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`, body)
   }
 
@@ -567,14 +580,14 @@ export async function recordOfferAccepted(input: {
       { label: 'Fee', value: feeText ?? 'see terms' },
       { label: 'Partner', value: `${d.partnerName}${payoutText ? ` · ${payoutText}` : ''}` },
     ],
-    links: [{ label: 'Open the search', url: `${APP_URL}/searches/${d.companyId}/roles/${d.jobId}` }],
+    links: [{ label: 'Open the search', url: `${APP_URL}${searchLink(d)}` }],
   })
 
   if (d.partnerEmail) {
     const first = d.partnerName.split(/\s+/)[0]
     const candFirst = d.candidateName.split(/\s+/)[0]
     const subject = `[Refery] ${d.candidateName} | hired at ${d.companyName}`
-    const body = `Hi ${first},\n\n${d.companyName} confirmed it: ${d.candidateName} accepted the ${d.roleTitle} offer and starts on ${clockDate(clock.startDate, true)}.\n\n${payoutText ? `Your payout on this one is ${payoutText}. ` : ''}It is paid within 14 business days after ${candFirst} completes 90 days, so by ${clockDate(clock.payoutBy, true)}, once the client has paid. If ${candFirst} leaves before ${clockDate(clock.guaranteeEnds, true)} we run a replacement search for the client and nothing is paid or owed on this one.\n\nA congratulations note to ${candFirst}, in your words, is ready here: ${APP_URL}/candidates/${d.candidateId}?write=hired\n\nThank you. This is the whole point.\n\nBest,\nLily`
+    const body = `Hi ${first},\n\n${d.companyName} confirmed it: ${d.candidateName} accepted the ${d.roleTitle} offer and starts on ${clockDate(clock.startDate, true)}.\n\n${payoutText ? `Your payout on this one is ${payoutText}. ` : ''}It is paid within 14 business days after ${candFirst} completes 90 days, so by ${clockDate(clock.payoutBy, true)}, once the client has paid. If ${candFirst} leaves before ${clockDate(clock.guaranteeEnds, true)} we run a replacement search for the client and nothing is paid or owed on this one.\n\nA congratulations note to ${candFirst}, in your words, is ready here: ${APP_URL}${candidatePath({ id: d.candidateId, slug: d.candidateSlug }, '?write=hired')}\n\nThank you. This is the whole point.\n\nBest,\nLily`
     await sendEmail(d.partnerEmail, subject, `<pre style="font-family: 'DM Sans', Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.6; white-space: pre-wrap;">${body.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre>`, body)
   }
 

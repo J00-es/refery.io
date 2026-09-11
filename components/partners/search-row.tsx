@@ -5,6 +5,7 @@ import { REMOTE_LABELS, seniorityLabel } from '@/lib/job-ui'
 import { feeExplanation, payoutAmount } from '@/lib/fees'
 import type { DeskSearch } from '@/lib/desk-filters'
 import { StageStrip } from './stage-strip'
+import { rolePath } from '@/lib/paths'
 
 /**
  * One live search in the flat list.
@@ -31,7 +32,7 @@ export function SearchRow({ search }: { search: DeskSearch }) {
 
   return (
     <Link
-      href={`/searches/${search.companyId}/roles/${search.jobId}`}
+      href={rolePath(search.companySlug, search.slug)}
       className={`block px-4 py-4 sm:px-5 ${CARD_LINK}`}
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-5">

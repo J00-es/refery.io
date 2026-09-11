@@ -12,6 +12,7 @@ import {
   type NextAction,
   type PanelGrade,
 } from '@/lib/journey'
+import { candidatePath } from '@/lib/paths'
 
 // Candidate state is changed by the nightly automation as well as by people.
 export const dynamic = 'force-dynamic'
@@ -64,6 +65,7 @@ function relativeTime(dateStr: string): string {
 
 interface ScopedCandidate {
   id: string
+  slug: string
   name: string | null
   journey_stage: JourneyStage
   journey_stage_at: string | null
@@ -132,7 +134,7 @@ export default async function DashboardPage() {
   let candQuery = adminClient
     .from('candidates')
     .select(
-      'id, name, journey_stage, journey_stage_at, availability_status, intake_source, panel_grade, resume_blob_pathname, owner_user_id',
+      'id, slug, name, journey_stage, journey_stage_at, availability_status, intake_source, panel_grade, resume_blob_pathname, owner_user_id',
     )
   if (!canViewAll) candQuery = candQuery.or(candidateScopeFilter(await scopeUserIds(adminClient, { id: me })))
 
@@ -171,6 +173,7 @@ export default async function DashboardPage() {
 
   // ── activity ───────────────────────────────────────────────────────────────
   const nameById = new Map(candidates.map(c => [c.id, c.name || 'A candidate']))
+  const slugById = new Map(candidates.map(c => [c.id, c.slug]))
   let activity: {
     id: string
     description: string | null
@@ -294,7 +297,7 @@ export default async function DashboardPage() {
             {needsYou.slice(0, NEEDS_SHOWN).map(c => (
               <Link
                 key={c.id}
-                href={`/candidates/${c.id}`}
+                href={candidatePath(c)}
                 className={`flex items-center gap-4 border-b border-[#E4E3DC] px-4 py-4 last:border-b-0 motion-safe:transition-colors hover:bg-[#FAF9F5] sm:px-6 ${focusCls}`}
               >
                 <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#EFEFE9] text-[12.5px] font-semibold text-[#6E6E68]">
@@ -482,7 +485,7 @@ export default async function DashboardPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline gap-x-2">
                     <Link
-                      href={`/candidates/${a.candidate_id}`}
+                      href={candidatePath({ id: a.candidate_id, slug: slugById.get(a.candidate_id) })}
                       className={`text-sm font-semibold text-[#161613] hover:underline ${focusCls}`}
                     >
                       {nameById.get(a.candidate_id) || 'A candidate'}

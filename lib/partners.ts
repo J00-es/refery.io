@@ -360,6 +360,8 @@ export interface PartnerCompanyRow {
   assigned_user_ids: string[]
   company_brief_id: string | null
   company_brief_status: string | null
+  /** Short random URL segment: /searches/<slug>. */
+  slug: string
 }
 
 export interface PartnerRoleRow {
@@ -416,10 +418,15 @@ export interface PartnerRoleRow {
   decision_days: number | null
   search_stage: SearchStage
   stage_moved_at: string | null
+  /** URL segments: /searches/<company_slug>/roles/<slug>. */
+  slug: string
+  company_slug: string | null
 }
 
 export interface SubmissionRow {
   id: string
+  /** Set by pages that load it; /candidates/<slug>. */
+  candidate_slug?: string | null
   job_id: string
   candidate_id: string
   company_id: string
@@ -626,6 +633,8 @@ export function plainBlurb(text?: string | null, maxLength = 180): string | null
  */
 export interface PartnerCompanyView {
   companyId: string
+  /** URL segment for /searches/<slug>; random, so it never names a locked client. */
+  slug: string
   unlocked: boolean
   /** Company name when unlocked, alias when not. Always safe to render. */
   name: string
@@ -675,6 +684,7 @@ export function toCompanyView(
 
   return {
     companyId: row.company_id,
+    slug: row.slug,
     unlocked,
     name: unlocked ? displayName : anonLabel(row),
     logoUrl: unlocked ? row.logo_url : null,

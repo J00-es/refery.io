@@ -11,6 +11,7 @@ import { sendDeskEmail } from '@/lib/desk/outbound'
 import { inboundCvAck } from '@/lib/desk/emails'
 import { esc } from '@/lib/slack-bot'
 import type { ParsedResumeData } from '@/lib/types'
+import { candidatePath } from '@/lib/paths'
 
 /**
  * Candidates that arrive as a PDF attached to an email.
@@ -304,6 +305,7 @@ export async function resolveOwner(
 
 interface DuplicateMatch {
   id: string
+  slug: string
   name: string
   email: string | null
   owner_user_id: string | null
@@ -326,7 +328,7 @@ export async function findDuplicate(
   admin: SupabaseClient,
   row: { email?: unknown; linkedin_url?: unknown; name?: unknown },
 ): Promise<{ kind: 'hard' | 'soft'; match: DuplicateMatch } | null> {
-  const select = 'id, name, email, owner_user_id'
+  const select = 'id, slug, name, email, owner_user_id'
 
   // Every branch throws on a query error rather than returning "no duplicate".
   // Treating a failed lookup as a clean result is how you end up creating the
@@ -510,7 +512,7 @@ export async function ingestInboundResume(
       })
 
       await postToFeed(
-        `:twisted_rightwards_arrows: *${esc(name)}* was emailed in again by ${esc(senderLabel(email))}; already on file as *${esc(duplicate.match.name)}*. Nothing created.  ·  <${email.origin}/candidates/${duplicate.match.id}|open the existing profile>`,
+        `:twisted_rightwards_arrows: *${esc(name)}* was emailed in again by ${esc(senderLabel(email))}; already on file as *${esc(duplicate.match.name)}*. Nothing created.  ·  <${email.origin}${candidatePath(duplicate.match)}|open the existing profile>`,
       )
 
       return { outcome: 'duplicate', duplicateOf: duplicate.match.id }
@@ -585,7 +587,7 @@ export async function ingestInboundResume(
       await postToFeed(`:warning: *${esc(name)}* arrived by email from ${esc(owner.ownerLabel)}. ${esc(termsWarning)}`)
     }
     if (outcome === 'possible_duplicate' && duplicate) {
-      await postToFeed(`:grey_question: *${esc(name)}* arrived by email and shares a name with an existing profile. Check before working it.  ·  <${email.origin}/candidates/${duplicate.match.id}|the same-name profile>`)
+      await postToFeed(`:grey_question: *${esc(name)}* arrived by email and shares a name with an existing profile. Check before working it.  ·  <${email.origin}${candidatePath(duplicate.match)}|the same-name profile>`)
     }
 
     return { outcome, candidateId: candidate.id, duplicateOf: duplicate?.match.id }

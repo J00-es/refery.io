@@ -25,6 +25,7 @@ import {
   type AvailabilityKey,
 } from '@/lib/candidate-ui'
 import { JOURNEY_BUCKETS, journeyBucket, nextActionFor, type JourneyBucket } from '@/lib/journey'
+import { candidatePath } from '@/lib/paths'
 
 interface CandidateListProps {
   candidates: EnrichedCandidate[]
@@ -191,7 +192,7 @@ function CandidateRow({
 
   return (
     <Link
-      href={`/candidates/${candidate.id}`}
+      href={candidatePath(candidate)}
       className={`flex items-center gap-3 px-3 py-3 transition-colors hover:bg-[#FAF9F5] sm:px-4 ${FOCUS}`}
     >
       <span

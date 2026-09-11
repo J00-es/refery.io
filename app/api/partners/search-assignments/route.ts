@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   const adminClient = createAdminClient()
   const { data: role } = await adminClient
     .from('partner_roles_v')
-    .select('job_id, company_id, title, headline, company_name, salary_min, salary_max, fee_percentage, fee_flat, scout_payout, scout_share, location')
+    .select('job_id, company_id, slug, company_slug, title, headline, company_name, salary_min, salary_max, fee_percentage, fee_flat, scout_payout, scout_share, location')
     .eq('job_id', jobId)
     .maybeSingle()
   if (!role) return NextResponse.json({ error: 'Not found' }, { status: 404 })

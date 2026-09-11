@@ -26,6 +26,7 @@ import { createDraft, draftUrl, findThread } from '@/lib/google'
 import { recapBlocks, summariseCall, RECAP_AFFORDANCES } from '@/lib/call-recap'
 import { loadBrainContext, logBrainRetrieval } from '@/lib/brain-knowledge'
 import { addReaction, postMessage } from '@/lib/slack-bot'
+import { candidateUrlById } from '@/lib/slugs'
 
 /**
  * Below this a transcript is fragments of unintelligible audio, and there is
@@ -339,7 +340,7 @@ export async function recapNote(
     granolaUrl: detail.web_url ?? null,
     appUrl:
       resolved.entityType === 'candidate' && resolved.entityId
-        ? `https://refery.xyz/candidates/${resolved.entityId}`
+        ? await candidateUrlById(admin, resolved.entityId)
         : null,
     draftUrl: draft.draftId ? draftUrl(draft.draftId) : null,
     draftError: draft.error ?? null,

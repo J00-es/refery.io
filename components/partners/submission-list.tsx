@@ -12,6 +12,7 @@ import {
 } from '@/lib/partners'
 import { money } from '@/lib/fees'
 import { SubmissionActions } from './submission-actions'
+import { candidatePath } from '@/lib/paths'
 
 /**
  * Where each submission has got to.
@@ -64,7 +65,7 @@ export function SubmissionList({
                 <div className="flex flex-wrap items-center gap-2">
                   {mine || canManage ? (
                     <Link
-                      href={`/candidates/${submission.candidate_id}`}
+                      href={candidatePath({ id: submission.candidate_id, slug: submission.candidate_slug })}
                       className={`truncate ${H3} underline-offset-4 hover:underline ${FOCUS}`}
                     >
                       {submission.candidate_name || 'Unnamed candidate'}
@@ -105,7 +106,7 @@ export function SubmissionList({
               <div className="flex shrink-0 items-center gap-2">
                 {mine && TELL_MOMENT[submission.status] && (
                   <Link
-                    href={`/candidates/${submission.candidate_id}?write=${TELL_MOMENT[submission.status]}`}
+                    href={candidatePath({ id: submission.candidate_id, slug: submission.candidate_slug }, `?write=${TELL_MOMENT[submission.status]}`)}
                     className={`text-[12.5px] font-semibold text-[#1F3A2F] hover:underline ${FOCUS}`}
                   >
                     Tell {(submission.candidate_name || 'them').split(/\s+/)[0]}

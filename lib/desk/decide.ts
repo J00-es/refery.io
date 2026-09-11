@@ -27,6 +27,7 @@ import { suggestedLine } from '@/lib/desk/card'
 import { pushToEmail } from '@/lib/push'
 import { evaluateEligibility, REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
 import { policyInputsFor, recordHumanDecision } from '@/lib/engine/decisions'
+import { candidatePath } from '@/lib/paths'
 
 export type Decision = 'intro_now' | 'bench' | 'not_fit' | 'manual' | 'snooze' | 'route_elsewhere'
 
@@ -251,7 +252,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
       : await rewriteWithNote(draft, input.reasonLine.trim(), recipient === 'owner' ? (owner?.firstName ?? 'there') : first, name)
   }
   if (recipient === 'owner' && input.decision !== 'not_fit' && !input.bodyOverride) {
-    const ask = missingFactsAsk(missingFactsNow(c), name, `${APP_URL}/candidates/${c.id}`)
+    const ask = missingFactsAsk(missingFactsNow(c), name, `${APP_URL}${candidatePath({ id: String(c.id), slug: (c.slug as string | null | undefined) ?? null })}`)
     if (ask && !draft.body.includes('One quick thing')) draft.body = draft.body.replace(/\n\nBest,\nLily\s*$/, `${ask}\n\nBest,\nLily`)
   }
 
@@ -286,7 +287,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
     draft.body = v.text
     html = v.html
   } else if (recipient === 'owner' && to && decided === 'bench') {
-    const line = `You can see where ${first} is any time on [their page in Refery](${APP_URL}/candidates/${c.id}).`
+    const line = `You can see where ${first} is any time on [their page in Refery](${APP_URL}${candidatePath({ id: String(c.id), slug: (c.slug as string | null | undefined) ?? null })}).`
     if (!draft.body.includes('/candidates/')) draft.body = /\n\nBest,\nLily\s*$/.test(draft.body) ? draft.body.replace(/\n\nBest,\nLily\s*$/, `\n\n${line}\n\nBest,\nLily`) : `${draft.body}\n\n${line}`
   }
   // Lily uploading her own sourced person and benching them is a filing, not an email.
@@ -320,7 +321,7 @@ export async function applyDecision(admin: SupabaseClient, input: DecisionInput)
             : decided === 'bench'
               ? `${name} is kept in the pool and re-matched when a seat opens.`
               : `${name} is not a fit this time. The reason is on their page.`
-        await pushToEmail(to, { title: subject, body: line, url: `${APP_URL}/candidates/${c.id}`, tag: `candidate-${c.id}` }, admin)
+        await pushToEmail(to, { title: subject, body: line, url: `${APP_URL}${candidatePath({ id: String(c.id), slug: (c.slug as string | null | undefined) ?? null })}`, tag: `candidate-${c.id}` }, admin)
       }
     }
   }

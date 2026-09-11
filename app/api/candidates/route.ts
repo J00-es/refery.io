@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     if (email) {
       let duplicateQuery = adminClient
         .from('candidates')
-        .select('id, name, email')
+        .select('id, slug, name, email')
         .ilike('email', email)
         .limit(1)
 

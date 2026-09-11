@@ -17,9 +17,11 @@ import { formatMoney, stageLabel } from '@/lib/company-ui'
 import { relationshipMeta, type PartnerCompanyView } from '@/lib/partners'
 import { money, type SalaryCurrency } from '@/lib/fees'
 import { CompanyLogo } from './company-logo'
+import { searchPath } from '@/lib/paths'
 
 export interface CompanyCardRole {
   jobId: string
+  slug?: string | null
   title: string
   location: string | null
   priority: string
@@ -138,7 +140,7 @@ export function PartnerCompanyCard({
 
   if (company.unlocked) {
     return (
-      <Link href={`/searches/${company.companyId}`} className={`block p-5 ${CARD_LINK}`}>
+      <Link href={searchPath(company.slug)} className={`block p-5 ${CARD_LINK}`}>
         {body}
         {company.briefPublished && (
           <p className={`mt-3.5 inline-flex items-center gap-1.5 ${FOREST} text-[13px] font-semibold`}>

@@ -86,7 +86,7 @@ export default async function ThreadDetailPage({
       .from('outreach_message_candidates')
       .select(`
         id, message_id, candidate_id, role_label_in_message, position_in_message,
-        candidate:candidates(id, name),
+        candidate:candidates(id, slug, name),
         pipeline:job_candidate_pipeline(id, stage, job:jobs(id, title))
       `)
       .in('message_id', (await adminClient.from('outreach_messages').select('id').eq('thread_id', id)).data?.map(m => m.id) || [])
@@ -103,13 +103,14 @@ export default async function ThreadDetailPage({
     if (mc.candidate && !acc.find(c => c.id === mc.candidate_id)) {
       acc.push({
         id: mc.candidate_id,
+        slug: (mc.candidate as { slug?: string | null }).slug ?? null,
         name: mc.candidate.name,
         roleLabel: mc.role_label_in_message,
         pipeline: mc.pipeline
       })
     }
     return acc
-  }, [] as { id: string; name: string; roleLabel: string | null; pipeline: { id: string; stage: string; job: { id: string; title: string } | null } | null }[])
+  }, [] as { id: string; slug?: string | null; name: string; roleLabel: string | null; pipeline: { id: string; stage: string; job: { id: string; title: string } | null } | null }[])
 
   const typedThread = thread as OutreachThread & {
     recipient: OutreachRecipient & {

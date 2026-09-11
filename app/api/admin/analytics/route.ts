@@ -42,7 +42,7 @@ export async function GET() {
       adminClient.from('jobs').select('*', { count: 'exact', head: true }).eq('status', 'open'),
       adminClient.from('candidates').select('*', { count: 'exact', head: true }),
       adminClient.from('jobs').select('id, title, company_name, created_at, status').order('created_at', { ascending: false }).limit(5),
-      adminClient.from('candidates').select('id, name, email, created_at, status').order('created_at', { ascending: false }).limit(5),
+      adminClient.from('candidates').select('id, slug, name, email, created_at, status').order('created_at', { ascending: false }).limit(5),
       adminClient.from('users_admin').select('*', { count: 'exact', head: true }),
     ])
 

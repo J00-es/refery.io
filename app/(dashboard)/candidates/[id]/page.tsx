@@ -37,6 +37,8 @@ import { markRepliesRead, MOMENTS, type Moment } from '@/lib/messages'
 import { MessageComposer } from '@/components/candidates/message-composer'
 import { properName } from '@/lib/desk/people'
 import { ReferralBanner, type ReferralView } from '@/components/candidates/referral-banner'
+import { canonicalCandidate } from '@/lib/slugs'
+import { candidatePath } from '@/lib/paths'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -61,11 +63,12 @@ const INTAKE_LABELS: Record<string, string> = {
 }
 
 export default async function CandidateDetailPage({ params, searchParams }: PageProps) {
-  const { id } = await params
   // ?write=<moment> opens the composer on that moment (the buttons in the
   // interview, passed and hired emails); ?added=1 offers "let them know" once.
   const { write, added } = (await searchParams) ?? {}
   const adminClient = createAdminClient()
+  // A UUID in the address (every link sent before 2026-09-11) lands on the short slug.
+  const { id, slug } = await canonicalCandidate(adminClient, (await params).id, { query: { write, added } })
 
   const appUser = await getAppUser()
   if (!appUser) {
@@ -306,7 +309,7 @@ export default async function CandidateDetailPage({ params, searchParams }: Page
           >
             Résumé
           </a>
-          <Link href={`/candidates/${id}/edit`} className={btnCls}>
+          <Link href={candidatePath(slug, '/edit')} className={btnCls}>
             Edit
           </Link>
           <CandidateActions candidate={typedCandidate} />

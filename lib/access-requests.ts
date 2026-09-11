@@ -207,9 +207,10 @@ export async function decideAccessRequest(input: {
     if (error) return { ok: false, reason: 'error', error: error.message }
   }
 
-  const [{ data: partner }, { data: company }] = await Promise.all([
+  const [{ data: partner }, { data: company }, { data: client }] = await Promise.all([
     admin.from('users_admin').select('email, full_name').eq('user_id', request.user_id).maybeSingle(),
     admin.from('companies').select('name').eq('id', request.company_id).maybeSingle(),
+    admin.from('client_companies').select('slug').eq('company_id', request.company_id).maybeSingle(),
   ])
   const partnerEmail = (partner?.email as string | undefined) ?? ''
   const partnerName = ((partner?.full_name as string | undefined) ?? '').trim() || partnerEmail
@@ -221,6 +222,7 @@ export async function decideAccessRequest(input: {
     decision: input.decision,
     companyName,
     companyId: request.company_id as string,
+    companySlug: (client?.slug as string | null) ?? null,
   })
 
   return {

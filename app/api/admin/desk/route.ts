@@ -48,7 +48,7 @@ export async function GET() {
     admin.from('users_admin').select('user_id, email, full_name, role, status, created_at, source, source_campaign, no_match_at, is_beta').in('role', ['scout', 'recruiter']).eq('status', 'active'),
     admin.from('partner_preferences').select('user_id, confirmed_at, network_cities, functions'),
     admin.from('search_assignments').select('id, job_id, company_id, user_id, status, proposed_at, confirmed_at, expires_at, why'),
-    admin.from('partner_roles_v').select('job_id, company_id, title, headline, company_name, location, priority, search_stage, stage_moved_at, submission_cap, is_live, job_status, updated_at').eq('is_live', true).eq('job_status', 'open'),
+    admin.from('partner_roles_v').select('job_id, company_id, slug, company_slug, title, headline, company_name, location, priority, search_stage, stage_moved_at, submission_cap, is_live, job_status, updated_at').eq('is_live', true).eq('job_status', 'open'),
     admin.from('role_submissions_v').select('id, job_id, company_id, status, submitted_by_user_id, candidate_name, job_title, company_name, updated_at, created_at'),
     admin.from('communications').select('id, to_email, template_id, status, subject, sent_at, error, created_at, stop_reason').gt('created_at', weekAgo).order('created_at', { ascending: false }),
     admin.from('partner_state_v').select('*'),
@@ -171,7 +171,7 @@ export async function GET() {
             : subs14 < 2
               ? 'needs people'
               : 'moving'
-      return { jobId: r.job_id, companyId: r.company_id, title: r.headline || r.title, company: r.company_name, location: r.location, priority: r.priority, stage: r.search_stage, working, proposed, open, cap, subs14, movedDays, read }
+      return { jobId: r.job_id, companyId: r.company_id, slug: r.slug as string, companySlug: (r.company_slug as string | null) ?? null, title: r.headline || r.title, company: r.company_name, location: r.location, priority: r.priority, stage: r.search_stage, working, proposed, open, cap, subs14, movedDays, read }
     })
     .sort((a, b) => (a.read === 'needs people' ? -1 : 1) - (b.read === 'needs people' ? -1 : 1))
 

@@ -20,6 +20,7 @@ import {
   VERDICT_GRADES,
 } from '@/lib/candidate-ui'
 import { journeyConfig, nextActionFor, type PanelGrade } from '@/lib/journey'
+import { candidatePath } from '@/lib/paths'
 
 export interface EnrichedCandidate extends Candidate {
   pipeline_jobs?: { job_title: string; stage: string; company: string }[]
@@ -79,7 +80,7 @@ function CandidateCardComponent({ candidate, canViewAll = false }: CandidateCard
 
   return (
     <Link
-      href={`/candidates/${candidate.id}`}
+      href={candidatePath(candidate)}
       className={`group block h-full rounded-[18px] ${FOCUS}`}
       aria-label={`${candidate.name}${currentRole ? `, ${currentRole.title}` : ''}`}
     >

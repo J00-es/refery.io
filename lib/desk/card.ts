@@ -16,6 +16,7 @@ import type { ParsedResumeData } from '@/lib/types'
 import { gradeLabel, stripPercentiles } from '@/lib/engine/grade'
 import { REASON_TEXT, explainEligibility } from '@/lib/engine/policy'
 import type { ProfileSummary } from '@/lib/apply/profile'
+import { candidatePath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -250,7 +251,7 @@ export function buildDecisionCard(input: CardInput): { text: string; blocks: Sla
           text: [
             c.resume_blob_pathname ? `<${APP_URL}/api/file?pathname=${encodeURIComponent(String(c.resume_blob_pathname))}|CV>` : 'no CV on file',
             c.linkedin_url ? `<${esc(String(c.linkedin_url))}|LinkedIn>` : null,
-            `<${APP_URL}/candidates/${c.id}|profile>`,
+            `<${APP_URL}${candidatePath({ id: String(c.id), slug: (c.slug as string | null | undefined) ?? null })}|profile>`,
           ]
             .filter(Boolean)
             .join('  ·  '),
@@ -289,7 +290,7 @@ export async function candidateForSlackMessage(
 ): Promise<Record<string, unknown> | null> {
   const { data } = await admin
     .from('candidates')
-    .select('id, name, email, journey_stage, owner_user_id, intake_source, desk_reason_pending_at, desk_draft_override, desk_card_channel, desk_card_ts, person_type, panel_grade')
+    .select('id, slug, name, email, journey_stage, owner_user_id, intake_source, desk_reason_pending_at, desk_draft_override, desk_card_channel, desk_card_ts, person_type, panel_grade')
     .eq('desk_card_channel', channel)
     .eq('desk_card_ts', ts)
     .maybeSingle()

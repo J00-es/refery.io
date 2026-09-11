@@ -11,6 +11,7 @@ import { PreferencesEditor } from '@/components/onboarding/preferences-editor'
 import { NotificationPrefs } from '@/components/onboarding/notification-prefs'
 import { ReferralEarnings } from '@/components/onboarding/referral-earnings'
 import { YourLinkCard } from '@/components/partners/your-link'
+import { rolePathFrom } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,7 +128,7 @@ export default async function StartPage() {
           <div className="p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <Link href={`/searches/${proposed.company_id}/roles/${proposed.job_id}`} className={`text-[16px] font-semibold leading-tight underline-offset-4 hover:underline ${FOCUS}`}>
+                <Link href={rolePathFrom(roleById.get(proposed.job_id) ?? proposed)} className={`text-[16px] font-semibold leading-tight underline-offset-4 hover:underline ${FOCUS}`}>
                   {suggestedRole.headline || suggestedRole.title}
                 </Link>
                 <p className={`mt-0.5 ${META}`}>
@@ -164,10 +165,10 @@ export default async function StartPage() {
               return (
                 <li key={w.id} className="flex items-center justify-between gap-3 py-2.5">
                   <div className="min-w-0">
-                    <Link href={`/searches/${w.company_id}/roles/${w.job_id}`} className={`text-[14px] font-semibold underline-offset-4 hover:underline ${FOCUS}`}>{r?.headline || r?.title || 'Search'}</Link>
+                    <Link href={rolePathFrom(r ?? w)} className={`text-[14px] font-semibold underline-offset-4 hover:underline ${FOCUS}`}>{r?.headline || r?.title || 'Search'}</Link>
                     <p className={META}>{[r?.company_name, r?.location].filter(Boolean).join(' · ')}</p>
                   </div>
-                  <Link href={`/searches/${w.company_id}/roles/${w.job_id}`} className={`shrink-0 rounded-full bg-[#1F3A2F] px-3 py-2 text-[12.5px] font-semibold text-white ${FOCUS}`}>Introduce someone</Link>
+                  <Link href={rolePathFrom(r ?? w)} className={`shrink-0 rounded-full bg-[#1F3A2F] px-3 py-2 text-[12.5px] font-semibold text-white ${FOCUS}`}>Introduce someone</Link>
                 </li>
               )
             })}

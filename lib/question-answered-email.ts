@@ -8,6 +8,7 @@
 
 import { Resend } from 'resend'
 import { pushToEmail } from '@/lib/push'
+import { rolePath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Refery <hello@refery.io>'
@@ -26,12 +27,19 @@ export interface QuestionAnsweredEmailInput {
   companyName: string
   companyId: string
   jobId: string
+  /** Short URL segments; the ids are the fallback the page redirects. */
+  companySlug?: string | null
+  roleSlug?: string | null
+}
+
+function searchLink(input: QuestionAnsweredEmailInput, tail = ''): string {
+  return rolePath({ id: input.companyId, slug: input.companySlug }, { id: input.jobId, slug: input.roleSlug }, tail)
 }
 
 export function renderQuestionAnsweredEmail(input: QuestionAnsweredEmailInput): { subject: string; html: string } {
   const first = input.fullName.trim().split(/\s+/)[0] || 'there'
   const where = `${input.roleTitle} at ${input.companyName}`
-  const url = `${APP_URL}/searches/${input.companyId}/roles/${input.jobId}#questions`
+  const url = `${APP_URL}${searchLink(input, '#questions')}`
   const subject = `Answered: your question on ${where}`
 
   const html = `<!DOCTYPE html>
@@ -66,7 +74,7 @@ export async function sendQuestionAnsweredEmail(
     await pushToEmail(input.to, {
       title: 'Your question was answered',
       body: `${input.roleTitle} at ${input.companyName}: ${input.answer.replace(/\s+/g, ' ').slice(0, 140)}`,
-      url: `/searches/${input.companyId}/roles/${input.jobId}`,
+      url: searchLink(input),
       tag: `question-${input.jobId}`,
     })
     return { sent: true }

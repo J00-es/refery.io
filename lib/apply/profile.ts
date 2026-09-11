@@ -29,6 +29,7 @@ import { properName } from '@/lib/desk/people'
 import { TOKEN_DAYS, checkBurst, newReferralToken, referralActionUrl } from '@/lib/referrals'
 import { BASE_BANDS, CONSENT_VERSION, RETENTION_MONTHS, SETTINGS, saysLine, type ApplyAnswers, type BaseAnswer, type Currency } from '@/lib/apply/options'
 import type { ParsedResumeData } from '@/lib/types'
+import { candidatePath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 export const MAX_PDF_BYTES = 10 * 1024 * 1024
@@ -256,9 +257,9 @@ export async function createSelfSubmission(
       // Recorded, never credited: the same rule as the submit-time refusal.
       await admin.from('referrals').insert({ candidate_id: dup.match.id, referrer_user_id: door.userId, code: door.code, source: door.source, job_id: door.jobId, status: 'duplicate', candidate_note: door.candidateNote, token: newReferralToken(), token_expires_at: new Date(Date.now() + TOKEN_DAYS * DAY).toISOString(), ip_hash: input.ipHash, user_agent: door.userAgent })
       if (door.referrerEmail) await queueEmail(admin, { to: door.referrerEmail, toName: door.referrerName, userId: door.userId, email: templateRS3({ fullName: door.referrerName, candidate: properName(name) }), dedupeKey: `RS3:${door.userId}:${dup.match.id}`, meta: { candidate_id: dup.match.id } })
-      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* came through ${referrerSlackLabel(door)}; already on file as *${esc(dup.match.name)}*. Nothing created, not credited; both were told.  ·  <${APP_URL}/candidates/${dup.match.id}|the existing profile>`)
+      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* came through ${referrerSlackLabel(door)}; already on file as *${esc(dup.match.name)}*. Nothing created, not credited; both were told.  ·  <${APP_URL}${candidatePath(dup.match)}|the existing profile>`)
     } else {
-      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* shared their CV at refery.xyz/apply; already on file as *${esc(dup.match.name)}*. Nothing created; they got the private link to update what they want.  ·  <${APP_URL}/candidates/${dup.match.id}|the existing profile>`)
+      await postToFeed(`:twisted_rightwards_arrows: *${esc(name)}* shared their CV at refery.xyz/apply; already on file as *${esc(dup.match.name)}*. Nothing created; they got the private link to update what they want.  ·  <${APP_URL}${candidatePath(dup.match)}|the existing profile>`)
     }
     return { state: 'duplicate' }
   }
@@ -295,7 +296,7 @@ export async function createSelfSubmission(
       intake_source: door ? 'referred' : 'self',
       consent_told_candidate: true,
     })
-    .select('id')
+    .select('id, slug')
     .single()
   if (error || !candidate) throw new Error(`insert failed: ${error?.message}`)
 
@@ -348,18 +349,18 @@ export async function createSelfSubmission(
         to: door.referrerEmail,
         toName: door.referrerName,
         userId: door.userId,
-        email: templateRS1({ fullName: door.referrerName, candidate: properName(name), candidateLine: line || null, code: door.code, confirmLink: referralActionUrl(rtoken, 'yes'), declineLink: referralActionUrl(rtoken, 'no'), pageLink: `${APP_URL}/candidates/${candidate.id}` }),
+        email: templateRS1({ fullName: door.referrerName, candidate: properName(name), candidateLine: line || null, code: door.code, confirmLink: referralActionUrl(rtoken, 'yes'), declineLink: referralActionUrl(rtoken, 'no'), pageLink: `${APP_URL}${candidatePath(candidate)}` }),
         dedupeKey: `RS1:${candidate.id}`,
         meta: { candidate_id: candidate.id },
       })
     }
-    await postToFeed(`:link: *${esc(name)}* came through ${referrerSlackLabel(door)}. The panel reads them now; the card waits for ${esc(door.referrerName.split(/\s+/)[0])}'s yes.  ·  <${APP_URL}/candidates/${candidate.id}|profile>`)
+    await postToFeed(`:link: *${esc(name)}* came through ${referrerSlackLabel(door)}. The panel reads them now; the card waits for ${esc(door.referrerName.split(/\s+/)[0])}'s yes.  ·  <${APP_URL}${candidatePath(candidate)}|profile>`)
     await checkBurst(admin, door.code, door.userId).catch(() => false)
     return { state: 'created', reviewDate: date }
   }
 
   await queueEmail(admin, { to: email, toName: name, email: templateCS1({ fullName: name, reviewDate: date, profileLink: profileUrl(token) }), dedupeKey: `CS1:${profile.id}`, meta: { candidate_id: candidate.id } })
-  await postToFeed(`:wave: *${esc(name)}* shared their own CV at refery.xyz/apply${input.sourceCampaign ? ` (via the ${esc(input.sourceCampaign)} link)` : ''}. The panel reads them now; the card follows.  ·  <${APP_URL}/candidates/${candidate.id}|profile>`)
+  await postToFeed(`:wave: *${esc(name)}* shared their own CV at refery.xyz/apply${input.sourceCampaign ? ` (via the ${esc(input.sourceCampaign)} link)` : ''}. The panel reads them now; the card follows.  ·  <${APP_URL}${candidatePath(candidate)}|profile>`)
   return { state: 'created', reviewDate: date }
 }
 
@@ -397,7 +398,7 @@ export async function profileByToken(admin: SupabaseClient, token: string): Prom
   if (!/^[a-f0-9]{32}$/.test(token)) return null
   const { data: p } = await admin.from('candidate_profiles').select('*').eq('token', token).maybeSingle()
   if (!p) return null
-  const { data: c } = await admin.from('candidates').select('id, name, journey_stage, intake_source, resume_filename, resume_blob_pathname, created_at').eq('id', p.candidate_id).maybeSingle()
+  const { data: c } = await admin.from('candidates').select('id, slug, name, journey_stage, intake_source, resume_filename, resume_blob_pathname, created_at').eq('id', p.candidate_id).maybeSingle()
   if (!c) return null
   const { count } = await admin.from('candidate_consents').select('id', { count: 'exact', head: true }).eq('candidate_id', c.id).eq('status', 'agreed')
   return { profile: p as ProfileRow, candidate: c as ProfileView['candidate'], sharedCount: count ?? 0 }
@@ -425,7 +426,7 @@ export async function updateProfileAnswers(admin: SupabaseClient, v: ProfileView
   await admin.from('candidate_profiles').update(profileColumnsFrom(a)).eq('id', v.profile.id)
   await admin.from('candidates').update(candidateColumnsFrom(a)).eq('id', v.candidate.id)
   const says = saysLine({ ...profileColumnsFrom(a) } as Parameters<typeof saysLine>[0])
-  await postToFeed(`:pencil2: *${esc(v.candidate.name)}* updated what they're looking for from their private link: ${esc(says)}  ·  <${APP_URL}/candidates/${v.candidate.id}|profile>`)
+  await postToFeed(`:pencil2: *${esc(v.candidate.name)}* updated what they're looking for from their private link: ${esc(says)}  ·  <${APP_URL}${candidatePath(v.candidate)}|profile>`)
 }
 
 export type ProfileAction = 'pause' | 'resume' | 'renew' | 'delete'
@@ -458,7 +459,7 @@ export async function profileAction(admin: SupabaseClient, v: ProfileView, actio
     return { ok: true, message: 'Done. Your CV and answers are deleted.' }
   }
   await admin.from('candidate_profiles').update({ deleted_at: new Date().toISOString(), paused_at: new Date().toISOString() }).eq('id', p.id)
-  await postAlert(`:wastebasket: *${esc(name)}* asked to delete their data, but the profile was uploaded by a partner (${esc(v.candidate.intake_source ?? 'unknown')}). Nothing more is suggested to them; the row itself needs your call.  ·  <${APP_URL}/candidates/${v.candidate.id}|profile>`)
+  await postAlert(`:wastebasket: *${esc(name)}* asked to delete their data, but the profile was uploaded by a partner (${esc(v.candidate.intake_source ?? 'unknown')}). Nothing more is suggested to them; the row itself needs your call.  ·  <${APP_URL}${candidatePath(v.candidate)}|profile>`)
   return { ok: true, message: 'Noted. Nothing more is suggested to you, and we remove your data within 30 days.' }
 }
 

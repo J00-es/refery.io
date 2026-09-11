@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { resolveIntroLink, APP_URL } from '@/lib/desk/intro'
 import { properName } from '@/lib/desk/people'
 import { IntroConfirm } from './intro-confirm'
+import { candidatePath } from '@/lib/paths'
 
 export const metadata: Metadata = { title: 'Warm intro | Refery', robots: { index: false, follow: false } }
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ export default async function IntroLinkPage({ params }: { params: Promise<{ toke
   }
   const name = properName(r.candidate.name as string)
   const first = name.split(/\s+/)[0]
-  const pageUrl = `${APP_URL}/candidates/${r.candidate.id}`
+  const pageUrl = `${APP_URL}${candidatePath({ id: String(r.candidate.id), slug: r.candidate.slug as string | null })}`
 
   if (r.state === 'expired') {
     return shell(`This link has expired.`, <p>Links last 30 days. Sign in to Refery and use the button on {first}&apos;s page, which does the same thing: <a className="underline" href={pageUrl}>open {first}&apos;s page</a>.</p>)

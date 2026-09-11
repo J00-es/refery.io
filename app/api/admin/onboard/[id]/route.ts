@@ -4,6 +4,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireSuperAdmin } from '@/lib/admin-auth'
 import { briefUrl } from '@/lib/hm-brief'
+import { findCompanyBySegment } from '@/lib/slugs'
+import { searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +26,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
     const { data: hm } = await db.from('hm_briefs').select('slug').eq('id', run.hm_brief_id).maybeSingle()
     briefSlug = (hm?.slug as string | null) ?? null
   }
+  const client = run.company_id ? await findCompanyBySegment(db, run.company_id as string) : null
   const copy = run.copy as { roles?: { headline: string; comp: string }[] } | null
   const research = run.research as { unknowns?: string[]; conflicts?: string[]; company?: { name?: string } } | null
   return NextResponse.json(
@@ -35,7 +38,7 @@ export async function GET(_request: NextRequest, ctx: { params: Promise<{ id: st
       model: run.model,
       companyId: run.company_id,
       companyName: research?.company?.name ?? null,
-      clientUrl: run.company_id ? `/searches/${run.company_id}` : null,
+      clientUrl: run.company_id ? searchPath(client?.slug ?? (run.company_id as string)) : null,
       briefUrl: briefSlug ? briefUrl(briefSlug) : null,
       slackChannel: run.slack_channel_name,
       roles: copy?.roles?.map(r => ({ headline: r.headline, comp: r.comp })) ?? [],

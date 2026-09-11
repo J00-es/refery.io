@@ -22,6 +22,7 @@ import { gatherSources } from './research'
 import { researchFacts, writeCopy, type Copy, type Research } from './draft'
 import { Resend } from 'resend'
 import { ensureCandidatePage } from '@/lib/candidate-pages'
+import { searchPath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -351,6 +352,7 @@ export async function runOnboarding(runId: string): Promise<void> {
     })
 
     // ── the review card ──
+    const { data: clientSlug } = await admin.from('client_companies').select('slug').eq('company_id', companyId).maybeSingle()
     const channel = deskChannel('decide')
     const unknowns = r.unknowns.slice(0, 4).join(' · ') || 'nothing'
     const blocks: SlackBlock[] = [
@@ -360,7 +362,7 @@ export async function runOnboarding(runId: string): Promise<void> {
         { type: 'mrkdwn', text: `*Could not verify*\n${esc(unknowns)}` },
       ] },
       { type: 'actions', elements: [
-        { type: 'button', style: 'primary', text: { type: 'plain_text', text: 'Client page' }, url: `${APP_URL}/searches/${companyId}` },
+        { type: 'button', style: 'primary', text: { type: 'plain_text', text: 'Client page' }, url: `${APP_URL}${searchPath({ id: companyId, slug: clientSlug?.slug as string | null })}` },
         { type: 'button', text: { type: 'plain_text', text: 'Founder brief (draft)' }, url: `${APP_URL}/b/${hm.slug}` },
         { type: 'button', text: { type: 'plain_text', text: 'Onboarding run' }, url: `${APP_URL}/admin/onboard?run=${runId}` },
       ] },

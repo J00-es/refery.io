@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { resumeCompleteness } from '@/lib/resume'
 import { readJsonResponse } from '@/lib/api-client'
 import type { ParsedResumeData } from '@/lib/types'
+import { candidatePath } from '@/lib/paths'
 
 type FileStatus = 'pending' | 'uploading' | 'analyzing' | 'creating' | 'done' | 'duplicate' | 'error'
 
@@ -17,12 +18,14 @@ interface FileUploadState {
   status: FileStatus
   error?: string
   candidateId?: string
+  candidateSlug?: string | null
   candidateName?: string
   parsedData?: ParsedResumeData
   completeness?: number
 }
 
 export interface CreatedProfile {
+  slug?: string | null
   id: string
   name: string
   parsed: ParsedResumeData | null
@@ -135,7 +138,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
           status: 'new',
         }),
       })
-      const createData = await readJsonResponse<{ candidate?: { id: string; name: string }; error?: string; code?: string }>(createRes)
+      const createData = await readJsonResponse<{ candidate?: { id: string; name: string; slug?: string | null }; error?: string; code?: string }>(createRes)
 
       if (!createRes.ok) {
         // Already on file is not a failure — it is the correct outcome, and
@@ -144,6 +147,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
           updateFileStatus(index, {
             status: 'duplicate',
             candidateId: createData.candidate.id,
+            candidateSlug: createData.candidate.slug ?? null,
             candidateName: createData.candidate.name,
           })
           return 'duplicate'
@@ -154,9 +158,10 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
       updateFileStatus(index, {
         status: 'done',
         candidateId: createData.candidate!.id,
+        candidateSlug: createData.candidate!.slug ?? null,
         candidateName: createData.candidate!.name,
       })
-      createdRef.current.push({ id: createData.candidate!.id, name: createData.candidate!.name, parsed })
+      createdRef.current.push({ id: createData.candidate!.id, slug: createData.candidate!.slug ?? null, name: createData.candidate!.name, parsed })
       return 'created'
     } catch (error) {
       updateFileStatus(index, {
@@ -372,7 +377,7 @@ export function BulkResumeUploader({ onAllComplete }: BulkResumeUploaderProps) {
                 </div>
                 <div className="flex items-center gap-2 shrink-0 ml-2">
                   {(fileState.status === 'done' || fileState.status === 'duplicate') && fileState.candidateId && (
-                    <a href={`/candidates/${fileState.candidateId}`}>
+                    <a href={candidatePath({ id: fileState.candidateId, slug: fileState.candidateSlug })}>
                       <Button variant="ghost" size="sm">View</Button>
                     </a>
                   )}

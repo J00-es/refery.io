@@ -24,6 +24,8 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { addReaction, esc, postMessage, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
 import { submissionStatus, workAuthLabel } from '@/lib/partners'
 import { GRADE_TO_VERDICT, VERDICT_GRADES } from '@/lib/candidate-ui'
+import { candidatePath, rolePath } from '@/lib/paths'
+import { deskUrls } from '@/lib/slugs'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -254,12 +256,12 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
   const [{ data: cand }, { data: role }, { data: matched }, { data: claim }, { data: partner }, known] = await Promise.all([
     admin
       .from('candidates')
-      .select('linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email, panel_grade, recruiter_verdict, lily_verdict, skills, location, visa_status, salary_expectation_min, salary_expectation_max, experience_years')
+      .select('slug, linkedin_url, resume_blob_pathname, work_history, parsed_data, availability_status, email, panel_grade, recruiter_verdict, lily_verdict, skills, location, visa_status, salary_expectation_min, salary_expectation_max, experience_years')
       .eq('id', s.candidate_id)
       .maybeSingle(),
     admin
       .from('partner_roles_v')
-      .select('headline, search_stage, submission_cap, live_submission_count, hard_requirements, not_for, location, remote_policy, salary_min, salary_max, visa_requirement, skills_required, experience_years_min, experience_years_max')
+      .select('slug, company_slug, headline, search_stage, submission_cap, live_submission_count, hard_requirements, not_for, location, remote_policy, salary_min, salary_max, visa_requirement, skills_required, experience_years_min, experience_years_max')
       .eq('job_id', s.job_id)
       .maybeSingle(),
     admin
@@ -283,8 +285,8 @@ export async function announceSubmission(submissionId: string): Promise<{ sent: 
 
   const c = (cand ?? {}) as Record<string, unknown>
   const title = (role?.headline as string | null) || (s.job_title as string)
-  const searchUrl = `${APP_URL}/searches/${s.company_id}/roles/${s.job_id}`
-  const candidateUrl = `${APP_URL}/candidates/${s.candidate_id}`
+  const searchUrl = `${APP_URL}${rolePath({ id: s.company_id as string, slug: role?.company_slug as string | null }, { id: s.job_id as string, slug: role?.slug as string | null })}`
+  const candidateUrl = `${APP_URL}${candidatePath({ id: s.candidate_id as string, slug: c.slug as string | null })}`
   const cvUrl = c.resume_blob_pathname ? `${APP_URL}/api/file?pathname=${encodeURIComponent(String(c.resume_blob_pathname))}` : null
   const slots =
     role?.submission_cap ? `${role.live_submission_count} of ${role.submission_cap} slots used` : `${role?.live_submission_count ?? 0} live on this search`
@@ -554,12 +556,12 @@ export async function noteProposalDeclined(assignmentId: string, reason: string 
     .maybeSingle()
   if (!a) return
   const [{ data: role }, { data: partner }] = await Promise.all([
-    admin.from('partner_roles_v').select('title, headline, company_name').eq('job_id', a.job_id).maybeSingle(),
+    admin.from('partner_roles_v').select('title, headline, company_name, slug, company_slug').eq('job_id', a.job_id).maybeSingle(),
     admin.from('users_admin').select('full_name, email').eq('user_id', a.user_id).maybeSingle(),
   ])
   const who = (partner?.full_name as string | null) || (partner?.email as string | null) || 'A partner'
   const where = `${(role?.headline as string | null) || (role?.title as string | null) || 'a search'} at ${(role?.company_name as string | null) ?? 'a client'}`
-  const url = `${APP_URL}/searches/${a.company_id}/roles/${a.job_id}/coverage`
+  const url = `${APP_URL}${rolePath({ id: a.company_id as string, slug: role?.company_slug as string | null }, { id: a.job_id as string, slug: role?.slug as string | null }, '/coverage')}`
   await postToFeed(
     `:no_entry: *${esc(who)}* declined *${esc(where)}*${reason ? `: “${esc(reason)}”` : '.'}  ·  <${url}|propose someone else>`,
   )
@@ -578,7 +580,7 @@ export async function noteWithdrawal(submissionId: string, fromStatus: string): 
     .eq('id', submissionId)
     .maybeSingle()
   if (!s) return
-  const url = `${APP_URL}/searches/${s.company_id}/roles/${s.job_id}`
+  const url = (await deskUrls(admin, { companyId: s.company_id as string, jobId: s.job_id as string })).role ?? `${APP_URL}/searches/${s.company_id}/roles/${s.job_id}`
   await postToFeed(
     `:rotating_light: *${esc(s.submitted_by_name || s.submitted_by_email || 'A partner')}* withdrew *${esc(s.candidate_name as string)}* from *${esc(s.job_title as string)}* at ${esc(s.company_name as string)} while ${esc(submissionStatus(fromStatus).label.toLowerCase())}. The client may need to hear it from us.  ·  <${url}|open the search>`,
   )

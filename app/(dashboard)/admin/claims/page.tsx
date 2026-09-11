@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabase/server'
 import { getAppUser } from '@/lib/current-user'
 import { CARD, FOCUS } from '@/lib/candidate-ui'
+import { candidatePath } from '@/lib/paths'
 
 /**
  * Attested introductions that never happened.
@@ -46,8 +47,8 @@ export default async function ClaimsPage() {
 
   const [people, companies, holders] = await Promise.all([
     ids.candidates.length
-      ? admin.from('candidates').select('id, name').in('id', ids.candidates)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      ? admin.from('candidates').select('id, name, slug').in('id', ids.candidates)
+      : Promise.resolve({ data: [] as { id: string; name: string; slug: string }[] }),
     ids.companies.length
       ? admin.from('companies').select('id, name').in('id', ids.companies)
       : Promise.resolve({ data: [] as { id: string; name: string }[] }),
@@ -57,6 +58,7 @@ export default async function ClaimsPage() {
   ])
 
   const candidateName = new Map((people.data ?? []).map(p => [p.id, p.name]))
+  const candidateSlug = new Map((people.data ?? []).map(p => [p.id, p.slug]))
   const companyName = new Map((companies.data ?? []).map(c => [c.id, c.name]))
   const holderName = new Map(
     (holders.data ?? []).map(h => [h.user_id, h.full_name || h.email]),
@@ -99,7 +101,7 @@ export default async function ClaimsPage() {
               <div className="flex items-center gap-3 px-5 py-3.5">
                 <span className="min-w-0 flex-1">
                   <Link
-                    href={`/candidates/${r.candidate_id}`}
+                    href={candidatePath({ id: r.candidate_id, slug: candidateSlug.get(r.candidate_id) })}
                     className={`block truncate text-[14px] font-semibold text-[#161613] hover:underline ${FOCUS}`}
                   >
                     {candidateName.get(r.candidate_id) ?? 'Unknown candidate'}

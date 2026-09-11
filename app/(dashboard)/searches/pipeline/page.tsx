@@ -12,6 +12,7 @@ import {
   submissionStatus,
   type SubmissionRow,
 } from '@/lib/partners'
+import { rolePathFrom } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +36,13 @@ export default async function PipelinePage() {
   if (!access.seesAllSubmissions) query = query.eq('submitted_by_user_id', access.appUser.id)
   const { data } = await query
   const submissions = (data ?? []) as SubmissionRow[]
+  // Short URL segments for the searches on the page; the submissions view carries only ids.
+  const jobIds = [...new Set(submissions.map(s => s.job_id))]
+  const { data: roleSlugRows } = jobIds.length
+    ? await adminClient.from('partner_roles_v').select('job_id, company_id, slug, company_slug').in('job_id', jobIds)
+    : { data: [] }
+  const roleById = new Map((roleSlugRows ?? []).map(r => [r.job_id as string, r as { job_id: string; company_id: string; slug: string; company_slug: string | null }]))
+  const hrefFor = (s: SubmissionRow) => rolePathFrom(roleById.get(s.job_id) ?? s)
 
   const columns = SUBMISSION_TRACK.map(status => ({
     meta: submissionStatus(status),
@@ -95,7 +103,7 @@ export default async function PipelinePage() {
                     {meta.value === 'placed' ? 'Your first one lands here' : 'Nothing here'}
                   </div>
                 ) : (
-                  items.map(s => <Card key={s.id} s={s} showsSubmitter={access.seesAllSubmissions} />)
+                  items.map(s => <Card key={s.id} s={s} href={hrefFor(s)} showsSubmitter={access.seesAllSubmissions} />)
                 )}
               </div>
             ))}
@@ -117,7 +125,7 @@ export default async function PipelinePage() {
               <ul className="mt-3 divide-y divide-[#E4E3DC] border-t border-[#E4E3DC]">
                 {closed.map(s => (
                   <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 py-3 text-[13.5px]">
-                    <Link href={`/searches/${s.company_id}/roles/${s.job_id}`} className={`font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
+                    <Link href={hrefFor(s)} className={`font-semibold text-[#161613] underline-offset-4 hover:underline ${FOCUS}`}>
                       {s.candidate_name || 'Unnamed candidate'}
                     </Link>
                     <span className={META}>{s.job_title} · {s.company_name}</span>
@@ -134,7 +142,7 @@ export default async function PipelinePage() {
   )
 }
 
-function Card({ s, showsSubmitter }: { s: SubmissionRow; showsSubmitter: boolean }) {
+function Card({ s, href, showsSubmitter }: { s: SubmissionRow; href: string; showsSubmitter: boolean }) {
   const grade = VERDICT_GRADES[GRADE_TO_VERDICT[s.candidate_grade ?? ''] ?? '']
   const read = hmRatingLabel(s.hm_rating)
   const missingAuth = !s.work_authorization && ['submitted', 'shortlisted', 'sent_to_client'].includes(s.status)
@@ -147,7 +155,7 @@ function Card({ s, showsSubmitter }: { s: SubmissionRow; showsSubmitter: boolean
         : null
 
   return (
-    <Link href={`/searches/${s.company_id}/roles/${s.job_id}`} className={`block p-3.5 ${CARD} transition-colors hover:border-[#D2D1C7] ${FOCUS}`}>
+    <Link href={href} className={`block p-3.5 ${CARD} transition-colors hover:border-[#D2D1C7] ${FOCUS}`}>
       <div className="flex items-start justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="truncate text-[14px] font-semibold text-[#161613]">{s.candidate_name || 'Unnamed candidate'}</span>

@@ -12,6 +12,7 @@
 
 import { Resend } from 'resend'
 import { pushToEmail } from '@/lib/push'
+import { searchPath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const FROM = 'Refery <hello@refery.io>'
@@ -29,13 +30,15 @@ export interface AccessDecisionEmailInput {
   decision: AccessDecision
   companyName: string
   companyId: string
+  /** Short URL segment; the id is the fallback the page redirects. */
+  companySlug?: string | null
 }
 
 export function renderAccessDecisionEmail(input: AccessDecisionEmailInput): { subject: string; html: string } {
   const first = input.fullName.trim().split(/\s+/)[0] || 'there'
   const company = escapeHtml(input.companyName)
   const approved = input.decision === 'approved'
-  const url = approved ? `${APP_URL}/searches/${input.companyId}` : `${APP_URL}/searches`
+  const url = approved ? `${APP_URL}${searchPath({ id: input.companyId, slug: input.companySlug })}` : `${APP_URL}/searches`
 
   const subject = approved ? `You are on ${input.companyName}` : `About ${input.companyName}`
   const heading = approved
@@ -76,7 +79,7 @@ export async function sendAccessDecisionEmail(
     await pushToEmail(input.to, {
       title: input.decision === 'approved' ? `You are on ${input.companyName}` : `About ${input.companyName}`,
       body: input.decision === 'approved' ? 'The search is open to you now. Tap to see the roles.' : 'Refery kept this one closed. The note is in your email.',
-      url: input.decision === 'approved' ? `/searches/${input.companyId}` : '/searches',
+      url: input.decision === 'approved' ? searchPath({ id: input.companyId, slug: input.companySlug }) : '/searches',
       tag: `access-${input.companyId}`,
     })
     return { sent: true }

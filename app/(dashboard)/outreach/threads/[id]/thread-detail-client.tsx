@@ -63,6 +63,7 @@ import {
   type ThreadStatus,
   type FollowupStatus
 } from '@/lib/outreach-types'
+import { candidatePath } from '@/lib/paths'
 
 interface ThreadDetailClientProps {
   thread: OutreachThread & {
@@ -75,6 +76,7 @@ interface ThreadDetailClientProps {
   notes: OutreachNote[]
   referencedCandidates: {
     id: string
+    slug?: string | null
     name: string
     roleLabel: string | null
     pipeline: { id: string; stage: string; job: { id: string; title: string } | null } | null
@@ -380,7 +382,7 @@ export function ThreadDetailClient({
                     {referencedCandidates.map(c => (
                       <Link
                         key={c.id}
-                        href={`/candidates/${c.id}`}
+                        href={candidatePath(c)}
                         className="text-xs px-2 py-1 bg-secondary rounded-full hover:bg-secondary/80 transition-colors"
                       >
                         {c.name}
@@ -645,7 +647,7 @@ export function ThreadDetailClient({
                     referencedCandidates.map(c => (
                       <Link
                         key={c.id}
-                        href={`/candidates/${c.id}`}
+                        href={candidatePath(c)}
                         className="block p-3 border rounded-lg hover:bg-muted/50 transition-colors"
                       >
                         <p className="font-medium text-sm">{c.name}</p>

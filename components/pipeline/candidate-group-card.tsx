@@ -8,6 +8,7 @@ import { LinkedInBadge } from './linkedin-badge'
 import { DaysInStageBadge } from './days-badge'
 import { CompanyLogo } from './company-logo'
 import { formatDistanceToNow } from 'date-fns'
+import { candidatePath } from '@/lib/paths'
 
 interface PipelineJob {
   id: string
@@ -24,6 +25,7 @@ interface PipelineJob {
 
 interface CandidateGroupData {
   candidate_id: string
+  candidate_slug?: string | null
   candidate_name: string
   candidate_email: string | null
   candidate_linkedin: string | null
@@ -92,7 +94,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Link
-                href={`/candidates/${data.candidate_id}`}
+                href={candidatePath({ id: data.candidate_id, slug: data.candidate_slug })}
                 className="text-[14.5px] font-semibold text-[#161613] hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
@@ -171,7 +173,7 @@ export function CandidateGroupCard({ data, stageAccentColor }: CandidateGroupCar
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <Link
-                  href={`/candidates/${data.candidate_id}`}
+                  href={candidatePath({ id: data.candidate_id, slug: data.candidate_slug })}
                   className="text-[13px] font-semibold text-[#161613] hover:underline truncate"
                   onClick={(e) => e.stopPropagation()}
                 >

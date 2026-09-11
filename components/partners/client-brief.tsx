@@ -37,6 +37,7 @@ import { ProposalActions } from './proposal-card'
 import { RequestAccess } from './request-access'
 import { StageStrip } from './stage-strip'
 import { SubmitCandidates } from './submit-candidates'
+import { rolePath } from '@/lib/paths'
 
 /**
  * The client brief, the way the canvas drew it (artboard 2b).
@@ -369,7 +370,7 @@ function SearchCard({
   const slots = slotsLeft(role)
   const closed = !role.is_live || role.job_status !== 'open'
   const priority = PRIORITY_META[role.priority] ?? PRIORITY_META.normal
-  const href = `/searches/${companyId}/roles/${role.job_id}`
+  const href = rolePath({ id: companyId, slug: role.company_slug ?? company.slug }, { id: role.job_id, slug: role.slug })
   const meta = detailLine(role.department, role.location, role.remote_policy ? REMOTE_LABELS[role.remote_policy] : null)
   const comp = detailLine(formatSalary(role.salary_min, role.salary_max, role.salary_currency), payout ? `${payout} to you` : null)
 
@@ -588,7 +589,7 @@ export function ClientBrief(p: ClientBriefProps) {
         </div>
         {firstWorking && (
           <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
-            <Link href={`/searches/${company.companyId}/roles/${firstWorking.job_id}#questions`} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
+            <Link href={rolePath(company.slug, { id: firstWorking.job_id, slug: firstWorking.slug }, '#questions')} className={`${BTN_QUIET} min-h-[40px] px-4 text-[13.5px]`}>
               Ask a question
             </Link>
             {p.canWorkByJob[firstWorking.job_id] && firstWorking.is_live && firstWorking.job_status === 'open' ? (
@@ -644,7 +645,7 @@ export function ClientBrief(p: ClientBriefProps) {
                     const priority = PRIORITY_META[r.priority] ?? PRIORITY_META.normal
                     return (
                       <li key={r.job_id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3">
-                        <Link href={`/searches/${company.companyId}/roles/${r.job_id}`} className={`text-[14.5px] font-semibold text-[#161613] hover:underline underline-offset-4 ${FOCUS}`}>
+                        <Link href={rolePath(company.slug, { id: r.job_id, slug: r.slug })} className={`text-[14.5px] font-semibold text-[#161613] hover:underline underline-offset-4 ${FOCUS}`}>
                           {r.headline || r.title}
                         </Link>
                         {r.priority !== 'normal' && <span className={r.priority === 'urgent' ? CHIP_BAD : CHIP_WARN}>{priority.label}</span>}
@@ -691,7 +692,7 @@ export function ClientBrief(p: ClientBriefProps) {
                     const a = p.assignmentByJob[r.job_id]
                     const stage = searchStageMeta(r.search_stage)
                     return (
-                      <Link key={r.job_id} href={`/searches/${company.companyId}/roles/${r.job_id}`} className={`inline-flex flex-wrap items-center gap-2 rounded-full border border-[#E4E3DC] bg-white px-3 py-1.5 text-[12.5px] ${FOCUS}`}>
+                      <Link key={r.job_id} href={rolePath(company.slug, { id: r.job_id, slug: r.slug })} className={`inline-flex flex-wrap items-center gap-2 rounded-full border border-[#E4E3DC] bg-white px-3 py-1.5 text-[12.5px] ${FOCUS}`}>
                         <span className="font-semibold text-[#161613]">{(r.headline || r.title).replace(/\s·.*$/, '')}</span>
                         {a?.status === 'working' && <span className={MUTED}>· you are working this</span>}
                         {a?.status === 'proposed' && <span className="text-[#8A6A1F]">· proposed to you</span>}
@@ -779,7 +780,7 @@ export function ClientBrief(p: ClientBriefProps) {
                 ) : null
               })()}
               {firstWorking && (
-                <Link href={`/searches/${company.companyId}/roles/${firstWorking.job_id}`} className={`mt-3 inline-flex text-[13px] font-semibold ${FOREST} ${FOCUS}`}>
+                <Link href={rolePath(company.slug, { id: firstWorking.job_id, slug: firstWorking.slug })} className={`mt-3 inline-flex text-[13px] font-semibold ${FOREST} ${FOCUS}`}>
                   Open your pipeline on this search →
                 </Link>
               )}
@@ -790,7 +791,7 @@ export function ClientBrief(p: ClientBriefProps) {
             <div className={`p-4 ${CARD}`}>
               <p className="text-[12.5px] font-semibold text-[#6E6E68]">Questions on fit, comp or process</p>
               <p className={`mt-1.5 ${LEDE}`}>Ask here and the answer is added to the brief for everyone on the search. Lily replies inside a day.</p>
-              <Link href={`/searches/${company.companyId}/roles/${firstWorking.job_id}#questions`} className={`${BTN_QUIET} mt-3 min-h-[38px] px-3.5 text-[13px]`}>
+              <Link href={rolePath(company.slug, { id: firstWorking.job_id, slug: firstWorking.slug }, '#questions')} className={`${BTN_QUIET} mt-3 min-h-[38px] px-3.5 text-[13px]`}>
                 Ask a question
               </Link>
             </div>

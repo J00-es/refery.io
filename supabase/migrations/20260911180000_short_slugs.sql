@@ -47,7 +47,10 @@ declare
 begin
   if new.slug is not null and new.slug <> '' then return new; end if;
   select public.slugify(j.title) into base from public.jobs j where j.id = new.job_id;
-  base := trim(both '-' from left(coalesce(base, 'role'), 40));
+  base := coalesce(base, 'role');
+  -- cut long titles at a word boundary, never mid-word
+  if length(base) > 40 then base := regexp_replace(left(base, 41), '-[^-]*$', ''); end if;
+  base := trim(both '-' from left(base, 40));
   loop
     attempt := base || '-' || public.short_slug(4);
     exit when not exists (select 1 from public.partner_roles where slug = attempt);
@@ -67,7 +70,9 @@ do $$
 declare r record; base text; attempt text;
 begin
   for r in select pr.job_id, j.title from public.partner_roles pr join public.jobs j on j.id = pr.job_id where pr.slug is null loop
-    base := trim(both '-' from left(public.slugify(r.title), 40));
+    base := public.slugify(r.title);
+    if length(base) > 40 then base := regexp_replace(left(base, 41), '-[^-]*$', ''); end if;
+    base := trim(both '-' from left(base, 40));
     loop
       attempt := base || '-' || public.short_slug(4);
       exit when not exists (select 1 from public.partner_roles where slug = attempt);

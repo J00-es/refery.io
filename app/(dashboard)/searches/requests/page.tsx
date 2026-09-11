@@ -7,6 +7,7 @@ import { shortAge } from '@/lib/job-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { anonLabel } from '@/lib/partners'
 import { AccessRequestActions } from '@/components/partners/access-request-actions'
+import { searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,7 @@ export default async function AccessRequestsPage() {
     companyIds.length
       ? adminClient
           .from('partner_companies_v')
-          .select('company_id, display_name, company_name, anon_alias, stage, industry, live_roles')
+          .select('company_id, display_name, company_name, anon_alias, stage, industry, live_roles, slug')
           .in('company_id', companyIds)
       : Promise.resolve({ data: [] }),
     userIds.length
@@ -93,7 +94,7 @@ export default async function AccessRequestsPage() {
                     <p className={`mt-0.5 text-[13px] ${MUTED}`}>
                       wants access to{' '}
                       <Link
-                        href={`/searches/${request.company_id}`}
+                        href={searchPath({ id: request.company_id as string, slug: company?.slug as string | undefined })}
                         className={`font-medium text-[#1F3A2F] underline-offset-4 hover:underline ${FOCUS}`}
                       >
                         {companyLabel}

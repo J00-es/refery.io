@@ -16,6 +16,7 @@ import { FUNCTIONS, LOCATIONS } from '@/lib/job-ui'
 import { PROPOSAL_DAYS } from '@/lib/partners'
 import { templateF, templateH } from '@/lib/voice/templates'
 import { queueEmail } from '@/lib/comms'
+import { rolePathFrom } from '@/lib/paths'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://refery.xyz'
 const OPEN_STAGES = new Set(['sourcing', 'shortlisting', 'client_interviewing'])
@@ -30,6 +31,9 @@ export interface Preferences {
 export interface LiveRole {
   job_id: string
   company_id: string
+  /** Short URL segments; optional so older fixtures still type. */
+  slug?: string | null
+  company_slug?: string | null
   title: string
   headline: string | null
   company_name: string | null
@@ -194,7 +198,7 @@ export function scoreRole(prefs: Preferences, role: LiveRole): Match | null {
 async function openRoles(admin: SupabaseClient): Promise<LiveRole[]> {
   const { data } = await admin
     .from('partner_roles_v')
-    .select('job_id, company_id, title, headline, company_name, location, location_buckets, department, company_stage, priority, search_stage, submission_cap, hard_requirements, is_live, job_status')
+    .select('job_id, company_id, slug, company_slug, title, headline, company_name, location, location_buckets, department, company_stage, priority, search_stage, submission_cap, hard_requirements, is_live, job_status')
     .eq('is_live', true)
     .eq('job_status', 'open')
   const roles = ((data ?? []) as LiveRole[]).filter(r => OPEN_STAGES.has(r.search_stage ?? 'sourcing'))
@@ -309,7 +313,7 @@ export async function suggestFirstSearch(
       client: top.role.company_name ?? 'a client',
       reason: top.reason,
       requirement: top.role.hard_requirements?.[0] ?? null,
-      briefLink: `${APP_URL}/searches/${top.role.company_id}/roles/${top.role.job_id}`,
+      briefLink: `${APP_URL}${rolePathFrom(top.role)}`,
     })
     const q = await queueEmail(admin, {
       to: partner.email,

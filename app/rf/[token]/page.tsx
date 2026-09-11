@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { referralByToken, UNDO_MS } from '@/lib/referrals'
 import { properName } from '@/lib/desk/people'
 import { OneTap } from '@/components/referrals/one-tap'
+import { candidatePath } from '@/lib/paths'
 
 export const metadata: Metadata = { title: 'Was this you? | Refery', robots: { index: false, follow: false, nocache: true } }
 export const dynamic = 'force-dynamic'
@@ -31,10 +32,10 @@ export default async function ReferralTapPage({ params, searchParams }: { params
   )
 
   if (!r) return shell('This link does not work.', <p>It may have been copied incompletely. Sign in to Refery and answer from the person&apos;s page instead: <a className="underline" href={`${APP_URL}/candidates`}>{APP_URL}/candidates</a></p>)
-  const { data: c } = await admin.from('candidates').select('id, name').eq('id', r.candidate_id).maybeSingle()
+  const { data: c } = await admin.from('candidates').select('id, name, slug').eq('id', r.candidate_id).maybeSingle()
   const name = properName((c?.name as string | undefined) ?? 'this person')
   const first = name.split(/\s+/)[0]
-  const pageUrl = `${APP_URL}/candidates/${r.candidate_id}`
+  const pageUrl = `${APP_URL}${candidatePath({ id: r.candidate_id, slug: (c?.slug as string | undefined) ?? null })}`
   if (new Date(r.token_expires_at).getTime() < Date.now()) return shell('This link has expired.', <p>Links last 30 days. Sign in to Refery and answer from <a className="underline" href={pageUrl}>{first}&apos;s page</a>, which does the same thing.</p>)
   if (r.status === 'confirmed') return shell('Already confirmed.', <p>{first} is yours. Lily reads them against every live search, and you can put them forward from <a className="underline" href={pageUrl}>{first}&apos;s page</a>.</p>)
   if (r.status === 'duplicate') return shell(`${first} was already on Refery.`, <p>They were with us before your link, so this one is not credited. Anyone new who comes through your link is yours the moment you confirm them.</p>)

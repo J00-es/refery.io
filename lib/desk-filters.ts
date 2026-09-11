@@ -34,6 +34,9 @@ import type { RolePriority, SearchAssignmentStatus, SearchStage } from '@/lib/pa
 export interface DeskSearch {
   jobId: string
   companyId: string
+  /** URL segments: /searches/<companySlug>/roles/<slug>. */
+  slug: string
+  companySlug: string
   companyName: string
   /** False when the viewer is not assigned — the row shows the alias. */
   unlocked: boolean

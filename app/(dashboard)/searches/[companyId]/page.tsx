@@ -13,6 +13,7 @@ import {
 } from '@/lib/partners'
 import { ClientBrief, type ClientBriefSubmission } from '@/components/partners/client-brief'
 import { ManageCompany } from '@/components/partners/manage-company'
+import { canonicalCompany } from '@/lib/slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -32,8 +33,9 @@ export default async function PartnerCompanyPage({ params }: { params: Promise<{
   // The desk is in beta: super admins and beta users only. See DESK_BETA_ONLY.
   if (!access.canUseDesk) notFound()
 
-  const { companyId } = await params
   const adminClient = createAdminClient()
+  // A UUID in the address (every link sent before 2026-09-11) lands on the short slug.
+  const { companyId } = await canonicalCompany(adminClient, (await params).companyId)
 
   const { data: row } = await adminClient.from('partner_companies_v').select('*').eq('company_id', companyId).maybeSingle()
   if (!row) notFound()

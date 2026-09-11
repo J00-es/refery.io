@@ -44,6 +44,8 @@ export const INTERNAL_DEAL_TYPES = {
 
 export interface Candidate {
   id: string
+  /** Short random URL segment: /candidates/<slug>. Never the name. */
+  slug: string
   name: string
   email: string | null
   phone: string | null

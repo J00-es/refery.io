@@ -23,6 +23,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { esc, postMessage, postThreadReply, type SlackBlock } from '@/lib/slack-bot'
 import { sendQuestionAnsweredEmail } from '@/lib/question-answered-email'
+import { rolePath } from '@/lib/paths'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 
@@ -48,6 +49,8 @@ interface QuestionContext {
   question: string
   jobId: string
   companyId: string
+  roleSlug: string | null
+  companySlug: string | null
   askerName: string
   askerEmail: string
   askerRole: string
@@ -71,7 +74,7 @@ async function loadQuestion(admin: SupabaseClient, id: string): Promise<Question
   const [{ data: role }, { data: asker }] = await Promise.all([
     admin
       .from('partner_roles_v')
-      .select('title, headline, company_name, search_stage')
+      .select('title, headline, company_name, search_stage, slug, company_slug')
       .eq('job_id', q.job_id)
       .maybeSingle(),
     admin.from('users_admin').select('full_name, email, role').eq('user_id', q.asked_by).maybeSingle(),
@@ -83,6 +86,8 @@ async function loadQuestion(admin: SupabaseClient, id: string): Promise<Question
     question: q.question as string,
     jobId: q.job_id as string,
     companyId: q.company_id as string,
+    roleSlug: (role?.slug as string | null) ?? null,
+    companySlug: (role?.company_slug as string | null) ?? null,
     askerName: ((asker?.full_name as string | undefined) ?? '').trim() || askerEmail || 'A partner',
     askerEmail,
     askerRole: ((asker?.role as string | undefined) ?? 'partner').replace(/_/g, ' '),
@@ -108,7 +113,7 @@ async function audienceSize(admin: SupabaseClient, jobId: string, companyId: str
 // ── the card ─────────────────────────────────────────────────────────────────
 
 function cardBlocks(c: QuestionContext): SlackBlock[] {
-  const url = `${APP_URL}/searches/${c.companyId}/roles/${c.jobId}#questions`
+  const url = `${APP_URL}${rolePath({ id: c.companyId, slug: c.companySlug }, { id: c.jobId, slug: c.roleSlug }, '#questions')}`
   return [
     {
       type: 'section',
@@ -210,6 +215,8 @@ export async function publishAnswer(input: {
       companyName: c.companyName,
       companyId: c.companyId,
       jobId: c.jobId,
+      companySlug: c.companySlug,
+      roleSlug: c.roleSlug,
     })
     emailed = res.sent
     emailError = res.error

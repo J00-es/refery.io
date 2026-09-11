@@ -6,6 +6,8 @@ import { FOCUS, H1, LEDE, MUTED } from '@/lib/desk-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { candidatePageUrl, ensureCandidatePage, type CandidatePageRow } from '@/lib/candidate-pages'
 import { CandidatePageEditor } from '@/components/partners/candidate-page-editor'
+import { canonicalRole } from '@/lib/slugs'
+import { rolePath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 180
@@ -15,8 +17,8 @@ export default async function CandidatePageAdmin({ params }: { params: Promise<{
   const access = await resolvePartnerAccess()
   if (!access) redirect('/auth/login')
   if (!access.canUseDesk || !access.canManage) notFound()
-  const { companyId, jobId } = await params
   const admin = createAdminClient()
+  const { companyId, jobId, companySlug, roleSlug } = await canonicalRole(admin, await params, { tail: '/candidate-page' })
   const { data: role } = await admin.from('partner_roles_v').select('job_id, company_id, title, headline, company_name').eq('job_id', jobId).maybeSingle()
   if (!role || role.company_id !== companyId) notFound()
 
@@ -26,7 +28,7 @@ export default async function CandidatePageAdmin({ params }: { params: Promise<{
 
   return (
     <div className="mx-auto max-w-[1120px] px-1 pb-16 sm:px-0">
-      <Link href={`/searches/${companyId}/roles/${jobId}`} className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium ${MUTED} transition-colors hover:text-[#161613] ${FOCUS}`}>
+      <Link href={rolePath(companySlug, roleSlug)} className={`inline-flex items-center gap-1.5 text-[13.5px] font-medium ${MUTED} transition-colors hover:text-[#161613] ${FOCUS}`}>
         <ArrowLeft className="h-3.5 w-3.5" />
         {role.headline || role.title} · {role.company_name}
       </Link>

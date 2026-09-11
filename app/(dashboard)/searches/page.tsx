@@ -30,6 +30,7 @@ import {
   type WeekItem,
 } from '@/components/partners/home-sections'
 import { resolveFee } from '@/lib/fees'
+import { rolePathFrom, searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -99,6 +100,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     (a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || a.title.localeCompare(b.title),
   )
   const submissions = submissionRows ?? []
+  const roleById = new Map(roles.map(r => [r.job_id, r]))
   const views = companies.map(row => toCompanyView(row, access))
   const viewByCompany = new Map(views.map(v => [v.companyId, v]))
   const matchesByJob = new Map((matchRows ?? []).map(r => [r.job_id as string, r.match_count as number]))
@@ -180,7 +182,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
         missingAuth.length === 1
           ? `${first.candidate_name} is missing work authorisation. ${first.company_name} will ask.`
           : `${missingAuth.length} of your submissions are missing work authorisation. Clients ask on the first read.`,
-      href: `/searches/${first.company_id}/roles/${first.job_id}`,
+      href: rolePathFrom(roleById.get(first.job_id as string) ?? { job_id: first.job_id as string, company_id: first.company_id as string }),
       action: 'Add',
       tone: 'amber',
     })
@@ -191,7 +193,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     const label = ['', 'strong no', 'no', 'yes', 'strong yes'][first.hm_rating as number] ?? ''
     needsYou.push({
       text: `New read from the hiring manager on ${first.candidate_name}${label ? `: ${label}` : ''}.`,
-      href: `/searches/${first.company_id}/roles/${first.job_id}`,
+      href: rolePathFrom(roleById.get(first.job_id as string) ?? { job_id: first.job_id as string, company_id: first.company_id as string }),
       action: 'Read',
       tone: 'green',
     })
@@ -232,7 +234,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     ...views.map(company => ({
       kind: 'company' as const,
       id: company.companyId,
-      href: `/searches/${company.companyId}`,
+      href: searchPath(company.slug),
       label: company.name,
       detail: company.liveRoles ? `${company.liveRoles} live` : null,
       locked: !company.unlocked,
@@ -240,7 +242,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     ...roles.map(role => ({
       kind: 'role' as const,
       id: role.job_id,
-      href: `/searches/${role.company_id}/roles/${role.job_id}`,
+      href: rolePathFrom(role),
       label: role.headline || role.title,
       detail: viewByCompany.get(role.company_id)?.name ?? null,
     })),
@@ -259,7 +261,7 @@ export default async function PartnersPage({ searchParams }: PageProps) {
     const rolesByCompany = new Map<string, CompanyCardRole[]>()
     for (const role of roles) {
       const list = rolesByCompany.get(role.company_id) ?? []
-      list.push({ jobId: role.job_id, title: role.headline || role.title, location: role.location, priority: role.priority, scoutPayout: resolveFee(role).payoutLow, currency: resolveFee(role).currency })
+      list.push({ jobId: role.job_id, slug: role.slug, title: role.headline || role.title, location: role.location, priority: role.priority, scoutPayout: resolveFee(role).payoutLow, currency: resolveFee(role).currency })
       rolesByCompany.set(role.company_id, list)
     }
     return (

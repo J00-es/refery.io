@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Briefcase, Users, Clock } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import Link from 'next/link'
+import { candidatePath } from '@/lib/paths'
 
 interface Analytics {
   overview: {
@@ -19,7 +20,7 @@ interface Analytics {
   }
   recent: {
     jobs: Array<{ id: string; title: string; company_name: string; created_at: string; status: string }>
-    candidates: Array<{ id: string; name: string; email: string; created_at: string; status: string }>
+    candidates: Array<{ id: string; slug?: string | null; name: string; email: string; created_at: string; status: string }>
   }
 }
 
@@ -199,7 +200,7 @@ export default function AdminPage() {
               {recent.candidates.map((candidate) => (
                 <Link
                   key={candidate.id}
-                  href={`/candidates/${candidate.id}`}
+                  href={candidatePath(candidate)}
                   className="block rounded-lg border p-3 hover:bg-muted transition-colors"
                 >
                   <div className="font-medium">{candidate.name}</div>

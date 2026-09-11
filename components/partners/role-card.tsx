@@ -15,6 +15,7 @@ import { REMOTE_LABELS, formatSalary, seniorityLabel } from '@/lib/job-ui'
 import { PRIORITY_META, slotsLeft, type PartnerRoleRow } from '@/lib/partners'
 import { feeExplanation, payoutAmount, resolveFee } from '@/lib/fees'
 import { StageStrip } from './stage-strip'
+import { rolePath } from '@/lib/paths'
 
 /**
  * One live search.
@@ -46,7 +47,7 @@ export function RoleCard({
   )
 
   return (
-    <Link href={`/searches/${companyId}/roles/${role.job_id}`} className={`block p-5 ${CARD_LINK}`}>
+    <Link href={rolePath({ id: companyId, slug: role.company_slug }, { id: role.job_id, slug: role.slug })} className={`block p-5 ${CARD_LINK}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className={H3}>{role.headline || role.title}</h3>

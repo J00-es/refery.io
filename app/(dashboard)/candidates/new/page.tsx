@@ -15,6 +15,7 @@ import type { ParsedResumeData } from '@/lib/types'
 import { SubmissionTermsDialog } from '@/components/submission-terms-dialog'
 import { ThreeFacts, emptyFacts, type FactValues } from '@/components/candidates/three-facts'
 import { BASE_BANDS, cityFromText, visaFromText } from '@/lib/desk/facts'
+import { candidatePath } from '@/lib/paths'
 
 interface UploadResult {
   pathname: string
@@ -25,7 +26,7 @@ interface UploadResult {
 export default function NewCandidatePage() {
   const router = useRouter()
   const [error, setError] = useState('')
-  const [duplicate, setDuplicate] = useState<{ id: string; name: string } | null>(null)
+  const [duplicate, setDuplicate] = useState<{ id: string; slug?: string | null; name: string } | null>(null)
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [facts, setFacts] = useState<FactValues>(emptyFacts())
@@ -101,7 +102,7 @@ export default function NewCandidatePage() {
       }
 
       // The page offers "Let them know" once, right after the add.
-      router.push(`/candidates/${data.candidate!.id}?added=1`)
+      router.push(candidatePath(data.candidate!, '?added=1'))
       router.refresh()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred')
@@ -138,7 +139,7 @@ export default function NewCandidatePage() {
           <p>{error}</p>
           {duplicate && (
             <Link
-              href={`/candidates/${duplicate.id}`}
+              href={candidatePath(duplicate)}
               className="mt-2 inline-block font-medium underline"
             >
               Open {duplicate.name}&apos;s existing profile

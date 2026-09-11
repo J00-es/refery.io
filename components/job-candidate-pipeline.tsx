@@ -18,6 +18,7 @@ import type { JobCandidatePipeline, JobCandidateNote, Candidate, PipelineStage }
 import { PIPELINE_STAGES, getStageConfig, ACTIVE_STAGE_VALUES, TERMINAL_NEGATIVE_STAGE_VALUES, type StageConfig } from '@/lib/pipeline-stages'
 import Link from 'next/link'
 import { formatDistanceToNow } from 'date-fns'
+import { candidatePath } from '@/lib/paths'
 
 const QUICK_NOTES = [
   'Initial call scheduled',
@@ -496,7 +497,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                             >
                               <div className="flex items-start justify-between gap-2 mb-2">
                                 <Link 
-                                  href={`/candidates/${item.candidate_id}`}
+                                  href={candidatePath(item.candidate_id)}
                                   className="font-medium text-sm hover:underline truncate"
                                 >
                                   {item.candidate?.name || 'Unknown'}
@@ -667,7 +668,7 @@ export function JobCandidatePipeline({ jobId, userRole, userId, companyId, hasAg
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <Link 
-                        href={`/candidates/${item.candidate_id}`}
+                        href={candidatePath(item.candidate_id)}
                         className="font-medium hover:underline"
                       >
                         {item.candidate?.name || 'Unknown'}

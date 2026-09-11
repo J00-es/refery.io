@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/server'
 import { CARD, CHIP, CHIP_BAD, CHIP_VALUE, CHIP_WARN, FIGURE, FOCUS, H1, H2, LABEL, LEDE, META, RULE } from '@/lib/desk-ui'
 import { resolvePartnerAccess } from '@/lib/partners-access'
 import { PRIORITY_ORDER, searchStageMeta, type PartnerRoleRow, type SearchAssignmentRow } from '@/lib/partners'
+import { rolePathFrom, searchPath } from '@/lib/paths'
 
 export const dynamic = 'force-dynamic'
 
@@ -116,7 +117,7 @@ export default async function CoverageOverviewPage() {
             <section key={companyId} className="space-y-3">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className={H2}>
-                  <Link href={`/searches/${companyId}`} className={`hover:underline underline-offset-4 ${FOCUS}`}>
+                  <Link href={searchPath({ id: companyId, slug: list[0].role.company_slug })} className={`hover:underline underline-offset-4 ${FOCUS}`}>
                     {list[0].role.company_name}
                   </Link>
                   <span className="ml-2 text-[15px] font-medium text-[#9C9C95]">{list.length}</span>
@@ -135,7 +136,7 @@ export default async function CoverageOverviewPage() {
                     <li key={c.role.job_id} className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_170px_260px_auto] sm:items-center">
                       <div className="min-w-0">
                         <Link
-                          href={`/searches/${companyId}/roles/${c.role.job_id}`}
+                          href={rolePathFrom(c.role)}
                           className={`block truncate text-[14.5px] font-semibold text-[#161613] hover:underline underline-offset-4 ${FOCUS}`}
                         >
                           {c.role.headline || c.role.title}
@@ -161,7 +162,7 @@ export default async function CoverageOverviewPage() {
                       </p>
                       <div className="flex justify-end">
                         <Link
-                          href={`/searches/${companyId}/roles/${c.role.job_id}/coverage`}
+                          href={rolePathFrom(c.role, '/coverage')}
                           className={`${c.need === 'fine' ? CHIP : 'inline-flex min-h-[34px] items-center rounded-full bg-[#1F3A2F] px-3.5 text-[12.5px] font-semibold text-white hover:bg-[#142E24]'} ${FOCUS}`}
                         >
                           {c.need === 'nobody' ? 'Propose partners' : c.need === 'quiet' ? 'Check in' : 'Coverage'}

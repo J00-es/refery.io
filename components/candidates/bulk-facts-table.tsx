@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { FOCUS } from '@/lib/candidate-ui'
 import { BASE_BANDS, CITY_OPTIONS, VISA_OPTIONS, cityFromText, visaFromText } from '@/lib/desk/facts'
 import type { ParsedResumeData } from '@/lib/types'
+import { candidatePath } from '@/lib/paths'
 
 export interface CreatedRow {
   id: string
+  slug?: string | null
   name: string
   parsed: ParsedResumeData | null
 }
@@ -113,7 +115,7 @@ export function BulkFactsTable({ rows }: { rows: CreatedRow[] }) {
               return (
                 <tr key={r.id} className="border-t border-[#E4E3DC]">
                   <td className="py-2 pr-3 font-semibold">
-                    <Link href={`/candidates/${r.id}`} className="text-[#1F3A2F] hover:underline">
+                    <Link href={candidatePath(r)} className="text-[#1F3A2F] hover:underline">
                       {r.name}
                     </Link>
                     {s?.saved && <span className="ml-1 text-[11px] text-[#2E9E6B]">saved</span>}

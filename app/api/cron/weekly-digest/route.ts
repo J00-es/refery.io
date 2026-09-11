@@ -6,6 +6,7 @@ import { codesFor } from '@/lib/share-codes'
 import { linkStats } from '@/lib/referrals'
 import { notifySlack } from '@/lib/slack'
 import { esc, postMessage, type SlackBlock } from '@/lib/slack-bot'
+import { rolePathFrom } from '@/lib/paths'
 
 /**
  * #refery-daily, where the super admin reads what went out. The bot has to
@@ -175,7 +176,7 @@ export async function GET(request: NextRequest) {
       adminClient.from('users_admin').select('user_id, email, full_name, status, is_beta').in('user_id', userIds),
       adminClient
         .from('partner_roles_v')
-        .select('job_id, company_id, title, headline, company_name, search_stage, stage_moved_at, is_live, job_status')
+        .select('job_id, company_id, slug, company_slug, title, headline, company_name, search_stage, stage_moved_at, is_live, job_status')
         .in('job_id', jobIds),
       adminClient
         .from('role_submissions_v')
@@ -347,7 +348,7 @@ export async function GET(request: NextRequest) {
       digest.searches.push({
         title: (r.headline as string) || (r.title as string),
         company: r.company_name as string,
-        href: `${APP_URL}/searches/${r.company_id}/roles/${r.job_id}`,
+        href: `${APP_URL}${rolePathFrom(r as { job_id: string; company_id: string; slug?: string | null; company_slug?: string | null })}`,
         status: [
           a.status === 'proposed' ? 'proposed to you' : null,
           searchStageMeta(r.search_stage as string).label,
