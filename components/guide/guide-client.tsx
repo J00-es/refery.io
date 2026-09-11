@@ -131,7 +131,9 @@ export function GuideClient({ sections, launches, paths, viewerFirst }: { sectio
     const id = window.location.hash.replace('#', '')
     if (id) {
       setOpen(o => ({ ...o, [id]: true }))
-      setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: 'start' }), 50)
+      // The topic expands on the next render; scroll once it has its full height.
+      const t = setTimeout(() => document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 350)
+      return () => clearTimeout(t)
     }
   }, [])
 
