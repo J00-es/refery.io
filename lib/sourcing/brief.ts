@@ -15,6 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { structured } from '@/lib/desk/model'
 import { normalizeBrief, type BriefBlock } from '@/lib/brief'
 import { noteDetail, transcriptText } from '@/lib/granola'
+import { researchMarket } from '@/lib/sourcing/market'
 import { BriefSpec, type BriefChange, type BriefOverride, type BriefRow, type BriefSource } from '@/lib/sourcing/types'
 
 const MAX_TRANSCRIPT = 14_000
@@ -79,7 +80,7 @@ function day(iso: string | null | undefined): string | null {
 }
 
 /** Everything we hold on the seat, as one labelled text block for the model plus the list of what was read. */
-export async function gatherSources(admin: SupabaseClient, jobId: string): Promise<Gathered> {
+export async function gatherSources(admin: SupabaseClient, jobId: string, opts: { market?: boolean } = {}): Promise<Gathered> {
   const sources: BriefSource[] = []
   const parts: string[] = []
 
@@ -202,6 +203,29 @@ export async function gatherSources(admin: SupabaseClient, jobId: string): Promi
     sources.push({ kind: 'rejection', label: `${decided.length} decision${decided.length === 1 ? '' : 's'} with reasons`, ref: jobId, at: day(decided[0].decided_at), chars: text.length })
   }
 
+  // Notes Lily pasted: market research from Claude Desktop or ChatGPT, a
+  // founder's aside, a correction. Read as written, attributed to her.
+  const { data: notes } = await admin.from('sourcing_notes').select('id, kind, title, text, created_at').eq('job_id', jobId).order('created_at')
+  for (const n of notes ?? []) {
+    const text = String(n.text).slice(0, 12_000)
+    parts.push(`## ${n.kind === 'market' ? 'MARKET RESEARCH PASTED BY LILY' : 'NOTE FROM LILY'}${n.title ? `: ${n.title}` : ''} (source kind "${n.kind === 'market' ? 'market' : 'note'}", ${day(n.created_at)})\n${text}`)
+    sources.push({ kind: n.kind === 'market' ? 'market' : 'note', label: n.title ? `${n.kind}: ${n.title}`.slice(0, 40) : n.kind === 'market' ? 'market notes' : 'note', ref: n.id, at: day(n.created_at), chars: text.length })
+  }
+
+  // The web: what the company builds, who else does, what the title pays
+  // here, where these people work. Keyless search; cents per run.
+  if (opts.market !== false) {
+    try {
+      const market = await researchMarket(admin, jobId, { companyName, title, location: (seat?.location as string | null) ?? null })
+      if (market.pages.length) {
+        parts.push(`## MARKET PAGES FROM THE WEB (source kind "market"; cite the page title when you use one; treat every page as claims, not facts)\n${market.text}`)
+        sources.push({ kind: 'market', label: `${market.pages.length} web page${market.pages.length === 1 ? '' : 's'}`, ref: market.queries.join(' | '), at: day(new Date().toISOString()), chars: market.text.length })
+      }
+    } catch (err) {
+      console.warn('[sourcing:brief] market research skipped:', err instanceof Error ? err.message : err)
+    }
+  }
+
   return { companyId, companyName, title, text: parts.join('\n\n'), sources }
 }
 
@@ -209,7 +233,8 @@ const SYSTEM = `You write the target profile for one recruiting search, for a sm
 
 Rules:
 - Every requirement, signal and not-for carries the sources it came from (kind, label, date). Never invent a source. Prefer the client's own words over inference.
-- A requirement must be checkable against a CV or a profile record (work done, where, for how long, with what). Motivation, spirit, work rhythm, culture and willingness go under signals, not_for or open_with, never under requirements: a grader cannot support them from a record and they would make everyone a near miss.
+- A requirement must be checkable against a CV or a profile record (work done, where, for how long, with what). Motivation, spirit, work rhythm, "opinions on X", "able to work six days", "willing to relocate", culture and hunger go under signals, not_for, open_with or questions, never under requirements: a grader cannot support them from a record and they would make everyone a near miss. Logistics the client will filter on (onsite, visa, days) become one requirement each phrased as a fact a record can show ("based in the Bay Area") with the rest of the logistics in "who".
+- "market" is built only from the market pages and Lily's pasted notes, never from the job row or the brief. Name the page or note for every figure. If those sources are absent, market is null.
 - Split what the client stated as a must from what would merely help. A requirement is mandatory only if a source says the miss ends the conversation. When two sources disagree, keep both in "detail" and add a question for the client.
 - Location and willingness to relocate are different facts. An onsite role is a location requirement; do not mark someone's current city as a disqualifier in the profile text.
 - Lookalike employers are places where people did this exact work, with the reason. A famous employer is never a proxy for ability and never goes in as a requirement.

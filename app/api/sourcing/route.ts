@@ -55,6 +55,18 @@ export async function POST(req: NextRequest) {
         await addOverride(admin, str(body.briefId), { path, value, by, reason: str(body.reason) || null })
         return NextResponse.json({ ok: true })
       }
+      case 'note.add': {
+        const text = str(body.text).trim()
+        if (text.length < 20) return NextResponse.json({ error: 'a note needs at least a sentence' }, { status: 400 })
+        const kind = str(body.kind) === 'market' ? 'market' : 'note'
+        const { error } = await admin.from('sourcing_notes').insert({ job_id: jobId, kind, title: str(body.title).slice(0, 120) || null, text: text.slice(0, 40_000), created_by: by })
+        if (error) throw new Error(error.message)
+        return NextResponse.json({ ok: true })
+      }
+      case 'note.delete': {
+        await admin.from('sourcing_notes').delete().eq('id', str(body.noteId))
+        return NextResponse.json({ ok: true })
+      }
       case 'discover': {
         const out = await discoverForJob(admin, jobId, { apolloPages: Number(body.pages ?? 2) })
         // Screening is cheap; do it now so the pool page shows who is worth a credit.

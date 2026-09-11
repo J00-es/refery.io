@@ -11,6 +11,7 @@ import { isReady, notReadyBecause, type BriefRow, type MailboxRow, type Sequence
 import { ActionButton, AddPersonForm, PoolRowActions, RunActions } from '@/components/sourcing/actions'
 import { EmployerOverride, ListOverride, ProseOverride, RequirementToggle } from '@/components/sourcing/brief-editor'
 import { SequenceEditor } from '@/components/sourcing/sequence-editor'
+import { AddNoteForm, DeleteNote } from '@/components/sourcing/notes'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,7 +43,16 @@ export default async function SourcingSeatPage({ params, searchParams }: PagePro
   const seat = await loadSeat(admin, jobId)
   if (!seat) notFound()
 
-  const [briefs, pool, seq, runs, batches, mailboxes] = await Promise.all([loadBriefs(admin, jobId), loadPool(admin, jobId), loadSequenceFor(admin, jobId), loadRuns(admin, jobId), loadBatches(admin, jobId), loadMailboxes(admin)])
+  const [briefs, pool, seq, runs, batches, mailboxes, notesRes] = await Promise.all([
+    loadBriefs(admin, jobId),
+    loadPool(admin, jobId),
+    loadSequenceFor(admin, jobId),
+    loadRuns(admin, jobId),
+    loadBatches(admin, jobId),
+    loadMailboxes(admin),
+    admin.from('sourcing_notes').select('id, kind, title, text, created_by, created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
+  ])
+  const notes = (notesRes.data ?? []) as { id: string; kind: string; title: string | null; text: string; created_by: string | null; created_at: string }[]
   const sym = seat.currency === 'EUR' ? '€' : seat.currency === 'GBP' ? '£' : '$'
   const band = seat.salaryMin && seat.salaryMax ? `${sym}${Math.round(seat.salaryMin / 1000)}k to ${Math.round(seat.salaryMax / 1000)}k` : null
   const counts = {
@@ -85,7 +95,7 @@ export default async function SourcingSeatPage({ params, searchParams }: PagePro
         ))}
       </nav>
 
-      {tab === 'profile' && <ProfileTab jobId={jobId} briefs={briefs} />}
+      {tab === 'profile' && <ProfileTab jobId={jobId} briefs={briefs} notes={notes} />}
       {tab === 'pool' && <PoolTab jobId={jobId} pool={pool} filter={filter} approved={briefs.approved} seq={seq} mailboxes={mailboxes} batches={batches} />}
       {tab === 'sequence' && <SequenceTab jobId={jobId} seq={seq} mailboxes={mailboxes} pool={pool} />}
       {tab === 'board' && <BoardTab runs={runs} seq={seq} />}
@@ -95,7 +105,41 @@ export default async function SourcingSeatPage({ params, searchParams }: PagePro
 
 // ── Profile ────────────────────────────────────────────────────────────────
 
-function ProfileTab({ jobId, briefs }: { jobId: string; briefs: Awaited<ReturnType<typeof loadBriefs>> }) {
+type SeatNote = { id: string; kind: string; title: string | null; text: string; created_by: string | null; created_at: string }
+
+function NotesBlock({ jobId, notes }: { jobId: string; notes: SeatNote[] }) {
+  return (
+    <section className={`${CARD} p-5`}>
+      <h3 className={H3}>Market research and notes</h3>
+      <p className={`mt-1.5 ${META}`}>
+        Paste what Claude Desktop or ChatGPT found (the prompt is in docs/prompts/sourcing-market-research.md), or anything the founder said. The next rebuild reads it and cites it. The builder also reads a few web pages on its own: the company site, lookalike lists, salary pages.
+      </p>
+      <div className="mt-3">
+        <AddNoteForm jobId={jobId} />
+      </div>
+      {notes.length > 0 && (
+        <ul className="mt-4 divide-y divide-[#EEEDE6]">
+          {notes.map(n => (
+            <li key={n.id} className="py-2.5">
+              <details>
+                <summary className="cursor-pointer text-[13.5px] text-[#2A2A26]">
+                  <span className={n.kind === 'market' ? CHIP_VALUE : CHIP}>{n.kind}</span> <span className="ml-1 font-medium text-[#161613]">{n.title ?? n.text.slice(0, 80)}</span>
+                  <span className={` ${META}`}> · {day(n.created_at)} · {(n.created_by ?? '').replace(/@.*/, '')}</span>
+                </summary>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-[13px] leading-relaxed text-[#2A2A26]">{n.text}</pre>
+                <div className="mt-1">
+                  <DeleteNote noteId={n.id} />
+                </div>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function ProfileTab({ jobId, briefs, notes }: { jobId: string; briefs: Awaited<ReturnType<typeof loadBriefs>>; notes: SeatNote[] }) {
   const b = briefs.latest
   if (!b) {
     return (
@@ -106,6 +150,9 @@ function ProfileTab({ jobId, briefs }: { jobId: string; briefs: Awaited<ReturnTy
           <ActionButton op="brief.build" payload={{ jobId }} kind="primary" describe="Drafted v{version}">
             Build the profile
           </ActionButton>
+        </div>
+        <div className="mt-6">
+          <NotesBlock jobId={jobId} notes={notes} />
         </div>
       </section>
     )
@@ -228,6 +275,34 @@ function ProfileTab({ jobId, briefs }: { jobId: string; briefs: Awaited<ReturnTy
           </div>
         </section>
 
+        {spec.market && (
+          <section>
+            <h3 className={H3}>The market</h3>
+            <p className="mt-2 max-w-[680px] text-[14px] leading-relaxed text-[#2A2A26]">{spec.market.summary}</p>
+            {spec.market.comp && <p className={`mt-2 max-w-[680px] text-[14px] leading-relaxed text-[#2A2A26]`}><span className="font-semibold">Pay: </span>{spec.market.comp}</p>}
+            {spec.market.talent_pools.length > 0 && (
+              <div className="mt-3">
+                <div className="text-[13px] font-semibold text-[#161613]">Where these people are</div>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[13.5px] text-[#2A2A26]">
+                  {spec.market.talent_pools.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {spec.market.risks.length > 0 && (
+              <div className="mt-3">
+                <div className="text-[13px] font-semibold text-[#8A6A1F]">What will make this hard</div>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[13.5px] text-[#2A2A26]">
+                  {spec.market.risks.map((t, i) => (
+                    <li key={i}>{t}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
+        )}
+
         <section>
           <h3 className={H3}>Where we will look</h3>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -268,6 +343,8 @@ function ProfileTab({ jobId, briefs }: { jobId: string; briefs: Awaited<ReturnTy
             </div>
           </div>
         </section>
+
+        <NotesBlock jobId={jobId} notes={notes} />
       </div>
 
       <aside className="space-y-4">

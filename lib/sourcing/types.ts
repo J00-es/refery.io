@@ -8,7 +8,7 @@ import { z } from 'zod'
 
 /** Where a fact in the brief came from, so a reader can check it. */
 export const SourceRef = z.object({
-  kind: z.enum(['job', 'hm_brief', 'hm_answer', 'question', 'call', 'rejection', 'lily', 'note']),
+  kind: z.enum(['job', 'hm_brief', 'hm_answer', 'question', 'call', 'rejection', 'lily', 'note', 'market']),
   label: z.string().describe('Short, for a chip: "brief", "founder call 2 Sep", "HM answer 7 Sep".'),
   date: z.string().nullable().describe('ISO date when known.'),
 })
@@ -36,6 +36,15 @@ export const BriefSpec = z.object({
   onsite: z.enum(['onsite', 'hybrid', 'remote', 'unknown']),
   open_with: z.string().describe('How to open the first email to this kind of person: what to lead with, what to leave out. Two or three sentences.'),
   questions: z.array(z.string()).max(4).describe('Things the sources do not settle that the client should be asked.'),
+  market: z
+    .object({
+      summary: z.string().describe('What the market for this person looks like: who competes for them, how scarce they are, what moves them. Three to five sentences, from the market pages and notes, with the page named.'),
+      comp: z.string().nullable().describe('What this title pays in this city according to the pages read, against the seat band. Null when no page said.'),
+      talent_pools: z.array(z.string()).max(8).describe('Where these people are found in numbers: company types, teams, communities, conferences. Each with the page or note it came from.'),
+      risks: z.array(z.string()).max(5).describe('What will make this search hard, from the market: a band under market, an onsite ask in a remote market, a tiny pool.'),
+    })
+    .nullable()
+    .describe('Null only when no market pages or notes were given.'),
 })
 export type BriefSpec = z.infer<typeof BriefSpec>
 

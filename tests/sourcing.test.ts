@@ -146,6 +146,7 @@ describe('brief overrides ride on top of every version', () => {
       onsite: 'onsite',
       open_with: 'Lead with the work.',
       questions: [],
+      market: null,
     },
     sources: [],
     changes: null,
