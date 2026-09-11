@@ -12,7 +12,7 @@
  */
 
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { normalizeBrief, briefNav } from '@/lib/brief'
 import { findPublishedBrief } from '@/lib/hm-brief'
@@ -53,6 +53,8 @@ export default async function PublicBriefPage({ params }: { params: Promise<{ sl
 
   const brief = await findPublishedBrief(slug)
   if (!brief) notFound()
+  // An old address: send them to the short one so it is what they bookmark.
+  if (brief.slug !== slug) redirect(`/b/${brief.slug}`)
 
   const content = normalizeBrief(brief.content)
   const nav = briefNav(content)

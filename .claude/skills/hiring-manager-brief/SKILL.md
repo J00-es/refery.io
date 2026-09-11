@@ -9,7 +9,8 @@ The note sent to a founder before sourcing starts. Public link, no login, and th
 founder can correct any section in place. Corrections and reading telemetry land in
 Slack (`clients` stream) and on the company page.
 
-Reference brief: `https://refery.xyz/b/alcor-labs-rdmg3xa` (slug `alcor-labs-rdmg3xa`).
+Reference brief: `https://refery.xyz/b/alcor-labs` (slug `alcor-labs`). Slugs are the company
+name and nothing else since 2026-09-12; the old `alcor-labs-rdmg3xa` form still redirects.
 Skeleton with every block kind: `template.json` next to this file.
 
 **Nothing is rendered from HTML.** The page draws from the `content` JSONB alone. Write
@@ -32,7 +33,8 @@ content, not markup.
    "The company, as I will pitch it", not "About the company". Every claim is phrased so a
    founder can correct it, because the correction is the product.
 5. **Rotating the slug is the only way to take a link back**, and it breaks the founder's
-   bookmark too. Never rotate casually.
+   bookmark too. A rotated slug is `<company>-<4 random chars>`, the only time a brief
+   address is not just the company name. Never rotate casually.
 
 ---
 
@@ -157,14 +159,15 @@ questions: a founder answers three and abandons eight.
 "Start a hiring manager brief". It mints the slug and leaves `content` empty.
 
 **Or by SQL** (Supabase project `ofujlvuejuvhpzemjaic`) when working headless. The slug is
-`slugify(company name) + '-' + 7 chars` from the alphabet `23456789abcdefghjkmnpqrstuvwxyz`
-(no `0 O 1 l i`, they break when read aloud). Mint the suffix yourself, do not reuse one.
+`slugifyCompany(company name)`: lower-case, apostrophes dropped, every other run of
+non-alphanumerics a dash ("Hilbert's AI" is `hilberts-ai`). If another company already holds
+it, append `-2`. Check `slug` and `previous_slugs` on `hm_briefs` before inserting.
 
 ```sql
 insert into hm_briefs (company_id, slug, title, status, content, recipient_name, ribbon_note)
 values (
   '<company uuid>',
-  'acme-robotics-k7p2mqd',
+  'acme-robotics',
   'Acme Robotics',
   'draft',
   '{}'::jsonb,
@@ -212,8 +215,8 @@ URL: `https://refery.xyz/b/<slug>`.
 - The company page card summarises opens, read-to, and the latest comments.
 - Corrections are the founder's words. Fold them into `content` and PATCH; the version
   counter carries the history.
-- `{ "rotate": true }` mints a fresh slug and kills every link already sent. Comments and
-  history survive. Use it when a brief was forwarded outside the company, and only then.
+- `{ "rotate": true }` mints a fresh unguessable slug, clears `previous_slugs`, and kills
+  every link already sent. Comments and history survive. Use it when a brief was forwarded outside the company, and only then.
 
 ---
 

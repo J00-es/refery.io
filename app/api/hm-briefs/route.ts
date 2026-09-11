@@ -9,7 +9,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireSuperAdmin } from '@/lib/admin-auth'
-import { briefUrl, newBriefSlug } from '@/lib/hm-brief'
+import { briefUrl, claimBriefSlug } from '@/lib/hm-brief'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     .from('hm_briefs')
     .insert({
       company_id: company.id,
-      slug: newBriefSlug(company.name),
+      slug: await claimBriefSlug(db, company.name),
       title,
       status: 'draft',
       content: raw?.content ?? {},

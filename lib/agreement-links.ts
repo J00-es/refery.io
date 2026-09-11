@@ -13,9 +13,43 @@ import {
   generateSigningToken,
   type ClientPaymentTiming,
 } from '@/lib/agreements'
+import { slugifyCompany } from '@/lib/hm-brief'
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://refery.xyz').replace(/\/$/, '')
 const LINK_TTL_DAYS = 30
+
+/**
+ * The short address for a company's agreement: refery.xyz/agreement/<name>.
+ *
+ * One company, one address. If the company's earlier link still holds the
+ * name and was never signed, the name moves to the new link, so whatever the
+ * founder already has in their inbox opens the current document. A signed
+ * agreement keeps its address as the record, and the new link takes -2.
+ * Two different companies with the same name go -2, -3.
+ */
+export async function claimAgreementSlug(
+  admin: SupabaseClient,
+  companyId: string,
+  companyName: string,
+): Promise<string | null> {
+  const base = slugifyCompany(companyName)
+  if (base === 'brief' || base.length < 2) return null
+  const { data: holders } = await admin
+    .from('client_agreement_links')
+    .select('id, short_slug, company_id, status')
+    .like('short_slug', `${base}%`)
+  const bySlug = new Map((holders ?? []).map(h => [h.short_slug as string, h]))
+  const holder = bySlug.get(base)
+  if (!holder) return base
+  if (holder.company_id === companyId && holder.status !== 'signed') {
+    await admin.from('client_agreement_links').update({ short_slug: null }).eq('id', holder.id)
+    return base
+  }
+  for (let n = 2; n < 100; n++) {
+    if (!bySlug.has(`${base}-${n}`)) return `${base}-${n}`
+  }
+  return null
+}
 
 export async function issueClientAgreementLink(
   admin: SupabaseClient,
@@ -27,7 +61,7 @@ export async function issueClientAgreementLink(
     feeOptions?: number[]
     /** Minimum for Head/Director/VP/C-suite and Staff/Principal hires. Turns the document into v2.9. */
     leadershipFeePercent?: number | null
-    /** Readable alias: /agreement/<shortSlug> (also served at /sign/<shortSlug>). */
+    /** Readable alias: /agreement/<shortSlug> (also served at /sign/<shortSlug>). Claimed from the company name when omitted. */
     shortSlug?: string | null
     /** Per-client copy on the sign page: { from_lily, leadership }. */
     pageNotes?: Record<string, string> | null
@@ -48,6 +82,7 @@ export async function issueClientAgreementLink(
   const token = generateSigningToken()
   const now = new Date()
   const expiresAt = new Date(now.getTime() + LINK_TTL_DAYS * 24 * 60 * 60 * 1000)
+  const shortSlug = input.shortSlug === undefined ? await claimAgreementSlug(admin, input.companyId, input.companyName) : input.shortSlug
 
   const { data, error } = await admin
     .from('client_agreement_links')
@@ -63,7 +98,7 @@ export async function issueClientAgreementLink(
       fee_percentage: feePercent,
       fee_options: input.feeOptions && input.feeOptions.length >= 2 ? input.feeOptions : null,
       leadership_fee_percentage: leadership,
-      short_slug: input.shortSlug ?? null,
+      short_slug: shortSlug ?? null,
       page_notes: input.pageNotes ?? null,
       entity_editable: input.entityEditable === true,
       payment_window_days: timing === 'day90' ? 14 : timing === 'net10' ? 10 : DEFAULT_CLIENT_TERMS.paymentWindowDays,
@@ -86,6 +121,6 @@ export async function issueClientAgreementLink(
     metadata: { version, fee_percent: feePercent, fee_options: input.feeOptions ?? null, leadership_fee_percent: leadership, open_link: !input.recipientName && !input.recipientEmail, issued_by: 'onboarding' },
   })
 
-  const url = input.shortSlug ? `${APP_URL}/agreement/${input.shortSlug}` : `${APP_URL}/sign/client-agreement/${data.token}`
+  const url = shortSlug ? `${APP_URL}/agreement/${shortSlug}` : `${APP_URL}/sign/client-agreement/${data.token}`
   return { id: data.id as string, url, expiresAt: data.expires_at as string, version }
 }

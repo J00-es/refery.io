@@ -9,6 +9,7 @@ import {
   generateSigningToken,
 } from '@/lib/agreements'
 import { logAgreementEvent } from '@/lib/agreement-events'
+import { claimAgreementSlug } from '@/lib/agreement-links'
 
 const SUPER_ADMIN_EMAILS = ['lily@10kventures.co']
 const LINK_TTL_DAYS = 30
@@ -110,6 +111,8 @@ export async function POST(request: NextRequest) {
   const token = generateSigningToken()
   const now = new Date()
   const expiresAt = new Date(now.getTime() + LINK_TTL_DAYS * 24 * 60 * 60 * 1000)
+  // refery.xyz/agreement/<company>: the address a founder can read aloud.
+  const shortSlug = await claimAgreementSlug(adminClient, company.id, company.name)
 
   const { data: link, error: insertError } = await adminClient
     .from('client_agreement_links')
@@ -132,6 +135,7 @@ export async function POST(request: NextRequest) {
       late_fee_percentage: DEFAULT_CLIENT_TERMS.lateFeePct,
       guarantee_days: DEFAULT_CLIENT_TERMS.guaranteeDays,
       intro_validity_months: DEFAULT_CLIENT_TERMS.introValidityMonths,
+      short_slug: shortSlug,
       status: 'sent',
       created_by: user.id,
       sent_at: now.toISOString(),
@@ -163,7 +167,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     id: link.id,
     token: link.token,
-    sign_url: `${origin}/sign/client-agreement/${link.token}`,
+    sign_url: shortSlug ? `${origin}/agreement/${shortSlug}` : `${origin}/sign/client-agreement/${link.token}`,
+    short_slug: shortSlug,
     expires_at: link.expires_at,
   })
 }

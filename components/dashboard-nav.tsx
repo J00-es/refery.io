@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { cn } from '@/lib/utils'
-import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass } from 'lucide-react'
+import { Settings, Menu, X, Home, Briefcase, Users, Building2, LogOut, ChevronRight, UserCircle, UserPlus, Star, ChevronDown, Send, Handshake, LayoutGrid, type LucideIcon, Compass, FileSignature } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +94,7 @@ const adminMenuItems = [
   { href: '/talents', label: 'Talents', icon: Star },
   { href: '/admin', label: 'Users', icon: Users },
   { href: '/admin/campaigns', label: 'Outbound links', icon: Send },
+  { href: '/admin/clients', label: 'Client links', icon: FileSignature },
 ]
 
 interface DashboardNavProps {

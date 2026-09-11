@@ -9,7 +9,7 @@
 
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/server'
 import { findPublishedBrief } from '@/lib/hm-brief'
 import { clockDate, currentRoleOf, cvUrl, placementClock, workAuthLabel, REASON_CODES } from '@/lib/client-delivery'
@@ -48,6 +48,7 @@ export default async function CandidatesPage({
   const sp = await searchParams
   const brief = await findPublishedBrief(slug)
   if (!brief) notFound()
+  if (brief.slug !== slug) redirect(`/b/${brief.slug}/candidates`)
 
   const db = createAdminClient()
   const { data: briefRow } = await db.from('hm_briefs').select('company_id').eq('id', brief.id).single()

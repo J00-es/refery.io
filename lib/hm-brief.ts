@@ -8,10 +8,12 @@
  * where it is wrong, and we hear about it in Slack while it still matters.
  *
  * ── Access ─────────────────────────────────────────────────────────────────
- * There is no login, so the link *is* the credential. `slug` is the company
- * name plus a random suffix — short enough to paste into an email, wide enough
- * that the space cannot be walked. Rotating the suffix revokes every link
- * already sent. The tables are RLS-on with no policies, so the anon key reaches
+ * There is no login. `slug` is the company name and nothing else
+ * (refery.xyz/b/edge-markets): a founder reads it aloud on a call and it is
+ * short enough to retype. The brief is a document we would send in the open
+ * anyway; the address is not a secret. Rotating a brief is different: it mints
+ * an unguessable slug and clears the aliases, so every link already sent goes
+ * dead. The tables are RLS-on with no policies, so the anon key reaches
  * nothing; every read and write goes through a service-role route.
  *
  * Because the URL is the credential, none of these pages may be indexed, and
@@ -19,6 +21,7 @@
  */
 
 import { cache } from 'react'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { notifySlack } from '@/lib/slack'
 import type { BriefContent } from '@/lib/brief'
@@ -26,24 +29,30 @@ import type { BriefContent } from '@/lib/brief'
 // ── slugs ───────────────────────────────────────────────────────────────────
 
 /**
- * No 0/O/1/l/i. The link is clicked rather than typed, but these also get read
+ * No 0/O/1/l/i. Used only when a brief is rotated: that address gets read
  * aloud on calls and retyped from a screenshot, and that is where they break.
  */
 const TOKEN_ALPHABET = '23456789abcdefghjkmnpqrstuvwxyz'
-const TOKEN_LENGTH = 7
+const ROTATED_TOKEN_LENGTH = 4
 
-/** ~2.7e10 slugs per company name — not walkable, one character longer than six. */
-export function briefToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(TOKEN_LENGTH))
+export function briefToken(length = ROTATED_TOKEN_LENGTH): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(length))
   return Array.from(bytes, b => TOKEN_ALPHABET[b % TOKEN_ALPHABET.length]).join('')
 }
 
+/**
+ * "Hilbert's AI" → "hilberts-ai", "EDGE Markets" → "edge-markets".
+ * Apostrophes vanish rather than becoming a dash, so a possessive stays one
+ * word. Shared with the agreement short link and mirrored in SQL by the
+ * 20260912000000 migration; change both or neither.
+ */
 export function slugifyCompany(name: string): string {
   const base = name
     .toLowerCase()
     .normalize('NFKD')
     // Combining marks left behind by NFKD, so "Åltera" slugs as "altera".
     .replace(/[̀-ͯ]/g, '')
+    .replace(/['’]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 48)
@@ -51,8 +60,32 @@ export function slugifyCompany(name: string): string {
   return base || 'brief'
 }
 
-/** e.g. "Alcor Labs" → "alcor-labs-9x4m2qk". */
-export function newBriefSlug(companyName: string): string {
+/**
+ * The short slug for a new brief: the company name, or the company name with
+ * -2, -3 when another brief already holds it. Checks slugs and aliases, so a
+ * retired address is never reused for a different company.
+ */
+export async function claimBriefSlug(db: SupabaseClient, companyName: string): Promise<string> {
+  const base = slugifyCompany(companyName)
+  const { data } = await db
+    .from('hm_briefs')
+    .select('slug, previous_slugs')
+    .or(`slug.like.${base}%,previous_slugs.cs.{${base}}`)
+  const taken = new Set<string>()
+  for (const row of data ?? []) {
+    taken.add(row.slug as string)
+    for (const s of (row.previous_slugs as string[] | null) ?? []) taken.add(s)
+  }
+  if (!taken.has(base)) return base
+  for (let n = 2; n < 100; n++) {
+    const candidate = `${base}-${n}`
+    if (!taken.has(candidate)) return candidate
+  }
+  return `${base}-${briefToken()}`
+}
+
+/** e.g. "Alcor Labs" → "alcor-labs-9x4m". Only for rotation: the point is that it cannot be guessed. */
+export function rotatedBriefSlug(companyName: string): string {
   return `${slugifyCompany(companyName)}-${briefToken()}`
 }
 
@@ -329,8 +362,8 @@ export interface PublicBrief {
  * The brief behind a slug, or null.
  *
  * Null covers every reason equally — no such slug, still a draft, revoked —
- * because a caller that can tell those apart can probe for which companies we
- * are working with.
+ * so a draft never shows before it is published. When the slug given is an old
+ * alias, the returned `slug` is the current one; pages redirect to it.
  *
  * Memoised per request: `generateMetadata` and the page body both need the
  * brief, and that is one lookup, not two.
@@ -340,12 +373,17 @@ export const findPublishedBrief = cache(async function findPublishedBrief(
 ): Promise<PublicBrief | null> {
   if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug) || slug.length > 80) return null
 
+  // The current address or one it used to have. A brief re-slugged to its
+  // short name keeps answering at the old one; the page then redirects, so the
+  // founder's bookmark heals itself. The slug is regex-checked above, so it is
+  // safe inside the filter string.
   const db = createAdminClient()
-  const { data } = await db
+  const { data: rows } = await db
     .from('hm_briefs')
     .select('id, slug, title, status, content, ribbon_note, recipient_name, updated_at, published_at, companies(name)')
-    .eq('slug', slug)
-    .maybeSingle()
+    .or(`slug.eq.${slug},previous_slugs.cs.{${slug}}`)
+    .limit(2)
+  const data = rows?.find(r => r.slug === slug) ?? rows?.[0] ?? null
 
   if (!data || data.status !== 'published') return null
 

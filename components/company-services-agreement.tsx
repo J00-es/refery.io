@@ -46,6 +46,7 @@ function describeEventLabel(type: string, seq: number): string {
 interface ServicesLink {
   id: string
   token: string
+  short_slug: string | null
   recipient_name: string | null
   recipient_email: string | null
   fee_percentage: number
@@ -103,7 +104,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
     const { data, error } = await supabase
       .from('client_agreement_links')
       .select(
-        'id, token, recipient_name, recipient_email, fee_percentage, agreement_version, status, sent_at, viewed_at, signed_at, expires_at',
+        'id, token, short_slug, recipient_name, recipient_email, fee_percentage, agreement_version, status, sent_at, viewed_at, signed_at, expires_at',
       )
       .eq('company_id', companyId)
       .order('sent_at', { ascending: false })
@@ -209,8 +210,11 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
     }
   }
 
-  const urlFor = (token: string) =>
-    typeof window === 'undefined' ? `/sign/client-agreement/${token}` : `${window.location.origin}/sign/client-agreement/${token}`
+  // The short address when the link has one, the token otherwise.
+  const urlFor = (link: Pick<ServicesLink, 'token' | 'short_slug'>) => {
+    const path = link.short_slug ? `/agreement/${link.short_slug}` : `/sign/client-agreement/${link.token}`
+    return typeof window === 'undefined' ? path : `${window.location.origin}${path}`
+  }
 
   return (
     <>
@@ -309,7 +313,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => copyUrl(urlFor(link.token), link.id)}
+                          onClick={() => copyUrl(urlFor(link), link.id)}
                         >
                           {copiedRowId === link.id ? (
                             <>
@@ -325,7 +329,7 @@ export function CompanyServicesAgreement({ companyId, companyName, isAdmin }: Pr
                         </Button>
                       )}
                       <a
-                        href={urlFor(link.token)}
+                        href={urlFor(link)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

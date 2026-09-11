@@ -2,8 +2,9 @@
  * Publishing, unpublishing, rotating and editing a hiring-manager brief.
  * Admin only.
  *
- * `rotate` mints a fresh slug, which is how a link is taken back: the old URL
- * stops resolving for everyone it was ever forwarded to. It is the only lever
+ * `rotate` mints a fresh, unguessable slug and drops every alias, which is how
+ * a link is taken back: the old URL stops resolving for everyone it was ever
+ * forwarded to. It is the only lever
  * that matters once a brief has left the building, so it is deliberately its
  * own explicit action rather than a side effect of editing.
  */
@@ -11,7 +12,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/server'
 import { requireSuperAdmin } from '@/lib/admin-auth'
-import { briefUrl, newBriefSlug } from '@/lib/hm-brief'
+import { briefUrl, rotatedBriefSlug } from '@/lib/hm-brief'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +59,8 @@ export async function PATCH(request: NextRequest, ctx: { params: Promise<{ id: s
   if (raw.rotate === true) {
     const rel = existing.companies as unknown
     const company = Array.isArray(rel) ? rel[0] : rel
-    patch.slug = newBriefSlug((company as { name?: string } | null)?.name ?? 'brief')
+    patch.slug = rotatedBriefSlug((company as { name?: string } | null)?.name ?? 'brief')
+    patch.previous_slugs = []
   }
 
   if (!Object.keys(patch).length) {

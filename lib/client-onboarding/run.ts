@@ -15,7 +15,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/server'
 import { postMessage, postThreadReply, esc, type SlackBlock } from '@/lib/slack-bot'
 import { deskChannel } from '@/lib/desk-notifications'
-import { briefUrl, newBriefSlug } from '@/lib/hm-brief'
+import { briefUrl, claimBriefSlug } from '@/lib/hm-brief'
 import { issueClientAgreementLink } from '@/lib/agreement-links'
 import { ensureClientRoom } from '@/lib/slack-connect'
 import { gatherSources } from './research'
@@ -328,7 +328,7 @@ export async function runOnboarding(runId: string): Promise<void> {
       .from('hm_briefs')
       .insert({
         company_id: companyId,
-        slug: newBriefSlug(name),
+        slug: await claimBriefSlug(admin, name),
         title: name,
         status: 'draft',
         content: fb,
